@@ -8,6 +8,10 @@ It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library int
 
 **No install:** download [`Deckhouse-DJ.html`](Deckhouse-DJ.html) and open it in Chrome or Edge. It is the whole app in one file, rebuilt with `npm run build:single`.
 
+## Also in this repo: GTA Good
+
+[`gta-good/`](gta-good/) is **Grand Theft Auto Good**, a 3D open-world browser game where you drive an ambulance and every mission saves a life. It covers siren driving that clears traffic, triage, precision injector/AED/tourniquet placement, patient stability during transport, an organ convoy, disaster response and random street calls. Download [`GTA-Good.html`](GTA-Good.html) and open it, or run `npm run dev:gta`. See [gta-good/README.md](gta-good/README.md).
+
 ## Run it
 
 ```bash

@@ -5,3 +5,5 @@ dist-artifact
 .DS_Store
 wasm/build
 dist-single
+dist-gta-good
+dist-gta-single
