@@ -21,7 +21,7 @@ import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
 import { Club, TABLE_Y } from './Club';
-import type { Part, PartCtx, PointerInfo } from './parts';
+import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 
 export type StageView = 'booth' | 'split' | 'visual';
 export type Quality = 'low' | 'medium' | 'high';
@@ -72,6 +72,19 @@ export class Stage {
   private ctx: PartCtx;
   private size = { w: 1, h: 1 };
   private hoverDirty = false;
+  /** hover-to-zoom */
+  autoZoom = true;
+  private zones: { id: 'L' | 'M' | 'R'; box: THREE.Box3 }[] = [];
+  private boardTop = TABLE_Y;
+  private pointerInside = false;
+  private zoneCandidate: 'L' | 'M' | 'R' | null = null;
+  private zoneSince = 0;
+  private focusedZone: 'L' | 'M' | 'R' | null = null;
+  private lastDragEnd = 0;
+  private tap: { id: number; x: number; y: number; t: number } | null = null;
+  /** the last pointer was a mouse (hover-to-zoom); touch zooms by tapping instead */
+  private hoverMode = true;
+  private focusXY = { x: 0, y: 0 };
   private wallFrustum = new THREE.Frustum();
   private projScreen = new THREE.Matrix4();
   private wallBox = new THREE.Box3();
@@ -131,6 +144,10 @@ export class Stage {
       accent: '#2ec4f1',
     };
     this.bindPointer();
+    this.rig.onManualMove(() => {
+      this.focusedZone = null;
+      this.zoneCandidate = null;
+    });
     new ResizeObserver(() => this.resize()).observe(this.el);
   }
 
@@ -162,8 +179,121 @@ export class Stage {
     this.board.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.board.root);
     this.rig.setBounds(box, def.id);
+    this.boardTop = box.max.y;
+    this.computeZones();
+    this.focusedZone = null;
+    this.rig.focused = false;
     this.rig.refit(true);
     if (this.rig.view === 'custom') this.rig.goTo('perf', true);
+  }
+
+  /** Sections of the board the camera can zoom to: left deck, mixer, right deck. */
+  private computeZones(): void {
+    this.zones = [];
+    const b = this.board;
+    if (!b) return;
+    const boxes = b.units.map((u) => new THREE.Box3().setFromObject(u.group));
+    if (boxes.length >= 3) {
+      boxes.sort((a, c) => a.getCenter(new THREE.Vector3()).x - c.getCenter(new THREE.Vector3()).x);
+      this.zones = [
+        { id: 'L', box: boxes[0] },
+        { id: 'M', box: boxes[1] },
+        { id: 'R', box: boxes[boxes.length - 1] },
+      ];
+      return;
+    }
+    // single chassis: split into slabs around the mixer section
+    const unit = boxes[0];
+    const v = new THREE.Vector3();
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const p of b.parts) {
+      if (!p.id || !(p.id.startsWith('ch.') || p.id.startsWith('mixer.'))) continue;
+      p.object.getWorldPosition(v);
+      lo = Math.min(lo, v.x);
+      hi = Math.max(hi, v.x);
+    }
+    const cx = unit.getCenter(new THREE.Vector3()).x;
+    if (!isFinite(lo)) {
+      lo = cx - 0.08;
+      hi = cx + 0.08;
+    }
+    lo -= 0.03;
+    hi += 0.03;
+    const slab = (x0: number, x1: number) => {
+      const bx = unit.clone();
+      bx.min.x = x0;
+      bx.max.x = x1;
+      return bx;
+    };
+    this.zones = [
+      { id: 'L', box: slab(unit.min.x, lo) },
+      { id: 'M', box: slab(lo, hi) },
+      { id: 'R', box: slab(hi, unit.max.x) },
+    ];
+  }
+
+  private zoneAt(clientX: number, clientY: number, margin = 0): 'L' | 'M' | 'R' | null {
+    if (!this.zones.length) return null;
+    const ray = this.rayFrom(clientX, clientY);
+    const p = planeHit(ray, this.boardTop - 0.01);
+    if (!p) return null;
+    for (const z of this.zones) {
+      const b = z.box;
+      if (p.x >= b.min.x - 0.01 && p.x <= b.max.x + 0.01 && p.z >= b.min.z - 0.015 - margin && p.z <= b.max.z + 0.015 + margin) return z.id;
+    }
+    if (margin > 0) {
+      // within the margin around the whole board: nearest section
+      const all = this.zones.reduce((acc, z) => acc.union(z.box), new THREE.Box3());
+      if (p.x >= all.min.x - margin && p.x <= all.max.x + margin && p.z >= all.min.z - margin && p.z <= all.max.z + margin) {
+        return p.x < this.zones[0].box.max.x ? 'L' : p.x > this.zones[2].box.min.x ? 'R' : 'M';
+      }
+    }
+    return null;
+  }
+
+  get zoomedZone(): 'L' | 'M' | 'R' | null {
+    return this.rig.focused ? this.focusedZone : null;
+  }
+
+  focusZone(id: 'L' | 'M' | 'R' | null): void {
+    if (id === this.focusedZone) return;
+    this.focusedZone = id;
+    this.focusXY = { ...this.hoverXY };
+    const z = this.zones.find((x) => x.id === id);
+    if (z) this.rig.focusBox(z.box);
+    else this.rig.unfocus();
+  }
+
+  setAutoZoom(on: boolean): void {
+    this.autoZoom = on;
+    if (!on) this.focusZone(null);
+  }
+
+  /** Hover-to-zoom: dwell on a section to zoom in, move off the board to zoom out.
+   * The camera only reacts to the user moving the pointer (never to the view
+   * shifting under a still pointer), and while zoomed in the whole board area
+   * plus a margin counts as "still here", so it can't oscillate. */
+  private updateAutoZoom(): void {
+    const now = performance.now();
+    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode) return;
+    if (this.drags.size || this.rig.interacting || this.rig.moving || now - this.lastDragEnd < 450 || now - this.rig.lastManual < 1200) {
+      this.zoneSince = now;
+      return;
+    }
+    const movedSinceFocus = !this.pointerInside || Math.hypot(this.hoverXY.x - this.focusXY.x, this.hoverXY.y - this.focusXY.y) > 6;
+    let zone: 'L' | 'M' | 'R' | null;
+    if (!this.pointerInside) zone = null;
+    else if (!movedSinceFocus) zone = this.focusedZone;
+    else zone = this.zoneAt(this.hoverXY.x, this.hoverXY.y, this.focusedZone ? 0.08 : 0);
+    if (zone !== this.zoneCandidate) {
+      this.zoneCandidate = zone;
+      this.zoneSince = now;
+      return;
+    }
+    const dwell = now - this.zoneSince;
+    if (zone && zone !== this.focusedZone && dwell > (this.focusedZone ? 420 : 160)) this.focusZone(zone);
+    else if (!zone && this.focusedZone && dwell > 650) this.focusZone(null);
   }
 
   setView(v: StageView): void {
@@ -172,6 +302,7 @@ export class Stage {
   }
 
   goTo(v: ViewId): void {
+    this.focusedZone = null;
     this.rig.goTo(v);
   }
 
@@ -202,7 +333,9 @@ export class Stage {
     const q = this.quality === 'high' ? 1 : this.quality === 'medium' ? 0.75 : 0.5;
     if (this.view === 'visual') this.visualizer.setSize(w * dpr * q, h * dpr * q);
     else this.visualizer.setSize(this.quality === 'low' ? 640 : 960, this.quality === 'low' ? 360 : 540);
-    this.rig.refit(false);
+    const fz = this.zones.find((z) => z.id === this.focusedZone);
+    if (fz && this.rig.focused) this.rig.focusBox(fz.box);
+    else this.rig.refit(false);
   }
 
   /* ------------------------------------------------------------------ */
@@ -238,8 +371,12 @@ export class Stage {
       (e) => {
         if (e.target !== this.canvas) return;
         this.canvas.focus({ preventScroll: true });
+        this.hoverMode = e.pointerType === 'mouse';
         const hit = this.pick(e.clientX, e.clientY);
-        if (!hit) return;
+        if (!hit) {
+          this.tap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
+          return;
+        }
         if (this.hooks.learning()) {
           const id = hit.part.id ? this.reg.resolveId(hit.part.control(this.reg) ?? hit.part.id) : null;
           if (this.hooks.learnPick(id)) {
@@ -257,6 +394,7 @@ export class Stage {
         }
         const drag: Drag = { part: hit.part, sx: e.clientX, sy: e.clientY, point: hit.point, object: hit.object };
         this.drags.set(e.pointerId, drag);
+        this.rig.hold();
         this.rig.noteInteraction();
         const now = performance.now();
         if (this.lastClick.part === hit.part && now - this.lastClick.t < 320 && hit.part.double) {
@@ -280,16 +418,30 @@ export class Stage {
           return;
         }
         if (e.pointerType === 'mouse' && e.buttons === 0) {
+          this.hoverMode = true;
           this.hoverXY = { x: e.clientX, y: e.clientY };
           this.hoverDirty = true;
+          this.pointerInside = e.target === this.canvas;
         }
       },
       { capture: true },
     );
     const end = (e: PointerEvent) => {
+      const t = this.tap;
+      if (t && t.id === e.pointerId) {
+        this.tap = null;
+        // a tap/click on an empty part of the board zooms to that section (touch has no hover)
+        if (e.type === 'pointerup' && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8 && performance.now() - t.t < 350 && this.autoZoom && this.view !== 'visual') {
+          const zone = this.zoneAt(e.clientX, e.clientY);
+          this.focusZone(zone === this.focusedZone && e.pointerType !== 'mouse' ? null : zone);
+          this.zoneCandidate = zone;
+          this.zoneSince = performance.now();
+        }
+      }
       const d = this.drags.get(e.pointerId);
       if (!d) return;
       this.drags.delete(e.pointerId);
+      this.lastDragEnd = performance.now();
       d.part.up?.(this.info(e, d), this.ctx);
       if (!this.drags.size) this.tooltip.hidden = true;
     };
@@ -297,6 +449,7 @@ export class Stage {
     el.addEventListener('pointercancel', end, { capture: true });
     el.addEventListener('lostpointercapture', (e) => end(e as PointerEvent), { capture: true });
     el.addEventListener('pointerleave', () => {
+      this.pointerInside = false;
         this.canvas.style.cursor = '';
       if (!this.drags.size) this.tooltip.hidden = true;
     });
@@ -358,6 +511,7 @@ export class Stage {
     this.ctx.now += dt;
     this.ctx.frame = this.frame;
     this.updateHover();
+    this.updateAutoZoom();
 
     if (this.view !== 'visual') {
       this.rig.update(dt, f, visSettings.shake);

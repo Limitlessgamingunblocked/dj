@@ -14,7 +14,7 @@ import { clamp } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
 import { MidiManager } from '../midi/MidiManager';
 import { boardById, type BoardDef } from '../three/boards';
-import type { ViewId } from '../three/CameraRig';
+import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type Quality, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
 import type { VisSettings } from '../visualizer/Visualizer';
@@ -29,7 +29,6 @@ import { MixerPanel } from '../ui/MixerPanel';
 import { contextMenu, openModal } from '../ui/modal';
 import { SamplerPanel } from '../ui/SamplerPanel';
 import { SetupPanel } from '../ui/SetupPanel';
-import { StemsPanel } from '../ui/StemsPanel';
 import { toast } from '../ui/toast';
 import { TopBar } from '../ui/TopBar';
 import { VisualsPanel } from '../ui/VisualsPanel';
@@ -51,6 +50,7 @@ interface Settings {
   vis: Partial<VisSettings>;
   focus: boolean;
   reactiveLights: boolean;
+  autoZoom: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -66,9 +66,10 @@ const DEFAULTS: Settings = {
   vis: {},
   focus: false,
   reactiveLights: true,
+  autoZoom: true,
 };
 
-type TabId = 'library' | 'mixer' | 'fx' | 'sampler' | 'stems' | 'visuals' | 'midi' | 'setup';
+type TabId = 'library' | 'mixer' | 'sampler' | 'visuals' | 'settings';
 
 export class App implements AppContext {
   engine!: AudioEngine;
@@ -288,35 +289,22 @@ export class App implements AppContext {
     this.audioBanner.querySelector('button')!.addEventListener('click', () => void this.engine.resume());
     this.topbar = new TopBar(this, {
       pickBoard: () => this.pickBoard(),
-      camera: (v) => {
-        this.stage.goTo(v);
-        this.settings.camera = v;
-        this.save();
-      },
-      cameraMenu: (x, y) => this.cameraMenu(x, y),
       view: (v) => this.setView(v),
       fullscreen: () => this.fullscreen(),
       record: () => void this.toggleRecord(),
-      midi: () => this.showTab('midi'),
+      midi: () => this.showTab('settings'),
       help: () => openHelp(),
-      toggleFocus: () => {
-        this.settings.focus = !this.settings.focus;
-        this.shell.classList.toggle('stage-focus', this.settings.focus);
-        this.save();
-      },
       boardName: () => this.boardDef.name,
       currentView: () => this.stage.view,
-      currentCamera: () => this.stage.rig.view,
       midiConnected: () => !!this.midi.access && this.midi.devices().length > 0,
       recording: () => ({ on: this.engine.recorder.recording, elapsed: this.engine.recorder.elapsed }),
     });
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
-    const stageTools = h('div', { class: 'stage-hud' }, h('div', { class: 'stage-board' }, h('b', { id: 'stage-board-name' }), h('span', { id: 'stage-board-cls' })));
-    this.stage.el.append(stageTools);
-    const hint = h('div', { class: 'stage-hint' }, 'Drag knobs, faders, jogs and pads · drag empty space to orbit · scroll to zoom');
+    this.stage.el.append(this.buildStageHud());
+    const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
-    setTimeout(() => (hint.style.opacity = '0'), 9000);
+    setTimeout(() => (hint.style.opacity = '0'), 10000);
     const main = h('div', { class: 'main' }, this.decksUi[0].el, this.stage.el, this.decksUi[1].el);
 
     // dock
@@ -326,7 +314,6 @@ export class App implements AppContext {
     const mixer = new MixerPanel(this);
     const fx = new FxPanel(this);
     const sampler = new SamplerPanel(this, (s, f) => this.loadSampleFile(s, f), (s) => this.resetSample(s));
-    const stems = new StemsPanel(this);
     const visuals = new VisualsPanel(this.stage, () => this.saveVis(), (v, fs) => {
       this.setView(v);
       if (fs) this.fullscreen();
@@ -340,15 +327,17 @@ export class App implements AppContext {
         for (const t of this.library.list()) if (t.source === 'file') await this.library.deleteTrack(t.id);
       },
     });
+    const mixerTab = h('div', { class: 'mixer-tab' }, mixer.el, fx.el);
+    const settingsTab = h('div', { class: 'settings-tab' }, this.setupPanel.el, midi.el);
     const defs: [TabId, string, HTMLElement, ((dt: number) => void) | undefined][] = [
       ['library', 'Library', this.libPanel.el, undefined],
-      ['mixer', 'Mixer', mixer.el, (dt) => mixer.update(dt, this.meters)],
-      ['fx', 'FX', fx.el, () => fx.update()],
+      ['mixer', 'Mixer & FX', mixerTab, (dt) => {
+        mixer.update(dt, this.meters);
+        fx.update();
+      }],
       ['sampler', 'Sampler', sampler.el, () => sampler.update()],
-      ['stems', 'Stems', stems.el, () => stems.update()],
       ['visuals', 'Visuals', visuals.el, () => visuals.update()],
-      ['midi', 'MIDI', midi.el, undefined],
-      ['setup', 'Setup', this.setupPanel.el, () => this.setupPanel.update()],
+      ['settings', 'Settings', settingsTab, () => this.setupPanel.update()],
     ];
     for (const [id, label, el, update] of defs) {
       const count = id === 'library' ? h('span', { class: 'count' }) : undefined;
@@ -382,8 +371,46 @@ export class App implements AppContext {
     this.shell = h('div', { class: 'app' }, this.topbar.el, this.wave.el, main, resize, dock);
     if (this.settings.dockHeight) this.shell.style.setProperty('--dock-h', `${this.settings.dockHeight}px`);
     this.shell.classList.toggle('stage-focus', this.settings.focus);
+    this.stage.setAutoZoom(this.settings.autoZoom);
     this.root.append(this.audioBanner, this.shell);
     this.showTab((this.settings.tab as TabId) ?? 'library');
+  }
+
+  private hud!: { zoomBtn: HTMLElement; camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement };
+
+  /** Camera and zoom controls that float over the 3D stage. */
+  private buildStageHud(): HTMLElement {
+    const zoomBtn = h('button', { class: 'btn', title: 'Zoom in on the part of the board under the pointer (tap an empty spot on touch screens)' }, 'Auto-zoom');
+    zoomBtn.addEventListener('click', () => {
+      this.settings.autoZoom = !this.settings.autoZoom;
+      this.stage.setAutoZoom(this.settings.autoZoom);
+      this.save();
+    });
+    const camBtn = h('button', { class: 'btn', title: 'Camera view' });
+    camBtn.addEventListener('click', (e) => this.cameraMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY));
+    const expandBtn = h('button', { class: 'btn icon hide-sm', title: 'Hide or show the deck panels', 'aria-label': 'Hide or show the deck panels' }, '⤢');
+    expandBtn.addEventListener('click', () => {
+      this.settings.focus = !this.settings.focus;
+      this.shell.classList.toggle('stage-focus', this.settings.focus);
+      this.save();
+    });
+    const zoomChip = h('button', { class: 'zoom-chip', title: 'Zoom back out' });
+    zoomChip.addEventListener('click', () => this.stage.focusZone(null));
+    this.hud = { zoomBtn, camBtn, zoomChip, expandBtn };
+    return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, zoomBtn, camBtn, expandBtn));
+  }
+
+  private updateHud(): void {
+    const { zoomBtn, camBtn, zoomChip } = this.hud;
+    zoomBtn.classList.toggle('active', this.stage.autoZoom);
+    zoomBtn.setAttribute('aria-pressed', String(this.stage.autoZoom));
+    const v = this.stage.rig.view;
+    setText(camBtn, `${v === 'custom' ? 'Custom view' : VIEW_LABELS[v]} ▾`);
+    const z = this.stage.zoomedZone;
+    const four = this.deckCount() === 4;
+    const names = { L: `Left deck${four ? `s (${this.sideDeck('L')})` : ''}`, M: 'Mixer', R: `Right deck${four ? `s (${this.sideDeck('R')})` : ''}` };
+    zoomChip.hidden = !z || this.stage.view === 'visual';
+    if (z) setText(zoomChip, `🔍 ${names[z]} · move off the board or click here to zoom out`);
   }
 
   private showTab(id: TabId): void {
@@ -394,7 +421,7 @@ export class App implements AppContext {
       t.btn.classList.toggle('active', k === id);
       t.btn.setAttribute('aria-selected', String(k === id));
     }
-    if (id === 'setup') this.setupPanel.refresh();
+    if (id === 'settings') this.setupPanel.refresh();
     this.settings.tab = id;
     this.save();
   }
@@ -422,8 +449,6 @@ export class App implements AppContext {
       this.engine.mixer.updateCrossfader();
     }
     this.stage.setBoard(def, this.settings.finish);
-    setText(document.getElementById('stage-board-name')!, def.name);
-    setText(document.getElementById('stage-board-cls')!, `${def.category} · ${def.decks} decks`);
     this.events.emit('board', def.id);
     this.save();
   }
@@ -446,8 +471,16 @@ export class App implements AppContext {
 
   private cameraMenu(x: number, y: number): void {
     const rig = this.stage.rig;
-    const items: ({ label: string; action: () => void } | 'sep')[] = rig.anchors().map((a) => ({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) }));
-    if (items.length) items.push('sep');
+    const items: ({ label: string; action: () => void } | 'sep')[] = (Object.keys(VIEW_LABELS) as ViewId[]).map((v) => ({
+      label: `${rig.view === v ? '● ' : ''}${VIEW_LABELS[v]}`,
+      action: () => {
+        this.stage.goTo(v);
+        this.settings.camera = v;
+        this.save();
+      },
+    }));
+    items.push('sep');
+    for (const a of rig.anchors()) items.push({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) });
     items.push({
       label: 'Save current view',
       action: () => {
@@ -544,6 +577,7 @@ export class App implements AppContext {
       this.wave.update();
       for (const d of this.decksUi) d.update();
       this.topbar.update();
+      this.updateHud();
       const tab = this.tabs.get(this.tab);
       tab?.update?.(dt);
       const lib = this.tabs.get('library');

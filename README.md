@@ -31,6 +31,7 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - PBR materials with a room environment map, real-time shadows from the booth light, bloom on LEDs and screens, printed faceplates.
 - Each board comes in several finishes.
 - Controls: drag knobs up/down (Shift for fine), drag faders, double-click to reset, scroll wheel over any control. Jogs have a capacitive top (scratch in vinyl mode) and an outer ring (pitch bend). Turntables have platter inertia with adjustable start/brake, slip-mat scratching (the platter keeps spinning under the record), tonearm needle drop, 33/45 and adjustable record wear (crackle, hiss, wow & flutter). Multi-touch works on touch screens.
+- Hover-to-zoom: rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off with the Auto-zoom button on the stage.
 - Cameras: top-down, performance (drifts gently with the music when you're hands-off), first-person booth and club views, orbit/pan/zoom with damping, plus saved camera views.
 
 ### Audio engine

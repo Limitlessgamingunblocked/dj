@@ -9,8 +9,10 @@ export function openHelp(): void {
     ['Play & cue', 'Press PLAY. CUE returns to the cue point; while paused, CUE sets a new cue point and holding it previews.'],
     ['Beatmatch', 'Press SYNC on the incoming deck to lock its tempo and phase to the MASTER deck, or ride the tempo fader and nudge the jog edge by ear. The waveform strip shows both grids and the phase offset in milliseconds.'],
     ['Mix', 'Use the channel faders, 3-band EQ (turn fully left to kill a band), filter knob and crossfader. Everything on the 3D board works: drag knobs up/down, drag faders, spin jogs.'],
-    ['Perform', 'Pads switch between hot cues, loop rolls, slicer, beat jump, pitch play and the sampler. Hold SHIFT (or Shift on the keyboard) for the second layer. Add Beat FX from the FX tab or the board.'],
+    ['Zoom', 'Rest the pointer on the left deck, the mixer or the right deck and the camera zooms in so the controls are big and easy to grab. Move off the board to zoom back out. On a touch screen, tap an empty spot of that section. Turn it off with Auto-zoom on the stage.'],
+    ['Perform', 'Pads switch between hot cues, loop rolls, slicer, beat jump, pitch play and the sampler. Hold SHIFT (or Shift on the keyboard) for the second layer. Add Beat FX from the Mixer & FX tab or the board.'],
     ['Scratch', 'With VINYL on, grab the top of a jog wheel or the record on the turntables and move it. The platter edge nudges instead. Turntables have real start/brake inertia.'],
+    ['More per deck', 'Open “Loops, key & stems” under the pads for loops, beat jump, key lock and key shift, slip, and turning vocals, drums, bass or melody up and down.'],
     ['Visuals', 'The LED wall follows the music. Switch to Split or Visuals in the top bar for the full visual player.'],
     ['Record', 'Press REC to capture your mix; press it again to play back or save the file.'],
   ];

@@ -11,7 +11,8 @@ import { h, setClass, setText, setVar } from './dom';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 import { drawOverview, fitCanvas } from './waveform';
-import { fader, hwButton, padButton, type Widget } from './widgets';
+import { fader, hwButton, knob, padButton, type Widget } from './widgets';
+import { loadSetting, saveSetting } from '../core/settings';
 
 export class DeckPanel {
   readonly el: HTMLElement;
@@ -26,7 +27,6 @@ export class DeckPanel {
   private keyChip: HTMLElement;
   private tempoChip: HTMLElement;
   private rangeChip: HTMLElement;
-  private statusChip: HTMLElement;
   private overview: HTMLCanvasElement;
   private ov: CanvasRenderingContext2D;
   private phase: HTMLElement[];
@@ -53,20 +53,18 @@ export class DeckPanel {
     this.artist = h('div', { class: 'a' });
     this.layerBtn = h('button', { class: 'btn small', title: 'Switch deck layer' }) as HTMLButtonElement;
     this.layerBtn.addEventListener('click', () => reg.press(`layer.${side}`, 'ui'));
-    const ejectBtn = h('button', { class: 'btn small ghost', title: 'Eject (when stopped)' }, 'Eject');
-    ejectBtn.addEventListener('click', () => this.deck().eject());
+    const more = h('button', { class: 'btn small ghost icon', title: 'Deck options', 'aria-label': 'Deck options' }, '⋯');
+    more.addEventListener('click', (e) => this.deckMenu(e as MouseEvent));
 
     this.bpm = h('span');
     this.bpmOrig = h('small');
-    const bpmBox = h('div', { class: 'bpm-big', title: 'Click for beat grid tools', style: { cursor: 'pointer' } }, this.bpm, this.bpmOrig);
-    bpmBox.addEventListener('click', (e) => this.gridMenu(e as MouseEvent));
-    this.time = h('div', { class: 'time-big', title: 'Toggle elapsed/remaining', style: { cursor: 'pointer' } });
+    const bpmBox = h('div', { class: 'bpm-big' }, this.bpm, this.bpmOrig);
+    this.time = h('div', { class: 'time-big', title: 'Click to switch between elapsed and remaining', style: { cursor: 'pointer' } });
     this.time.addEventListener('click', () => (this.showRemain = !this.showRemain));
     this.keyChip = h('span', { class: 'chip key', title: 'Musical key (Camelot)' });
     this.tempoChip = h('span', { class: 'chip', title: 'Tempo change' });
-    this.rangeChip = h('button', { class: 'chip', title: 'Tempo range — click to change', style: { border: '0' } });
+    this.rangeChip = h('button', { class: 'chip', title: 'Tempo range — click to change', type: 'button' });
     this.rangeChip.addEventListener('click', () => reg.press(P('range'), 'ui'));
-    this.statusChip = h('span', { class: 'chip' });
 
     this.overview = h('canvas');
     this.ov = this.overview.getContext('2d')!;
@@ -94,71 +92,94 @@ export class DeckPanel {
         this.cueMenu(i, e);
       });
     }
+    const shortMode: Record<string, string> = { hotcue: 'Cue', roll: 'Roll', slicer: 'Slice', jump: 'Jump', pitch: 'Pitch', sampler: 'Sample' };
+    const padModes = h('div', { class: 'padmode-seg', role: 'group', 'aria-label': 'Pad mode' }, ...PAD_MODES.map((m) => w(hwButton(reg, P(`padmode.${m}`), shortMode[m], { title: PAD_MODE_LABELS[m] }))));
 
-    const padModes = h('div', { class: 'padmodes' }, ...PAD_MODES.map((m) => w(hwButton(reg, P(`padmode.${m}`), PAD_MODE_LABELS[m]))));
+    // tools: loops, beat jump, key, deck modes and stems — tucked away until needed
+    const stemKnobs = (['vocal', 'drums', 'bass', 'melody'] as const).map((st) => w(knob(reg, P(`stem.${st}`), st === 'vocal' ? 'Vocal' : st === 'drums' ? 'Drums' : st === 'bass' ? 'Bass' : 'Melody', { size: 34 })));
+    const stemPreset = (label: string, v: [number, number, number, number]) => {
+      const b = h('button', { class: 'btn small', type: 'button' }, label);
+      b.addEventListener('click', () => this.deck().setStems({ vocal: v[0], drums: v[1], bass: v[2], melody: v[3] }));
+      return b;
+    };
+    const tools = h(
+      'details',
+      { class: 'deck-more' },
+      h('summary', {}, 'Loops, key & stems'),
+      h(
+        'div',
+        { class: 'deck-more-body' },
+        h('div', { class: 'label' }, 'Loop'),
+        h(
+          'div',
+          { class: 'tool-grid cols4' },
+          w(hwButton(reg, P('loop.half'), '½', { title: 'Halve the loop' })),
+          w(hwButton(reg, P('loop.auto'), 'Loop', { title: 'Beat loop on/off' })),
+          this.loopSize,
+          w(hwButton(reg, P('loop.double'), '×2', { title: 'Double the loop' })),
+          w(hwButton(reg, P('loop.in'), 'In')),
+          w(hwButton(reg, P('loop.out'), 'Out')),
+          w(hwButton(reg, P('loop.exit'), 'Reloop / exit', { cls: 'span2' })),
+        ),
+        h(
+          'div',
+          { class: 'tool-grid jump-key' },
+          h('div', { class: 'label span3' }, 'Beat jump'),
+          h('div', { class: 'label span4' }, 'Key'),
+          w(hwButton(reg, P('jump.back'), '◀', { title: 'Jump back' })),
+          this.jumpSize,
+          w(hwButton(reg, P('jump.fwd'), '▶', { title: 'Jump forward' })),
+          w(hwButton(reg, P('key.down'), '♭', { title: 'Key down a semitone' })),
+          this.keyShift,
+          w(hwButton(reg, P('key.up'), '♯', { title: 'Key up a semitone' })),
+          w(hwButton(reg, P('key.sync'), 'Match', { title: 'Key sync: shift to the master deck’s key' })),
+        ),
+        h('div', { class: 'label' }, 'Deck modes'),
+        h(
+          'div',
+          { class: 'tool-grid cols3' },
+          w(hwButton(reg, P('keylock'), 'Key lock')),
+          w(hwButton(reg, P('slip'), 'Slip')),
+          w(hwButton(reg, P('quantize'), 'Quantize')),
+          w(hwButton(reg, P('vinyl'), 'Vinyl')),
+          w(hwButton(reg, P('reverse'), 'Rev')),
+          w(hwButton(reg, P('censor'), 'Censor', { title: 'Hold: plays backwards, then carries on in time (slip)' })),
+        ),
+        h('div', { class: 'label' }, 'Stems'),
+        h('div', { class: 'knob-row', style: { justifyContent: 'space-between' } }, ...stemKnobs),
+        h('div', { class: 'tool-grid cols2' }, stemPreset('Full', [1, 1, 1, 1]), stemPreset('Acapella', [1, 0, 0, 0]), stemPreset('Instrumental', [0, 1, 1, 1]), stemPreset('Drums', [0, 1, 0, 0])),
+      ),
+    );
+    const openKey = `deckTools:${side}`;
+    (tools as HTMLDetailsElement).open = loadSetting(openKey, false);
+    tools.addEventListener('toggle', () => saveSetting(openKey, (tools as HTMLDetailsElement).open));
 
     this.el = h(
       'section',
       { class: `deck-panel ${side === 'L' ? 'left' : 'right'}`, 'aria-label': `Deck ${side === 'L' ? 'left' : 'right'}` },
-      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.layerBtn, ejectBtn)),
-      h('div', { class: 'readouts' }, bpmBox, this.time),
-      h('div', { class: 'subline' }, this.keyChip, this.tempoChip, this.rangeChip, this.statusChip),
-      ovBox,
-      h('div', { class: 'phase', title: 'Beat within the bar' }, ...this.phase),
+      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '2px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
+      h('div', { class: 'readouts' }, h('div', { class: 'bpm-line' }, bpmBox, this.tempoChip), this.time),
+      h('div', { class: 'overview-wrap' }, ovBox, h('div', { class: 'phase', title: 'Beat within the bar' }, ...this.phase)),
       h(
         'div',
         { class: 'transport' },
         w(hwButton(reg, P('cue'), 'Cue', { cls: 'big', color: '#ff9f1c' })),
         w(hwButton(reg, P('play'), '▶︎❚❚', { cls: 'big', color: '#3ddc97', title: 'Play / Pause' })),
-        h('span', { style: { flex: '1' } }),
-        w(hwButton(reg, P('sync'), 'Sync')),
-        w(hwButton(reg, P('master'), 'Master')),
+        h('div', { class: 'sync-stack' }, w(hwButton(reg, P('sync'), 'Sync')), w(hwButton(reg, P('master'), 'Master'))),
       ),
       h(
         'div',
-        { class: 'ctrl-row', style: { flexWrap: 'nowrap' } },
+        { class: 'tempo-row' },
         w(hwButton(reg, P('bend.down'), '−', { title: 'Pitch bend down (hold)' })),
-        h('div', { style: { flex: '1', minWidth: '0' } }, w(fader(reg, P('tempo'), { orientation: 'h', length: 170, invert: false, label: 'Tempo', center: true }))),
+        h('div', { class: 'tempo-fader', title: 'Tempo — double-click to reset' }, w(fader(reg, P('tempo'), { orientation: 'h', length: 170, invert: false, label: 'Tempo', center: true }))),
         w(hwButton(reg, P('bend.up'), '+', { title: 'Pitch bend up (hold)' })),
-        w(hwButton(reg, P('tempo.reset'), '0%', { title: 'Reset tempo' })),
+        this.rangeChip,
       ),
       padModes,
       pads,
-      h(
-        'div',
-        { class: 'ctrl-row' },
-        w(hwButton(reg, P('loop.in'), 'In')),
-        w(hwButton(reg, P('loop.out'), 'Out')),
-        w(hwButton(reg, P('loop.exit'), 'Reloop')),
-        w(hwButton(reg, P('loop.half'), '½')),
-        w(hwButton(reg, P('loop.auto'), 'Loop')),
-        this.loopSize,
-        w(hwButton(reg, P('loop.double'), '×2')),
-      ),
-      h(
-        'div',
-        { class: 'ctrl-row' },
-        w(hwButton(reg, P('jump.back'), '◀ Jump')),
-        this.jumpSize,
-        w(hwButton(reg, P('jump.fwd'), 'Jump ▶')),
-        h('span', { style: { flex: '1' } }),
-        w(hwButton(reg, P('key.down'), '♭')),
-        this.keyShift,
-        w(hwButton(reg, P('key.up'), '♯')),
-        w(hwButton(reg, P('key.sync'), 'Key sync')),
-      ),
-      h(
-        'div',
-        { class: 'ctrl-row' },
-        w(hwButton(reg, P('keylock'), 'Key lock')),
-        w(hwButton(reg, P('slip'), 'Slip')),
-        w(hwButton(reg, P('quantize'), 'Q', { title: 'Quantize' })),
-        w(hwButton(reg, P('vinyl'), 'Vinyl')),
-        w(hwButton(reg, P('reverse'), 'Rev')),
-        w(hwButton(reg, P('censor'), 'Censor', { title: 'Hold: reverse playback, returns in time (slip)' })),
-      ),
+      tools,
     );
-    this.jumpSize.title = 'Beat jump size';
+    this.jumpSize.title = 'Beat jump size — click to double, right-click to halve';
     const jumpSizeWrap = this.jumpSize;
     jumpSizeWrap.style.cursor = 'pointer';
     jumpSizeWrap.addEventListener('click', () => this.deck().resizeJump(1));
@@ -228,24 +249,28 @@ export class DeckPanel {
     input.select();
   }
 
-  private gridMenu(e: MouseEvent): void {
+  private deckMenu(e: MouseEvent): void {
     const d = this.deck();
     const t = d.track;
-    if (!t || !d.analysis) return;
-    const a = d.analysis;
-    const set = (patch: { bpm?: number; firstBeat?: number }) => {
-      this.app.library.updateGrid(t, patch);
-      d.emit('change', d);
-    };
-    contextMenu(e.clientX, e.clientY, [
-      { label: 'Tap tempo…', action: () => this.tap() },
-      { label: `Double BPM → ${formatBpm(a.bpm * 2)}`, action: () => set({ bpm: a.bpm * 2 }) },
-      { label: `Halve BPM → ${formatBpm(a.bpm / 2)}`, action: () => set({ bpm: a.bpm / 2 }) },
-      { label: 'Set downbeat at playhead', action: () => set({ firstBeat: d.position() }) },
-      { label: 'Shift grid 10 ms earlier', action: () => set({ firstBeat: a.firstBeat - 0.01 }) },
-      { label: 'Shift grid 10 ms later', action: () => set({ firstBeat: a.firstBeat + 0.01 }) },
-      { label: 'Shift grid ½ beat', action: () => set({ firstBeat: a.firstBeat + d.beatLen / 2 }) },
-    ]);
+    const items: ({ label: string; action: () => void; danger?: boolean } | 'sep')[] = [
+      { label: d.playing ? 'Eject (pause first)' : 'Eject track', action: () => d.eject() },
+    ];
+    if (t && d.analysis) {
+      const a = d.analysis;
+      const set = (patch: { bpm?: number; firstBeat?: number }) => {
+        this.app.library.updateGrid(t, patch);
+        d.emit('change', d);
+      };
+      items.push(
+        'sep',
+        { label: 'Tap tempo…', action: () => this.tap() },
+        { label: `Double BPM → ${formatBpm(a.bpm * 2)}`, action: () => set({ bpm: a.bpm * 2 }) },
+        { label: `Halve BPM → ${formatBpm(a.bpm / 2)}`, action: () => set({ bpm: a.bpm / 2 }) },
+        { label: 'Set downbeat at playhead', action: () => set({ firstBeat: d.position() }) },
+        { label: 'Shift grid ½ beat', action: () => set({ firstBeat: a.firstBeat + d.beatLen / 2 }) },
+      );
+    }
+    contextMenu(e.clientX, e.clientY, items);
   }
 
   private tap(): void {
@@ -301,27 +326,28 @@ export class DeckPanel {
     setText(this.num, String(id));
     const four = this.app.deckCount() === 4;
     this.layerBtn.hidden = !four;
-    setText(this.layerBtn, this.side === 'L' ? (id === 1 ? 'Deck 3 ⇄' : 'Deck 1 ⇄') : id === 2 ? 'Deck 4 ⇄' : 'Deck 2 ⇄');
+    setText(this.layerBtn, this.side === 'L' ? (id === 1 ? '⇄ 3' : '⇄ 1') : id === 2 ? '⇄ 4' : '⇄ 2');
+    this.layerBtn.title = `Switch to deck ${this.side === 'L' ? (id === 1 ? 3 : 1) : id === 2 ? 4 : 2}`;
     const t = d.track;
     const art = t?.meta.art ? `url("${t.meta.art}")` : '';
     if (this.art.style.backgroundImage !== art) this.art.style.backgroundImage = art;
     setText(this.title, t ? t.meta.title : 'No track loaded');
     setText(this.artist, t ? t.meta.artist || t.fileName : 'Drag a track here, or use Load in the library');
     setText(this.bpm, d.loaded ? formatBpm(d.bpm) : '--.-');
-    setText(this.bpmOrig, d.analysis ? `BPM · ${formatBpm(d.analysis.bpm)}` : 'BPM');
+    setText(this.bpmOrig, 'BPM');
+    this.bpmOrig.title = d.analysis ? `Track tempo ${formatBpm(d.analysis.bpm)} BPM` : '';
     const tt = this.showRemain ? `-${formatTime(d.remaining, true)}` : formatTime(d.position(), true);
     setText(this.time, d.loaded ? tt : '-:--.-');
     const key = d.currentKey();
     const masterKey = this.app.engine.masterDeck && this.app.engine.masterDeck !== d ? this.app.engine.masterDeck.currentKey() : null;
     const compat = compatibility(key, masterKey);
-    setText(this.keyChip, key ? `${key.camelot} ${key.name}${compat === 'same' || compat === 'harmonic' ? ' ✓' : ''}` : '—');
+    setText(this.keyChip, key ? `${key.camelot}${compat === 'same' || compat === 'harmonic' ? ' ✓' : ''}` : '—');
     setVar(this.keyChip, 'background', camelotColor(key));
     this.keyChip.style.background = camelotColor(key);
     this.keyChip.title = key ? `Key ${key.name} (${key.camelot})${masterKey ? ` · master ${masterKey.camelot}: ${compat ?? 'clash'}` : ''}` : 'Key unknown';
     const pct = d.tempoPercent;
     setText(this.tempoChip, `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`);
     setText(this.rangeChip, `±${Math.round(d.range * 100)}%`);
-    setText(this.statusChip, d.isMaster ? 'MASTER' : d.sync ? 'SYNC' : d.keylock ? 'KEY LOCK' : d.playing ? 'PLAYING' : d.loaded ? 'PAUSED' : 'EMPTY');
     setText(this.loopSize, beatLabel(d.loopBeats));
     setText(this.jumpSize, beatLabel(d.jumpBeats));
     setText(this.keyShift, `${d.keyShift > 0 ? '+' : ''}${d.keyShift}`);

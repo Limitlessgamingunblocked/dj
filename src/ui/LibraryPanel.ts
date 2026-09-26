@@ -25,7 +25,6 @@ export class LibraryPanel {
   private bpmMin: HTMLInputElement;
   private bpmMax: HTMLInputElement;
   private keyMatch: HTMLSelectElement;
-  private onlyCompat: HTMLInputElement;
   private countEl: HTMLElement;
   private view: View = { kind: 'all' };
   private sort: { key: SortKey; dir: 1 | -1 } = { key: 'added', dir: -1 };
@@ -49,25 +48,20 @@ export class LibraryPanel {
     this.folderInput.addEventListener('change', onPick(this.folderInput));
 
     this.side = h('nav', { class: 'lib-side', 'aria-label': 'Library sources and crates' });
-    this.search = h('input', { class: 'search', type: 'search', placeholder: 'Search… try bpm:120-128 key:8A artist:name', 'aria-label': 'Search library' }) as HTMLInputElement;
+    this.search = h('input', { class: 'search', type: 'search', placeholder: 'Search title or artist (try bpm:120-128 or key:8A)', 'aria-label': 'Search library' }) as HTMLInputElement;
     this.bpmMin = h('input', { type: 'number', min: 40, max: 250, placeholder: 'min', 'aria-label': 'Minimum BPM' }) as HTMLInputElement;
     this.bpmMax = h('input', { type: 'number', min: 40, max: 250, placeholder: 'max', 'aria-label': 'Maximum BPM' }) as HTMLInputElement;
     this.keyMatch = h(
       'select',
-      { 'aria-label': 'Highlight keys compatible with', title: 'Highlight harmonically compatible tracks' },
-      h('option', { value: '' }, 'Key match: off'),
-      h('option', { value: 'M' }, 'Key match: master'),
-      h('option', { value: '1' }, 'Key match: deck 1'),
-      h('option', { value: '2' }, 'Key match: deck 2'),
-      h('option', { value: '3' }, 'Key match: deck 3'),
-      h('option', { value: '4' }, 'Key match: deck 4'),
+      { 'aria-label': 'Key filter', title: 'Harmonic mixing: tracks whose key suits what is playing on the master deck' },
+      h('option', { value: 'all' }, 'All keys'),
+      h('option', { value: 'mark' }, 'Mark key matches'),
+      h('option', { value: 'only' }, 'Only key matches'),
     ) as HTMLSelectElement;
-    this.keyMatch.value = 'M';
-    this.onlyCompat = h('input', { type: 'checkbox', id: 'lib-only-compat' }) as HTMLInputElement;
+    this.keyMatch.value = 'mark';
     this.countEl = h('span', { class: 'label' });
     for (const el of [this.search, this.bpmMin, this.bpmMax]) el.addEventListener('input', () => this.queueRender());
     this.keyMatch.addEventListener('change', () => this.queueRender());
-    this.onlyCompat.addEventListener('change', () => this.queueRender());
     this.search.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -105,7 +99,6 @@ export class LibraryPanel {
           this.search,
           h('div', { class: 'bpm-range', title: 'BPM range' }, h('span', { class: 'label' }, 'BPM'), this.bpmMin, h('span', { class: 'label' }, '–'), this.bpmMax),
           this.keyMatch,
-          h('label', { class: 'label', for: 'lib-only-compat', style: { display: 'flex', gap: '4px', alignItems: 'center' } }, this.onlyCompat, 'Only matches'),
           this.countEl,
           h('span', { class: 'spacer' }),
           importBtn,
@@ -316,10 +309,9 @@ export class LibraryPanel {
   /* ------------------------------------------------------------------ */
 
   private matchKey() {
-    const v = this.keyMatch.value;
-    if (!v) return null;
+    if (this.keyMatch.value === 'all') return null;
     const e = this.app.engine;
-    const d = v === 'M' ? e.masterDeck ?? e.deck(this.app.sideDeck('L')) : e.deck(parseInt(v, 10));
+    const d = e.masterDeck ?? e.deck(this.app.sideDeck('L'));
     return d && d.loaded ? d.currentKey() : null;
   }
 
@@ -348,7 +340,7 @@ export class LibraryPanel {
     if (!isNaN(max)) q.bpmMax = Math.min(q.bpmMax ?? 999, max);
     list = list.filter((t) => matchTrack(t, q));
     const mk = this.matchKey();
-    if (this.onlyCompat.checked && mk) list = list.filter((t) => compatibility(t.analysis?.key, mk) !== null);
+    if (this.keyMatch.value === 'only' && mk) list = list.filter((t) => compatibility(t.analysis?.key, mk) !== null);
     if (this.view.kind !== 'history') {
       const { key, dir } = this.sort;
       const val = (t: LibraryTrack): string | number => {
