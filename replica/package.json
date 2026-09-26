@@ -1,0 +1,29 @@
+{
+  "name": "replica-scan-to-print",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Turn a turntable video of an object into a true-to-size, print-ready STL. Accounts, saved models, and selling/cost tools.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "node --disable-warning=ExperimentalWarning server/index.js --dev",
+    "build": "tsc --noEmit && vite build",
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.4",
+    "@types/three": "0.186.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "3.2.7"
+  }
+}

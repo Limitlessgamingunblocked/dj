@@ -86,3 +86,7 @@ src/app/                   app shell, control registry bindings, keyboard
 Every operable control is registered once in a control registry (`src/app/controlDefs.ts`). The 3D boards, the software panels, the keyboard and MIDI all drive controls through that registry by id, so every surface stays in sync.
 
 The compiled WebAssembly is committed as `src/audio/wasm/dspWasm.ts`, so building the app doesn't need a C toolchain. Run `npm run build:wasm` after editing `wasm/dsp.c`.
+
+## Also in this repo
+
+[`replica/`](replica/README.md) is a separate app. It turns a turntable video of an item into a true-to-size, print-ready STL, and has accounts and selling tools.
