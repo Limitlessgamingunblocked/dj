@@ -1,0 +1,27 @@
+/* Help screen: quick start and shortcuts. */
+import { h } from './dom';
+import { openModal } from './modal';
+import { shortcutsTable } from './SetupPanel';
+
+export function openHelp(): void {
+  const steps: [string, string][] = [
+    ['Load', 'Two demo tracks are already on the decks. Import your own music with “Import music” in the library, or drop audio files anywhere. Drag a track onto a deck, or use its 1/2/3/4 buttons.'],
+    ['Play & cue', 'Press PLAY. CUE returns to the cue point; while paused, CUE sets a new cue point and holding it previews.'],
+    ['Beatmatch', 'Press SYNC on the incoming deck to lock its tempo and phase to the MASTER deck, or ride the tempo fader and nudge the jog edge by ear. The waveform strip shows both grids and the phase offset in milliseconds.'],
+    ['Mix', 'Use the channel faders, 3-band EQ (turn fully left to kill a band), filter knob and crossfader. Everything on the 3D board works: drag knobs up/down, drag faders, spin jogs.'],
+    ['Perform', 'Pads switch between hot cues, loop rolls, slicer, beat jump, pitch play and the sampler. Hold SHIFT (or Shift on the keyboard) for the second layer. Add Beat FX from the FX tab or the board.'],
+    ['Scratch', 'With VINYL on, grab the top of a jog wheel or the record on the turntables and move it. The platter edge nudges instead. Turntables have real start/brake inertia.'],
+    ['Visuals', 'The LED wall follows the music. Switch to Split or Visuals in the top bar for the full visual player.'],
+    ['Record', 'Press REC to capture your mix; press it again to play back or save the file.'],
+  ];
+  openModal(
+    'Getting started',
+    h(
+      'div',
+      { style: { display: 'grid', gap: '14px' } },
+      h('ol', { style: { margin: '0', paddingLeft: '20px', display: 'grid', gap: '8px', maxWidth: '75ch' } }, ...steps.map(([t, d]) => h('li', {}, h('b', {}, `${t}. `), d))),
+      h('h3', { class: 'label' }, 'Keyboard'),
+      shortcutsTable(),
+    ),
+  );
+}

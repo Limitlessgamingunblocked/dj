@@ -1,0 +1,594 @@
+/*
+ * Offline procedural synthesis (pure TS, runs in a worker):
+ *   - full-length demo tracks in four dance styles with an arrangement
+ *     (intro, groove, breakdown with riser, drop, outro)
+ *   - one-shot sampler sounds (air horn, siren, laser, impact, riser ...)
+ */
+import type { DemoSpec } from '../core/types';
+import { rng } from '../core/util';
+
+export interface Rendered {
+  sampleRate: number;
+  left: Float32Array;
+  right: Float32Array;
+}
+
+const TAU = Math.PI * 2;
+const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
+
+class Biquad {
+  private b0 = 1;
+  private b1 = 0;
+  private b2 = 0;
+  private a1 = 0;
+  private a2 = 0;
+  private x1 = 0;
+  private x2 = 0;
+  private y1 = 0;
+  private y2 = 0;
+  constructor(private sr: number) {}
+  set(type: 'lp' | 'hp' | 'bp', f: number, q: number): this {
+    f = Math.min(f, this.sr * 0.45);
+    const w = (TAU * f) / this.sr;
+    const cs = Math.cos(w);
+    const alpha = Math.sin(w) / (2 * q);
+    const a0 = 1 + alpha;
+    if (type === 'lp') {
+      this.b0 = (1 - cs) / 2 / a0;
+      this.b1 = (1 - cs) / a0;
+      this.b2 = this.b0;
+    } else if (type === 'hp') {
+      this.b0 = (1 + cs) / 2 / a0;
+      this.b1 = -(1 + cs) / a0;
+      this.b2 = this.b0;
+    } else {
+      this.b0 = alpha / a0;
+      this.b1 = 0;
+      this.b2 = -alpha / a0;
+    }
+    this.a1 = (-2 * cs) / a0;
+    this.a2 = (1 - alpha) / a0;
+    return this;
+  }
+  run(x: number): number {
+    const y = this.b0 * x + this.b1 * this.x1 + this.b2 * this.x2 - this.a1 * this.y1 - this.a2 * this.y2;
+    this.x2 = this.x1;
+    this.x1 = x;
+    this.y2 = this.y1;
+    this.y1 = y;
+    return y;
+  }
+}
+
+class Mix {
+  readonly L: Float32Array;
+  readonly R: Float32Array;
+  constructor(
+    readonly sr: number,
+    seconds: number,
+  ) {
+    const n = Math.ceil(seconds * sr);
+    this.L = new Float32Array(n);
+    this.R = new Float32Array(n);
+  }
+  get length(): number {
+    return this.L.length;
+  }
+  add(i: number, l: number, r: number): void {
+    if (i >= 0 && i < this.L.length) {
+      this.L[i] += l;
+      this.R[i] += r;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* voices                                                               */
+/* ------------------------------------------------------------------ */
+
+function kick(m: Mix, t: number, gain: number, punch = 1, tail = 0.38): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor(tail * 1.2 * sr);
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    const f = 44 + 120 * punch * Math.exp(-s * 38) + 30 * Math.exp(-s * 300);
+    ph += (TAU * f) / sr;
+    const env = Math.exp(-s / tail) * (1 - Math.exp(-s * 900));
+    let v = Math.sin(ph) * env;
+    v = Math.tanh(v * 1.6);
+    const click = s < 0.004 ? (1 - s / 0.004) * 0.35 : 0;
+    const out = (v + click) * gain;
+    m.add(start + i, out, out);
+  }
+}
+
+function hat(m: Mix, t: number, gain: number, open: boolean, rnd: () => number, pan = 0): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const dec = open ? 0.22 : 0.035;
+  const n = Math.floor(dec * 5 * sr);
+  const hp = new Biquad(sr).set('hp', 7500, 0.8);
+  const bp = new Biquad(sr).set('bp', 10500, 1.2);
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    const env = Math.exp(-s / dec);
+    const x = rnd() * 2 - 1;
+    const v = (hp.run(x) * 0.6 + bp.run(x) * 0.8) * env * gain;
+    m.add(start + i, v * (1 - pan), v * (1 + pan));
+  }
+}
+
+function clap(m: Mix, t: number, gain: number, rnd: () => number): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor(0.35 * sr);
+  const bp = new Biquad(sr).set('bp', 1300, 1.1);
+  const bp2 = new Biquad(sr).set('bp', 2400, 1.4);
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    const burst = s < 0.03 ? Math.exp(-((s % 0.0105) / 0.0035)) : 0;
+    const tail = Math.exp(-s / 0.09) * (s >= 0.02 ? 1 : 0);
+    const x = rnd() * 2 - 1;
+    const v = (bp.run(x) * 1.4 + bp2.run(x) * 0.6) * (burst + tail * 0.8) * gain;
+    m.add(start + i, v * 0.9, v);
+  }
+}
+
+function snare(m: Mix, t: number, gain: number, rnd: () => number): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor(0.25 * sr);
+  const hp = new Biquad(sr).set('hp', 1800, 0.7);
+  const body = new Biquad(sr).set('bp', 900, 0.9);
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    ph += (TAU * (200 - 40 * Math.min(1, s * 20))) / sr;
+    const tone = Math.sin(ph) * Math.exp(-s / 0.06) * 0.7;
+    const x = rnd() * 2 - 1;
+    const noise = (hp.run(x) * 0.8 + body.run(x) * 1.2) * Math.exp(-s / 0.08);
+    const v = (tone + noise) * gain;
+    m.add(start + i, v, v);
+  }
+}
+
+function bassNote(m: Mix, t: number, dur: number, midi: number, gain: number, style: DemoSpec['style'], duck: Float32Array): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor((dur + 0.05) * sr);
+  const f = mtof(midi);
+  const lp = new Biquad(sr);
+  let ph = 0;
+  let sub = 0;
+  const acid = style === 'techno';
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    ph += f / sr;
+    if (ph >= 1) ph -= 1;
+    sub += (TAU * f) / sr;
+    const saw = 2 * ph - 1;
+    const env = s < dur ? 1 - Math.exp(-s * 400) : Math.exp(-(s - dur) * 60);
+    const cut = acid ? 300 + 2200 * Math.exp(-s * 14) : 180 + 900 * Math.exp(-s * 22);
+    if (i % 32 === 0) lp.set('lp', cut, acid ? 6 : 1.2);
+    let v = lp.run(saw) * (acid ? 0.55 : 0.5) + Math.sin(sub) * 0.55;
+    v = Math.tanh(v * 1.4) * env * gain;
+    const d = duck[start + i] ?? 1;
+    m.add(start + i, v * d, v * d);
+  }
+}
+
+function stab(m: Mix, t: number, dur: number, notes: number[], gain: number, bright: number, duck: Float32Array): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor((dur + 0.3) * sr);
+  const lpL = new Biquad(sr);
+  const lpR = new Biquad(sr);
+  const k = notes.length;
+  const incL = new Float64Array(k);
+  const incR = new Float64Array(k);
+  const phL = new Float64Array(k);
+  const phR = new Float64Array(k).fill(0.33);
+  for (let j = 0; j < k; j++) {
+    const f = mtof(notes[j]);
+    incL[j] = (f * 0.994) / sr;
+    incR[j] = (f * 1.006) / sr;
+  }
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    let l = 0;
+    let r = 0;
+    for (let j = 0; j < k; j++) {
+      phL[j] += incL[j];
+      if (phL[j] >= 1) phL[j] -= 1;
+      phR[j] += incR[j];
+      if (phR[j] >= 1) phR[j] -= 1;
+      l += 2 * phL[j] - 1;
+      r += 2 * phR[j] - 1;
+    }
+    const env = (s < dur ? 1 : Math.exp(-(s - dur) * 14)) * Math.exp(-s * 2.2) * (1 - Math.exp(-s * 300));
+    if (i % 32 === 0) {
+      const c = 500 + bright * 3500 * Math.exp(-s * 8);
+      lpL.set('lp', c, 1.4);
+      lpR.set('lp', c, 1.4);
+    }
+    const g = (gain / k) * env * (duck[start + i] ?? 1);
+    m.add(start + i, lpL.run(l) * g, lpR.run(r) * g);
+  }
+}
+
+function pad(m: Mix, t: number, dur: number, notes: number[], gain: number, duck: Float32Array): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor((dur + 1.2) * sr);
+  const lpL = new Biquad(sr).set('lp', 1800, 0.7);
+  const lpR = new Biquad(sr).set('lp', 1800, 0.7);
+  const k = notes.length * 3;
+  const inc = new Float64Array(k);
+  const ph = new Float64Array(k);
+  for (let j = 0; j < notes.length; j++) {
+    const f = mtof(notes[j]);
+    for (let d = 0; d < 3; d++) inc[j * 3 + d] = (f * (1 + (d - 1) * 0.008)) / sr;
+  }
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    let l = 0;
+    let r = 0;
+    for (let j = 0; j < k; j += 3) {
+      let a = ph[j] + inc[j];
+      if (a >= 1) a -= 1;
+      ph[j] = a;
+      let b = ph[j + 1] + inc[j + 1];
+      if (b >= 1) b -= 1;
+      ph[j + 1] = b;
+      let c = ph[j + 2] + inc[j + 2];
+      if (c >= 1) c -= 1;
+      ph[j + 2] = c;
+      const vb = (2 * b - 1) * 0.5;
+      l += 2 * a - 1 + vb;
+      r += 2 * c - 1 + vb;
+    }
+    const env = Math.min(1, s / 0.8) * (s < dur ? 1 : Math.exp(-(s - dur) * 3));
+    const g = (gain / notes.length) * env * (0.55 + 0.45 * (duck[start + i] ?? 1));
+    m.add(start + i, lpL.run(l) * g, lpR.run(r) * g);
+  }
+}
+
+function pluck(m: Mix, t: number, midi: number, gain: number, pan: number): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor(0.45 * sr);
+  const f = mtof(midi);
+  const lp = new Biquad(sr);
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    ph += f / sr;
+    if (ph >= 1) ph -= 1;
+    const sq = ph < 0.5 ? 1 : -1;
+    if (i % 32 === 0) lp.set('lp', 400 + 5000 * Math.exp(-s * 18), 2);
+    const v = lp.run(sq) * Math.exp(-s * 7) * gain;
+    m.add(start + i, v * (1 - pan), v * (1 + pan));
+  }
+}
+
+function riser(m: Mix, t: number, dur: number, gain: number, rnd: () => number): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor(dur * sr);
+  const bp = new Biquad(sr);
+  for (let i = 0; i < n; i++) {
+    const p = i / n;
+    if (i % 64 === 0) bp.set('bp', 300 + 9000 * p * p, 1.5);
+    const v = bp.run(rnd() * 2 - 1) * p * p * gain;
+    m.add(start + i, v * (0.8 + 0.2 * Math.sin(p * 40)), v * (0.8 - 0.2 * Math.sin(p * 40)));
+  }
+}
+
+function crash(m: Mix, t: number, gain: number, rnd: () => number): void {
+  const sr = m.sr;
+  const start = Math.floor(t * sr);
+  const n = Math.floor(2.2 * sr);
+  const hp = new Biquad(sr).set('hp', 4000, 0.6);
+  const hp2 = new Biquad(sr).set('hp', 4000, 0.6);
+  for (let i = 0; i < n; i++) {
+    const s = i / sr;
+    const env = Math.exp(-s / 0.6);
+    m.add(start + i, hp.run(rnd() * 2 - 1) * env * gain, hp2.run(rnd() * 2 - 1) * env * gain);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* demo track                                                           */
+/* ------------------------------------------------------------------ */
+
+const PROGRESSIONS = {
+  minor: [
+    [0, 3, 7],
+    [8, 12, 15],
+    [3, 7, 10],
+    [10, 14, 17],
+  ],
+  major: [
+    [0, 4, 7],
+    [7, 11, 14],
+    [9, 12, 16],
+    [5, 9, 12],
+  ],
+};
+
+export function renderDemoTrack(spec: DemoSpec, sampleRate = 44100): Rendered {
+  const rnd = rng(spec.seed);
+  const beat = 60 / spec.bpm;
+  const bar = beat * 4;
+  const offset = 0.05; // first downbeat
+  const total = spec.bars * bar + offset + 2.5;
+  const m = new Mix(sampleRate, total);
+  const prog = spec.minor ? PROGRESSIONS.minor : PROGRESSIONS.major;
+  const root = spec.root;
+  const style = spec.style;
+
+  // section plan (bars)
+  const B = spec.bars;
+  const sec = (from: number, to: number) => (b: number) => b >= Math.round(B * from) && b < Math.round(B * to);
+  const intro = sec(0, 0.125);
+  const groove = sec(0.125, 0.5);
+  const breakdown = sec(0.5, 0.625);
+  const drop = sec(0.625, 0.875);
+  const outro = sec(0.875, 1);
+  const hasKick = (b: number) => !breakdown(b);
+  const hasBass = (b: number) => (groove(b) && b >= Math.round(B * 0.1875)) || drop(b) || (outro(b) && b < B - 4);
+  const hasChords = (b: number) => (groove(b) && b >= Math.round(B * 0.25)) || drop(b) || breakdown(b);
+  const hasLead = (b: number) => drop(b) || (breakdown(b) && b >= Math.round(B * 0.5625));
+
+  // sidechain envelope from kick positions
+  const duck = new Float32Array(m.length).fill(1);
+  const kickTimes: number[] = [];
+  for (let b = 0; b < B; b++) {
+    if (!hasKick(b)) continue;
+    for (let q = 0; q < 4; q++) {
+      if (style === 'breaks') {
+        const pat = [0, 2.5];
+        if (q === 0) pat.forEach((p) => kickTimes.push(offset + b * bar + p * beat));
+        continue;
+      }
+      if (style === 'garage') {
+        if (q === 0 || q === 2) kickTimes.push(offset + b * bar + q * beat + (q === 2 ? beat * 0.5 : 0));
+        continue;
+      }
+      kickTimes.push(offset + b * bar + q * beat);
+    }
+  }
+  for (const kt of kickTimes) {
+    const s = Math.floor(kt * sampleRate);
+    const n = Math.floor(beat * 0.9 * sampleRate);
+    for (let i = 0; i < n && s + i < duck.length; i++) {
+      const t = i / sampleRate;
+      duck[s + i] = Math.min(duck[s + i], 1 - 0.75 * Math.exp(-t / (beat * 0.22)));
+    }
+  }
+
+  const kickGain = style === 'techno' ? 0.95 : 0.9;
+  for (const kt of kickTimes) kick(m, kt, kickGain, style === 'techno' ? 1.2 : 1, style === 'techno' ? 0.45 : 0.36);
+
+  for (let b = 0; b < B; b++) {
+    const t0 = offset + b * bar;
+    const chord = prog[Math.floor(b / 2) % 4];
+    const chordRoot = root + chord[0];
+
+    // hats
+    if (!breakdown(b) || b >= Math.round(B * 0.59)) {
+      for (let s = 0; s < 16; s++) {
+        const t = t0 + s * (beat / 4) + (style === 'garage' && s % 2 === 1 ? beat * 0.07 : 0);
+        const pos = s % 4;
+        if (style === 'house' || style === 'garage') {
+          if (pos === 2) hat(m, t, 0.22, !intro(b), rnd, 0.2);
+          else if (s % 2 === 1 && !intro(b)) hat(m, t, 0.07, false, rnd, -0.3);
+        } else if (style === 'techno') {
+          hat(m, t, pos === 2 ? 0.2 : 0.09, pos === 2 && drop(b), rnd, (s % 3) * 0.1 - 0.1);
+        } else {
+          if (s % 2 === 0) hat(m, t, s % 4 === 2 ? 0.18 : 0.09, false, rnd, 0.15);
+        }
+      }
+    }
+
+    // claps / snares
+    if (!intro(b) && !breakdown(b)) {
+      if (style === 'breaks') {
+        snare(m, t0 + beat, 0.5, rnd);
+        snare(m, t0 + beat * 3, 0.5, rnd);
+        if (b % 2 === 1) snare(m, t0 + beat * 3.75, 0.25, rnd);
+      } else {
+        clap(m, t0 + beat, 0.42, rnd);
+        clap(m, t0 + beat * 3, 0.42, rnd);
+      }
+    }
+    // snare build at the end of the breakdown
+    if (breakdown(b) && b >= Math.round(B * 0.625) - 2) {
+      const steps = b === Math.round(B * 0.625) - 1 ? 16 : 8;
+      for (let s = 0; s < steps; s++) snare(m, t0 + (s * bar) / steps, 0.12 + 0.3 * (s / steps), rnd);
+    }
+
+    // bass
+    if (hasBass(b)) {
+      const bassMidi = 36 + (chordRoot % 12);
+      if (style === 'house') {
+        for (let q = 0; q < 4; q++) bassNote(m, t0 + q * beat + beat / 2, beat * 0.42, bassMidi + (q === 3 && b % 2 ? 7 : 0), 0.5, style, duck);
+      } else if (style === 'techno') {
+        for (let s = 0; s < 16; s++) {
+          if (s % 4 === 0) continue;
+          const acc = [0, 12, 0, 7, 0, 12, 7, 0][s % 8];
+          bassNote(m, t0 + s * (beat / 4), beat * 0.2, bassMidi + acc, 0.36, style, duck);
+        }
+      } else if (style === 'garage') {
+        bassNote(m, t0, beat * 1.4, bassMidi, 0.55, style, duck);
+        bassNote(m, t0 + beat * 2.5, beat * 0.8, bassMidi + (b % 2 ? 3 : 0), 0.5, style, duck);
+      } else {
+        bassNote(m, t0, beat * 0.9, bassMidi, 0.55, style, duck);
+        bassNote(m, t0 + beat * 1.5, beat * 0.4, bassMidi + 12, 0.4, style, duck);
+        bassNote(m, t0 + beat * 2.5, beat * 1.2, bassMidi, 0.5, style, duck);
+      }
+    }
+
+    // chords
+    if (hasChords(b)) {
+      const notes = chord.map((c) => 60 + ((root + c) % 12) + (c >= 12 ? 0 : 0));
+      if (breakdown(b)) {
+        if (b % 2 === 0) pad(m, t0, bar * 2, notes.map((x) => x - 12).concat(notes), 0.35, duck);
+      } else if (style === 'house' || style === 'garage') {
+        const hits = style === 'house' ? [0.5, 1.5, 2.75, 3.5] : [0.75, 2.25, 3.5];
+        hits.forEach((h) => stab(m, t0 + h * beat, beat * 0.3, notes, 0.34, 0.8, duck));
+      } else if (style === 'techno') {
+        if (b % 2 === 0) stab(m, t0 + beat * 0.75, beat * 0.2, notes.map((x) => x - 12), 0.28, 0.5, duck);
+        if (b % 4 === 3) stab(m, t0 + beat * 2.75, beat * 0.2, notes.map((x) => x - 12), 0.22, 0.5, duck);
+      } else {
+        if (b % 2 === 0) pad(m, t0, bar * 2, notes, 0.2, duck);
+      }
+    }
+
+    // lead arpeggio
+    if (hasLead(b)) {
+      const tones = chord.map((c) => 72 + ((root + c) % 12));
+      const seq = [0, 1, 2, 1, 0, 2, 1, 2];
+      for (let s = 0; s < 8; s++) {
+        const nm = tones[seq[(s + b) % 8] % 3] + (s === 6 ? 12 : 0);
+        pluck(m, t0 + s * (beat / 2), nm, breakdown(b) ? 0.12 : 0.16, s % 2 ? 0.35 : -0.35);
+      }
+    }
+
+    // transitions
+    if (b === Math.round(B * 0.625) - 4) riser(m, t0, bar * 4, 0.35, rnd);
+    if (b === 0 || b === Math.round(B * 0.125) || b === Math.round(B * 0.625) || b === Math.round(B * 0.875)) crash(m, t0, 0.22, rnd);
+  }
+
+  // master: gentle saturation and peak normalisation
+  let peak = 0;
+  for (let i = 0; i < m.length; i++) {
+    m.L[i] = Math.tanh(m.L[i] * 0.9);
+    m.R[i] = Math.tanh(m.R[i] * 0.9);
+    peak = Math.max(peak, Math.abs(m.L[i]), Math.abs(m.R[i]));
+  }
+  const g = peak > 0 ? 0.89 / peak : 1;
+  for (let i = 0; i < m.length; i++) {
+    m.L[i] *= g;
+    m.R[i] *= g;
+  }
+  return { sampleRate, left: m.L, right: m.R };
+}
+
+/* ------------------------------------------------------------------ */
+/* sampler sounds                                                       */
+/* ------------------------------------------------------------------ */
+
+export const SAMPLE_NAMES = ['Air Horn', 'Siren', 'Laser Zap', 'Impact', 'White Riser', 'Clap Stack', 'Scratch', 'Reverse Crash'] as const;
+export type SampleName = (typeof SAMPLE_NAMES)[number];
+
+export function renderSample(name: SampleName, sampleRate = 44100): Rendered {
+  const rnd = rng(name.length * 977);
+  const sr = sampleRate;
+  let m: Mix;
+  switch (name) {
+    case 'Air Horn': {
+      m = new Mix(sr, 2.2);
+      const blasts = [
+        [0, 0.18],
+        [0.24, 0.18],
+        [0.48, 1.2],
+      ];
+      for (const [t, d] of blasts) {
+        const start = Math.floor(t * sr);
+        const n = Math.floor((d + 0.08) * sr);
+        const ph = [0, 0, 0, 0];
+        const fs = [466, 587, 698, 932];
+        const bp = new Biquad(sr).set('bp', 1500, 0.8);
+        for (let i = 0; i < n; i++) {
+          const s = i / sr;
+          const bend = 1 - 0.08 * Math.exp(-s * 30);
+          let v = 0;
+          fs.forEach((f, k) => {
+            ph[k] += (f * bend * (1 + k * 0.003)) / sr;
+            if (ph[k] >= 1) ph[k] -= 1;
+            v += 2 * ph[k] - 1;
+          });
+          const env = Math.min(1, s * 60) * (s < d ? 1 : Math.exp(-(s - d) * 40));
+          const out = Math.tanh((v * 0.4 + bp.run(v) * 0.5) * 1.5) * env * 0.55;
+          m.add(start + i, out, out);
+        }
+      }
+      break;
+    }
+    case 'Siren': {
+      m = new Mix(sr, 2.5);
+      let ph = 0;
+      for (let i = 0; i < m.length; i++) {
+        const s = i / sr;
+        const f = 900 + 450 * Math.sin(TAU * 1.6 * s);
+        ph += f / sr;
+        const v = (ph % 1 < 0.5 ? 1 : -1) * 0.25 + Math.sin(TAU * ph) * 0.3;
+        const env = Math.min(1, s * 20) * Math.min(1, (2.5 - s) * 4);
+        m.add(i, v * env, v * env);
+      }
+      break;
+    }
+    case 'Laser Zap': {
+      m = new Mix(sr, 0.6);
+      let ph = 0;
+      for (let i = 0; i < m.length; i++) {
+        const s = i / sr;
+        ph += (2800 * Math.exp(-s * 9) + 80) / sr;
+        const v = (ph % 1 < 0.5 ? 1 : -1) * Math.exp(-s * 5) * 0.35;
+        m.add(i, v, v);
+      }
+      break;
+    }
+    case 'Impact': {
+      m = new Mix(sr, 3);
+      kick(m, 0, 1, 1.4, 1.2);
+      crash(m, 0, 0.35, rnd);
+      break;
+    }
+    case 'White Riser': {
+      m = new Mix(sr, 4);
+      riser(m, 0, 4, 0.9, rnd);
+      break;
+    }
+    case 'Clap Stack': {
+      m = new Mix(sr, 0.8);
+      clap(m, 0, 0.7, rnd);
+      clap(m, 0.012, 0.4, rnd);
+      break;
+    }
+    case 'Scratch': {
+      m = new Mix(sr, 0.7);
+      // "baby scratch" gesture over a vocal-ish buzz
+      let ph = 0;
+      const bp = new Biquad(sr).set('bp', 1200, 2.5);
+      for (let i = 0; i < m.length; i++) {
+        const s = i / sr;
+        const speed = Math.sin(TAU * 3.2 * s);
+        ph += (Math.abs(speed) * 520) / sr;
+        const buzz = (ph % 1) * 2 - 1 + (rnd() - 0.5) * 0.4;
+        const v = bp.run(buzz) * Math.min(1, Math.abs(speed) * 2) * 0.9;
+        m.add(i, v, v);
+      }
+      break;
+    }
+    case 'Reverse Crash':
+    default: {
+      m = new Mix(sr, 2.2);
+      crash(m, 0, 0.5, rnd);
+      m.L.reverse();
+      m.R.reverse();
+      break;
+    }
+  }
+  return { sampleRate: sr, left: m.L, right: m.R };
+}
+
+export const DEMO_TRACKS: { title: string; artist: string; spec: DemoSpec }[] = [
+  { title: 'Midnight Circuit', artist: 'Deckhouse Demo', spec: { seed: 11, bpm: 124, root: 9, minor: true, style: 'house', bars: 64 } },
+  { title: 'Concrete Pulse', artist: 'Deckhouse Demo', spec: { seed: 27, bpm: 130, root: 2, minor: true, style: 'techno', bars: 64 } },
+  { title: 'Sunset Garage', artist: 'Deckhouse Demo', spec: { seed: 42, bpm: 128, root: 5, minor: false, style: 'garage', bars: 64 } },
+  { title: 'Broken Neon', artist: 'Deckhouse Demo', spec: { seed: 73, bpm: 126, root: 0, minor: false, style: 'breaks', bars: 64 } },
+];
