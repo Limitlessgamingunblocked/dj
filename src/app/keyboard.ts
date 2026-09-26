@@ -44,6 +44,11 @@ export const KEYMAP: Record<string, Binding> = {
   ArrowLeft: { id: 'deck.L.load', label: 'Load selected track to left deck' },
   ArrowRight: { id: 'deck.R.load', label: 'Load selected track to right deck' },
   KeyV: { action: 'cycle-view', label: 'Cycle booth / split / visuals' },
+  KeyN: { id: 'light.strobe', label: 'Lights: strobe (hold)' },
+  KeyB: { id: 'light.blinder', label: 'Lights: blinders (hold)' },
+  KeyY: { id: 'light.lasers', label: 'Lights: lasers (hold)' },
+  KeyT: { id: 'light.co2', label: 'Lights: fire the CO2 cannons' },
+  Backquote: { id: 'light.blackout', label: 'Lights: blackout (hold)' },
   Slash: { action: 'search', label: 'Search the library' },
 };
 
@@ -66,6 +71,7 @@ const KEY_NAMES: Record<string, string> = {
   BracketRight: ']',
   Backslash: '\\',
   Slash: '/',
+  Backquote: '`',
   ArrowUp: '↑',
   ArrowDown: '↓',
   ArrowLeft: '←',

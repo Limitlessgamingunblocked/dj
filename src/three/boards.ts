@@ -4,12 +4,17 @@
  *   pro4     – flagship 4-deck controller with jog displays and centre screen
  *   club4    – club standard: two media players + 4-channel mixer
  *   vinyl2   – twin direct-drive turntables + 2-channel battle mixer
+ *   quad4    – festival booth: four media players around a 4-channel mixer
+ *   hybrid4  – two turntables outside two media players + 4-channel mixer
+ *   rotary2  – two turntables + a walnut-cheeked 2-channel rotary mixer
  */
 import * as THREE from 'three';
 import { BoardBuild, channelStrip, crossfader, finish, fxSection, loopRow, masterSection, padGrid, padModes, transport, type Finish, type Unit } from './builder';
-import { PlatterPart, TonearmPart } from './parts';
+import { PlatterPart, TonearmPart, type DeckRef } from './parts';
 import { drawDualScreen, drawPlayerScreen } from './screens';
 import type { FaceStyle } from './Faceplate';
+import { applyStickers } from './stickers';
+import { woodTexture } from './materials';
 
 export interface BoardDef {
   id: string;
@@ -17,7 +22,12 @@ export interface BoardDef {
   category: string;
   description: string;
   decks: 2 | 4;
-  turntable: boolean;
+  /** true: every deck is a turntable; or the list of turntable decks */
+  turntable: boolean | number[];
+  /** each deck has its own unit (no layer switching on the hardware) */
+  fixedDecks?: boolean;
+  /** rotary mixers have no crossfader: channels go straight to the master */
+  noCrossfader?: boolean;
   xcurve: number;
   finishes: Finish[];
   build(b: BoardBuild): void;
@@ -170,39 +180,42 @@ const pro: BoardDef = {
 /* 3. Club standard: two media players + 4-channel mixer               */
 /* ------------------------------------------------------------------ */
 
-function player(b: BoardBuild, side: 'L' | 'R', x: number): void {
+function player(b: BoardBuild, side: DeckRef, x: number): void {
   const u = b.unit(x, 0, 0.32, 0.43, 0.1, { radius: 0.012 });
+  const D = `deck.${side}`;
+  const fixed = typeof side === 'number';
   u.screen(0, -0.14, 0.215, 0.125, 800, 464, (g, W, H, c) => drawPlayerScreen(g, W, H, c.deck(side), c), 0.28, 2);
   u.knob('browse', 0.135, -0.19, { label: 'Browse library', r: 0.0075, encoder: true, print: 'BROWSE', printAbove: false });
-  u.button(`deck.${side}.load`, 0.135, -0.15, { label: 'Load selected track', w: 0.016, d: 0.008, print: 'LOAD', printAt: 'below', led: '#ffffff' });
-  u.button(`layer.${side}`, -0.135, -0.19, { label: side === 'L' ? 'Deck 1 / 3' : 'Deck 2 / 4', w: 0.016, d: 0.008, print: side === 'L' ? 'DECK 1/3' : 'DECK 2/4', printAt: 'below', led: '#ffffff' });
-  u.button(`deck.${side}.keylock`, -0.135, -0.15, { label: 'Master tempo (key lock)', w: 0.016, d: 0.008, print: 'MASTER TEMPO', printAt: 'below', led: '#ff5fcf', alt: `deck.${side}.key.sync` });
+  u.button(`${D}.load`, 0.135, -0.15, { label: 'Load selected track', w: 0.016, d: 0.008, print: 'LOAD', printAt: 'below', led: '#ffffff' });
+  if (fixed) u.face.text(-0.135, -0.19, `DECK ${side}`, { size: 0.0052, color: u.finish.face.accent });
+  else u.button(`layer.${side}`, -0.135, -0.19, { label: side === 'L' ? 'Deck 1 / 3' : 'Deck 2 / 4', w: 0.016, d: 0.008, print: side === 'L' ? 'DECK 1/3' : 'DECK 2/4', printAt: 'below', led: '#ffffff' });
+  u.button(`${D}.keylock`, -0.135, -0.15, { label: 'Master tempo (key lock)', w: 0.016, d: 0.008, print: 'MASTER TEMPO', printAt: 'below', led: '#ff5fcf', alt: `${D}.key.sync` });
   // hot cues A-H
-  for (let i = 0; i < 8; i++) u.button(`deck.${side}.hotcue.${i + 1}`, -0.1085 + i * 0.031, -0.058, { label: `Hot cue ${String.fromCharCode(65 + i)}`, w: 0.024, d: 0.011, print: String.fromCharCode(65 + i), printAt: 'above', led: '#ffffff' });
+  for (let i = 0; i < 8; i++) u.button(`${D}.hotcue.${i + 1}`, -0.1085 + i * 0.031, -0.058, { label: `Hot cue ${String.fromCharCode(65 + i)}`, w: 0.024, d: 0.011, print: String.fromCharCode(65 + i), printAt: 'above', led: '#ffffff' });
   // loop / utility column
   const lx0 = -0.137;
   const lx1 = -0.112;
-  u.button(`deck.${side}.loop.in`, lx0, -0.02, { label: 'Loop in (shift: ½)', w: 0.02, d: 0.009, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `deck.${side}.loop.half` });
-  u.button(`deck.${side}.loop.out`, lx1, -0.02, { label: 'Loop out (shift: ×2)', w: 0.02, d: 0.009, print: 'OUT', printAt: 'above', led: '#3ddc97', alt: `deck.${side}.loop.double` });
-  u.button(`deck.${side}.loop.exit`, lx0, 0.008, { label: 'Reloop / exit', w: 0.02, d: 0.009, print: 'RELOOP', printAt: 'above', led: '#3ddc97' });
-  u.button(`deck.${side}.loop.auto`, lx1, 0.008, { label: 'Auto loop', w: 0.02, d: 0.009, print: '4 BEAT', printAt: 'above', led: '#3ddc97' });
-  u.button(`deck.${side}.jump.back`, lx0, 0.036, { label: 'Beat jump back', w: 0.02, d: 0.009, print: '◀ JUMP', printAt: 'above', led: '#ffffff' });
-  u.button(`deck.${side}.jump.fwd`, lx1, 0.036, { label: 'Beat jump forward', w: 0.02, d: 0.009, print: 'JUMP ▶', printAt: 'above', led: '#ffffff' });
-  u.button(`deck.${side}.slip`, lx0, 0.064, { label: 'Slip', w: 0.02, d: 0.009, print: 'SLIP', printAt: 'above', led: '#b36bff' });
-  u.button(`deck.${side}.quantize`, lx1, 0.064, { label: 'Quantize', w: 0.02, d: 0.009, print: 'QUANTIZE', printAt: 'above', led: '#ff3b5c' });
-  u.button(`deck.${side}.reverse`, lx0, 0.092, { label: 'Reverse', w: 0.02, d: 0.009, print: 'REV', printAt: 'above', led: '#ff3b5c' });
+  u.button(`${D}.loop.in`, lx0, -0.02, { label: 'Loop in (shift: ½)', w: 0.02, d: 0.009, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.half` });
+  u.button(`${D}.loop.out`, lx1, -0.02, { label: 'Loop out (shift: ×2)', w: 0.02, d: 0.009, print: 'OUT', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.double` });
+  u.button(`${D}.loop.exit`, lx0, 0.008, { label: 'Reloop / exit', w: 0.02, d: 0.009, print: 'RELOOP', printAt: 'above', led: '#3ddc97' });
+  u.button(`${D}.loop.auto`, lx1, 0.008, { label: 'Auto loop', w: 0.02, d: 0.009, print: '4 BEAT', printAt: 'above', led: '#3ddc97' });
+  u.button(`${D}.jump.back`, lx0, 0.036, { label: 'Beat jump back', w: 0.02, d: 0.009, print: '◀ JUMP', printAt: 'above', led: '#ffffff' });
+  u.button(`${D}.jump.fwd`, lx1, 0.036, { label: 'Beat jump forward', w: 0.02, d: 0.009, print: 'JUMP ▶', printAt: 'above', led: '#ffffff' });
+  u.button(`${D}.slip`, lx0, 0.064, { label: 'Slip', w: 0.02, d: 0.009, print: 'SLIP', printAt: 'above', led: '#b36bff' });
+  u.button(`${D}.quantize`, lx1, 0.064, { label: 'Quantize', w: 0.02, d: 0.009, print: 'QUANTIZE', printAt: 'above', led: '#ff3b5c' });
+  u.button(`${D}.reverse`, lx0, 0.092, { label: 'Reverse', w: 0.02, d: 0.009, print: 'REV', printAt: 'above', led: '#ff3b5c' });
   u.button('shift', lx1, 0.092, { label: 'Shift', w: 0.02, d: 0.009, print: 'SHIFT', printAt: 'above', led: '#ffffff' });
   transport(u, side, -0.126, 0.142, 0.0155, 0.008, true);
-  u.jog(`deck.${side}.jog`, 0.014, 0.08, 0.1, 'cdj', side);
+  u.jog(`${D}.jog`, 0.014, 0.08, 0.1, 'cdj', side);
   // tempo column
   const tx = 0.138;
-  u.button(`deck.${side}.vinyl`, tx, -0.02, { label: 'Vinyl / CDJ jog mode', w: 0.018, d: 0.009, print: 'VINYL', printAt: 'above', led: '#ffffff' });
-  u.button(`deck.${side}.sync`, tx, 0.006, { label: 'Beat sync', w: 0.018, d: 0.009, print: 'BEAT SYNC', printAt: 'above', led: '#2ec4f1' });
-  u.button(`deck.${side}.master`, tx, 0.032, { label: 'Tempo master', w: 0.018, d: 0.009, print: 'MASTER', printAt: 'above', led: '#ff9f1c' });
-  u.button(`deck.${side}.range`, tx, 0.058, { label: 'Tempo range', w: 0.018, d: 0.009, print: 'TEMPO ±', printAt: 'above', led: '#ffffff' });
-  u.fader(`deck.${side}.tempo`, tx, 0.138, 'z', 0.12, { label: 'Tempo', maxAtFar: false, size: 'tempo', center: true, labels: ['−', '+'], ticks: 16 });
-  u.button(`deck.${side}.tempo.reset`, tx - 0.02, 0.2, { label: 'Tempo reset', w: 0.012, d: 0.006, print: 'RESET', printAt: 'left', led: '#3ddc97' });
-  u.face.text(-0.03, 0.2, side === 'L' ? 'MEDIA PLAYER · DECK 1 / 3' : 'MEDIA PLAYER · DECK 2 / 4', { size: 0.0036, color: u.finish.face.accent, spacing: 0.2 });
+  u.button(`${D}.vinyl`, tx, -0.02, { label: 'Vinyl / CDJ jog mode', w: 0.018, d: 0.009, print: 'VINYL', printAt: 'above', led: '#ffffff' });
+  u.button(`${D}.sync`, tx, 0.006, { label: 'Beat sync', w: 0.018, d: 0.009, print: 'BEAT SYNC', printAt: 'above', led: '#2ec4f1' });
+  u.button(`${D}.master`, tx, 0.032, { label: 'Tempo master', w: 0.018, d: 0.009, print: 'MASTER', printAt: 'above', led: '#ff9f1c' });
+  u.button(`${D}.range`, tx, 0.058, { label: 'Tempo range', w: 0.018, d: 0.009, print: 'TEMPO ±', printAt: 'above', led: '#ffffff' });
+  u.fader(`${D}.tempo`, tx, 0.138, 'z', 0.12, { label: 'Tempo', maxAtFar: false, size: 'tempo', center: true, labels: ['−', '+'], ticks: 16 });
+  u.button(`${D}.tempo.reset`, tx - 0.02, 0.2, { label: 'Tempo reset', w: 0.012, d: 0.006, print: 'RESET', printAt: 'left', led: '#3ddc97' });
+  u.face.text(-0.03, 0.2, fixed ? `MEDIA PLAYER · DECK ${side}` : side === 'L' ? 'MEDIA PLAYER · DECK 1 / 3' : 'MEDIA PLAYER · DECK 2 / 4', { size: 0.0036, color: u.finish.face.accent, spacing: 0.2 });
 }
 
 function clubMixer(b: BoardBuild): void {
@@ -251,24 +264,25 @@ const club: BoardDef = {
 /* 4. Vinyl turntable rig                                               */
 /* ------------------------------------------------------------------ */
 
-function turntable(b: BoardBuild, side: 'L' | 'R', x: number): void {
+function turntable(b: BoardBuild, side: DeckRef, x: number): void {
   const f = b.finish;
+  const D = `deck.${side}`;
   const u = b.unit(x, 0, 0.453, 0.353, 0.075, { radius: 0.01 });
   const pc = new THREE.Vector2(-0.045, 0.005);
-  u.add(new PlatterPart(`deck.${side}.jog`, 'Record / platter', side, f.accent), pc.x, pc.y);
+  u.add(new PlatterPart(`${D}.jog`, 'Record / platter', side, f.accent), pc.x, pc.y);
   u.face.circle(pc.x, pc.y, 0.171, { stroke: 'rgba(0,0,0,0.35)', line: 0.002 });
-  u.add(new TonearmPart(`deck.${side}.needle`, 'Tonearm (drag to drop the needle)', new THREE.Vector2(0.165, -0.105), pc, side), 0.165, -0.105);
-  u.button(`deck.${side}.start`, -0.196, 0.158, { label: 'Start / stop', w: 0.032, d: 0.016, print: 'START·STOP', printAt: 'above', led: '#ff3b5c', base: '#2a2d33' });
-  u.button(`deck.${side}.rpm33`, -0.214, 0.125, { label: '33 RPM', w: 0.013, d: 0.01, print: '33', printAt: 'above', led: '#ffd23f' });
-  u.button(`deck.${side}.rpm45`, -0.197, 0.125, { label: '45 RPM', w: 0.013, d: 0.01, print: '45', printAt: 'above', led: '#ffd23f' });
-  u.fader(`deck.${side}.tempo`, 0.19, 0.07, 'z', 0.11, { label: 'Pitch', maxAtFar: false, size: 'tempo', center: true, labels: ['−', '+'], ticks: 16, cap: '#2a2d33' });
-  u.button(`deck.${side}.range`, 0.19, -0.002, { label: 'Pitch range', w: 0.014, d: 0.007, print: 'RANGE', printAt: 'above', led: '#ffffff' });
-  u.button(`deck.${side}.tempo.reset`, 0.19, 0.145, { label: 'Pitch reset', w: 0.014, d: 0.007, print: 'RESET', printAt: 'below', led: '#3ddc97' });
-  u.knob(`deck.${side}.motor.start`, -0.214, 0.06, { label: 'Start time', r: 0.0052, h: 0.009, print: 'START', style: 'chrome' });
-  u.knob(`deck.${side}.motor.brake`, -0.214, 0.087, { label: 'Brake time', r: 0.0052, h: 0.009, print: 'BRAKE', printAbove: false, style: 'chrome' });
-  u.knob(`deck.${side}.wear`, 0.207, -0.16, { label: 'Record wear (crackle, hiss, wow)', r: 0.0055, h: 0.009, print: 'WEAR', printAbove: false, style: 'chrome' });
+  u.add(new TonearmPart(`${D}.needle`, 'Tonearm (drag to drop the needle)', new THREE.Vector2(0.165, -0.105), pc, side), 0.165, -0.105);
+  u.button(`${D}.start`, -0.196, 0.158, { label: 'Start / stop', w: 0.032, d: 0.016, print: 'START·STOP', printAt: 'above', led: '#ff3b5c', base: '#2a2d33' });
+  u.button(`${D}.rpm33`, -0.214, 0.125, { label: '33 RPM', w: 0.013, d: 0.01, print: '33', printAt: 'above', led: '#ffd23f' });
+  u.button(`${D}.rpm45`, -0.197, 0.125, { label: '45 RPM', w: 0.013, d: 0.01, print: '45', printAt: 'above', led: '#ffd23f' });
+  u.fader(`${D}.tempo`, 0.19, 0.07, 'z', 0.11, { label: 'Pitch', maxAtFar: false, size: 'tempo', center: true, labels: ['−', '+'], ticks: 16, cap: '#2a2d33' });
+  u.button(`${D}.range`, 0.19, -0.002, { label: 'Pitch range', w: 0.014, d: 0.007, print: 'RANGE', printAt: 'above', led: '#ffffff' });
+  u.button(`${D}.tempo.reset`, 0.19, 0.145, { label: 'Pitch reset', w: 0.014, d: 0.007, print: 'RESET', printAt: 'below', led: '#3ddc97' });
+  u.knob(`${D}.motor.start`, -0.214, 0.06, { label: 'Start time', r: 0.0052, h: 0.009, print: 'START', style: 'chrome' });
+  u.knob(`${D}.motor.brake`, -0.214, 0.087, { label: 'Brake time', r: 0.0052, h: 0.009, print: 'BRAKE', printAbove: false, style: 'chrome' });
+  u.knob(`${D}.wear`, 0.207, -0.16, { label: 'Record wear (crackle, hiss, wow)', r: 0.0055, h: 0.009, print: 'WEAR', printAbove: false, style: 'chrome' });
   u.indicator(-0.205, -0.155, 0.004, (c) => (c.deck(side).playing ? { color: '#ffffff', level: 0.9 } : { color: '#ffffff', level: 0.05 }));
-  u.face.text(-0.18, -0.16, 'DIRECT DRIVE', { size: 0.0042, color: f.face.print, spacing: 0.25, align: 'left' });
+  u.face.text(-0.18, -0.16, typeof side === 'number' ? `DIRECT DRIVE · DECK ${side}` : 'DIRECT DRIVE', { size: 0.0042, color: f.face.print, spacing: 0.25, align: 'left' });
 }
 
 function battleMixer(b: BoardBuild): void {
@@ -330,16 +344,132 @@ const vinyl: BoardDef = {
   },
 };
 
-export const BOARDS: BoardDef[] = [starter, pro, club, vinyl];
+/* ------------------------------------------------------------------ */
+/* 5. Festival quad: four media players                                 */
+/* ------------------------------------------------------------------ */
+
+const quad: BoardDef = {
+  id: 'quad4',
+  name: 'Festival Quad',
+  category: 'Four media players + 4-channel mixer',
+  description: 'The main-stage booth: four flagship media players — decks 3 and 1 on the left, 2 and 4 on the right — around a four-channel club mixer. Every deck has its own hardware, so there is no layer switching; touch a player and the software follows it.',
+  decks: 4,
+  turntable: false,
+  fixedDecks: true,
+  xcurve: 0.3,
+  finishes: [
+    finish({ id: 'booth', name: 'Booth black', swatch: '#1b1d22', body: '#16181c', bodyMetal: 0.5, bodyRough: 0.45, face: face('#1d2025', '#e8ebf0', '#6b7382', '#f0f3f7', 'brushed'), accent: '#2ec4f1', knobCap: '#2a2d33', cueColor: '#ff9f1c', playColor: '#3ddc97' }),
+    finish({ id: 'white', name: 'Limited white', swatch: '#e9eaec', body: '#d9dbde', bodyMetal: 0.2, bodyRough: 0.45, face: face('#eceef0', '#16181c', '#7c838e', '#e0344d', 'matte'), accent: '#ff3b5c', knobCap: '#f1f2f4', cueColor: '#ff9f1c', playColor: '#3ddc97' }),
+  ],
+  build(b) {
+    player(b, 3, -0.665);
+    player(b, 1, -0.335);
+    clubMixer(b);
+    player(b, 2, 0.335);
+    player(b, 4, 0.665);
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* 6. Hybrid booth: turntables outside, media players inside            */
+/* ------------------------------------------------------------------ */
+
+const hybrid: BoardDef = {
+  id: 'hybrid4',
+  name: 'Hybrid Booth',
+  category: '2 turntables + 2 media players + mixer',
+  description: 'The classic club booth: direct-drive turntables on decks 3 and 4 on the outside, media players on decks 1 and 2 next to the four-channel mixer. Play records and files side by side.',
+  decks: 4,
+  turntable: [3, 4],
+  fixedDecks: true,
+  xcurve: 0.3,
+  finishes: [
+    finish({ id: 'booth', name: 'Booth black', swatch: '#1b1d22', body: '#16181c', bodyMetal: 0.5, bodyRough: 0.45, face: face('#1d2025', '#e8ebf0', '#6b7382', '#f0f3f7', 'brushed'), accent: '#ffb020', knobCap: '#2a2d33', cueColor: '#ff9f1c', playColor: '#3ddc97' }),
+    finish({ id: 'silver', name: 'Silver', swatch: '#b9bdc4', body: '#8f949c', bodyMetal: 0.85, bodyRough: 0.35, face: face('#a9aeb6', '#16181c', '#595f69', '#16181c', 'brushed'), accent: '#ff3b3b', knobCap: '#dfe2e6' }),
+  ],
+  build(b) {
+    turntable(b, 3, -0.735);
+    player(b, 1, -0.335);
+    clubMixer(b);
+    player(b, 2, 0.335);
+    turntable(b, 4, 0.735);
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* 7. Rotary house: two turntables + rotary mixer                       */
+/* ------------------------------------------------------------------ */
+
+function rotaryMixer(b: BoardBuild): void {
+  const u = b.unit(0, 0, 0.3, 0.353, 0.09, { radius: 0.006 });
+  const chX = [-0.085, 0.085];
+  chX.forEach((x, i) => {
+    const ch = i + 1;
+    u.knob(`ch.${ch}.trim`, x, -0.145, { label: `Ch ${ch} gain`, print: 'GAIN', r: 0.0085, style: 'chrome' });
+    u.knob(`ch.${ch}.hi`, x, -0.108, { label: `Ch ${ch} high`, print: 'HIGH', r: 0.0095, style: 'chrome', center: true });
+    u.knob(`ch.${ch}.mid`, x, -0.074, { label: `Ch ${ch} mid`, print: 'MID', r: 0.0095, style: 'chrome', center: true });
+    u.knob(`ch.${ch}.low`, x, -0.04, { label: `Ch ${ch} low`, print: 'LOW', r: 0.0095, style: 'chrome', center: true });
+    u.knob(`ch.${ch}.filter`, x, -0.005, { label: `Ch ${ch} filter`, print: 'FILTER', r: 0.0088, cap: '#8a2a1a', center: true });
+    u.button(`ch.${ch}.cue`, x, 0.026, { label: `Ch ${ch} headphone cue`, w: 0.013, d: 0.008, print: 'CUE', printAt: 'below', led: '#ff9f1c' });
+    u.knob(`ch.${ch}.fader`, x, 0.088, { label: `Ch ${ch} level (rotary)`, print: String(ch), r: 0.018, h: 0.022, style: 'chrome', printAbove: false });
+    u.vu(ch, x + (i ? -0.032 : 0.032), -0.09, 0.09, 12, true);
+    u.button(`deck.${i ? 'R' : 'L'}.load`, x, 0.145, { label: 'Load selected track', w: 0.014, d: 0.007, print: 'LOAD', printAt: 'above', led: '#ffffff' });
+  });
+  u.knob('fx.type', 0, -0.152, { label: 'Send FX type', r: 0.006, encoder: true, print: 'FX', printAbove: false });
+  u.knob('fx.depth', 0, -0.118, { label: 'Send FX level', print: 'SEND', r: 0.0072, cap: '#8a2a1a' });
+  u.button('fx.on', 0, -0.088, { label: 'Send FX on/off', shape: 'round', w: 0.011, led: '#ff3b5c' });
+  u.vu('master', 0, -0.03, 0.07, 12, true);
+  u.knob('mixer.cuemix', 0, 0.024, { label: 'Cue / master', print: 'CUE MIX', r: 0.0068, style: 'chrome' });
+  u.knob('mixer.phones', 0, 0.052, { label: 'Headphones', print: 'PHONES', r: 0.0068, style: 'chrome', printAbove: false });
+  u.knob('mixer.master', 0, 0.098, { label: 'Master level', print: 'MASTER', r: 0.013, h: 0.018, style: 'chrome', printAbove: false });
+  u.knob('browse', 0, 0.148, { label: 'Browse library', r: 0.0055, encoder: true });
+  u.face.text(0, 0.17, 'ROTARY · 2 CH ISOLATOR MIXER', { size: 0.0032, color: u.finish.face.accent, spacing: 0.2 });
+  // walnut cheeks
+  const wood = new THREE.MeshStandardMaterial({ map: woodTexture(), roughness: 0.55, metalness: 0 });
+  for (const s of [-1, 1]) {
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.1, 0.353), wood);
+    cheek.position.set(s * (0.15 + 0.009), 0.05, 0);
+    cheek.castShadow = true;
+    u.group.add(cheek);
+  }
+}
+
+const rotary: BoardDef = {
+  id: 'rotary2',
+  name: 'Rotary House',
+  category: 'Twin turntables + rotary mixer',
+  description: 'The house and disco purist setup: two direct-drive turntables either side of a walnut-cheeked rotary mixer with big chrome level knobs, 3-band EQ, filters and a send FX. No crossfader, no sync — mix it by ear.',
+  decks: 2,
+  turntable: true,
+  noCrossfader: true,
+  xcurve: 0.3,
+  finishes: [
+    finish({ id: 'walnut', name: 'Walnut & black', swatch: '#5a3a22', body: '#1a1a1c', bodyMetal: 0.5, bodyRough: 0.4, face: face('#1b1b1e', '#e9e3d6', '#6e6a62', '#e0a458', 'brushed'), accent: '#e0a458', knobCap: null }),
+    finish({ id: 'silver', name: 'Silver', swatch: '#b9bdc4', body: '#8f949c', bodyMetal: 0.85, bodyRough: 0.35, face: face('#b0b4bb', '#16181c', '#595f69', '#8a2a1a', 'brushed'), accent: '#ff5a36', knobCap: null }),
+  ],
+  build(b) {
+    turntable(b, 'L', -0.39);
+    rotaryMixer(b);
+    turntable(b, 'R', 0.39);
+  },
+};
+
+export const BOARDS: BoardDef[] = [starter, pro, club, vinyl, quad, hybrid, rotary];
 
 export function boardById(id: string): BoardDef {
   return BOARDS.find((b) => b.id === id) ?? BOARDS[0];
 }
 
-export function buildBoard(def: BoardDef, finishId: string): BoardBuild {
+export function buildBoard(def: BoardDef, finishId: string, o: { stickers?: boolean } = {}): BoardBuild {
   const f = def.finishes.find((x) => x.id === finishId) ?? def.finishes[0];
   const b = new BoardBuild(f);
   def.build(b);
+  if (o.stickers !== false) applyStickers(b, `${def.id}:${f.id}`);
   b.finishAll();
   return b;
+}
+
+/** is deck `id` a turntable on this board? */
+export function isTurntable(def: BoardDef, id: number): boolean {
+  return def.turntable === true || (Array.isArray(def.turntable) && def.turntable.includes(id));
 }

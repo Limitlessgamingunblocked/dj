@@ -12,6 +12,8 @@ export interface SetupHooks {
   settings: { quality: Quality; autoGain: boolean; faderCurve: FaderCurve };
   save(): void;
   pickBoard(): void;
+  stickers(): boolean;
+  setStickers(v: boolean): void;
   clearLibrary(): Promise<void>;
 }
 
@@ -50,10 +52,13 @@ export class SetupPanel {
     const engine = app.engine;
     const board = h('button', { class: 'btn primary' }, 'Choose board & finish');
     board.addEventListener('click', () => hooks.pickBoard());
+    const stickers = h('input', { type: 'checkbox', id: 'stickers' }) as HTMLInputElement;
+    stickers.checked = hooks.stickers();
+    stickers.addEventListener('change', () => hooks.setStickers(stickers.checked));
 
     const camRow = h('div', { class: 'toggle-row' });
     (Object.keys(VIEW_LABELS) as ViewId[]).forEach((v) => {
-      const b = h('button', { class: 'btn' }, VIEW_LABELS[v]);
+      const b = h('button', { class: 'btn' }, stage.rig.label(v));
       b.addEventListener('click', () => stage.goTo(v));
       camRow.append(b);
     });
@@ -129,7 +134,7 @@ export class SetupPanel {
     this.el = h(
       'div',
       { class: 'cards pane', style: { alignItems: 'start' } },
-      h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Board & camera'), board, camRow, h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl, h('p', { class: 'note' }, 'Drag empty space to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. The Performance view drifts gently with the music while you are hands-off.')),
+      h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Board & camera'), board, h('label', { class: 'toggle-row', for: 'stickers' }, stickers, 'Old stickers and gaffer tape on the hardware'), camRow, h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl, h('p', { class: 'note' }, 'Drag empty space to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. The Performance view drifts gently with the music while you are hands-off.')),
       h(
         'div',
         { class: 'card', style: { display: 'grid', gap: '10px' } },

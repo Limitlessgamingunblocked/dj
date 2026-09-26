@@ -188,7 +188,7 @@ const PAD_MODE_PRINT: [string, string][] = [
 ];
 
 /** 4×2 performance pads centred at (cx, cz). */
-export function padGrid(u: Unit, side: 'L' | 'R', cx: number, cz: number, size: number, gap: number): void {
+export function padGrid(u: Unit, side: DeckRef, cx: number, cz: number, size: number, gap: number): void {
   const step = size + gap;
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 4; col++) {
@@ -200,7 +200,7 @@ export function padGrid(u: Unit, side: 'L' | 'R', cx: number, cz: number, size: 
 
 /** Pad mode buttons. With four buttons, HOT CUE and ROLL carry BEAT JUMP and
  * PITCH PLAY on their SHIFT layer. */
-export function padModes(u: Unit, side: 'L' | 'R', cx: number, cz: number, width: number, count: 4 | 6): void {
+export function padModes(u: Unit, side: DeckRef, cx: number, cz: number, width: number, count: 4 | 6): void {
   const list = PAD_MODE_PRINT.slice(0, count);
   const step = width / list.length;
   const size = Math.min(0.0025, step * 0.13);
@@ -213,7 +213,7 @@ export function padModes(u: Unit, side: 'L' | 'R', cx: number, cz: number, width
   });
 }
 
-export function transport(u: Unit, side: 'L' | 'R', x: number, z: number, r: number, gap: number, vertical = false): void {
+export function transport(u: Unit, side: DeckRef, x: number, z: number, r: number, gap: number, vertical = false): void {
   const f = u.finish;
   const cuePos: [number, number] = vertical ? [x, z] : [x, z];
   const playPos: [number, number] = vertical ? [x, z + r * 2 + gap] : [x + r * 2 + gap, z];
@@ -221,7 +221,7 @@ export function transport(u: Unit, side: 'L' | 'R', x: number, z: number, r: num
   u.button(`deck.${side}.play`, playPos[0], playPos[1], { label: 'Play / Pause', shape: 'big', w: r * 2, led: f.playColor, symbol: 'PLAY' });
 }
 
-export function loopRow(u: Unit, side: 'L' | 'R', cx: number, z: number, width: number, withSize = true): void {
+export function loopRow(u: Unit, side: DeckRef, cx: number, z: number, width: number, withSize = true): void {
   const items: [string, string, string | null][] = [
     ['loop.in', 'IN', 'loop.half'],
     ['loop.out', 'OUT', 'loop.double'],

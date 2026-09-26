@@ -1,5 +1,5 @@
 /*
- * 3D stage: WebGL renderer, club scene, the selected board, camera rig,
+ * 3D stage: WebGL renderer, the venue and its light show, the selected board, camera rig,
  * post-processing and all pointer interaction with the hardware.
  *
  * Views
@@ -20,8 +20,10 @@ import { Visualizer } from '../visualizer/Visualizer';
 import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
-import { Club, TABLE_Y } from './Club';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
+import type { VenueDef, VenueScene } from './venues/base';
+import { Crowd, TABLE_Y } from './venues/fixtures';
+import { LightShow } from './venues/show';
 
 export type StageView = 'booth' | 'split' | 'visual';
 export type Quality = 'low' | 'medium' | 'high';
@@ -40,6 +42,16 @@ export interface StageHooks {
   /** MIDI learn: return true when the click was consumed to pick a control */
   learnPick(id: string | null): boolean;
   learning(): boolean;
+  /** a control of fixed deck `n` was touched */
+  focusDeck(n: number): void;
+}
+
+interface Zone {
+  id: string;
+  box: THREE.Box3;
+  side: 'L' | 'R' | null;
+  deck: number | null;
+  mixer: boolean;
 }
 
 export class Stage {
@@ -49,13 +61,20 @@ export class Stage {
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   readonly rig: CameraRig;
-  readonly club: Club;
   readonly visualizer: Visualizer;
+  readonly show = new LightShow();
+  venue: VenueScene | null = null;
+  venueDef: VenueDef | null = null;
+  /** crowd energy 0..1 (set by the app's hype meter) */
+  hype = 0.3;
   board: BoardBuild | null = null;
   boardDef: BoardDef | null = null;
+  /** old stickers on the hardware */
+  stickers = true;
   view: StageView = 'booth';
   quality: Quality = 'medium';
-  reactiveLights = true;
+  readonly keyLight: THREE.SpotLight;
+  private avatar: Crowd;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
   private screenScene = new THREE.Scene();
@@ -74,18 +93,19 @@ export class Stage {
   private hoverDirty = false;
   /** hover-to-zoom */
   autoZoom = true;
-  private zones: { id: 'L' | 'M' | 'R'; box: THREE.Box3 }[] = [];
+  private zones: Zone[] = [];
   private boardTop = TABLE_Y;
   private pointerInside = false;
-  private zoneCandidate: 'L' | 'M' | 'R' | null = null;
+  private zoneCandidate: string | null = null;
   private zoneSince = 0;
-  private focusedZone: 'L' | 'M' | 'R' | null = null;
+  private focusedZone: string | null = null;
   private lastDragEnd = 0;
   private tap: { id: number; x: number; y: number; t: number } | null = null;
   /** the last pointer was a mouse (hover-to-zoom); touch zooms by tapping instead */
   private hoverMode = true;
   private focusXY = { x: 0, y: 0 };
   private wallFrustum = new THREE.Frustum();
+  private avatarHead = new THREE.Vector3(0, 1.55, 0.7);
   private projScreen = new THREE.Matrix4();
   private wallBox = new THREE.Box3();
 
@@ -116,9 +136,25 @@ export class Stage {
     this.scene.environmentIntensity = 0.45;
     pmrem.dispose();
 
-    this.camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.02, 80);
+    this.camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.02, 160);
     this.camera.position.set(0, 1.5, 0.8);
-    this.club = new Club(this.scene);
+    // booth work light (the only shadow caster)
+    this.keyLight = new THREE.SpotLight(0xfff4e6, 15, 7, 0.55, 0.65, 1.6);
+    this.keyLight.position.set(0.35, TABLE_Y + 2.4, 1.1);
+    this.keyLight.target.position.set(0, TABLE_Y, 0);
+    this.keyLight.castShadow = true;
+    this.keyLight.shadow.mapSize.set(2048, 2048);
+    this.keyLight.shadow.bias = -0.0004;
+    this.keyLight.shadow.normalBias = 0.015;
+    this.keyLight.shadow.radius = 3;
+    this.keyLight.shadow.camera.near = 0.8;
+    this.keyLight.shadow.camera.far = 5;
+    const fill = new THREE.DirectionalLight(0x9fb4ff, 0.3);
+    fill.position.set(-2, 3, 3);
+    this.scene.add(this.keyLight, this.keyLight.target, fill);
+    // you, as seen from the crowd and venue cameras
+    this.avatar = new Crowd([{ x: 0, z: 0.7, face: Math.PI, scale: 1.02 }], { clothes: ['#e9e6df'], seed: 3 });
+    this.scene.add(this.avatar.object);
     this.rig = new CameraRig(this.camera, this.canvas);
 
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
@@ -151,6 +187,41 @@ export class Stage {
     new ResizeObserver(() => this.resize()).observe(this.el);
   }
 
+  /** lights follow the music */
+  get reactiveLights(): boolean {
+    return this.show.controls.auto;
+  }
+
+  set reactiveLights(v: boolean) {
+    this.show.controls.auto = v;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* venue                                                                */
+  /* ------------------------------------------------------------------ */
+
+  setVenue(def: VenueDef): void {
+    if (this.venue) {
+      this.scene.remove(this.venue.group);
+      this.venue.dispose();
+    }
+    this.venueDef = def;
+    const v = def.build();
+    this.venue = v;
+    // the studio environment map is for the hardware; keep big venue surfaces from mirroring it
+    v.group.traverse((o) => {
+      const mats = (o as THREE.Mesh).material;
+      for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
+    });
+    this.scene.add(v.group);
+    this.scene.background = v.background;
+    this.scene.fog = v.fog;
+    this.keyLight.color.set(v.keyLight.color);
+    this.keyLight.intensity = v.keyLight.intensity;
+    this.show.setVenuePalette(def.palette);
+    this.rig.setViews(v.views);
+  }
+
   /* ------------------------------------------------------------------ */
   /* board management                                                     */
   /* ------------------------------------------------------------------ */
@@ -171,7 +242,7 @@ export class Stage {
       });
     }
     this.boardDef = def;
-    this.board = buildBoard(def, finishId);
+    this.board = buildBoard(def, finishId, { stickers: this.stickers });
     this.board.root.position.y = TABLE_Y;
     this.scene.add(this.board.root);
     this.hits = this.board.parts.flatMap((p) => p.hit);
@@ -187,19 +258,22 @@ export class Stage {
     if (this.rig.view === 'custom') this.rig.goTo('perf', true);
   }
 
-  /** Sections of the board the camera can zoom to: left deck, mixer, right deck. */
+  /** Sections of the board the camera can zoom to: one per hardware unit, or
+   * left deck / mixer / right deck slabs of a single-chassis controller. */
   private computeZones(): void {
     this.zones = [];
     const b = this.board;
     if (!b) return;
     const boxes = b.units.map((u) => new THREE.Box3().setFromObject(u.group));
     if (boxes.length >= 3) {
-      boxes.sort((a, c) => a.getCenter(new THREE.Vector3()).x - c.getCenter(new THREE.Vector3()).x);
-      this.zones = [
-        { id: 'L', box: boxes[0] },
-        { id: 'M', box: boxes[1] },
-        { id: 'R', box: boxes[boxes.length - 1] },
-      ];
+      const units = b.units.map((u, i) => ({ u, box: boxes[i] })).sort((a, c) => a.box.getCenter(new THREE.Vector3()).x - c.box.getCenter(new THREE.Vector3()).x);
+      units.forEach(({ u, box }, i) => {
+        const ids = b.parts.filter((p) => p.object.parent === u.group && p.id).map((p) => p.id!);
+        const mixer = ids.some((id) => id.startsWith('ch.'));
+        const m = ids.map((id) => /^deck\.(\w)\./.exec(id)).find(Boolean);
+        const ref = m ? m[1] : null;
+        this.zones.push({ id: `u${i}`, box, mixer, side: ref === 'L' || ref === 'R' ? ref : null, deck: ref && /\d/.test(ref) ? Number(ref) : null });
+      });
       return;
     }
     // single chassis: split into slabs around the mixer section
@@ -227,13 +301,13 @@ export class Stage {
       return bx;
     };
     this.zones = [
-      { id: 'L', box: slab(unit.min.x, lo) },
-      { id: 'M', box: slab(lo, hi) },
-      { id: 'R', box: slab(hi, unit.max.x) },
+      { id: 'L', box: slab(unit.min.x, lo), side: 'L', deck: null, mixer: false },
+      { id: 'M', box: slab(lo, hi), side: null, deck: null, mixer: true },
+      { id: 'R', box: slab(hi, unit.max.x), side: 'R', deck: null, mixer: false },
     ];
   }
 
-  private zoneAt(clientX: number, clientY: number, margin = 0): 'L' | 'M' | 'R' | null {
+  private zoneAt(clientX: number, clientY: number, margin = 0): string | null {
     if (!this.zones.length) return null;
     const ray = this.rayFrom(clientX, clientY);
     const p = planeHit(ray, this.boardTop - 0.01);
@@ -246,17 +320,33 @@ export class Stage {
       // within the margin around the whole board: nearest section
       const all = this.zones.reduce((acc, z) => acc.union(z.box), new THREE.Box3());
       if (p.x >= all.min.x - margin && p.x <= all.max.x + margin && p.z >= all.min.z - margin && p.z <= all.max.z + margin) {
-        return p.x < this.zones[0].box.max.x ? 'L' : p.x > this.zones[2].box.min.x ? 'R' : 'M';
+        let best = this.zones[0];
+        let bd = Infinity;
+        for (const z of this.zones) {
+          const d = Math.max(0, z.box.min.x - p.x, p.x - z.box.max.x);
+          if (d < bd) {
+            bd = d;
+            best = z;
+          }
+        }
+        return best.id;
       }
     }
     return null;
   }
 
-  get zoomedZone(): 'L' | 'M' | 'R' | null {
-    return this.rig.focused ? this.focusedZone : null;
+  /** what the camera is zoomed in on, for the HUD */
+  get zoomedLabel(): string | null {
+    if (!this.rig.focused || !this.focusedZone) return null;
+    const z = this.zones.find((q) => q.id === this.focusedZone);
+    if (!z) return null;
+    if (z.mixer) return 'Mixer';
+    if (z.deck) return `Deck ${z.deck}${this.boardDef && Array.isArray(this.boardDef.turntable) && this.boardDef.turntable.includes(z.deck) ? ' turntable' : ''}`;
+    const four = this.boardDef?.decks === 4;
+    return `${z.side === 'L' ? 'Left' : 'Right'} deck${four ? ` (${this.reg.layers[z.side ?? 'L']})` : ''}`;
   }
 
-  focusZone(id: 'L' | 'M' | 'R' | null): void {
+  focusZone(id: string | null): void {
     if (id === this.focusedZone) return;
     this.focusedZone = id;
     this.focusXY = { ...this.hoverXY };
@@ -282,7 +372,7 @@ export class Stage {
       return;
     }
     const movedSinceFocus = !this.pointerInside || Math.hypot(this.hoverXY.x - this.focusXY.x, this.hoverXY.y - this.focusXY.y) > 6;
-    let zone: 'L' | 'M' | 'R' | null;
+    let zone: string | null;
     if (!this.pointerInside) zone = null;
     else if (!movedSinceFocus) zone = this.focusedZone;
     else zone = this.zoneAt(this.hoverXY.x, this.hoverXY.y, this.focusedZone ? 0.08 : 0);
@@ -308,7 +398,13 @@ export class Stage {
 
   setQuality(q: Quality): void {
     this.quality = q;
-    this.club.setShadows(q !== 'low', q === 'high' ? 2048 : 1024);
+    this.keyLight.castShadow = q !== 'low';
+    const size = q === 'high' ? 2048 : 1024;
+    if (this.keyLight.shadow.mapSize.x !== size) {
+      this.keyLight.shadow.mapSize.set(size, size);
+      this.keyLight.shadow.map?.dispose();
+      this.keyLight.shadow.map = null as unknown as THREE.WebGLRenderTarget;
+    }
     this.renderer.shadowMap.enabled = q !== 'low';
     this.resize();
   }
@@ -394,6 +490,8 @@ export class Stage {
         }
         const drag: Drag = { part: hit.part, sx: e.clientX, sy: e.clientY, point: hit.point, object: hit.object };
         this.drags.set(e.pointerId, drag);
+        const fixed = hit.part.id ? /^deck\.(\d)\./.exec(hit.part.id) : null;
+        if (fixed) this.hooks.focusDeck(Number(fixed[1]));
         this.rig.hold();
         this.rig.noteInteraction();
         const now = performance.now();
@@ -498,11 +596,11 @@ export class Stage {
   /* frame                                                                */
   /* ------------------------------------------------------------------ */
 
-  private wallVisible(): boolean {
+  private onScreen(objects: THREE.Object3D[]): boolean {
+    if (!objects.length) return false;
     this.projScreen.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.wallFrustum.setFromProjectionMatrix(this.projScreen);
-    this.wallBox.setFromObject(this.club.ledWall);
-    return this.wallFrustum.intersectsBox(this.wallBox);
+    return objects.some((o) => this.wallFrustum.intersectsBox(this.wallBox.setFromObject(o)));
   }
 
   render(dt: number, f: Features, visSettings: { shake: boolean }): void {
@@ -513,17 +611,31 @@ export class Stage {
     this.updateHover();
     this.updateAutoZoom();
 
+    const show = this.show.update(f, dt, this.hype);
+    const venue = this.venue;
     if (this.view !== 'visual') {
       this.rig.update(dt, f, visSettings.shake);
       if (this.board) for (const p of this.board.parts) p.update(this.ctx);
-      this.club.update(f, dt, this.reactiveLights);
+      venue?.update(show, f, dt, this.camera);
+      this.avatar.update(show, dt);
+      // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
+      const v = this.rig.view;
+      this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
     }
 
-    const needVis = this.view !== 'booth' || this.wallVisible();
+    const needVis = this.view !== 'booth' || (!!venue && this.onScreen(venue.visObjects));
     if (needVis) {
       this.visualizer.render(f, dt);
       const tex = this.visualizer.texture;
-      this.club.setVisTexture(tex);
+      if (venue) {
+        for (const m of venue.visMaterials) {
+          if (m.map !== tex) {
+            m.map = tex;
+            m.color.set(0xffffff);
+            m.needsUpdate = true;
+          }
+        }
+      }
       const mat = this.screenQuad.material as THREE.MeshBasicMaterial;
       if (mat.map !== tex) {
         mat.map = tex;
@@ -538,7 +650,22 @@ export class Stage {
       return;
     }
     this.bloom.enabled = this.quality !== 'low';
-    this.bloom.strength = 0.45 + (this.reactiveLights ? f.kickPulse * 0.25 + f.drop * 0.4 : 0);
+    this.bloom.strength = 0.5 + show.kick * 0.2 + show.drop * 0.35 + show.flash * 0.3;
+    // live stream monitor (Boiler Room): low-res feed from the venue camera
+    const feed = venue?.feed;
+    if (feed && this.frame % 3 === 0 && this.onScreen([feed.screen])) {
+      const auto = r.shadowMap.autoUpdate;
+      r.shadowMap.autoUpdate = false;
+      const vis = this.avatar.object.visible;
+      this.avatar.object.visible = true;
+      feed.screen.visible = false;
+      r.setRenderTarget(feed.target);
+      r.render(this.scene, feed.camera);
+      r.setRenderTarget(null);
+      feed.screen.visible = true;
+      this.avatar.object.visible = vis;
+      r.shadowMap.autoUpdate = auto;
+    }
     this.composer.render(dt);
     if (this.view === 'split') {
       const { w, h } = this.size;

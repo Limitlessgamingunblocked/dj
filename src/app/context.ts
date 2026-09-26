@@ -6,6 +6,7 @@ import type { Library } from '../library/Library';
 
 export interface AppEvents extends Record<string, unknown> {
   board: string;
+  venue: string;
   selection: LibraryTrack | null;
   layout: void;
 }
@@ -23,4 +24,7 @@ export interface AppContext {
   select(track: LibraryTrack | null): void;
   /** deck currently shown on the left/right side */
   sideDeck(side: 'L' | 'R'): number;
+  /** id of the venue being played */
+  venueId(): string;
+  setVenue(id: string): void;
 }

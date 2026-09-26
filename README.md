@@ -1,6 +1,6 @@
 # Deckhouse DJ
 
-A DJ studio that runs in the browser. Pick a real-world style board — an entry-level controller, a flagship four-deck controller, a club rig of two media players and a four-channel mixer, or twin turntables with a battle mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Load your own music, mix it, add effects and watch an audio-reactive visual player on the club's LED wall.
+A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks or the house warehouse — each with its own room, crowd and a light show of lasers, moving heads, strobes, blinders and CO2 that follows the beat. Load your own music, mix it, add effects and watch an audio-reactive visual player.
 
 It opens ready to play: two generated demo tracks are already loaded on decks 1 and 2.
 
@@ -27,11 +27,15 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 | Pro Four | Flagship 4-channel controller with on-jog displays, centre screen, LED filter rings | 4 (layers) |
 | Club Standard | Two media players with waveform screens + 4-channel club mixer | 4 (layers) |
 | Vinyl Battle | Twin direct-drive turntables + 2-channel battle mixer | 2 |
+| Festival Quad | Four media players (decks 3·1 · mixer · 2·4) + 4-channel mixer | 4 (one unit each) |
+| Hybrid Booth | Turntables on decks 3/4 outside media players on decks 1/2 + 4-channel mixer | 4 (one unit each) |
+| Rotary House | Twin turntables + walnut-cheeked 2-channel rotary mixer (no crossfader, no sync) | 2 |
 
 - PBR materials with a room environment map, real-time shadows from the booth light, bloom on LEDs and screens, printed faceplates.
-- Each board comes in several finishes.
+- Each board comes in several finishes, and every board carries old stickers and gaffer tape — drawn procedurally and aged (sun-faded, scratched, torn and peeling corners), placed only in free space so they never cover a control. Switch them off in Settings.
+- On the one-unit-per-deck boards the software deck panels follow whichever player or turntable you touch.
 - Controls: drag knobs up/down (Shift for fine), drag faders, double-click to reset, scroll wheel over any control. Jogs have a capacitive top (scratch in vinyl mode) and an outer ring (pitch bend). Turntables have platter inertia with adjustable start/brake, slip-mat scratching (the platter keeps spinning under the record), tonearm needle drop, 33/45 and adjustable record wear (crackle, hiss, wow & flutter). Multi-touch works on touch screens.
-- Hover-to-zoom: rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off with the Auto-zoom button on the stage.
+- Hover-to-zoom (zones per unit on the multi-unit rigs): rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off with the Auto-zoom button on the stage.
 - Cameras: top-down, performance (drifts gently with the music when you're hands-off), first-person booth and club views, orbit/pan/zoom with damping, plus saved camera views.
 
 ### Audio engine
@@ -62,16 +66,33 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - JSON export/import of crates, cue points and beat grids.
 - Beat-grid tools: tap tempo, ×2, ÷2, set downbeat, nudge grid.
 
+### Venues and light show
+| Venue | What it is |
+|---|---|
+| Circoloco @ DC-10, Ibiza | Low red room, orange globe lamps over a packed floor, warm bulb strings, red laser sheets, the fan wheel on the wall, cream booth monitors, the crowd right at the booth |
+| Boiler Room, Los Angeles | Outdoor night session: crowd all around (and behind) you with phones up, the red neon ring on its wires, City Hall behind, a hot lamp on a truss tower and the stream camera — whose monitor shows a live render of the shot. Try the “Stream cam” view |
+| Berghain, Berlin | 18 m concrete hall, pillars, steel balcony, towering stacks, cold white beams, red work lamps and a strobe bank for the peak |
+| Printworks, London | Colossal hall with three levels of gantries, a far-wall screen and the overhead rig of light bars and beams that lowers through the build-up and slams down on the drop; lasers, blinders and CO2 across the stage |
+| Deckhouse Warehouse | Raised stage, 11 m LED wall with the visual player, truss of moving heads |
+
+The real venues are fan-made recreations and are not affiliated with or endorsed by the clubs or promoters.
+
+- The light show director reads the beat grid, energy, breakdowns and drops: moving-head patterns change every 8 bars, lasers (fan, tunnel, sheet, chase, crossfire) come in with energy and sheet over the crowd in breakdowns, build-ups get a strobe roll, and drops fire CO2, blinders and a bar of strobes.
+- Lighting desk (Lights & venue tab): follow-the-music on/off, drop FX, palettes, laser mode and pattern, intensity, haze, and hold pads for strobe, blinders, lasers, blackout and CO2 — also on the keyboard (N, B, Y, `, T) and MIDI-learnable.
+- All fixtures are instanced: volumetric beam cones, camera-facing laser beams, dotted LED strings, glowing globes, CO2 particle plumes, drifting haze and colour-washed fog.
+- The crowd dances on the beat, puts hands up and jumps at the peak. A crowd meter tracks the room: it rises with the music, beat-locked blends and drops, and falls with trainwrecks and key clashes, with call-outs on the stage.
+- Each venue has its own camera angles (over the shoulder, stream cam, balcony, gantry, from the crowd); you appear in the booth in those shots.
+
 ### Visual player
-Five GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid and CRT Monitor.
+Ten GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid, CRT Monitor, Laser Show, Kaleidoscope, Strobe Geometry, Liquid Chrome and Fractal Flight.
 
 - Driven by sub-bass, kick, snare, vocal and high bands, locked to the master deck's beat grid, with drop detection.
 - Post-processing: bloom, chromatic aberration, palette shifts, and camera shake that can be switched off.
-- Shows on the club's LED wall and side screens, as picture-in-picture, or as a full-screen visual player.
+- Shows on the venue screens (the warehouse LED wall, the Printworks far wall), as picture-in-picture, or as a full-screen visual player.
 
 ### Control surfaces
 - **Web MIDI**: hot-plug, MIDI learn (click any on-screen or 3D control, then move the hardware control), relative encoders and jogs, LED feedback, and mapping export/import. No brand-specific presets are included — map your controller with MIDI learn.
-- **Keyboard**: `Z`/`X`/`C` cue, play and sync the left deck; `M`/`,`/`.` do the same for the right. `1–4 QWER` and `7–0 UIOP` are the pads, `[ ] \` move the crossfader, `↑ ↓` browse, `← →` load, `Shift+1…8` fire the sampler, and `?` in the app lists everything.
+- **Keyboard**: `Z`/`X`/`C` cue, play and sync the left deck; `M`/`,`/`.` do the same for the right. `1–4 QWER` and `7–0 UIOP` are the pads, `[ ] \` move the crossfader, `↑ ↓` browse, `← →` load, `Shift+1…8` fire the sampler, `N`, `B`, `Y` and the backtick key hold strobe, blinders, lasers and blackout, `T` fires the CO2, and `?` in the app lists everything.
 
 ## Project layout
 
@@ -80,7 +101,8 @@ wasm/dsp.c                 C DSP core → WebAssembly (npm run build:wasm, needs
 src/audio/                 engine, decks, channel strips, mixer, beat FX, sampler, recorder, worklets
 src/analysis/              tempo/grid, key, waveform, PCM parsers, worker pool
 src/library/               IndexedDB storage, tags, crates, search
-src/three/                 stage, club scene, camera rig, board parts and presets
+src/three/                 stage, camera rig, board parts and presets, stickers
+src/three/venues/          venues, light show director, fixtures (beams, lasers, strobes, crowd…)
 src/visualizer/            audio features and visual modes
 src/ui/                    software panels and widgets
 src/app/                   app shell, control registry bindings, keyboard

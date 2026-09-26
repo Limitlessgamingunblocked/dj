@@ -25,9 +25,13 @@ export interface Features {
   beatPulse: number;
   beatPhase: number;
   beatInBar: number;
+  /** absolute beat index (increments on every beat) */
+  beatCount: number;
   bpm: number;
   drop: number;
   dropHit: boolean;
+  /** 0..1: how deep into a breakdown / build-up the music is */
+  breakdown: number;
   energy: number;
   hue: number;
   time: number;
@@ -104,9 +108,11 @@ export class AudioFeatures {
       beatPulse: 0,
       beatPhase: 0,
       beatInBar: 0,
+      beatCount: 0,
       bpm: 120,
       drop: 0,
       dropHit: false,
+      breakdown: 0,
       energy: 0,
       hue: 0,
       time: 0,
@@ -208,6 +214,7 @@ export class AudioFeatures {
       f.beatPhase = ((bp % 1) + 1) % 1;
       const idx = Math.floor(bp);
       f.beatInBar = ((idx % 4) + 4) % 4;
+      f.beatCount = idx;
       if (idx !== this.lastBeatIdx) {
         this.lastBeatIdx = idx;
         f.beatPulse = 1;
@@ -225,6 +232,7 @@ export class AudioFeatures {
       f.beatPhase = this.fallbackPhase % 1;
       const idx = Math.floor(this.fallbackPhase);
       f.beatInBar = idx % 4;
+      f.beatCount = idx;
       if (idx !== this.lastBeatIdx) {
         this.lastBeatIdx = idx;
         f.beatPulse = f.playing ? 1 : 0.2;
@@ -241,10 +249,12 @@ export class AudioFeatures {
         f.dropHit = true;
         f.drop = 1;
         f.hue = (f.hue + 0.27) % 1;
+        this.breakdownTime = 0;
       }
       this.breakdownTime = Math.max(0, this.breakdownTime - dt * 2);
     }
     if (!f.dropHit) f.drop *= Math.exp(-dt * 0.9);
+    f.breakdown = f.playing ? Math.min(1, this.breakdownTime / 8) : 0;
     f.energy += (f.level - f.energy) * Math.min(1, dt * 0.5);
     f.hue = (f.hue + dt * 0.012 * (0.5 + f.energy)) % 1;
     return f;

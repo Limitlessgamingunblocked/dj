@@ -13,7 +13,10 @@ export function openHelp(): void {
     ['Perform', 'Pads switch between hot cues, loop rolls, slicer, beat jump, pitch play and the sampler. Hold SHIFT (or Shift on the keyboard) for the second layer. Add Beat FX from the Mixer & FX tab or the board.'],
     ['Scratch', 'With VINYL on, grab the top of a jog wheel or the record on the turntables and move it. The platter edge nudges instead. Turntables have real start/brake inertia.'],
     ['More per deck', 'Open “Loops, key & stems” under the pads for loops, beat jump, key lock and key shift, slip, and turning vocals, drums, bass or melody up and down.'],
-    ['Visuals', 'The LED wall follows the music. Switch to Split or Visuals in the top bar for the full visual player.'],
+    ['Venue', 'Pick where you play with 📍 in the top bar: Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks or the Deckhouse warehouse. The camera menu has each venue’s signature angle (try “Stream cam” at Boiler Room) and a view from the crowd.'],
+    ['Lights', 'The light show follows the beat grid by itself — moving heads, lasers, strobes, blinders and CO2 hit harder in build-ups and go off on the drop. Fire them by hand from the Lights & venue tab or hold N (strobe), B (blinders), Y (lasers), ` (blackout) and press T for CO2.'],
+    ['Crowd', 'The crowd meter rises with the music, clean beat-locked blends and drops, and drops with trainwrecks and key clashes. Watch the dancers put their hands up.'],
+    ['Visuals', 'Ten visual modes follow the music on the venue screens. Switch to Split or Visuals in the top bar for the full visual player.'],
     ['Record', 'Press REC to capture your mix; press it again to play back or save the file.'],
   ];
   openModal(

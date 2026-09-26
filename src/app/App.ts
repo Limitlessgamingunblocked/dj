@@ -13,7 +13,13 @@ import type { LibraryTrack, PcmData } from '../core/types';
 import { clamp } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
 import { MidiManager } from '../midi/MidiManager';
-import { boardById, type BoardDef } from '../three/boards';
+import { boardById, isTurntable, type BoardDef } from '../three/boards';
+import { venueById } from '../three/venues';
+import type { ShowControls } from '../three/venues/show';
+import { LightsPanel } from '../ui/LightsPanel';
+import { openVenuePicker } from '../ui/VenuePicker';
+import { Hype, type Callout } from './Hype';
+import { registerLightControls } from './lightControls';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type Quality, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
@@ -40,6 +46,7 @@ import { bindKeyboard } from './keyboard';
 interface Settings {
   board: string;
   finish: string;
+  venue: string;
   view: StageView;
   camera: ViewId;
   quality: Quality;
@@ -51,11 +58,14 @@ interface Settings {
   focus: boolean;
   reactiveLights: boolean;
   autoZoom: boolean;
+  stickers: boolean;
+  lights: Partial<ShowControls>;
 }
 
 const DEFAULTS: Settings = {
   board: 'club4',
   finish: 'booth',
+  venue: 'dc10',
   view: 'booth',
   camera: 'perf',
   quality: 'medium',
@@ -67,9 +77,13 @@ const DEFAULTS: Settings = {
   focus: false,
   reactiveLights: true,
   autoZoom: true,
+  stickers: true,
+  lights: {},
 };
 
-type TabId = 'library' | 'mixer' | 'sampler' | 'visuals' | 'settings';
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'smoke'] as const;
+
+type TabId = 'library' | 'mixer' | 'lights' | 'sampler' | 'visuals' | 'settings';
 
 export class App implements AppContext {
   engine!: AudioEngine;
@@ -93,6 +107,9 @@ export class App implements AppContext {
   private setupPanel!: SetupPanel;
   private meters = { ch: [[0, 0], [0, 0], [0, 0], [0, 0]] as [number, number][], master: [0, 0] as [number, number] };
   private audioBanner!: HTMLElement;
+  private hype!: Hype;
+  private callouts!: HTMLElement;
+  private viewers = 900;
   private last = 0;
   private frame = 0;
 
@@ -108,6 +125,21 @@ export class App implements AppContext {
 
   sideDeck(side: 'L' | 'R'): number {
     return this.reg.layers[side];
+  }
+
+  venueId(): string {
+    return this.settings.venue;
+  }
+
+  setVenue(id: string, initial = false): void {
+    const def = venueById(id);
+    const changed = def.id !== this.stage.venueDef?.id;
+    this.settings.venue = def.id;
+    if (changed || initial) this.stage.setVenue(def);
+    document.documentElement.style.setProperty('--venue', def.ui);
+    if (changed && !initial && def.note) toast(def.note);
+    this.events.emit('venue', def.id);
+    this.save();
   }
 
   selectedTrack(): LibraryTrack | null {
@@ -205,13 +237,27 @@ export class App implements AppContext {
       master: () => this.meters.master,
       learning: () => this.midi.learning,
       learnPick: (id) => this.midi.pick(id),
+      focusDeck: (n) => {
+        // boards with one unit per deck: the software panels follow the deck you touch
+        if (!this.boardDef.fixedDecks) return;
+        const side = n % 2 ? 'L' : 'R';
+        if (this.reg.layers[side] !== n) {
+          this.reg.setLayer(side, n);
+          this.events.emit('layout', undefined);
+        }
+      },
     });
     Object.assign(this.stage.visualizer.settings, this.settings.vis);
     this.stage.visualizer.setMode(this.stage.visualizer.settings.mode);
     this.stage.reactiveLights = this.settings.reactiveLights;
+    for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
+    registerLightControls(this.reg, this.stage.show, () => this.saveLights());
+    this.hype = new Hype(this.engine);
+    this.hype.onCallout((c) => this.callout(c));
 
     this.buildLayout();
     loading.remove();
+    this.setVenue(this.settings.venue, true);
     this.stage.setQuality(this.settings.quality);
     this.applyBoard(this.settings.board, this.settings.finish, true);
     this.stage.rig.goTo(this.settings.camera, true);
@@ -289,6 +335,11 @@ export class App implements AppContext {
     this.audioBanner.querySelector('button')!.addEventListener('click', () => void this.engine.resume());
     this.topbar = new TopBar(this, {
       pickBoard: () => this.pickBoard(),
+      pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id)),
+      venueName: () => venueById(this.settings.venue).name,
+      hype: () => this.hype.value,
+      beat: () => this.features.f.beatPulse,
+      live: () => (this.settings.venue === 'boilerroom' ? (this.viewers >= 1000 ? `${(this.viewers / 1000).toFixed(1)}k` : String(Math.round(this.viewers))) : null),
       view: (v) => this.setView(v),
       fullscreen: () => this.fullscreen(),
       record: () => void this.toggleRecord(),
@@ -319,10 +370,16 @@ export class App implements AppContext {
       if (fs) this.fullscreen();
     });
     const midi = new MidiPanel(this.midi, this.reg);
+    const lights = new LightsPanel(this, this.stage, () => this.saveLights());
     this.setupPanel = new SetupPanel(this, this.stage, {
       settings: this.settings,
       save: () => this.save(),
       pickBoard: () => this.pickBoard(),
+      stickers: () => this.settings.stickers,
+      setStickers: (v) => {
+        this.settings.stickers = v;
+        this.applyBoard(this.boardDef.id, this.settings.finish);
+      },
       clearLibrary: async () => {
         for (const t of this.library.list()) if (t.source === 'file') await this.library.deleteTrack(t.id);
       },
@@ -335,6 +392,7 @@ export class App implements AppContext {
         mixer.update(dt, this.meters);
         fx.update();
       }],
+      ['lights', 'Lights & venue', lights.el, () => lights.update()],
       ['sampler', 'Sampler', sampler.el, () => sampler.update()],
       ['visuals', 'Visuals', visuals.el, () => visuals.update()],
       ['settings', 'Settings', settingsTab, () => this.setupPanel.update()],
@@ -397,6 +455,8 @@ export class App implements AppContext {
     const zoomChip = h('button', { class: 'zoom-chip', title: 'Zoom back out' });
     zoomChip.addEventListener('click', () => this.stage.focusZone(null));
     this.hud = { zoomBtn, camBtn, zoomChip, expandBtn };
+    this.callouts = h('div', { class: 'callouts', 'aria-live': 'polite' });
+    this.stage.el.append(this.callouts);
     return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, zoomBtn, camBtn, expandBtn));
   }
 
@@ -405,12 +465,27 @@ export class App implements AppContext {
     zoomBtn.classList.toggle('active', this.stage.autoZoom);
     zoomBtn.setAttribute('aria-pressed', String(this.stage.autoZoom));
     const v = this.stage.rig.view;
-    setText(camBtn, `${v === 'custom' ? 'Custom view' : VIEW_LABELS[v]} ▾`);
-    const z = this.stage.zoomedZone;
-    const four = this.deckCount() === 4;
-    const names = { L: `Left deck${four ? `s (${this.sideDeck('L')})` : ''}`, M: 'Mixer', R: `Right deck${four ? `s (${this.sideDeck('R')})` : ''}` };
+    setText(camBtn, `${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
+    const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
-    if (z) setText(zoomChip, `🔍 ${names[z]} · move off the board or click here to zoom out`);
+    if (z) setText(zoomChip, `🔍 ${z} · move off the board or click here to zoom out`);
+  }
+
+  /** a short message from the crowd, over the stage */
+  private callout(c: Callout): void {
+    const el = h('div', { class: `callout ${c.tone}` }, c.text);
+    this.callouts.append(el);
+    while (this.callouts.children.length > 3) this.callouts.firstElementChild?.remove();
+    setTimeout(() => el.classList.add('out'), 3200);
+    setTimeout(() => el.remove(), 3800);
+  }
+
+  private saveLights(): void {
+    const c = this.stage.show.controls;
+    const out: Record<string, unknown> = {};
+    for (const k of LIGHT_KEYS) out[k] = c[k];
+    this.settings.lights = out as Partial<ShowControls>;
+    this.save();
   }
 
   private showTab(id: TabId): void {
@@ -441,13 +516,15 @@ export class App implements AppContext {
       this.reg.setLayer('R', 2);
       this.engine.setDeckCount(def.decks);
       for (const d of this.engine.decks) {
-        d.setTurntable(def.turntable);
+        d.setTurntable(isTurntable(def, d.id));
         d.vinyl = true;
       }
       this.engine.mixer.setCurve(def.xcurve);
-      for (const ch of this.engine.channels) ch.state.assign = ch.index % 2 === 0 ? 'A' : 'B';
+      for (const ch of this.engine.channels) ch.state.assign = def.noCrossfader ? 'THRU' : ch.index % 2 === 0 ? 'A' : 'B';
+      if (def.noCrossfader) this.reg.setValue('mixer.xfader', 0.5, 'ui');
       this.engine.mixer.updateCrossfader();
     }
+    this.stage.stickers = this.settings.stickers;
     this.stage.setBoard(def, this.settings.finish);
     this.events.emit('board', def.id);
     this.save();
@@ -472,7 +549,7 @@ export class App implements AppContext {
   private cameraMenu(x: number, y: number): void {
     const rig = this.stage.rig;
     const items: ({ label: string; action: () => void } | 'sep')[] = (Object.keys(VIEW_LABELS) as ViewId[]).map((v) => ({
-      label: `${rig.view === v ? '● ' : ''}${VIEW_LABELS[v]}`,
+      label: `${rig.view === v ? '● ' : ''}${rig.label(v)}`,
       action: () => {
         this.stage.goTo(v);
         this.settings.camera = v;
@@ -573,6 +650,8 @@ export class App implements AppContext {
       for (let i = 0; i < 4; i++) this.meters.ch[i] = i < n ? this.engine.channels[i].levels() : [0, 0];
       this.meters.master = this.engine.mixer.masterLevels();
       const f = this.features.update(dt);
+      this.stage.hype = this.hype.update(dt, f);
+      this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       this.stage.render(dt, f, this.stage.visualizer.settings);
       this.wave.update();
       for (const d of this.decksUi) d.update();

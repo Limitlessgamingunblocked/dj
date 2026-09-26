@@ -7,8 +7,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { loadSetting, saveSetting } from '../core/settings';
 import type { Features } from '../visualizer/AudioFeatures';
+import type { VenueViews } from './venues/base';
 
-export type ViewId = 'top' | 'perf' | 'booth' | 'wide';
+export type ViewId = 'top' | 'perf' | 'booth' | 'wide' | 'crowd';
 export interface CameraAnchor {
   name: string;
   pos: [number, number, number];
@@ -19,7 +20,8 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   top: 'Top-down',
   perf: 'Performance',
   booth: 'Booth POV',
-  wide: 'Club',
+  wide: 'Venue',
+  crowd: 'From the crowd',
 };
 
 interface Pose {
@@ -50,6 +52,7 @@ export class CameraRig {
   private inUpdate = false;
   private userMoved = false;
   private onManual: (() => void) | null = null;
+  private venueViews: VenueViews | null = null;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -63,8 +66,8 @@ export class CameraRig {
     c.zoomSpeed = 0.8;
     c.panSpeed = 0.7;
     c.minDistance = 0.18;
-    c.maxDistance = 14;
-    c.maxPolarAngle = Math.PI * 0.47;
+    c.maxDistance = 45;
+    c.maxPolarAngle = Math.PI * 0.56;
     c.screenSpacePanning = true;
     c.addEventListener('start', () => {
       this.interacting = true;
@@ -96,6 +99,16 @@ export class CameraRig {
     this.onManual = fn;
   }
 
+  /** the venue's own camera angles (wide / crowd) */
+  setViews(v: VenueViews): void {
+    this.venueViews = v;
+    if ((this.view === 'wide' || this.view === 'crowd') && !this.focused) this.goTo(this.view);
+  }
+
+  label(v: ViewId): string {
+    return v === 'wide' && this.venueViews ? this.venueViews.wideLabel : VIEW_LABELS[v];
+  }
+
   noteInteraction(): void {
     this.lastInteraction = performance.now();
   }
@@ -119,7 +132,8 @@ export class CameraRig {
       top: { pos: new THREE.Vector3(c.x, top + h, c.z + h * 0.02), target: new THREE.Vector3(c.x, top, c.z) },
       perf: { pos: new THREE.Vector3(c.x, top + perfDist * 0.78, c.z + size.z / 2 + perfDist * 0.55), target: new THREE.Vector3(c.x, top - 0.02, c.z - size.z * 0.08) },
       booth: { pos: new THREE.Vector3(c.x, 1.66, this.box.max.z + 0.34), target: new THREE.Vector3(c.x, top, c.z - size.z * 0.25) },
-      wide: { pos: new THREE.Vector3(c.x + 2.6, 2.3, c.z + 3.3), target: new THREE.Vector3(0, 1.7, -3.2) },
+      wide: this.venueViews ? { pos: this.venueViews.wide.pos.clone(), target: this.venueViews.wide.target.clone() } : { pos: new THREE.Vector3(c.x + 2.6, 2.3, c.z + 3.3), target: new THREE.Vector3(0, 1.7, -3.2) },
+      crowd: this.venueViews ? { pos: this.venueViews.crowd.pos.clone(), target: this.venueViews.crowd.target.clone() } : { pos: new THREE.Vector3(0, 1.2, -6), target: new THREE.Vector3(0, 1.3, 0) },
     };
   }
 
@@ -247,8 +261,9 @@ export class CameraRig {
       this.camera.position.lerp(want, 1 - Math.exp(-dt * 0.8));
     }
     this.controls.update();
-    if (shakeEnabled && f && !this.focused && (this.view === 'wide' || (this.view === 'perf' && idle))) {
-      const mult = this.view === 'wide' ? 3 : 1;
+    if (this.camera.position.y < -1.2) this.camera.position.y = -1.2;
+    if (shakeEnabled && f && !this.focused && (this.view === 'wide' || this.view === 'crowd' || (this.view === 'perf' && idle))) {
+      const mult = this.view === 'perf' ? 1 : 3;
       this.shake = Math.max(this.shake * Math.exp(-dt * 12), (f.kickPulse * 0.006 * f.intensity + f.drop * 0.01) * mult);
       this.shakeOffset.set((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
       this.camera.position.add(this.shakeOffset);

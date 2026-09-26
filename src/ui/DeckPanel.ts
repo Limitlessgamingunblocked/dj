@@ -18,6 +18,9 @@ export class DeckPanel {
   readonly el: HTMLElement;
   private widgets: Widget[] = [];
   private art: HTMLElement;
+  private disc: HTMLElement;
+  private discLabel: HTMLElement;
+  private discAngle = 1e9;
   private num: HTMLElement;
   private title: HTMLElement;
   private artist: HTMLElement;
@@ -48,7 +51,10 @@ export class DeckPanel {
     };
 
     this.num = h('span', { class: 'num' });
-    this.art = h('div', { class: 'deck-art' }, this.num);
+    // a little record that spins with the deck; the track art is its label
+    this.discLabel = h('div', { class: 'disc-label' });
+    this.disc = h('div', { class: 'disc' }, this.discLabel);
+    this.art = h('div', { class: 'deck-art', title: 'Spins with the platter' }, this.disc, this.num);
     this.title = h('div', { class: 't' });
     this.artist = h('div', { class: 'a' });
     this.layerBtn = h('button', { class: 'btn small', title: 'Switch deck layer' }) as HTMLButtonElement;
@@ -330,7 +336,13 @@ export class DeckPanel {
     this.layerBtn.title = `Switch to deck ${this.side === 'L' ? (id === 1 ? 3 : 1) : id === 2 ? 4 : 2}`;
     const t = d.track;
     const art = t?.meta.art ? `url("${t.meta.art}")` : '';
-    if (this.art.style.backgroundImage !== art) this.art.style.backgroundImage = art;
+    if (this.discLabel.style.backgroundImage !== art) this.discLabel.style.backgroundImage = art;
+    const deg = Math.round((-d.recordAngle * 180) / Math.PI);
+    if (deg !== this.discAngle) {
+      this.discAngle = deg;
+      this.disc.style.transform = `rotate(${deg}deg)`;
+    }
+    setClass(this.art, 'spinning', d.playing);
     setText(this.title, t ? t.meta.title : 'No track loaded');
     setText(this.artist, t ? t.meta.artist || t.fileName : 'Drag a track here, or use Load in the library');
     setText(this.bpm, d.loaded ? formatBpm(d.bpm) : '--.-');

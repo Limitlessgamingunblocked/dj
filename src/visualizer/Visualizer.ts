@@ -1,5 +1,5 @@
 /*
- * Visual player: renders the active mode through its own post chain
+ * Visual player (10 modes): renders the active mode through its own post chain
  *   RenderPass → UnrealBloomPass → final pass (chromatic aberration, palette
  *   shift, vignette, grain) → output texture.
  * The texture feeds the LED wall / projection screens in the club scene and
@@ -12,6 +12,10 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import type { Features } from './AudioFeatures';
 import { MODE_FACTORIES, MODE_INFO, type VisMode } from './modes';
+import { MORE_INFO, MORE_MODES } from './modes2';
+
+const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES];
+const INFO = [...MODE_INFO, ...MORE_INFO];
 
 const FinalShader = {
   uniforms: {
@@ -77,7 +81,7 @@ export class Visualizer {
     settings: Partial<VisSettings>,
   ) {
     this.settings = { mode: 'warp', intensity: 1, bloom: true, aberration: true, shake: true, palette: true, autoCycle: false, ...settings };
-    this.modes = MODE_FACTORIES.map((f) => f());
+    this.modes = FACTORIES.map((f) => f());
     this.current = this.modes.find((m) => m.id === this.settings.mode) ?? this.modes[0];
     const rt = new THREE.WebGLRenderTarget(this.w, this.h, { type: THREE.HalfFloatType, samples: 0 });
     this.composer = new EffectComposer(renderer, rt);
@@ -92,7 +96,7 @@ export class Visualizer {
   }
 
   static modeInfo() {
-    return MODE_INFO;
+    return INFO;
   }
 
   get modeId(): string {

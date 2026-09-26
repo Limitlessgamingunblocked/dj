@@ -21,13 +21,13 @@ export interface VisMode {
   dispose(): void;
 }
 
-const PALETTE = /* glsl */ `
+export const PALETTE = /* glsl */ `
 vec3 palette(float t, float hue) {
   return 0.5 + 0.5 * cos(6.28318 * (t + hue + vec3(0.0, 0.33, 0.67)));
 }
 `;
 
-function spectrumTexture(n = 256): THREE.DataTexture {
+export function spectrumTexture(n = 256): THREE.DataTexture {
   const t = new THREE.DataTexture(new Uint8Array(n * 4), n, 1, THREE.RGBAFormat);
   t.magFilter = THREE.LinearFilter;
   t.minFilter = THREE.LinearFilter;
@@ -35,7 +35,7 @@ function spectrumTexture(n = 256): THREE.DataTexture {
   return t;
 }
 
-function writeSpectrum(t: THREE.DataTexture, spec: Float32Array): void {
+export function writeSpectrum(t: THREE.DataTexture, spec: Float32Array): void {
   const d = t.image.data as Uint8Array;
   const n = t.image.width;
   for (let i = 0; i < n; i++) {
@@ -46,7 +46,7 @@ function writeSpectrum(t: THREE.DataTexture, spec: Float32Array): void {
   t.needsUpdate = true;
 }
 
-function fullscreenQuad(frag: string, uniforms: Record<string, THREE.IUniform>): THREE.Mesh {
+export function fullscreenQuad(frag: string, uniforms: Record<string, THREE.IUniform>): THREE.Mesh {
   const mat = new THREE.ShaderMaterial({
     uniforms,
     vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,

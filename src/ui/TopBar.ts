@@ -1,4 +1,4 @@
-/* Top bar: board, view, master tempo, recorder, MIDI, help, full screen. */
+/* Top bar: board, venue, view, crowd meter, master tempo, recorder, MIDI, help, full screen. */
 import type { AppContext } from '../app/context';
 import type { StageView } from '../three/Stage';
 import { formatBpm, formatTime } from '../core/util';
@@ -6,6 +6,14 @@ import { h, setClass, setText } from './dom';
 
 export interface TopBarActions {
   pickBoard(): void;
+  pickVenue(): void;
+  venueName(): string;
+  /** crowd energy 0..1 */
+  hype(): number;
+  /** beat pulse 0..1 */
+  beat(): number;
+  /** livestream viewer count, or null when not streaming */
+  live(): string | null;
   view(v: StageView): void;
   fullscreen(): void;
   record(): void;
@@ -20,6 +28,12 @@ export interface TopBarActions {
 export class TopBar {
   readonly el: HTMLElement;
   private boardBtn: HTMLElement;
+  private venueBtn: HTMLElement;
+  private hypeCells: HTMLElement[];
+  private hypeEl: HTMLElement;
+  private beatLed: HTMLElement;
+  private liveEl: HTMLElement;
+  private liveCount: HTMLElement;
   private viewBtns = new Map<StageView, HTMLElement>();
   private master: HTMLElement;
   private masterDeck: HTMLElement;
@@ -33,6 +47,13 @@ export class TopBar {
   ) {
     this.boardBtn = h('button', { class: 'btn board-btn', title: 'Choose a board' });
     this.boardBtn.addEventListener('click', () => a.pickBoard());
+    this.venueBtn = h('button', { class: 'btn venue-btn', title: 'Choose where you play' });
+    this.venueBtn.addEventListener('click', () => a.pickVenue());
+    this.hypeCells = Array.from({ length: 12 }, () => h('i'));
+    this.hypeEl = h('div', { class: 'hype-meter', title: 'Crowd energy: rises with the music, clean blends and drops; trainwrecks and key clashes cost you' }, h('span', { class: 'label' }, 'Crowd'), h('span', { class: 'cells' }, ...this.hypeCells));
+    this.beatLed = h('span', { class: 'beat-led' });
+    this.liveCount = h('span', { class: 'mono' });
+    this.liveEl = h('span', { class: 'live-badge', title: 'Streaming live' }, h('span', { class: 'dot' }), 'LIVE', this.liveCount);
     const views = h('div', { class: 'seg', role: 'group', 'aria-label': 'What the stage shows' });
     ([
       ['booth', 'Booth'],
@@ -62,9 +83,12 @@ export class TopBar {
       { class: 'topbar' },
       h('div', { class: 'brand' }, h('span', { class: 'mark' }), 'DECKHOUSE'),
       this.boardBtn,
+      this.venueBtn,
       views,
       h('span', { class: 'spacer' }),
-      h('div', { class: 'master-readout', title: 'Tempo of the sync master deck' }, this.masterDeck, this.master),
+      this.liveEl,
+      this.hypeEl,
+      h('div', { class: 'master-readout', title: 'Tempo of the sync master deck' }, this.beatLed, this.masterDeck, this.master),
       this.rec,
       midi,
       help,
@@ -74,6 +98,13 @@ export class TopBar {
 
   update(): void {
     setText(this.boardBtn, `${this.a.boardName()} ▾`);
+    setText(this.venueBtn, `📍 ${this.a.venueName()} ▾`);
+    const lit = Math.round(this.a.hype() * this.hypeCells.length);
+    this.hypeCells.forEach((c, i) => setClass(c, 'on', i < lit));
+    this.beatLed.style.opacity = (0.15 + this.a.beat() * 0.85).toFixed(2);
+    const live = this.a.live();
+    this.liveEl.hidden = live === null;
+    if (live !== null) setText(this.liveCount, live);
     const view = this.a.currentView();
     for (const [v, b] of this.viewBtns) setClass(b, 'active', v === view);
     const m = this.app.engine.masterDeck;

@@ -109,6 +109,24 @@ export function strobeTexture(): THREE.Texture {
   return t;
 }
 
+/** Oiled walnut for mixer cheeks. */
+export function woodTexture(): THREE.Texture {
+  return canvasTex('walnut', 256, 512, (g, w, h) => {
+    g.fillStyle = '#4a2e1a';
+    g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * w;
+      const v = Math.random();
+      g.strokeStyle = v < 0.5 ? `rgba(30,16,8,${0.2 + v * 0.4})` : `rgba(120,80,45,${(v - 0.5) * 0.5})`;
+      g.lineWidth = 1 + Math.random() * 3;
+      g.beginPath();
+      g.moveTo(x, 0);
+      for (let y = 0; y <= h; y += 16) g.lineTo(x + Math.sin(y * 0.02 + i) * 6 + Math.sin(y * 0.005 + i * 3) * 10, y);
+      g.stroke();
+    }
+  });
+}
+
 export function slipmatTexture(text: string, color: string): THREE.Texture {
   return canvasTex(`slipmat:${text}:${color}`, 512, 512, (g, w, h) => {
     g.fillStyle = '#101012';
