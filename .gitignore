@@ -4,3 +4,4 @@ dist-artifact
 *.log
 .DS_Store
 wasm/build
+dist-single

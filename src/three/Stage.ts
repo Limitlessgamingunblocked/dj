@@ -110,7 +110,7 @@ export class Stage {
 
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.55, 0.45, 0.82);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -349,7 +349,7 @@ export class Stage {
     this.projScreen.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.wallFrustum.setFromProjectionMatrix(this.projScreen);
     this.wallBox.setFromObject(this.club.ledWall);
-    return this.wallFrustum.intersectsBox(this.wallBox) || this.camera.position.y > 1.3;
+    return this.wallFrustum.intersectsBox(this.wallBox);
   }
 
   render(dt: number, f: Features, visSettings: { shake: boolean }): void {

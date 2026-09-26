@@ -106,9 +106,11 @@ export class WaveStrip {
       g.fillStyle = '#e7ecf3';
       g.font = `700 ${Math.round(13 * dpr)}px "JetBrains Mono", monospace`;
       g.fillText(d.loaded ? formatBpm(d.bpm) : '---', 26 * dpr, y + 19 * dpr);
-      g.font = `600 ${Math.round(10 * dpr)}px "Barlow Condensed", sans-serif`;
-      g.fillStyle = d.isMaster ? '#ff9f1c' : d.sync ? '#2ec4f1' : '#5b6576';
-      g.fillText(d.isMaster ? 'MASTER' : d.sync ? 'SYNC' : d.playing ? 'PLAY' : d.loaded ? 'CUE' : 'EMPTY', 9 * dpr, y + 34 * dpr);
+      if (lh > 40 * dpr) {
+        g.font = `600 ${Math.round(10 * dpr)}px "Barlow Condensed", sans-serif`;
+        g.fillStyle = d.isMaster ? '#ff9f1c' : d.sync ? '#2ec4f1' : '#5b6576';
+        g.fillText(d.isMaster ? 'MASTER' : d.sync ? 'SYNC' : d.playing ? 'PLAY' : d.loaded ? 'CUE' : 'EMPTY', 9 * dpr, y + 34 * dpr);
+      }
       // beat phase meter (4 beats of the bar)
       if (d.analysis && d.loaded && lh > 38 * dpr) {
         const beat = d.beatPosition(d.displayPosition());

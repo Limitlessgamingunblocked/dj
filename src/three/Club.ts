@@ -4,6 +4,7 @@
  * audio-reactive lighting. The DJ stands at +Z facing the room (−Z).
  */
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Features } from '../visualizer/AudioFeatures';
 
 export const TABLE_Y = 0.9;
@@ -64,7 +65,7 @@ export class Club {
     scene.fog = new THREE.FogExp2(0x03040a, 0.055);
 
     // floor
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x07080b, roughness: 0.32, metalness: 0.4 }));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x08090d, roughness: 0.45, metalness: 0.15, envMapIntensity: 0.15 }));
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     this.group.add(floor);
@@ -98,7 +99,7 @@ export class Club {
     const coneMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.4, metalness: 0.5 });
     for (const s of [-1, 1]) {
       const spk = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.52, 0.34), spkMat);
-      spk.position.set(s * 1.25, TABLE_Y + 0.26, -0.25);
+      spk.position.set(s * 1.36, TABLE_Y + 0.26, -0.32);
       spk.rotation.y = s * -0.35;
       spk.castShadow = true;
       this.group.add(spk);
@@ -180,17 +181,19 @@ export class Club {
     }
     this.group.add(this.laserGroup);
 
-    // crowd
-    const crowdGeo = new THREE.CapsuleGeometry(0.19, 0.95, 4, 8);
-    crowdGeo.translate(0, 0.66, 0);
-    const crowdMat = new THREE.MeshStandardMaterial({ color: 0x0e1016, roughness: 0.85 });
-    const N = 90;
+    // crowd: simple silhouettes (body + head) behind the booth
+    const bodyGeo = new THREE.CapsuleGeometry(0.2, 0.7, 4, 10);
+    bodyGeo.translate(0, 0.55, 0);
+    const headGeo2 = new THREE.SphereGeometry(0.12, 12, 10);
+    headGeo2.translate(0, 1.33, 0);
+    const crowdGeo = mergeGeometries([bodyGeo, headGeo2]);
+    const crowdMat = new THREE.MeshStandardMaterial({ color: 0x151822, roughness: 0.7, metalness: 0.1 });
+    const N = 110;
     this.crowd = new THREE.InstancedMesh(crowdGeo, crowdMat, N);
     for (let i = 0; i < N; i++) {
-      const x = (Math.random() - 0.5) * 12;
-      const z = -1.6 - Math.random() * 5.6;
-      if (Math.abs(x) < 1.6 && z > -2.2) continue;
-      this.crowdBase.push({ x, z, ph: Math.random(), h: 0.85 + Math.random() * 0.3 });
+      const x = (Math.random() - 0.5) * 13;
+      const z = -2.8 - Math.random() * 4.8;
+      this.crowdBase.push({ x, z, ph: Math.random(), h: 0.9 + Math.random() * 0.22 });
     }
     this.crowd.count = this.crowdBase.length;
     this.crowd.castShadow = false;
@@ -198,7 +201,7 @@ export class Club {
 
     // lights
     scene.add(new THREE.HemisphereLight(0x6a7ba8, 0x07070a, 0.5));
-    this.keyLight = new THREE.SpotLight(0xfff4e6, 22, 7, 0.55, 0.65, 1.6);
+    this.keyLight = new THREE.SpotLight(0xfff4e6, 15, 7, 0.55, 0.65, 1.6);
     this.keyLight.position.set(0.35, TABLE_Y + 2.4, 1.1);
     this.keyLight.target.position.set(0, TABLE_Y, 0);
     this.keyLight.castShadow = true;

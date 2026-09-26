@@ -29,7 +29,7 @@ export class SamplerPanel {
         slot.mode = slot.mode === 'oneshot' ? 'loop' : 'oneshot';
         sampler.stop(i);
       });
-      const vol = h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: slot.gain, 'aria-label': `Slot ${i + 1} volume`, style: { width: '80px' } }) as HTMLInputElement;
+      const vol = h('input', { type: 'range', min: 0, max: 1, step: 0.01, value: slot.gain, 'aria-label': `Slot ${i + 1} volume`, id: `slot-vol-${i}` }) as HTMLInputElement;
       vol.addEventListener('input', () => sampler.setSlotGain(i, parseFloat(vol.value)));
       const file = h('input', { type: 'file', accept: AUDIO_ACCEPT, hidden: true }) as HTMLInputElement;
       file.addEventListener('change', async () => {
@@ -47,7 +47,7 @@ export class SamplerPanel {
       load.addEventListener('click', () => file.click());
       const reset = h('button', { class: 'btn small ghost', title: 'Restore the built-in sound' }, 'Reset');
       reset.addEventListener('click', () => void this.resetSample(i));
-      const card = h('div', { class: 'slot' }, trig, h('div', { class: 'slot-row' }, name, mode), h('div', { class: 'slot-row' }, vol, load, reset, file));
+      const card = h('div', { class: 'slot' }, trig, h('div', { class: 'slot-row' }, name, mode), vol, h('div', { class: 'slot-row' }, load, reset, file));
       card.style.setProperty('--slot', slot.color);
       card.addEventListener('dragover', (e) => e.preventDefault());
       card.addEventListener('drop', (e) => {

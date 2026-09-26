@@ -133,6 +133,7 @@ export class Visualizer {
   render(f: Features, dt: number): void {
     const s = this.settings;
     f.intensity = s.intensity;
+    f.shake = s.shake ? 1 : 0;
     if (s.autoCycle) {
       const beatIdx = Math.floor(f.time * (f.bpm / 60));
       if (beatIdx !== this.lastBeat) {

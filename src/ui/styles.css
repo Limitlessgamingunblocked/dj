@@ -912,12 +912,14 @@ button {
   bottom: 10px;
   transform: translateX(-50%);
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: 12px;
   background: rgba(7, 9, 13, 0.7);
   color: var(--muted);
   font-size: 12px;
   pointer-events: none;
-  white-space: nowrap;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  text-align: center;
   transition: opacity 0.6s;
 }
 
@@ -1062,6 +1064,18 @@ button {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.card h3 {
+  margin: 0;
+  font-family: var(--font-label);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
 }
 
 /* library */
@@ -1387,6 +1401,7 @@ table.tracks .art {
 /* fx */
 .fx-grid {
   display: grid;
+  align-items: start;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 12px;
   padding: 12px;
@@ -1443,6 +1458,12 @@ table.tracks .art {
   padding: 8px;
   display: grid;
   gap: 6px;
+  min-width: 0;
+}
+
+.slot input[type='range'] {
+  width: 100%;
+  min-width: 0;
 }
 
 .slot .trig {
@@ -1469,11 +1490,18 @@ table.tracks .art {
   gap: 4px;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
+}
+
+.slot-row > .label {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 /* stems */
 .stems-grid {
   display: grid;
+  align-items: start;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 12px;
   padding: 12px;
@@ -1597,7 +1625,7 @@ kbd {
 
 .board-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 10px;
 }
 

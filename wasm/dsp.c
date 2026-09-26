@@ -261,12 +261,12 @@ EXPORT double st_read_pos(Stretch *s) {
 /* FFT (radix-2, in place)                                                    */
 /* ------------------------------------------------------------------------ */
 
-#define SN 2048
-#define SLOG 11
-#define SHOP 512
+#define SN 1024
+#define SLOG 10
+#define SHOP 256
 #define SBINS (SN / 2 + 1)
-#define ST_T 9   /* frames in the time-direction median (harmonic) */
-#define SF 17    /* bins in the frequency-direction median (percussive) */
+#define ST_T 15  /* frames in the time-direction median (harmonic), ~80 ms */
+#define SF 11    /* bins in the frequency-direction median (percussive) */
 
 typedef struct {
   float twr[SN / 2];

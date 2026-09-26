@@ -153,8 +153,8 @@ export class Unit {
     const tex = this.face.render();
     const faceMat = new THREE.MeshStandardMaterial({
       map: tex,
-      roughness: f.face.texture === 'gloss' ? 0.22 : f.face.texture === 'brushed' ? 0.34 : 0.62,
-      metalness: f.face.texture === 'brushed' ? 0.55 : 0.08,
+      roughness: f.face.texture === 'gloss' ? 0.26 : f.face.texture === 'brushed' ? 0.44 : 0.62,
+      metalness: f.face.texture === 'brushed' ? 0.35 : 0.08,
     });
     const top = new THREE.Mesh(roundedRectPlane(this.w - 0.0006, this.d - 0.0006, this.radius), faceMat);
     top.position.y = this.h + 0.0002;

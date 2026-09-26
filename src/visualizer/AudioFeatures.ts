@@ -34,6 +34,8 @@ export interface Features {
   playing: boolean;
   /** user intensity 0..1.5: how hard visuals react */
   intensity: number;
+  /** 1 when camera shake is enabled */
+  shake: number;
 }
 
 interface Band {
@@ -110,6 +112,7 @@ export class AudioFeatures {
       time: 0,
       playing: false,
       intensity: 1,
+      shake: 1,
     };
   }
 

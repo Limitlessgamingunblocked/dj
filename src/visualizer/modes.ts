@@ -98,7 +98,7 @@ export function warpMode(): VisMode {
       float rings = pow(smoothstep(0.8, 1.0, fract(depth)), 3.0);
       float spokes = smoothstep(0.93, 1.0, fract(ang * 18.0 + depth * 0.08));
       float spec = texture2D(uSpec, vec2(abs(fract(ang * 2.0) * 2.0 - 1.0) * 0.8 + 0.02, 0.5)).r;
-      vec3 base = pow(palette(depth * 0.04 + ang * 0.15, uHue), vec3(1.6));
+      vec3 base = pow(palette(depth * 0.04 + 0.12 * sin(a) + 0.06 * cos(2.0 * a), uHue), vec3(1.6));
       vec3 col = base * (rings * (0.8 + 1.6 * uBeat) + spokes * (0.18 + uHigh * 0.5));
       col += pow(palette(depth * 0.03 + 0.5, uHue), vec3(1.6)) * pow(spec, 2.4) * 0.55 * smoothstep(0.05, 0.6, r);
       float glow = exp(-r * 9.0) * (0.12 + uLevel * 0.25 + uDrop * 0.6);
@@ -180,21 +180,21 @@ export function matrixMode(): VisMode {
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           const v = hist[r * COLS + c];
-          const h = 0.05 + v * v * 7 * (0.7 + f.intensity * 0.5) * (r === 0 ? 1 + f.kickPulse * 0.4 : 1);
+          const h = 0.05 + v * v * 5 * (0.7 + f.intensity * 0.4) * (r === 0 ? 1 + f.kickPulse * 0.4 : 1);
           m4.makeScale(1, h, 1);
           m4.setPosition((c - COLS / 2) * 0.42, 0, -r * 0.55);
           mesh.setMatrixAt(r * COLS + c, m4);
-          col.setHSL((f.hue + c / COLS * 0.35 + r * 0.004) % 1, 0.85, 0.12 + v * 0.55);
-          col.multiplyScalar(r === 0 ? 1.6 : 1 - r / (ROWS * 1.3));
+          col.setHSL((f.hue + 0.55 + (c / COLS) * 0.4 + r * 0.004) % 1, 0.95, 0.04 + v * 0.2);
+          col.multiplyScalar(r === 0 ? 1.8 : 0.15 + 0.6 * Math.pow(1 - r / ROWS, 2));
           mesh.setColorAt(r * COLS + c, col);
         }
       }
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor!.needsUpdate = true;
-      shake = Math.max(shake * Math.exp(-dt * 10), f.kickPulse * 0.12 * f.intensity);
+      shake = Math.max(shake * Math.exp(-dt * 10), f.kickPulse * 0.12 * f.intensity * f.shake);
       const orbit = t * 0.08;
-      camera.position.set(Math.sin(orbit) * 9 + (Math.random() - 0.5) * shake, 5.5 + Math.sin(t * 0.3) * 1.2 + (Math.random() - 0.5) * shake, 9 + Math.cos(orbit) * 3);
-      camera.lookAt(0, 1.2, -5);
+      camera.position.set(Math.sin(orbit) * 5 + (Math.random() - 0.5) * shake, 8.5 + Math.sin(t * 0.3) * 1.2 + (Math.random() - 0.5) * shake, 13 + Math.cos(orbit) * 2);
+      camera.lookAt(0, 0.8, -6);
     },
     resize(w, h) {
       camera.aspect = w / h;
@@ -254,7 +254,7 @@ export function galaxyMode(): VisMode {
         p.y += sin(r * 0.8 - uTime * 2.0) * uBass * 0.6;
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mv;
-        gl_PointSize = uPixel * (1.2 + seed.z * 2.2 + uHigh * 1.5) * (22.0 / -mv.z);
+        gl_PointSize = uPixel * (1.0 + seed.z * 1.8 + uHigh * 1.2) * (18.0 / -mv.z);
         vR = r / 14.0;
         vS = seed.z;
       }`,
@@ -269,7 +269,7 @@ export function galaxyMode(): VisMode {
         if (d > 0.25) discard;
         float a = smoothstep(0.25, 0.0, d);
         vec3 col = mix(vec3(1.0, 0.95, 0.9), palette(vR * 0.6 + vS * 0.1, uHue), smoothstep(0.0, 0.35, vR));
-        gl_FragColor = vec4(col * a * (0.35 + (1.0 - vR) * 0.5), 1.0);
+        gl_FragColor = vec4(col * a * (0.05 + (1.0 - vR) * 0.07), 1.0);
       }`,
   });
   const pts = new THREE.Points(geo, mat);
@@ -421,7 +421,7 @@ export function gridMode(): VisMode {
       sunU.uHue.value = f.hue;
       sunU.uPulse.value = f.kickPulse * 0.5 * f.intensity + f.drop;
       sunU.uTime.value = t;
-      camera.position.y = 2.2 + f.kickPulse * 0.15 * f.intensity;
+      camera.position.y = 2.2 + f.kickPulse * 0.15 * f.intensity * f.shake;
       camera.lookAt(0, 1.4, -20);
     },
     resize(w, h) {

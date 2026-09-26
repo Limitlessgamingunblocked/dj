@@ -44,7 +44,7 @@ describe('wasm dsp', () => {
       outL.set(f32(bufL, block), o);
     }
     const lat = ex.stems_latency();
-    expect(lat).toBe(2048);
+    expect(lat).toBe(1024);
     let err = 0;
     for (let i = 12000; i < 23000; i++) err = Math.max(err, Math.abs(outL[i] - src.L[i - lat]));
     expect(err).toBeLessThan(0.02);
