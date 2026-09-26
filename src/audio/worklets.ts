@@ -13,6 +13,9 @@ export async function loadWorklets(ctx: BaseAudioContext): Promise<void> {
     const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
     try {
       await ctx.audioWorklet.addModule(url);
+    } catch {
+      // pages opened from file:// can't load worklets from blob: URLs; data: URLs work
+      await ctx.audioWorklet.addModule(`data:text/javascript;charset=utf-8,${encodeURIComponent(src)}`);
     } finally {
       URL.revokeObjectURL(url);
     }

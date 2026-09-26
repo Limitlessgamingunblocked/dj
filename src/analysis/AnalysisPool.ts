@@ -13,6 +13,7 @@ interface Job {
 export class AnalysisPool {
   private workers: Worker[] = [];
   private busy = new Set<Worker>();
+  private dead = new Set<Worker>();
   private queue: Job[] = [];
   private pending = new Map<number, Job & { worker: Worker }>();
   private nextId = 1;
@@ -25,13 +26,15 @@ export class AnalysisPool {
       w.onmessage = (e) => this.onDone(w, e.data);
       w.onerror = (e) => {
         e.preventDefault();
+        // a worker that fails to start (or crashes) is retired; its job goes back in the queue
+        this.dead.add(w);
+        this.busy.delete(w);
         for (const [id, job] of this.pending) {
           if (job.worker === w) {
             this.pending.delete(id);
-            job.reject(new Error(e.message || 'worker error'));
+            this.queue.unshift({ msg: job.msg, transfer: [], resolve: job.resolve, reject: job.reject });
           }
         }
-        this.busy.delete(w);
         this.pump();
       };
       this.workers.push(w);
@@ -54,8 +57,12 @@ export class AnalysisPool {
   }
 
   private pump(): void {
+    if (this.dead.size === this.workers.length) {
+      for (const job of this.queue.splice(0)) job.reject(new Error('Background workers are unavailable in this browser.'));
+      return;
+    }
     while (this.queue.length) {
-      const w = this.workers.find((x) => !this.busy.has(x));
+      const w = this.workers.find((x) => !this.busy.has(x) && !this.dead.has(x));
       if (!w) return;
       const job = this.queue.shift()!;
       const id = this.nextId++;

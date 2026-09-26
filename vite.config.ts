@@ -7,7 +7,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 2000,
   },
   worker: {
-    format: 'es',
+    format: 'iife',
   },
   test: {
     environment: 'node',

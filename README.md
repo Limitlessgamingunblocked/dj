@@ -14,7 +14,7 @@ npm test           # DSP, analysis, format and mixer tests
 npm run build:single   # one self-contained HTML file in dist-single/
 ```
 
-Audio worklets need a secure context, so open the app from `localhost` or an `https://` host, not `file://`. Current Chrome, Edge, Firefox and Safari are supported; Web MIDI needs Chrome, Edge or Opera.
+Serve `dist/` from `localhost` or any `https://` host. The single-file build (`npm run build:single`) also works when opened straight from disk. Current Chrome, Edge, Firefox and Safari are supported; Web MIDI needs Chrome, Edge or Opera.
 
 ## What's in it
 
