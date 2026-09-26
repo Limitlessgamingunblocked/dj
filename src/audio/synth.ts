@@ -586,9 +586,22 @@ export function renderSample(name: SampleName, sampleRate = 44100): Rendered {
   return { sampleRate: sr, left: m.L, right: m.R };
 }
 
-export const DEMO_TRACKS: { title: string; artist: string; spec: DemoSpec }[] = [
+/* The first four open on the decks; the rest give the set builder a small crate of fictional artists and labels to work with. */
+export const DEMO_TRACKS: { title: string; artist: string; label?: string; spec: DemoSpec }[] = [
   { title: 'Midnight Circuit', artist: 'Deckhouse Demo', spec: { seed: 11, bpm: 124, root: 9, minor: true, style: 'house', bars: 64 } },
   { title: 'Concrete Pulse', artist: 'Deckhouse Demo', spec: { seed: 27, bpm: 130, root: 2, minor: true, style: 'techno', bars: 64 } },
   { title: 'Sunset Garage', artist: 'Deckhouse Demo', spec: { seed: 42, bpm: 128, root: 5, minor: false, style: 'garage', bars: 64 } },
   { title: 'Broken Neon', artist: 'Deckhouse Demo', spec: { seed: 73, bpm: 126, root: 0, minor: false, style: 'breaks', bars: 64 } },
+  { title: 'Glass Harbour', artist: 'Mira Solen', label: 'Tidal Room', spec: { seed: 101, bpm: 118, root: 7, minor: true, style: 'house', bars: 64 } },
+  { title: 'Slow Bloom', artist: 'Mira Solen', label: 'Tidal Room', spec: { seed: 102, bpm: 120, root: 2, minor: true, style: 'garage', bars: 64 } },
+  { title: 'Coastline Dub', artist: 'Low Orbit', label: 'Tidal Room', spec: { seed: 103, bpm: 121, root: 5, minor: false, style: 'house', bars: 64 } },
+  { title: 'Morning Static', artist: 'Pale Arcade', label: 'Tidal Room', spec: { seed: 112, bpm: 122, root: 9, minor: true, style: 'garage', bars: 64 } },
+  { title: 'Amber Frequency', artist: 'Low Orbit', label: 'Night Shift', spec: { seed: 104, bpm: 123, root: 9, minor: true, style: 'house', bars: 64 } },
+  { title: 'Late Train', artist: 'Tape Theory', label: 'Night Shift', spec: { seed: 105, bpm: 124, root: 4, minor: true, style: 'breaks', bars: 64 } },
+  { title: 'Warehouse Letters', artist: 'Tape Theory', label: 'Night Shift', spec: { seed: 106, bpm: 125, root: 0, minor: false, style: 'breaks', bars: 64 } },
+  { title: 'Afterglow Two-Step', artist: 'Pale Arcade', label: 'Night Shift', spec: { seed: 111, bpm: 127, root: 10, minor: false, style: 'garage', bars: 64 } },
+  { title: 'Ferro', artist: 'Kora Vance', label: 'Concrete Label', spec: { seed: 107, bpm: 128, root: 11, minor: true, style: 'techno', bars: 64 } },
+  { title: 'Pressure System', artist: 'Kora Vance', label: 'Concrete Label', spec: { seed: 108, bpm: 130, root: 4, minor: true, style: 'techno', bars: 64 } },
+  { title: 'Signal Fire', artist: 'Unit Dahl', label: 'Concrete Label', spec: { seed: 109, bpm: 132, root: 7, minor: true, style: 'techno', bars: 64 } },
+  { title: 'Iron Lung', artist: 'Unit Dahl', label: 'Concrete Label', spec: { seed: 110, bpm: 134, root: 11, minor: true, style: 'techno', bars: 64 } },
 ];

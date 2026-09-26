@@ -4,6 +4,8 @@ A DJ studio that runs in the browser. Pick a real-world style board — an entry
 
 It opens ready to play: two generated demo tracks are already loaded on decks 1 and 2.
 
+It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library into an ordered, harmonically mixed set around the artists, labels or genres you pick, shaped to an energy arc, with transition guidance for every mix.
+
 **No install:** download [`Deckhouse-DJ.html`](Deckhouse-DJ.html) and open it in Chrome or Edge. It is the whole app in one file, rebuilt with `npm run build:single`.
 
 ## Run it
@@ -12,7 +14,7 @@ It opens ready to play: two generated demo tracks are already loaded on decks 1 
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (serve over http(s) or localhost)
-npm test           # DSP, analysis, format and mixer tests
+npm test           # DSP, analysis, format, mixer and set builder tests
 npm run build:single   # one self-contained HTML file in dist-single/
 ```
 
@@ -62,6 +64,22 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - JSON export/import of crates, cue points and beat grids.
 - Beat-grid tools: tap tempo, ×2, ÷2, set downbeat, nudge grid.
 
+### Set Builder (SmartDJ)
+Builds a set from the analysed tracks in your library (or one crate). The library ships with 16 generated demo tracks by fictional artists on three fictional labels, so you can try it straight away with anchors such as `Kora Vance`, `Tidal Room` or `techno`.
+
+- **Anchors**: artists, labels (ID3 `TPUB`, Vorbis `LABEL`) or genres. Tracks by anchor artists and labels come first, then tracks whose genre matches. Anchors that aren't in the library are reported.
+- **Length**: a target in minutes (10–360) or a track count (2–100). Set time accounts for the overlap of each transition.
+- **Energy arc**: Peak Time Hour, Warm-Up Sunset, Steady Energy Flow, or Peak & Drop Storytelling. Each track's energy (1–10) is estimated from loudness, tempo, rhythmic density and brightness, and ranked against the tracks you're building from so every arc can use your whole range.
+- **Transitions**: quick cuts (4 bars; tempo and key may move more), smooth blends (16 bars) or long atmospheric blends (32 bars; keys and tempos must sit tight).
+- **Discovery** (0–50 %): tracks by other artists that sound like the anchors — similar tempo, energy, genre words and keys — with a push towards tracks you've rarely played. This works on your own library; it does not search online catalogues.
+- **Ordering**: a beam search scores every candidate step on Camelot-wheel compatibility (same key, ±1, relative major/minor, diagonal, energy boost), tempo distance (half/double time allowed), distance from the arc's target energy, anchor fit and artist variety.
+- **Guidance** for every transition: mix length in bars, where to start the incoming track (the outgoing track's mix-out point, on a 4-bar phrase found from the waveform's intro/outro), pitch change to beat-match, key move (with a key-shift suggestion for clashes) and a 0–100 score. An energy chart compares the set with the arc.
+- **Fine-tuning**: pin, swap (ranked alternatives for that slot), move, remove, re-roll (keeps pins, skips removed tracks). Timings and scores update after every edit.
+- **Play it**: *Load first two* puts tracks 1 and 2 on the left and right decks; *Load next* feeds the following track into whichever deck isn't playing. *Write mix cues* stores each track's mix-in and mix-out points on hot cues G and H (pads that hold your own cues are left alone). *Save as crate* adds the set to Library › Sets.
+- **Export**: rekordbox XML and Traktor NML (beat grid, key, mix-in/mix-out cues, playlist), M3U8 for Serato DJ, VirtualDJ and Engine DJ, a CSV cue sheet, and a plain track list with Spotify and Apple Music search links. The browser doesn't know where your files live, so give the export the folder that holds them (or relocate after import). Built-in demo tracks are left out of file exports.
+
+The engine is in `src/setbuilder/` (profiling, harmony, arcs, generation, exports) and has no UI dependencies.
+
 ### Visual player
 Five GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid and CRT Monitor.
 
@@ -80,6 +98,7 @@ wasm/dsp.c                 C DSP core → WebAssembly (npm run build:wasm, needs
 src/audio/                 engine, decks, channel strips, mixer, beat FX, sampler, recorder, worklets
 src/analysis/              tempo/grid, key, waveform, PCM parsers, worker pool
 src/library/               IndexedDB storage, tags, crates, search
+src/setbuilder/            SmartDJ set generation: track profiles, key/tempo rules, energy arcs, exports
 src/three/                 stage, club scene, camera rig, board parts and presets
 src/visualizer/            audio features and visual modes
 src/ui/                    software panels and widgets

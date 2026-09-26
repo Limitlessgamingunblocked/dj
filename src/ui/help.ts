@@ -13,6 +13,7 @@ export function openHelp(): void {
     ['Perform', 'Pads switch between hot cues, loop rolls, slicer, beat jump, pitch play and the sampler. Hold SHIFT (or Shift on the keyboard) for the second layer. Add Beat FX from the Mixer & FX tab or the board.'],
     ['Scratch', 'With VINYL on, grab the top of a jog wheel or the record on the turntables and move it. The platter edge nudges instead. Turntables have real start/brake inertia.'],
     ['More per deck', 'Open “Loops, key & stems” under the pads for loops, beat jump, key lock and key shift, slip, and turning vocals, drums, bass or melody up and down.'],
+    ['Build a set', 'The Set Builder tab (SmartDJ) orders tracks from your library around anchor artists, labels or genres, following an energy arc with key- and tempo-matched transitions. It shows where and how to mix each track, loads the set onto the decks one track at a time, and exports to rekordbox, Traktor, Serato (M3U) or a streaming track list.'],
     ['Visuals', 'The LED wall follows the music. Switch to Split or Visuals in the top bar for the full visual player.'],
     ['Record', 'Press REC to capture your mix; press it again to play back or save the file.'],
   ];

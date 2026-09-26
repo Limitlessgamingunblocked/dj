@@ -28,6 +28,7 @@ import { MidiPanel } from '../ui/MidiPanel';
 import { MixerPanel } from '../ui/MixerPanel';
 import { contextMenu, openModal } from '../ui/modal';
 import { SamplerPanel } from '../ui/SamplerPanel';
+import { SetBuilderPanel } from '../ui/SetBuilderPanel';
 import { SetupPanel } from '../ui/SetupPanel';
 import { toast } from '../ui/toast';
 import { TopBar } from '../ui/TopBar';
@@ -69,7 +70,7 @@ const DEFAULTS: Settings = {
   autoZoom: true,
 };
 
-type TabId = 'library' | 'mixer' | 'sampler' | 'visuals' | 'settings';
+type TabId = 'library' | 'sets' | 'mixer' | 'sampler' | 'visuals' | 'settings';
 
 export class App implements AppContext {
   engine!: AudioEngine;
@@ -311,6 +312,7 @@ export class App implements AppContext {
     const tabBar = h('div', { class: 'tabs', role: 'tablist' });
     const body = h('div', { class: 'tab-body' });
     this.libPanel = new LibraryPanel(this);
+    const sets = new SetBuilderPanel(this);
     const mixer = new MixerPanel(this);
     const fx = new FxPanel(this);
     const sampler = new SamplerPanel(this, (s, f) => this.loadSampleFile(s, f), (s) => this.resetSample(s));
@@ -331,6 +333,7 @@ export class App implements AppContext {
     const settingsTab = h('div', { class: 'settings-tab' }, this.setupPanel.el, midi.el);
     const defs: [TabId, string, HTMLElement, ((dt: number) => void) | undefined][] = [
       ['library', 'Library', this.libPanel.el, undefined],
+      ['sets', 'Set Builder', sets.el, undefined],
       ['mixer', 'Mixer & FX', mixerTab, (dt) => {
         mixer.update(dt, this.meters);
         fx.update();
