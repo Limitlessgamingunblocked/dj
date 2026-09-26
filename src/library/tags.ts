@@ -8,6 +8,8 @@ export interface RawTags {
   artist?: string;
   album?: string;
   genre?: string;
+  /** record label / publisher */
+  label?: string;
   year?: string;
   bpm?: number;
   key?: string;
@@ -92,6 +94,10 @@ export function parseId3(b: Uint8Array, out: RawTags): void {
       case 'TCO':
         out.genre ??= text().replace(/^\((\d+)\)/, '');
         break;
+      case 'TPUB':
+      case 'TPB':
+        out.label ??= text();
+        break;
       case 'TYER':
       case 'TDRC':
       case 'TYE':
@@ -148,6 +154,11 @@ function applyVorbis(key: string, value: string, out: RawTags): void {
       break;
     case 'GENRE':
       out.genre ??= value;
+      break;
+    case 'LABEL':
+    case 'ORGANIZATION':
+    case 'PUBLISHER':
+      out.label ??= value;
       break;
     case 'DATE':
     case 'YEAR':

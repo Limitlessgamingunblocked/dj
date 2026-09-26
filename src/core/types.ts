@@ -36,6 +36,8 @@ export interface TrackMeta {
   artist: string;
   album: string;
   genre: string;
+  /** record label (ID3 TPUB, Vorbis LABEL/ORGANIZATION) */
+  label?: string;
   year: string;
   bpmTag?: number;
   keyTag?: string;
