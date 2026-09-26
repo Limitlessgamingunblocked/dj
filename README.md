@@ -10,7 +10,8 @@ It opens ready to play: two generated demo tracks are already loaded on decks 1 
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (serve over http(s) or localhost)
-npm test           # DSP and analysis tests
+npm test           # DSP, analysis, format and mixer tests
+npm run build:single   # one self-contained HTML file in dist-single/
 ```
 
 Audio worklets need a secure context, so open the app from `localhost` or an `https://` host, not `file://`. Current Chrome, Edge, Firefox and Safari are supported; Web MIDI needs Chrome, Edge or Opera.
