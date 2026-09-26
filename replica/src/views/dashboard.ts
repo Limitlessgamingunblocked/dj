@@ -1,5 +1,6 @@
-import { api, type SavedModel } from '../api';
-import { formatMm, h, icon } from '../dom';
+import { api, isPreview, type SavedModel } from '../api';
+import { confirmClick, formatMm, h, icon, toast } from '../dom';
+import { saveStl } from '../platform';
 import { go } from '../router';
 import { currentGoal, state } from '../state';
 import { topbar } from './shell';
@@ -28,6 +29,7 @@ export function renderDashboard(root: HTMLElement) {
         {},
         h('div.page-head', {}, h('div', {}, h('h1', {}, `Hi, ${state.user!.name.split(' ')[0]}`), subtitle), newScan),
         h('h2.section-title', {}, 'My models'),
+        isPreview ? h('p.preview-note', {}, 'Preview: saved models are kept in this browser.') : null,
         grid,
       ),
     ),
@@ -38,10 +40,25 @@ export function renderDashboard(root: HTMLElement) {
     del.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!confirm(`Delete “${m.name}”? This can’t be undone.`)) return;
-      await api.deleteModel(m.id);
-      el.remove();
-      if (!grid.querySelector('.model-card')) showEmpty();
+      if (!confirmClick(del, 'Delete?')) return;
+      try {
+        await api.deleteModel(m.id);
+        el.remove();
+        if (!grid.querySelector('.model-card')) showEmpty();
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Couldn’t delete that model.');
+      }
+    });
+    const dl = h('button.icon-btn', { type: 'button', title: 'Download STL', 'aria-label': `Download ${m.name}` }, icon('download', 18));
+    dl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const msg = await saveStl(await api.modelStl(m.id), m.name);
+        if (msg) toast(msg);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Couldn’t download that model.');
+      }
     });
     const el = h(
       'a.model-card',
@@ -57,7 +74,7 @@ export function renderDashboard(root: HTMLElement) {
       h(
         'div.model-actions',
         {},
-        h('a.icon-btn', { href: api.stlUrl(m.id), title: 'Download STL', 'aria-label': `Download ${m.name}`, onclick: (e: Event) => e.stopPropagation() }, icon('download', 18)),
+        dl,
         del,
       ),
     );

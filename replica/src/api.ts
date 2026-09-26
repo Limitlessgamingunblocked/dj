@@ -1,33 +1,7 @@
-export type Goal = 'sell' | 'fun';
+import { localApi } from './api.local';
+import { ApiError, type Api, type Goal, type SavedModel, type User } from './apiTypes';
 
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  goal: Goal | null;
-}
-
-export interface SavedModel {
-  id: string;
-  name: string;
-  widthMm: number;
-  heightMm: number;
-  depthMm: number;
-  volumeMm3: number;
-  triangles: number;
-  thumbnail: string | null;
-  stlBytes: number;
-  createdAt: number;
-}
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-  }
-}
+export * from './apiTypes';
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
@@ -47,7 +21,7 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export const api = {
+const serverApi: Api = {
   me: () => request<{ user: User | null }>('/auth/me').then((r) => r.user),
   signup: (name: string, email: string, password: string, goal: Goal | null) =>
     request<{ user: User }>('/auth/signup', json('POST', { name, email, password, goal })).then((r) => r.user),
@@ -70,6 +44,9 @@ export const api = {
     if (!res.ok) throw new ApiError('Couldn’t load that model.', res.status);
     return res.arrayBuffer();
   },
-  stlUrl: (id: string) => `/api/models/${encodeURIComponent(id)}/stl`,
   deleteModel: (id: string) => request<{ ok: true }>(`/models/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
+
+/** The preview build keeps accounts in the browser; the full app talks to the server. */
+export const isPreview = __LOCAL_BACKEND__;
+export const api: Api = isPreview ? localApi : serverApi;

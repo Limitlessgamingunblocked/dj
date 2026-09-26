@@ -31,9 +31,21 @@ npm start            # serves dist/ and the API on PORT (default 3000)
 | `TRUST_PROXY` | off | Set to `1` behind a reverse proxy (for correct client IPs in rate limiting) |
 
 ```bash
-npm test             # reconstruction + server tests
+npm test             # reconstruction, zip and server tests
 npm run typecheck
 ```
+
+### Single-file preview (no server)
+
+```bash
+npm run build:preview   # dist-preview/replica-preview.html
+```
+
+This builds the whole app into one HTML page that runs without the Node server, for static hosting or a claude.ai artifact. The reconstruction is the same. The differences are:
+
+- Accounts and saved models are stored in the browser (IndexedDB, with PBKDF2-hashed passwords) instead of on a server. They don't sync between devices.
+- Inside a claude.ai artifact, only certain file types can be saved, so the STL is delivered inside a `.zip`.
+- The Web Worker is bundled into the page. If it can't start, the reconstruction runs in the page instead.
 
 ## How to film an item
 

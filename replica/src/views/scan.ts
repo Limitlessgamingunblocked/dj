@@ -1,5 +1,5 @@
 import { api } from '../api';
-import { downloadBlob, formatMm, h, icon, safeFilename } from '../dom';
+import { formatMm, h, icon } from '../dom';
 import { makeDemoFrames } from '../recon/demo';
 import { extractFrames, type FrameSet } from '../recon/frames';
 import { bounds, overhangArea, scaleMesh, signedVolume, surfaceArea } from '../recon/mesh';
@@ -8,7 +8,9 @@ import { estimateBackground, maskBounds, segmentFrame } from '../recon/segment';
 import { toBinaryStl } from '../recon/stl';
 import type { Frame, Mesh } from '../recon/types';
 import { guessFloorLine } from '../recon/turntable';
-import type { Analysis, WorkerRequest, WorkerResponse } from '../recon/worker';
+import { createEngine } from '../recon/engine';
+import type { Analysis, WorkerRequest, WorkerResponse } from '../recon/workerCore';
+import { inArtifact, saveStl } from '../platform';
 import { Viewer } from '../viewer';
 import { insightsPanel } from './insights';
 import { topbar } from './shell';
@@ -33,11 +35,10 @@ interface Built {
 }
 
 export function renderScan(root: HTMLElement) {
-  const worker = new Worker(new URL('../recon/worker.ts', import.meta.url), { type: 'module' });
-  const send = (msg: WorkerRequest) => worker.postMessage(msg);
   let requestId = 0;
   const pending = new Map<number, (msg: WorkerResponse) => void>();
-  worker.onmessage = (e: MessageEvent<WorkerResponse>) => pending.get(e.data.id)?.(e.data);
+  const engine = createEngine((msg) => pending.get(msg.id)?.(msg));
+  const send = (msg: WorkerRequest) => engine.send(msg);
 
   let frames: FrameSet | null = null;
   let viewer: Viewer | null = null;
@@ -568,9 +569,10 @@ export function renderScan(root: HTMLElement) {
       return { mesh, stl: toBinaryStl(mesh, measure.name || 'model'), k };
     };
 
-    download.addEventListener('click', () => {
+    download.addEventListener('click', async () => {
       const { stl } = scaledStl();
-      downloadBlob(stl, `${safeFilename(measure.name)}.stl`);
+      const msg = await saveStl(stl, measure.name || 'model');
+      if (msg) saveStatus.textContent = msg;
     });
     save.addEventListener('click', async () => {
       const name = measure.name.trim();
@@ -622,6 +624,7 @@ export function renderScan(root: HTMLElement) {
           ),
           hint,
           h('div.actions', {}, download, save),
+          inArtifact() ? h('p.fine.tight', {}, 'Here the STL is saved inside a .zip file. Unzip it and open the .stl in your slicer.') : null,
           saveStatus,
           insights.el,
           h(
@@ -643,7 +646,7 @@ export function renderScan(root: HTMLElement) {
   return () => {
     disposed = true;
     disposeViewer();
-    worker.terminate();
+    engine.terminate();
   };
 }
 

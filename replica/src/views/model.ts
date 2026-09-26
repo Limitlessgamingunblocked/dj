@@ -1,5 +1,6 @@
 import { api } from '../api';
-import { formatMm, h, icon } from '../dom';
+import { confirmClick, formatMm, h, icon, toast } from '../dom';
+import { saveStl } from '../platform';
 import { overhangArea, surfaceArea } from '../recon/mesh';
 import { fromBinaryStl } from '../recon/stl';
 import { go } from '../router';
@@ -40,9 +41,18 @@ export function renderModel(root: HTMLElement, id: string) {
       viewer.setMesh(mesh);
       const del = h('button.ghost', { type: 'button' }, icon('trash', 18), 'Delete');
       del.addEventListener('click', async () => {
-        if (!confirm(`Delete “${m.name}”? This can’t be undone.`)) return;
-        await api.deleteModel(id);
-        go('/models');
+        if (!confirmClick(del, 'Click again to delete')) return;
+        try {
+          await api.deleteModel(id);
+          go('/models');
+        } catch (err) {
+          toast(err instanceof Error ? err.message : 'Couldn’t delete that model.');
+        }
+      });
+      const download = h('button.primary', { type: 'button' }, icon('download', 18), 'Download STL');
+      download.addEventListener('click', async () => {
+        const msg = await saveStl(stl, m.name);
+        if (msg) toast(msg);
       });
       side.append(
         h('h1.model-title', {}, m.name),
@@ -58,7 +68,7 @@ export function renderModel(root: HTMLElement, id: string) {
             h('div', {}, h('span', {}, 'Height'), h('b', {}, formatMm(m.heightMm, 'mm'))),
           ),
         ),
-        h('div.actions', {}, h('a.primary.button', { href: api.stlUrl(id) }, icon('download', 18), 'Download STL'), del),
+        h('div.actions', {}, download, del),
         insights.el,
       );
       insights.update({ volumeMm3: m.volumeMm3, areaMm2: surfaceArea(mesh), heightMm: m.heightMm, overhangMm2: overhangArea(mesh) });

@@ -12,7 +12,8 @@
     "build": "tsc --noEmit && vite build",
     "start": "node --disable-warning=ExperimentalWarning server/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:preview": "tsc --noEmit && node scripts/build-preview.mjs"
   },
   "dependencies": {
     "express": "5.2.1",

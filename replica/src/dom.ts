@@ -71,3 +71,32 @@ export function downloadBlob(data: BlobPart, filename: string, type = 'model/stl
 export function safeFilename(name: string): string {
   return name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'model';
 }
+
+/**
+ * Two-step confirmation for destructive buttons (browser dialogs aren't available everywhere).
+ * The first click arms the button and changes its label; a second click within 4 s returns true.
+ */
+export function confirmClick(button: HTMLElement, armedLabel: string): boolean {
+  if (button.dataset.armed === '1') {
+    delete button.dataset.armed;
+    return true;
+  }
+  const saved = [...button.childNodes];
+  button.dataset.armed = '1';
+  button.classList.add('armed');
+  button.replaceChildren(armedLabel);
+  setTimeout(() => {
+    if (button.dataset.armed !== '1') return;
+    delete button.dataset.armed;
+    button.classList.remove('armed');
+    button.replaceChildren(...saved);
+  }, 4000);
+  return false;
+}
+
+/** A short message at the bottom of the screen. */
+export function toast(message: string) {
+  const el = h('div.toast', { role: 'status' }, message);
+  document.body.append(el);
+  setTimeout(() => el.remove(), 4500);
+}

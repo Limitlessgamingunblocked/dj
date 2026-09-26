@@ -1,6 +1,6 @@
-import { api } from '../api';
+import { api, isPreview } from '../api';
 import { h } from '../dom';
-import { go } from '../router';
+import { go, setPath } from '../router';
 import { state } from '../state';
 import { logo } from './shell';
 
@@ -41,7 +41,7 @@ export function renderAuth(root: HTMLElement, initial: 'signup' | 'login') {
     tabSignup.setAttribute('aria-selected', String(signup));
     tabLogin.setAttribute('aria-selected', String(!signup));
     error.textContent = '';
-    history.replaceState(null, '', signup ? '#/account' : '#/login');
+    setPath(signup ? '/account' : '/login');
   };
   tabSignup.addEventListener('click', () => ((mode = 'signup'), sync()));
   tabLogin.addEventListener('click', () => ((mode = 'login'), sync()));
@@ -84,6 +84,7 @@ export function renderAuth(root: HTMLElement, initial: 'signup' | 'login') {
         sub,
         goalNote,
         form,
+        isPreview ? h('p.preview-note', {}, 'Preview: your account and saved models are kept in this browser.') : null,
       ),
     ),
   );

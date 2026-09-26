@@ -1,7 +1,7 @@
 import './styles.css';
 import { api } from './api';
 import { clear } from './dom';
-import { go, onRoute } from './router';
+import { currentPath, go, onRoute } from './router';
 import { state } from './state';
 import { renderAuth } from './views/auth';
 import { renderDashboard } from './views/dashboard';
@@ -18,7 +18,7 @@ function route() {
   cleanup = undefined;
   clear(root);
   window.scrollTo(0, 0);
-  const path = location.hash.replace(/^#/, '') || '/';
+  const path = currentPath();
   const signedIn = !!state.user;
 
   if (path === '/' || path === '/welcome') {
@@ -46,7 +46,6 @@ async function start() {
     state.user = null;
   }
   onRoute(route);
-  window.addEventListener('hashchange', route);
   route();
 }
 
