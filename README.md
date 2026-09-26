@@ -4,6 +4,8 @@ A DJ studio that runs in the browser. Pick a real-world style board — an entry
 
 It opens ready to play: two generated demo tracks are already loaded on decks 1 and 2.
 
+**No install:** download [`Deckhouse-DJ.html`](Deckhouse-DJ.html) and open it in Chrome or Edge. It is the whole app in one file, rebuilt with `npm run build:single`.
+
 ## Run it
 
 ```bash
