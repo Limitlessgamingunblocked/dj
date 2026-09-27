@@ -69,7 +69,7 @@ export interface DemoSpec {
   bpm: number;
   root: number; // pitch class
   minor: boolean;
-  style: 'house' | 'techno' | 'breaks' | 'garage';
+  style: 'house' | 'techno' | 'breaks' | 'garage' | 'minimal' | 'rolling' | 'techhouse' | 'rave';
   bars: number;
 }
 
@@ -81,5 +81,5 @@ export interface PcmData {
 
 export const HOTCUE_COLORS = ['#ff3b5c', '#ff9f1c', '#ffd23f', '#3ddc97', '#2ec4f1', '#4f6bff', '#b36bff', '#ff5fcf'];
 export const DECK_COLORS: Record<DeckId, string> = { 1: '#4cc9f0', 2: '#ff9f1c', 3: '#3ddc97', 4: '#c77dff' };
-export const ANALYSIS_VERSION = 4;
+export const ANALYSIS_VERSION = 5;
 export const WAVE_RATE = 150;

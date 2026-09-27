@@ -102,7 +102,7 @@ export class Library extends Emitter<LibraryEvents> {
         fileName: `${d.title}.demo`,
         size: 0,
         addedAt: Date.now(),
-        meta: { title: d.title, artist: d.artist, album: 'Deckhouse Demo Tracks', genre: d.spec.style, label: d.label, year: '2026', format: 'SYNTH', sampleRate: 44100, bitrate: 1411 },
+        meta: { title: d.title, artist: d.artist, album: 'Deckhouse Demo Tracks', genre: d.genre ?? d.spec.style, label: d.label, year: '2026', format: 'SYNTH', sampleRate: 44100, bitrate: 1411 },
         cues: { cue: null, hot: [] },
         source: 'demo',
         demo: d.spec,

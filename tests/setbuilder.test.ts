@@ -7,6 +7,8 @@ import { filePath, toCsv, toM3U, toRekordboxXml, toTraktorNml } from '../src/set
 import { alternativesFor, buildPool, describeSet, fieldMatches, generateSet, parseAnchors, type SetOptions } from '../src/setbuilder/generate';
 import { keyRelation, keyShiftFix, tempoMatch } from '../src/setbuilder/harmony';
 import { profileTrack, type TrackProfile } from '../src/setbuilder/profile';
+import { styleForAnchor } from '../src/setbuilder/styles';
+import { DEMO_TRACKS } from '../src/audio/synth';
 
 const ARTISTS: [string, string, string][] = [
   ['Carl Cox', 'Intec', 'techno'],
@@ -278,5 +280,79 @@ describe('exports', () => {
     expect(csv).toHaveLength(5);
     expect(csv[0].startsWith('#,Starts at,Artist,Title')).toBe(true);
     expect(csv.some((l) => l.includes('"Rock & ""Roll"" <Mix>"'))).toBe(true);
+  });
+});
+
+describe('artist sound profiles', () => {
+  // the built-in demo crate, profiled the way the app does before analysis
+  const demos: TrackProfile[] = DEMO_TRACKS.map((d) =>
+    profileTrack({
+      id: `demo-${d.spec.seed}`,
+      fileName: `${d.title}.demo`,
+      size: 0,
+      addedAt: 0,
+      meta: { title: d.title, artist: d.artist, album: 'Deckhouse Demo Tracks', genre: d.genre ?? d.spec.style, label: d.label, year: '2026', format: 'SYNTH' },
+      cues: { cue: null, hot: [] },
+      source: 'demo',
+      demo: d.spec,
+      plays: 0,
+      status: 'new',
+    } as LibraryTrack),
+  ).filter((p): p is TrackProfile => !!p);
+  const styleOf = (id: string) => DEMO_TRACKS.find((d) => `demo-${d.spec.seed}` === id)!.spec.style;
+
+  it('recognises artist anchors, including spelling variants', () => {
+    expect(styleForAnchor('Chris Stussy')?.id).toBe('stussy');
+    expect(styleForAnchor('stussy')?.id).toBe('stussy');
+    expect(styleForAnchor('OMAR+')?.id).toBe('omar');
+    expect(styleForAnchor('cloonee')?.id).toBe('cloonee');
+    expect(styleForAnchor('PROSPA')?.id).toBe('prospa');
+    expect(styleForAnchor('Carl Cox')).toBeNull();
+  });
+
+  it('matches an artist’s sound when their records are not in the library', () => {
+    const pool = buildPool(demos, { anchors: ['Chris Stussy'], discovery: 0.25 });
+    expect(pool.unmatchedAnchors).toEqual([]);
+    expect(pool.warnings.join(' ')).not.toMatch(/Not in your library/);
+    expect(pool.notes.join(' ')).toMatch(/matched their sound/);
+    const sound = pool.candidates.filter((c) => c.role === 'sound').sort((a, b) => b.affinity - a.affinity);
+    expect(sound.length).toBeGreaterThanOrEqual(4);
+    expect(sound.slice(0, 4).every((c) => styleOf(c.profile.id) === 'minimal')).toBe(true);
+    for (const [anchor, style] of [
+      ['OMAR+', 'rolling'],
+      ['Cloonee', 'techhouse'],
+      ['Prospa', 'rave'],
+    ]) {
+      const top = buildPool(demos, { anchors: [anchor], discovery: 0.25 })
+        .candidates.filter((c) => c.role === 'sound')
+        .sort((a, b) => b.affinity - a.affinity)
+        .slice(0, 4);
+      expect(top.every((c) => styleOf(c.profile.id) === style)).toBe(true);
+    }
+  });
+
+  it('builds a Style Journey from deep grooves to the rave peak', () => {
+    const plan = generateSet(demos, { ...base, anchors: ['Chris Stussy', 'OMAR+', 'Prospa', 'Cloonee'], arc: 'journey', target: { kind: 'tracks', count: 16 } });
+    expect(plan.entries).toHaveLength(16);
+    expect(plan.journey).toEqual(['Chris Stussy', 'OMAR+', 'Cloonee', 'Prospa']);
+    const order = ['minimal', 'rolling', 'techhouse', 'rave'];
+    const meanPos = order.map((st) => {
+      const idx = plan.entries.map((e, i) => (styleOf(e.profile.id) === st ? i : -1)).filter((i) => i >= 0);
+      return idx.reduce((s, i) => s + i, 0) / Math.max(1, idx.length);
+    });
+    for (let i = 1; i < meanPos.length; i++) expect(meanPos[i]).toBeGreaterThan(meanPos[i - 1]);
+    expect(plan.entries.slice(0, 3).filter((e) => styleOf(e.profile.id) === 'minimal').length).toBeGreaterThanOrEqual(2);
+    expect(plan.entries.slice(-3).filter((e) => styleOf(e.profile.id) === 'rave').length).toBeGreaterThanOrEqual(2);
+    expect(plan.harmonicScore).toBeGreaterThanOrEqual(60);
+    const first = plan.entries.slice(0, 4).reduce((s, e) => s + e.level, 0) / 4;
+    const last = plan.entries.slice(-4).reduce((s, e) => s + e.level, 0) / 4;
+    expect(last).toBeGreaterThan(first);
+  });
+
+  it('can follow the typed order instead', () => {
+    const plan = generateSet(demos, { ...base, anchors: ['Prospa', 'Chris Stussy'], arc: 'journey', journeyOrder: 'typed', target: { kind: 'tracks', count: 8 } });
+    expect(plan.journey).toEqual(['Prospa', 'Chris Stussy']);
+    expect(plan.entries.slice(0, 2).every((e) => styleOf(e.profile.id) === 'rave')).toBe(true);
+    expect(plan.entries.slice(-2).every((e) => styleOf(e.profile.id) === 'minimal')).toBe(true);
   });
 });

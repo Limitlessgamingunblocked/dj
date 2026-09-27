@@ -1,7 +1,9 @@
 /*
  * Key detection: long-term chromagram (log-frequency mapping of a 4096-point
  * spectrum between 55 Hz and 2 kHz, per-frame normalised) correlated with
- * Krumhansl–Kessler major/minor profiles for all 24 keys.
+ * Krumhansl–Kessler major/minor profiles for all 24 keys. Only energy that
+ * stands above the local spectral floor counts, so hats, shakers, rims and
+ * snare noise in percussive tracks don't wash out the tonal content.
  */
 import type { KeyInfo } from '../core/types';
 import { decimate, magnitudes } from './fft';
@@ -57,15 +59,26 @@ export function chromagram(mono: Float32Array, sr: number): number[] {
   }
   const total = new Array(12).fill(0);
   const frames = Math.floor((x.length - N) / hop);
+  const kMin = bins[0] ?? 1;
+  const kMax = bins[bins.length - 1] ?? N / 2 - 1;
+  const W = 10; // floor window, ± bins (~13 Hz)
+  const pre = new Float64Array(N / 2 + 1);
   const frameEnergy: number[] = [];
   const frameChroma: number[][] = [];
   for (let f = 0; f < frames; f++) {
     magnitudes(x, f * hop, N, re, im, mag);
+    // local floor: mean magnitude around each bin; tonal peaks rise well above it, noise doesn't
+    for (let k = Math.max(1, kMin - W - 1); k <= Math.min(N / 2 - 1, kMax + W); k++) pre[k + 1] = pre[k] + mag[k];
     const c = new Array(12).fill(0);
     let e = 0;
     for (let j = 0; j < bins.length; j++) {
-      const m = mag[bins[j]];
-      c[binPc[j]] += binW[j] * Math.sqrt(m);
+      const k = bins[j];
+      const m = mag[k];
+      const lo = Math.max(1, k - W);
+      const hi = Math.min(N / 2 - 1, k + W);
+      const floor = (pre[hi + 1] - pre[lo]) / (hi - lo + 1);
+      const tonal = Math.max(0, m - floor * 1.6);
+      c[binPc[j]] += binW[j] * Math.sqrt(tonal);
       e += m * m;
     }
     frameEnergy.push(e);

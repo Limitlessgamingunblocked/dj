@@ -30,9 +30,11 @@ export interface TrackProfile {
   outroStart: number;
   plays: number;
   basis: 'analysis' | 'demo';
+  /** groove style a built-in demo track was synthesised in */
+  demoStyle?: string;
 }
 
-const STYLE_ENERGY: Record<string, number> = { techno: 0.64, breaks: 0.56, garage: 0.58, house: 0.58 };
+const STYLE_ENERGY: Record<string, number> = { techno: 0.64, breaks: 0.56, garage: 0.58, house: 0.58, minimal: 0.46, rolling: 0.55, techhouse: 0.66, rave: 0.78 };
 
 /** Small nudges from genre words that the audio features can't see. */
 function genreNudge(genre: string): number {
@@ -142,6 +144,7 @@ export function profileTrack(t: LibraryTrack): TrackProfile | null {
     fileName: t.fileName,
     format: m.format,
     plays: t.plays,
+    demoStyle: t.source === 'demo' ? t.demo?.style : undefined,
   };
   const a = t.analysis;
   if (a && a.bpm > 0 && a.duration > 20) {

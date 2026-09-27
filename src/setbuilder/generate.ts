@@ -8,9 +8,12 @@
  */
 import type { KeyInfo } from '../core/types';
 import { clamp, rng } from '../core/util';
-import { arcById, arcEnergy, type ArcId } from './arcs';
+import { arcById, arcEnergy, type ArcDef, type ArcId } from './arcs';
 import { keyRelation, keyShiftFix, tempoMatch, tempoScore, type KeyRelation } from './harmony';
 import { barSeconds, snapToBars, type TrackProfile } from './profile';
+import { fieldMatches, journeyOrder, normalize, styleFit, styleForAnchor, type StyleProfile } from './styles';
+
+export { fieldMatches, normalize };
 
 export type TransitionStyle = 'cut' | 'blend' | 'long';
 
@@ -36,10 +39,12 @@ export interface SetOptions {
   pinned?: string[];
   /** tracks that must not be in the set */
   exclude?: string[];
+  /** order of a Style Journey: deep → peak, or the order the anchors were typed */
+  journeyOrder?: 'energy' | 'typed';
 }
 
-/** library: no anchors were given (or none matched); filler: outside the anchors' sound, used only to reach the target */
-export type Role = 'anchor' | 'style' | 'discovery' | 'library' | 'filler';
+/** library: no anchors were given (or none matched); sound: carries an anchor artist's sound profile; filler: outside the anchors' sound, used only to reach the target */
+export type Role = 'anchor' | 'style' | 'sound' | 'discovery' | 'library' | 'filler';
 
 export interface Candidate {
   profile: TrackProfile;
@@ -49,6 +54,10 @@ export interface Candidate {
   why: string;
   /** energy mapped onto the pool's spread, 0–1 */
   level: number;
+  /** fit to each style anchor's sound (style id → 0–1) */
+  fits?: Record<string, number>;
+  /** the style anchor this track sounds most like */
+  sound?: string;
 }
 
 export interface SetEntry extends Candidate {
@@ -96,26 +105,17 @@ export interface SetPlan {
   bpmMin: number;
   bpmMax: number;
   warnings: string[];
+  /** informational notes (e.g. which sound profiles were used) */
+  notes: string[];
+  /** style anchors in the order a Style Journey visits them */
+  journey: string[];
+  /** a Style Journey's energy targets, fitted to the tracks that carry each style */
+  arcPoints?: [number, number][];
 }
 
 /* ------------------------------------------------------------------ */
 /* anchors & candidates                                                 */
 /* ------------------------------------------------------------------ */
-
-export function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-/** True when `anchor` appears in `field` as whole words ("carl cox" in "Carl Cox & Friends"). */
-export function fieldMatches(field: string, anchor: string): boolean {
-  const a = normalize(anchor);
-  return !!a && ` ${normalize(field)} `.includes(` ${a} `);
-}
 
 export function parseAnchors(text: string): string[] {
   const seen = new Set<string>();
@@ -189,10 +189,16 @@ export interface CandidatePool {
   matchedAnchors: string[];
   unmatchedAnchors: string[];
   warnings: string[];
+  notes: string[];
+  /** style anchors, in journey order */
+  journey: StyleProfile[];
 }
 
+/** Tracks at or above this fit carry an artist's sound. */
+const SOUND_FIT = 0.62;
+
 /** Scores the library against the anchors and decides each track's role in the set. */
-export function buildPool(profiles: TrackProfile[], opts: Pick<SetOptions, 'anchors' | 'discovery' | 'exclude' | 'pinned'>): CandidatePool {
+export function buildPool(profiles: TrackProfile[], opts: Pick<SetOptions, 'anchors' | 'discovery' | 'exclude' | 'pinned' | 'journeyOrder'>): CandidatePool {
   const exclude = new Set(opts.exclude ?? []);
   const pinned = new Set(opts.pinned ?? []);
   // one entry per song: the same artist + title imported twice would repeat in a set
@@ -229,33 +235,109 @@ export function buildPool(profiles: TrackProfile[], opts: Pick<SetOptions, 'anch
       }
     }
   }
+  // artist sound profiles: tracks that carry the sound of a style anchor
+  const notes: string[] = [];
+  const journey = journeyOrder(opts.anchors, opts.journeyOrder);
+  const fits = new Map<string, Record<string, number>>();
+  const sounds = new Map<string, { style: StyleProfile; fit: number; why: string }>();
+  if (journey.length) {
+    for (const p of list) {
+      const f: Record<string, number> = {};
+      let best: { style: StyleProfile; fit: number; why: string } | null = null;
+      for (const st of journey) {
+        const r = styleFit(p, st);
+        f[st.id] = r.score;
+        if (!best || r.score > best.fit) best = { style: st, fit: r.score, why: r.why };
+      }
+      fits.set(p.id, f);
+      if (best && best.fit >= SOUND_FIT) sounds.set(p.id, best);
+    }
+    for (const st of journey) {
+      const a = opts.anchors.find((x) => styleForAnchor(x) === st)!;
+      const n = [...sounds.values()].filter((x) => x.style === st).length;
+      const own = hit.has(a);
+      if (n) hit.add(a);
+      notes.push(
+        own
+          ? `${st.name}: your ${st.name} tracks plus ${n} track${n === 1 ? '' : 's'} with their sound (${st.sound}).`
+          : n
+            ? `No ${st.name} tracks in your library — matched their sound instead: ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM (${n} track${n === 1 ? '' : 's'}).`
+            : `No ${st.name} tracks in your library, and nothing close to their sound (${st.sound}) yet — import some.`,
+      );
+    }
+    for (const [id, snd] of sounds) if (!matched.has(id) || matched.get(id)!.role === 'style') matched.set(id, { role: 'sound', why: snd.why });
+  }
   const matchedAnchors = opts.anchors.filter((a) => hit.has(a));
-  const unmatchedAnchors = opts.anchors.filter((a) => !hit.has(a));
-  const out: { profile: TrackProfile; role: Role; affinity: number; why: string }[] = [];
+  const unmatchedAnchors = opts.anchors.filter((a) => !hit.has(a) && !styleForAnchor(a));
+  const out: { profile: TrackProfile; role: Role; affinity: number; why: string; fits?: Record<string, number>; sound?: string }[] = [];
   if (!matched.size) {
     if (opts.anchors.length) warnings.push('None of your anchors match an artist, label, album or genre in the library, so the set draws on the whole library.');
-    for (const p of list) out.push({ profile: p, role: 'library', affinity: 0.8, why: 'From your library' });
+    for (const p of list) out.push({ profile: p, role: 'library', affinity: 0.8, why: 'From your library', fits: fits.get(p.id) });
   } else {
     if (unmatchedAnchors.length) warnings.push(`Not in your library: ${unmatchedAnchors.join(', ')}.`);
     const ap = anchorProfile(list.filter((p) => matched.has(p.id)));
     for (const p of list) {
       const m = matched.get(p.id);
+      const snd = sounds.get(p.id);
+      const extra = { fits: fits.get(p.id), sound: snd?.style.name };
       if (m) {
-        out.push({ profile: p, role: m.role, affinity: m.role === 'anchor' ? 1 : 0.82, why: m.why });
+        const affinity = m.role === 'anchor' ? 1 : m.role === 'sound' ? clamp(0.6 + 0.36 * (snd?.fit ?? 0.6), 0, 0.96) : 0.82;
+        out.push({ profile: p, role: m.role, affinity, why: m.why, ...extra });
         continue;
       }
       const s = similarity(p, ap);
       // lesser-played tracks get a small push: that's where the forgotten gems are
       const gem = 0.08 / (1 + p.plays);
-      if (s.score >= 0.55 && opts.discovery > 0) out.push({ profile: p, role: 'discovery', affinity: clamp(0.5 + 0.4 * s.score + gem, 0, 0.95), why: p.plays === 0 ? `${s.why} · never played` : s.why });
-      else out.push({ profile: p, role: 'filler', affinity: 0.25 * s.score, why: 'Filler from your library' });
+      if (s.score >= 0.55 && opts.discovery > 0) out.push({ profile: p, role: 'discovery', affinity: clamp(0.5 + 0.4 * s.score + gem, 0, 0.95), why: p.plays === 0 ? `${s.why} · never played` : s.why, ...extra });
+      else out.push({ profile: p, role: 'filler', affinity: 0.25 * s.score, why: 'Filler from your library', ...extra });
     }
   }
   // energy relative to what's available, so every arc can use the whole pool
   const byEnergy = [...out].sort((a, b) => a.profile.energy - b.profile.energy);
   const rank = new Map(byEnergy.map((c, i) => [c.profile.id, byEnergy.length > 1 ? i / (byEnergy.length - 1) : 0.5]));
   const candidates = out.map((c) => ({ ...c, level: clamp(0.6 * rank.get(c.profile.id)! + 0.4 * c.profile.energy, 0, 1) }));
-  return { candidates, matchedAnchors, unmatchedAnchors, warnings };
+  return { candidates, matchedAnchors, unmatchedAnchors, warnings, notes, journey };
+}
+
+/** The energy arc for a set; a Style Journey follows its styles' energy bands (or `points` fitted to the pool). */
+export function resolveArc(options: Pick<SetOptions, 'arc' | 'anchors' | 'journeyOrder'>, fitted?: [number, number][]): ArcDef {
+  const arc = arcById(options.arc);
+  if (arc.id !== 'journey') return arc;
+  if (fitted?.length) return { ...arc, points: fitted };
+  const js = journeyOrder(options.anchors, options.journeyOrder);
+  if (!js.length) return arc;
+  const mid = (s: StyleProfile) => (s.energy[0] + s.energy[1]) / 2;
+  const k = js.length;
+  const points: [number, number][] = [[0, k > 1 ? (js[0].energy[0] + mid(js[0])) / 2 : mid(js[0])]];
+  js.forEach((s, i) => points.push([(i + 0.5) / k, mid(s)]));
+  points.push([1, k > 1 ? (mid(js[k - 1]) + js[k - 1].energy[1]) / 2 : mid(js[0])]);
+  return { ...arc, points };
+}
+
+/** Journey targets from the pool: each style's stretch aims at the energy of the tracks that carry it. */
+function journeyPoints(journey: StyleProfile[], candidates: Candidate[]): [number, number][] | undefined {
+  if (journey.length < 2) return undefined;
+  const levels = journey.map((st) => {
+    // the handful of tracks that carry the style best set its energy
+    const best = candidates
+      .filter((c) => (c.fits?.[st.id] ?? 0) >= SOUND_FIT)
+      .sort((a, b) => (b.fits![st.id] ?? 0) - (a.fits![st.id] ?? 0))
+      .slice(0, 4)
+      .map((c) => c.level);
+    return best.length ? median(best) : (st.energy[0] + st.energy[1]) / 2;
+  });
+  // keep the climb monotonic for an energy-ordered journey even if two styles overlap
+  const k = journey.length;
+  const pts: [number, number][] = [[0, levels[0] - 0.03]];
+  levels.forEach((l, i) => pts.push([(i + 0.5) / k, clamp(l, 0.05, 1)]));
+  pts.push([1, clamp(levels[k - 1] + 0.03, 0, 1)]);
+  return pts;
+}
+
+/** Which style a Style Journey is in at position t (0–1) of the set. */
+function journeyStyle(journey: StyleProfile[], t: number): StyleProfile | null {
+  if (journey.length < 2) return null;
+  return journey[Math.min(journey.length - 1, Math.floor(clamp(t, 0, 0.9999) * journey.length))];
 }
 
 /* ------------------------------------------------------------------ */
@@ -333,7 +415,9 @@ export function generateSet(profiles: TrackProfile[], options: SetOptions): SetP
   const pool = buildPool(profiles, options);
   const warnings = [...pool.warnings];
   const pinned = new Set(options.pinned ?? []);
-  const arc = arcById(options.arc);
+  const journey = pool.journey;
+  const arcPoints = options.arc === 'journey' ? journeyPoints(journey, pool.candidates) : undefined;
+  const arc = resolveArc(options, arcPoints);
   const style = options.style;
   const target = options.target;
   const byTime = target.kind === 'minutes';
@@ -360,7 +444,7 @@ export function generateSet(profiles: TrackProfile[], options: SetOptions): SetP
   }
   const n = cands.length;
   if (!n) {
-    return { ...describeSet([], options, warnings.length ? warnings : ['Your library has no analysed tracks yet. Import music, or wait for the analysis to finish.']) };
+    return { ...describeSet([], options, warnings.length ? warnings : ['Your library has no analysed tracks yet. Import music, or wait for the analysis to finish.'], pool.notes, arcPoints) };
   }
   const plays = cands.map((c) => playTime(c.profile, style, false));
   const fulls = cands.map((c) => playTime(c.profile, style, true));
@@ -407,6 +491,15 @@ export function generateSet(profiles: TrackProfile[], options: SetOptions): SetP
           t = count > 1 ? b.seq.length / (count - 1) : 0;
         }
         let s = stepScore(prev, cand, arcEnergy(arc, t), style, b.artists) + jitter[c];
+        // Style Journey: reward the style whose stretch of the set this is
+        const js = journeyStyle(journey, t);
+        if (js && cand.fits) {
+          const here = cand.fits[js.id] ?? 0;
+          const elsewhere = Math.max(...journey.filter((x) => x !== js).map((x) => cand.fits![x.id] ?? 0));
+          s += 0.5 * here - 0.2 * Math.max(0, elsewhere - here);
+          // discoveries have to suit the stretch they land in
+          if (cand.role === 'discovery' && here < 0.55) s -= 0.3;
+        }
         if (isPin) s += 0.5;
         if (cand.role === 'discovery') s += 0.12;
         if (byTime && total > targetSec + tol) s -= ((total - targetSec - tol) / targetSec) * 4;
@@ -450,7 +543,7 @@ export function generateSet(profiles: TrackProfile[], options: SetOptions): SetP
   const seq = best ? best.seq.map((i) => cands[i]) : [];
   if (byTime && !finished.length && seq.length) warnings.push('Your library ran out of suitable tracks before the target length.');
   if (options.discovery > 0 && pool.matchedAnchors.length && !seq.some((c) => c.role === 'discovery') && quota > 0) warnings.push('No discovery tracks fit this set — import more music in the anchors’ style to get some.');
-  return describeSet(seq, options, warnings);
+  return describeSet(seq, options, warnings, pool.notes, arcPoints);
 }
 
 /* ------------------------------------------------------------------ */
@@ -501,8 +594,8 @@ function describeTransition(a: SetEntry, b: SetEntry, style: TransitionStyle): T
 }
 
 /** Timings, transitions and scores for a track order. */
-export function describeSet(seq: Candidate[], options: SetOptions, warnings: string[] = []): SetPlan {
-  const arc = arcById(options.arc);
+export function describeSet(seq: Candidate[], options: SetOptions, warnings: string[] = [], notes: string[] = [], arcPoints?: [number, number][]): SetPlan {
+  const arc = resolveArc(options, arcPoints);
   const style = options.style;
   const pinned = new Set(options.pinned ?? []);
   const entries: SetEntry[] = [];
@@ -536,6 +629,9 @@ export function describeSet(seq: Candidate[], options: SetOptions, warnings: str
     bpmMin: bpms.length ? Math.min(...bpms) : 0,
     bpmMax: bpms.length ? Math.max(...bpms) : 0,
     warnings,
+    notes,
+    journey: journeyOrder(options.anchors, options.journeyOrder).map((s) => s.name),
+    arcPoints,
   };
 }
 

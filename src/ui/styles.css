@@ -3135,3 +3135,36 @@ textarea.json {
     display: none;
   }
 }
+
+/* set builder: artist sound profiles */
+.sb-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sb-presets-label {
+  margin-top: 4px;
+}
+
+.sb-chip.sound {
+  background: #2a1a12;
+  border-color: #ff7a3a;
+}
+
+.sb-info {
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: #1c1510;
+  border: 1px solid #5a3420;
+  color: #ffd8bf;
+  font-size: 12px;
+}
+
+.sb-role.sound {
+  color: #ffb07a;
+}
+
+.sb-order {
+  margin-top: 6px;
+}

@@ -13,6 +13,7 @@ import { formatBpm, formatTime } from '../core/util';
 import { ARCS, arcById, arcEnergy, type ArcId } from '../setbuilder/arcs';
 import {
   alternativesFor,
+  resolveArc,
   buildPool,
   describeSet,
   generateSet,
@@ -26,6 +27,7 @@ import {
 } from '../setbuilder/generate';
 import { appleMusicSearchUrl, energyTen, spotifySearchUrl, toCsv, toM3U, toRekordboxXml, toTrackList, toTraktorNml, type ExportTarget } from '../setbuilder/export';
 import { profileTrack, type TrackProfile } from '../setbuilder/profile';
+import { STYLES, styleForAnchor } from '../setbuilder/styles';
 import { clear, h, setClass } from './dom';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
@@ -40,6 +42,7 @@ interface BuilderSettings {
   discovery: number;
   source: string;
   folder: string;
+  journeyOrder: 'energy' | 'typed';
 }
 
 const DEFAULTS: BuilderSettings = {
@@ -52,9 +55,11 @@ const DEFAULTS: BuilderSettings = {
   discovery: 0.25,
   source: 'all',
   folder: '',
+  journeyOrder: 'energy',
 };
 
-const ROLE_LABEL: Record<Candidate['role'], string> = { anchor: 'Anchor', style: 'Genre', discovery: 'Discovery', library: 'Library', filler: 'Filler' };
+const ROLE_LABEL: Record<Candidate['role'], string> = { anchor: 'Anchor', style: 'Genre', sound: 'Sound-alike', discovery: 'Discovery', library: 'Library', filler: 'Filler' };
+const roleLabel = (c: Candidate) => (c.role === 'sound' && c.sound ? `≈ ${c.sound}` : ROLE_LABEL[c.role]);
 const MIX_IN = 6;
 const MIX_OUT = 7;
 
@@ -190,13 +195,29 @@ export class SetBuilderPanel {
 
     // energy arc
     const arcs = h('div', { class: 'sb-arcs', role: 'radiogroup', 'aria-label': 'Energy arc' });
+    const order = h('div', { class: 'seg sb-order', role: 'group', 'aria-label': 'Journey order' });
     const syncArcs = () => {
       for (const b of arcs.children) {
         const on = b.getAttribute('data-arc') === s.arc;
         setClass(b, 'active', on);
         b.setAttribute('aria-checked', String(on));
       }
+      order.hidden = s.arc !== 'journey';
+      for (const b of order.children) setClass(b, 'active', b.getAttribute('data-o') === s.journeyOrder);
     };
+    this.syncArcs = syncArcs;
+    for (const [id, label] of [
+      ['energy', 'Deep → peak'],
+      ['typed', 'In my order'],
+    ] as [BuilderSettings['journeyOrder'], string][]) {
+      const b = h('button', { class: 'btn small', type: 'button', 'data-o': id, title: id === 'energy' ? 'Visit the styles from the deepest to the most peak-time' : 'Visit the styles in the order you added them' }, label);
+      b.addEventListener('click', () => {
+        s.journeyOrder = id;
+        syncArcs();
+        this.save();
+      });
+      order.append(b);
+    }
     for (const a of ARCS) {
       const pts = Array.from({ length: 33 }, (_, i) => `${(i / 32) * 100},${28 - arcEnergy(a, i / 32) * 24}`).join(' ');
       const spark = h('span', { class: 'sb-spark' });
@@ -246,18 +267,44 @@ export class SetBuilderPanel {
     const go = h('button', { class: 'btn primary sb-go', type: 'button' }, 'Generate set');
     go.addEventListener('click', () => this.generate(true));
 
+    // artist sound presets
+    const presets = h('div', { class: 'sb-presets' });
+    for (const st of STYLES) {
+      const b = h('button', { class: 'btn small', type: 'button', title: `In the style of ${st.name}: ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM` }, `≈ ${st.name}`);
+      b.addEventListener('click', () => {
+        const has = this.s.anchors.findIndex((a) => styleForAnchor(a) === st);
+        if (has >= 0) this.s.anchors.splice(has, 1);
+        else this.s.anchors.push(st.name);
+        this.renderChips();
+      });
+      presets.append(b);
+    }
+    const all = h('button', { class: 'btn small primary', type: 'button', title: 'A Style Journey through all four sounds, deep grooves to rave peak' }, 'All four → journey');
+    all.addEventListener('click', () => {
+      this.s.anchors = STYLES.map((x) => x.name);
+      this.s.arc = 'journey';
+      this.s.journeyOrder = 'energy';
+      this.syncArcs?.();
+      this.renderChips();
+      this.generate(true);
+    });
+    presets.append(all);
+
     return h(
       'div',
       { class: 'sb-form pane' },
-      field('Anchors', this.chips, this.anchorInput, this.suggestions, h('p', { class: 'note' }, 'Artists, labels or genres that set the sound. Leave empty to use the whole library.')),
+      field('Anchors', this.chips, this.anchorInput, this.suggestions, h('p', { class: 'note' }, 'Artists, labels or genres that set the sound. Leave empty to use the whole library. Artists marked ≈ also match by sound, so they work even without their records in your library.'), h('div', { class: 'sb-presets-label label' }, 'In the style of'), presets),
       field('Length', h('div', { class: 'sb-row' }, seg, num)),
-      field('Energy arc', arcs),
+      field('Energy arc', arcs, order),
       field('Transitions', styles, styleNote),
       field('Discovery', h('div', { class: 'sb-row' }, disc, discVal), h('p', { class: 'note' }, 'Share of tracks by other artists that sound like your anchors, favouring ones you rarely play.')),
       field('Build from', this.sourceSel),
       go,
     );
   }
+
+  private syncArcs: (() => void) | null = null;
+  private journeyOffered = false;
 
   private addAnchors(text: string): void {
     for (const a of parseAnchors(text)) if (!this.s.anchors.some((x) => normalize(x) === normalize(a))) this.s.anchors.push(a);
@@ -273,7 +320,12 @@ export class SetBuilderPanel {
         this.s.anchors = this.s.anchors.filter((y) => y !== a);
         this.renderChips();
       });
-      this.chips.append(h('span', { class: 'sb-chip' }, a, x));
+      const st = styleForAnchor(a);
+      this.chips.append(h('span', { class: `sb-chip${st ? ' sound' : ''}`, title: st ? `Matches by sound too: ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM` : undefined }, st ? `≈ ${a}` : a, x));
+    }
+    if (this.s.anchors.filter((a) => styleForAnchor(a)).length >= 2 && this.s.arc !== 'journey' && !this.journeyOffered) {
+      this.journeyOffered = true;
+      toast('Two or more artist sounds: try the “Style Journey” energy arc to travel through them.');
     }
     this.chips.hidden = !this.s.anchors.length;
     this.save();
@@ -297,6 +349,7 @@ export class SetBuilderPanel {
       add(t.meta.genre);
     }
     clear(this.suggestions);
+    for (const st of STYLES) this.suggestions.append(h('option', { value: st.name }, `≈ sound: ${st.sound}`));
     for (const c of [...counts.values()].sort((a, b) => b.n - a.n).slice(0, 300)) this.suggestions.append(h('option', { value: c.label }));
     const cur = this.s.source;
     clear(this.sourceSel);
@@ -320,6 +373,7 @@ export class SetBuilderPanel {
       seed: this.seed,
       pinned: [...this.pinned],
       exclude: [...this.excluded],
+      journeyOrder: s.journeyOrder,
     };
   }
 
@@ -356,14 +410,14 @@ export class SetBuilderPanel {
     this.seq = plan.entries.map((e) => this.pool.find((c) => c.profile.id === e.profile.id) ?? e);
     this.plan = plan;
     const arc = arcById(opts.arc).name;
-    this.name = `SmartDJ · ${arc}${opts.anchors.length ? ` · ${opts.anchors.slice(0, 2).join(', ')}` : ''}`;
+    this.name = plan.journey.length >= 2 && opts.arc === 'journey' ? `SmartDJ · ${plan.journey.join(' → ')}` : `SmartDJ · ${arc}${opts.anchors.length ? ` · ${opts.anchors.slice(0, 2).join(', ')}` : ''}`;
     this.renderResult();
   }
 
   /** Re-describe the current order after an edit (keeps the generator's warnings). */
   private update(): void {
     if (!this.plan) return;
-    this.plan = describeSet(this.seq, this.options(), this.plan.warnings);
+    this.plan = describeSet(this.seq, this.options(), this.plan.warnings, this.plan.notes, this.plan.options.arc === this.s.arc ? this.plan.arcPoints : undefined);
     this.renderResult();
   }
 
@@ -591,7 +645,7 @@ export class SetBuilderPanel {
           h('strong', {}, plan ? 'No set could be built' : 'Build a set from your library'),
           ...(plan?.warnings.length ? plan.warnings.map((w) => h('span', {}, w)) : []),
           plan ? null : 'Add anchor artists, labels or genres, choose a length and an energy arc, then Generate. SmartDJ orders the tracks for harmonic, beat-matched mixing and tells you where and how to mix each one.',
-          plan ? null : h('span', { class: 'note' }, 'The built-in demo crate has artists like Kora Vance, Mira Solen and Tape Theory, and labels Tidal Room, Night Shift and Concrete Label — try them as anchors.'),
+          plan ? null : h('span', { class: 'note' }, 'Try “All four → journey” for a set in the styles of Chris Stussy, OMAR+, Cloonee and Prospa — the demo crate includes tracks synthesised in those sounds. Or anchor on demo artists like Kora Vance and labels like Tidal Room.'),
         ),
       );
       return;
@@ -640,6 +694,7 @@ export class SetBuilderPanel {
     if (this.profiled.waiting) extra.push(h('span', { class: 'note' }, `${this.profiled.waiting} track${this.profiled.waiting > 1 ? 's are' : ' is'} still being analysed and not used yet.`));
     this.result.append(
       h('div', { class: 'sb-head' }, h('h3', { class: 'sb-title' }, this.name), stats),
+      ...plan.notes.map((w) => h('div', { class: 'sb-info', role: 'note' }, '≈ ', w)),
       ...plan.warnings.map((w) => h('div', { class: 'sb-warn', role: 'note' }, '⚠ ', w)),
       this.chart(plan),
       actions,
@@ -661,7 +716,7 @@ export class SetBuilderPanel {
     const total = Math.max(1, plan.duration);
     const x = (sec: number) => L + (sec / total) * (W - L - R);
     const y = (e: number) => T + (1 - e) * (H - T - B);
-    const arc = arcById(plan.options.arc);
+    const arc = resolveArc(plan.options, plan.arcPoints);
     const NS = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -747,7 +802,7 @@ export class SetBuilderPanel {
         h('span', { class: 'mono start' }, formatTime(e.startAt)),
         p.key ? h('span', { class: 'chip key', style: { background: camelotColor(p.key) } }, p.key.camelot) : h('span', { class: 'chip' }, '—'),
         h('span', { class: 'who' }, h('span', { class: 'title' }, p.title), h('span', { class: 'artist' }, p.artist || '—')),
-        h('span', { class: `sb-role ${e.role}`, title: e.why }, e.pinned ? `📌 ${ROLE_LABEL[e.role]}` : ROLE_LABEL[e.role]),
+        h('span', { class: `sb-role ${e.role}`, title: e.why }, e.pinned ? `📌 ${roleLabel(e)}` : roleLabel(e)),
         h('span', { class: 'mono bpm' }, formatBpm(p.bpm)),
         energyBar,
         h(

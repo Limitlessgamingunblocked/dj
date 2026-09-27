@@ -1,6 +1,6 @@
 /* Energy arcs: the target energy (0–1) across a set, from start (t = 0) to end (t = 1). */
 
-export type ArcId = 'peak' | 'warmup' | 'steady' | 'story';
+export type ArcId = 'peak' | 'warmup' | 'steady' | 'story' | 'journey';
 
 export interface ArcDef {
   id: ArcId;
@@ -57,6 +57,17 @@ export const ARCS: ArcDef[] = [
       [0.7, 0.7],
       [0.86, 1],
       [1, 0.55],
+    ],
+  },
+  {
+    id: 'journey',
+    name: 'Style Journey',
+    blurb: 'Travels through your style anchors one after another — deep grooves first, peak-time sounds last (or in the order you typed them).',
+    points: [
+      [0, 0.35],
+      [0.33, 0.52],
+      [0.66, 0.72],
+      [1, 0.92],
     ],
   },
 ];
