@@ -8,6 +8,7 @@ import { camelotColor, compatibility } from '../analysis/keys';
 import { DECK_COLORS, HOTCUE_COLORS, type DeckId } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText, setVar } from './dom';
+import { openLyricsEditor } from './LyricsEditor';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 import { drawOverview, fitCanvas } from './waveform';
@@ -37,6 +38,7 @@ export class DeckPanel {
   private jumpSize: HTMLElement;
   private keyShift: HTMLElement;
   private layerBtn: HTMLButtonElement;
+  private lyricsBtn: HTMLButtonElement;
   private showRemain = true;
 
   constructor(
@@ -61,6 +63,8 @@ export class DeckPanel {
     this.layerBtn.addEventListener('click', () => reg.press(`layer.${side}`, 'ui'));
     const more = h('button', { class: 'btn small ghost icon', title: 'Deck options', 'aria-label': 'Deck options' }, '⋯');
     more.addEventListener('click', (e) => this.deckMenu(e as MouseEvent));
+    this.lyricsBtn = h('button', { class: 'btn small ghost icon lyrics-btn', title: 'Lyrics', 'aria-label': 'Lyrics' }, '🎤') as HTMLButtonElement;
+    this.lyricsBtn.addEventListener('click', () => openLyricsEditor(this.app, this.deck()));
 
     this.bpm = h('span');
     this.bpmOrig = h('small');
@@ -163,7 +167,7 @@ export class DeckPanel {
     this.el = h(
       'section',
       { class: `deck-panel ${side === 'L' ? 'left' : 'right'}`, 'aria-label': `Deck ${side === 'L' ? 'left' : 'right'}` },
-      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '2px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
+      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '2px', justifyContent: 'flex-end' } }, this.layerBtn, this.lyricsBtn, more))),
       h('div', { class: 'readouts' }, h('div', { class: 'bpm-line' }, bpmBox, this.tempoChip), this.time),
       h('div', { class: 'overview-wrap' }, ovBox, h('div', { class: 'phase', title: 'Beat within the bar' }, ...this.phase)),
       h(
@@ -274,6 +278,8 @@ export class DeckPanel {
         { label: `Halve BPM → ${formatBpm(a.bpm / 2)}`, action: () => set({ bpm: a.bpm / 2 }) },
         { label: 'Set downbeat at playhead', action: () => set({ firstBeat: d.position() }) },
         { label: 'Shift grid ½ beat', action: () => set({ firstBeat: a.firstBeat + d.beatLen / 2 }) },
+        'sep',
+        { label: t.lyrics ? 'Edit lyrics…' : 'Add lyrics…', action: () => openLyricsEditor(this.app, d) },
       );
     }
     contextMenu(e.clientX, e.clientY, items);
@@ -344,6 +350,9 @@ export class DeckPanel {
     }
     setClass(this.art, 'spinning', d.playing);
     setText(this.title, t ? t.meta.title : 'No track loaded');
+    this.lyricsBtn.disabled = !t;
+    setClass(this.lyricsBtn, 'has', !!t?.lyrics && t.lyrics.timing !== 'none');
+    this.lyricsBtn.title = !t ? 'Lyrics (load a track first)' : t.lyrics ? `Lyrics: ${t.lyrics.lines.length} lines${t.lyrics.timing === 'none' ? ' (not timed yet)' : ''}` : 'Add lyrics';
     setText(this.artist, t ? t.meta.artist || t.fileName : 'Drag a track here, or use Load in the library');
     setText(this.bpm, d.loaded ? formatBpm(d.bpm) : '--.-');
     setText(this.bpmOrig, 'BPM');

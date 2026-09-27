@@ -1,5 +1,6 @@
 /* Visual player settings: modes, post-processing, intensity. */
 import type { Stage, StageView } from '../three/Stage';
+import { LYRIC_STYLES } from '../visualizer/LyricsLayer';
 import { Visualizer } from '../visualizer/Visualizer';
 import { h, setClass } from './dom';
 
@@ -7,6 +8,7 @@ export class VisualsPanel {
   readonly el: HTMLElement;
   private modeBtns = new Map<string, HTMLElement>();
   private viewBtns = new Map<StageView, HTMLElement>();
+  private styleBtns = new Map<string, HTMLElement>();
 
   constructor(
     private stage: Stage,
@@ -55,6 +57,31 @@ export class VisualsPanel {
       this.onChange();
     });
 
+    const styleRow = h('div', { class: 'seg', role: 'group', 'aria-label': 'Lyric style' });
+    for (const st of LYRIC_STYLES) {
+      const b = h('button', { class: 'btn', type: 'button' }, st.name);
+      b.addEventListener('click', () => {
+        s.lyricStyle = st.id;
+        this.onChange();
+      });
+      this.styleBtns.set(st.id, b);
+      styleRow.append(b);
+    }
+    const lyricsBox = h(
+      'div',
+      { class: 'vis-lyrics' },
+      h('h3', {}, 'Lyrics on the screens'),
+      h('p', { class: 'note' }, 'Timed lyrics of the loudest deck become kinetic type on the LED walls: words pop in as they are sung, the type breathes with the kick, ripples with the vocal and glitches on snares. Colours follow the light show. Add lyrics with the 🎤 button on a deck (files, tags, LRC, paste or LRCLIB). The demo tracks with vocal chops already have them.'),
+      h('div', { class: 'toggle-row' }, h('span', { class: 'label' }, 'Style'), styleRow),
+      h(
+        'div',
+        { class: 'toggle-row' },
+        toggle('Show lyrics', () => s.lyrics, (v) => (s.lyrics = v), 'vis-lyr'),
+        toggle('Hook lines fire strobes & haze', () => s.lyricHooks, (v) => (s.lyricHooks = v), 'vis-lyr-hooks'),
+        toggle('Subtitle over the booth', () => s.lyricHud, (v) => (s.lyricHud = v), 'vis-lyr-hud'),
+      ),
+    );
+
     this.el = h(
       'div',
       { class: 'pane', style: { display: 'grid', gap: '14px' } },
@@ -72,11 +99,13 @@ export class VisualsPanel {
         toggle('Reactive club lights', () => stage.reactiveLights, (v) => (stage.reactiveLights = v), 'vis-lights'),
       ),
       h('label', { class: 'field', for: 'vis-intensity', style: { maxWidth: '360px' } }, 'Reaction intensity', intensity),
+      lyricsBox,
     );
   }
 
   update(): void {
     for (const [id, b] of this.modeBtns) setClass(b, 'active', id === this.stage.visualizer.modeId);
     for (const [v, b] of this.viewBtns) setClass(b, 'active', v === this.stage.view);
+    for (const [id, b] of this.styleBtns) setClass(b, 'active', id === this.stage.visualizer.settings.lyricStyle);
   }
 }

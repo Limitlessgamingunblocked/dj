@@ -1,7 +1,8 @@
 /*
  * Visual player (10 modes): renders the active mode through its own post chain
- *   RenderPass → UnrealBloomPass → final pass (chromatic aberration, palette
- *   shift, vignette, grain) → output texture.
+ *   RenderPass → lyrics pass (kinetic typography: wave / glitch / RGB split)
+ *   → UnrealBloomPass → final pass (chromatic aberration, palette shift,
+ *   vignette, grain) → output texture.
  * The texture feeds the LED wall / projection screens in the club scene and
  * the full-screen Visuals view.
  */
@@ -10,11 +11,14 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import type { LyricFrame } from '../lyrics/LyricsEngine';
 import type { Features } from './AudioFeatures';
+import { LyricsLayer, type LyricStyle } from './LyricsLayer';
 import { MODE_FACTORIES, MODE_INFO, type VisMode } from './modes';
 import { MORE_INFO, MORE_MODES } from './modes2';
 
 const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES];
+const DEFAULT_COLORS = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
 const INFO = [...MODE_INFO, ...MORE_INFO];
 
 const FinalShader = {
@@ -53,6 +57,54 @@ const FinalShader = {
     }`,
 };
 
+/* The lyric canvas over the picture, before bloom so the type glows. */
+const TextShader = {
+  uniforms: {
+    tDiffuse: { value: null as THREE.Texture | null },
+    tText: { value: null as THREE.Texture | null },
+    uOn: { value: 0 },
+    uWave: { value: 0 },
+    uGlitch: { value: 0 },
+    uTime: { value: 0 },
+    uFit: { value: new THREE.Vector2(1, 1) },
+  },
+  vertexShader: FinalShader.vertexShader,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse, tText;
+    uniform float uOn, uWave, uGlitch, uTime;
+    uniform vec2 uFit;
+    varying vec2 vUv;
+    float h1(float n) { return fract(sin(n * 127.1 + 31.7) * 43758.5453); }
+    vec4 tex(vec2 uv) {
+      vec2 inside = step(vec2(0.0), uv) * step(uv, vec2(1.0));
+      return texture2D(tText, uv) * inside.x * inside.y;
+    }
+    void main() {
+      vec4 base = texture2D(tDiffuse, vUv);
+      if (uOn < 0.002) { gl_FragColor = base; return; }
+      vec2 uv = (vUv - 0.5) * uFit + 0.5;
+      // kinetic wave: the line ripples with the vocal
+      uv.x += sin(uv.y * 16.0 + uTime * 5.0) * 0.007 * uWave;
+      uv.y += sin(uv.x * 7.0 - uTime * 3.2) * 0.02 * uWave;
+      // glitch: displaced horizontal slices and an RGB split
+      float slice = floor(uv.y * 22.0);
+      float tick = floor(uTime * 24.0);
+      float on = step(1.0 - uGlitch * 0.55, h1(slice + tick * 1.7));
+      uv.x += (h1(slice * 3.1 + tick) - 0.5) * 0.09 * on * uGlitch;
+      float split = 0.002 + uGlitch * 0.014;
+      vec4 t = tex(uv);
+      vec4 tr = tex(uv + vec2(split, 0.0));
+      vec4 tb = tex(uv - vec2(split, 0.0));
+      vec3 col = vec3(tr.r, t.g, tb.b);
+      float a = max(t.a, max(tr.a, tb.a) * 0.85);
+      // a soft scrim behind the lines keeps them readable over busy modes
+      float band = smoothstep(0.42, 0.05, abs(vUv.y - 0.5));
+      vec3 c = base.rgb * (1.0 - 0.35 * uOn * band);
+      c = c * (1.0 - a * 0.9) + col * 1.15;
+      gl_FragColor = vec4(c, base.a);
+    }`,
+};
+
 export interface VisSettings {
   mode: string;
   intensity: number;
@@ -61,6 +113,18 @@ export interface VisSettings {
   shake: boolean;
   palette: boolean;
   autoCycle: boolean;
+  /** lyrics as kinetic typography on the screens */
+  lyrics: boolean;
+  lyricStyle: LyricStyle;
+  /** hook lines and key phrases fire strobes, blinders and haze */
+  lyricHooks: boolean;
+  /** the current line as a subtitle over the booth view */
+  lyricHud: boolean;
+}
+
+export interface LyricInput {
+  frame: LyricFrame | null;
+  colors: THREE.Color[];
 }
 
 export class Visualizer {
@@ -70,6 +134,8 @@ export class Visualizer {
   private renderPass: RenderPass;
   private bloom: UnrealBloomPass;
   private final: ShaderPass;
+  private text: ShaderPass;
+  readonly lyrics = new LyricsLayer();
   private w = 960;
   private h = 540;
   private beatsSinceSwitch = 0;
@@ -80,7 +146,7 @@ export class Visualizer {
     private renderer: THREE.WebGLRenderer,
     settings: Partial<VisSettings>,
   ) {
-    this.settings = { mode: 'warp', intensity: 1, bloom: true, aberration: true, shake: true, palette: true, autoCycle: false, ...settings };
+    this.settings = { mode: 'warp', intensity: 1, bloom: true, aberration: true, shake: true, palette: true, autoCycle: false, lyrics: true, lyricStyle: 'auto', lyricHooks: true, lyricHud: true, ...settings };
     this.modes = FACTORIES.map((f) => f());
     this.current = this.modes.find((m) => m.id === this.settings.mode) ?? this.modes[0];
     const rt = new THREE.WebGLRenderTarget(this.w, this.h, { type: THREE.HalfFloatType, samples: 0 });
@@ -89,7 +155,10 @@ export class Visualizer {
     this.renderPass = new RenderPass(this.current.scene, this.current.camera);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(this.w, this.h), 0.6, 0.5, 0.32);
     this.final = new ShaderPass(FinalShader);
+    this.text = new ShaderPass(TextShader);
+    this.text.uniforms.tText.value = this.lyrics.texture;
     this.composer.addPass(this.renderPass);
+    this.composer.addPass(this.text);
     this.composer.addPass(this.bloom);
     this.composer.addPass(this.final);
     this.setSize(this.w, this.h);
@@ -134,7 +203,7 @@ export class Visualizer {
   }
 
   /** Render the current mode into the output texture. */
-  render(f: Features, dt: number): void {
+  render(f: Features, dt: number, lyric?: LyricInput): void {
     const s = this.settings;
     f.intensity = s.intensity;
     f.shake = s.shake ? 1 : 0;
@@ -150,6 +219,17 @@ export class Visualizer {
       }
     }
     this.current.update(f, dt);
+    const fx = this.lyrics.draw(s.lyrics ? (lyric?.frame ?? null) : null, f, lyric?.colors ?? DEFAULT_COLORS, s.lyricStyle, dt, f.time);
+    const tu = this.text.uniforms;
+    tu.uOn.value = fx.on;
+    tu.uWave.value = fx.wave;
+    tu.uGlitch.value = fx.glitch;
+    tu.uTime.value = f.time;
+    // keep the 16:9 type undistorted on any screen shape
+    const aspect = this.w / this.h;
+    const ref = 16 / 9;
+    (tu.uFit.value as THREE.Vector2).set(aspect > ref ? aspect / ref : 1, aspect > ref ? 1 : ref / aspect);
+    this.text.enabled = fx.on > 0.002;
     this.bloom.enabled = s.bloom;
     this.bloom.strength = 0.35 + f.level * 0.35 + f.drop * 0.6 * s.intensity;
     const u = this.final.uniforms;
@@ -164,6 +244,7 @@ export class Visualizer {
 
   dispose(): void {
     for (const m of this.modes) m.dispose();
+    this.lyrics.texture.dispose();
     this.composer.dispose();
   }
 }

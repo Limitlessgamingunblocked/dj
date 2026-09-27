@@ -13,6 +13,8 @@ import { makeKey, parseKeyTag } from '../analysis/keys';
 import { DEMO_TRACKS } from '../audio/synth';
 import { dbAll, dbDelete, dbGet, dbPut } from './db';
 import { readTags } from './tags';
+import { lyricsFromSynced, lyricsFromText, type Lyrics } from '../lyrics/lyrics';
+import { demoLyrics } from '../lyrics/demo';
 
 export interface Crate {
   id: string;
@@ -96,7 +98,17 @@ export class Library extends Emitter<LibraryEvents> {
   private ensureDemos(): void {
     for (const d of DEMO_TRACKS) {
       const id = `demo-${d.spec.seed}`;
-      if (this.tracks.has(id)) continue;
+      const have = this.tracks.get(id);
+      if (have) {
+        if (!have.lyrics) {
+          const l = demoLyrics(d.spec);
+          if (l) {
+            have.lyrics = l;
+            this.saveTrack(have, 0);
+          }
+        }
+        continue;
+      }
       const t: LibraryTrack = {
         id,
         fileName: `${d.title}.demo`,
@@ -108,10 +120,18 @@ export class Library extends Emitter<LibraryEvents> {
         demo: d.spec,
         plays: 0,
         status: 'new',
+        lyrics: demoLyrics(d.spec) ?? undefined,
       };
       this.tracks.set(id, t);
       this.saveTrack(t, 0);
     }
+  }
+
+  /** Store (or clear) a track's lyrics. */
+  setLyrics(t: LibraryTrack, lyrics: Lyrics | null): void {
+    t.lyrics = lyrics ?? undefined;
+    this.saveTrack(t, 0);
+    this.emit('changed', undefined);
   }
 
   list(): LibraryTrack[] {
@@ -143,9 +163,12 @@ export class Library extends Emitter<LibraryEvents> {
   /* ingestion                                                            */
   /* ------------------------------------------------------------------ */
 
-  async importFiles(files: Iterable<File>, crateId?: string | null): Promise<LibraryTrack[]> {
+  async importFiles(files: Iterable<File>, crateId?: string | null, lyricFiles: File[] = []): Promise<LibraryTrack[]> {
     const list = [...files].filter(isAudioFile);
     const created: LibraryTrack[] = [];
+    // sidecar lyrics: song.lrc / song.txt next to song.mp3
+    const base = (n: string) => n.replace(/\.[^.]+$/, '').toLowerCase();
+    const sidecars = new Map(lyricFiles.map((f) => [base(f.name), f]));
     let i = 0;
     const worker = async () => {
       while (i < list.length) {
@@ -154,6 +177,11 @@ export class Library extends Emitter<LibraryEvents> {
         if (t) {
           created.push(t);
           if (crateId) this.addToCrate(crateId, [t.id]);
+          const side = sidecars.get(base(f.name));
+          if (side) {
+            const l = lyricsFromText(await side.text(), /\.lrc$/i.test(side.name) ? 'lrc' : 'pasted', t.analysis?.duration);
+            if (l) this.setLyrics(t, l);
+          }
         }
       }
     };
@@ -201,6 +229,8 @@ export class Library extends Emitter<LibraryEvents> {
       status: 'analyzing',
     };
     if (tags.picture) t.meta.art = await artToDataUrl(tags.picture);
+    const lyr = (tags.synced?.length ? lyricsFromSynced(tags.synced) : null) ?? (tags.lyrics ? lyricsFromText(tags.lyrics, 'tags') : null);
+    if (lyr) t.lyrics = lyr;
     this.tracks.set(id, t);
     this.emit('changed', undefined);
     await dbPut('blobs', id, file);

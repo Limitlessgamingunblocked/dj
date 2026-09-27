@@ -14,6 +14,10 @@ export interface RawTags {
   bpm?: number;
   key?: string;
   picture?: { mime: string; data: Uint8Array };
+  /** unsynchronised lyrics (plain text, sometimes LRC) */
+  lyrics?: string;
+  /** synchronised lyrics events (ID3 SYLT), seconds */
+  synced?: { t: number; text: string }[];
   format: string;
 }
 
@@ -38,6 +42,23 @@ function decodeText(b: Uint8Array, enc: number): string {
     s = new TextDecoder(le ? 'utf-16le' : 'utf-16be').decode(b.subarray(start, start + ((b.length - start) & ~1)));
   }
   return s.replace(/\0+$/, '').split('\0')[0].trim();
+}
+
+/** Like decodeText but keeps newlines and inner text (lyrics are multi-line). */
+function decodeLyric(b: Uint8Array, enc: number): string {
+  let s: string;
+  if (enc === 0) s = latin1.decode(b);
+  else if (enc === 3) s = utf8.decode(b);
+  else {
+    let le = true;
+    let start = 0;
+    if (enc === 1 && b.length >= 2) {
+      if (b[0] === 0xfe && b[1] === 0xff) le = false;
+      start = b[0] === 0xff || b[0] === 0xfe ? 2 : 0;
+    } else if (enc === 2) le = false;
+    s = new TextDecoder(le ? 'utf-16le' : 'utf-16be').decode(b.subarray(start, start + ((b.length - start) & ~1)));
+  }
+  return s.replace(/\0+$/, '').replace(/\r\n?/g, '\n');
 }
 
 function syncsafe(b: Uint8Array, o: number): number {
@@ -113,6 +134,36 @@ export function parseId3(b: Uint8Array, out: RawTags): void {
       case 'TKE':
         out.key ??= text();
         break;
+      case 'USLT':
+      case 'ULT': {
+        // encoding, language(3), descriptor, text
+        const enc = body[0];
+        const dz = findTerminator(body, 4, enc);
+        const start = dz + (enc === 1 || enc === 2 ? 2 : 1);
+        if (start < body.length && !out.lyrics) out.lyrics = decodeLyric(body.subarray(start), enc);
+        break;
+      }
+      case 'SYLT':
+      case 'SLT': {
+        // encoding, language(3), timestamp format, content type, descriptor, then (text, 32-bit time)*
+        const enc = body[0];
+        const fmt = body[4];
+        if (fmt !== 2 || out.synced) break; // milliseconds only (MPEG-frame stamps are rare)
+        const wide = enc === 1 || enc === 2;
+        let p = findTerminator(body, 6, enc) + (wide ? 2 : 1);
+        const events: { t: number; text: string }[] = [];
+        while (p < body.length) {
+          const z = findTerminator(body, p, enc);
+          const txt = decodeLyric(body.subarray(p, z), enc);
+          const q = z + (wide ? 2 : 1);
+          if (q + 4 > body.length) break;
+          const ms = ((body[q] << 24) | (body[q + 1] << 16) | (body[q + 2] << 8) | body[q + 3]) >>> 0;
+          events.push({ t: ms / 1000, text: txt });
+          p = q + 4;
+        }
+        if (events.length) out.synced = events;
+        break;
+      }
       case 'APIC':
       case 'PIC': {
         if (out.picture) break;
@@ -170,6 +221,12 @@ function applyVorbis(key: string, value: string, out: RawTags): void {
       if (v > 0) out.bpm ??= v;
       break;
     }
+    case 'LYRICS':
+    case 'UNSYNCEDLYRICS':
+    case 'UNSYNCED LYRICS':
+    case 'SYNCEDLYRICS':
+      out.lyrics ??= value;
+      break;
     case 'INITIALKEY':
     case 'KEY':
       out.key ??= value;
@@ -323,6 +380,9 @@ function parseMp4(b: Uint8Array, out: RawTags): void {
               break;
             case 'covr':
               out.picture ??= { mime: kind === 14 ? 'image/png' : 'image/jpeg', data: payload.slice() };
+              break;
+            case '©lyr':
+              out.lyrics ??= text();
               break;
             default:
               break;

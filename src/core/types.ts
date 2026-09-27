@@ -62,6 +62,8 @@ export interface LibraryTrack {
   plays: number;
   status: 'new' | 'analyzing' | 'ready' | 'error';
   error?: string;
+  /** lyrics with timings (embedded, .lrc, pasted, looked up or tapped) */
+  lyrics?: import('../lyrics/lyrics').Lyrics;
 }
 
 export interface DemoSpec {

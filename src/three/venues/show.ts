@@ -7,6 +7,8 @@
  *     wide at the peak
  *   – build-ups get a strobe roll on the last bar; drops fire CO2, blinders
  *     and a bar of strobes
+ *   – accents (a hook line of the lyrics landing) hit a beat of strobes, a
+ *     blinder pop and a burst of lit haze
  */
 import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
@@ -83,6 +85,8 @@ export interface ShowState {
   venueLook: boolean;
   /** overall white flash for the room this frame */
   flash: number;
+  /** 0..1 envelope of the last key-phrase accent */
+  accent: number;
   intensity: number;
 }
 
@@ -114,6 +118,9 @@ export class LightShow {
   private blinderLevel = 0;
   private masterLevel = 1;
   private lastCo2 = -10;
+  private accentQueued = 0;
+  private accentAt = -10;
+  private accentSmoke = 0;
   private tmp = new THREE.Color();
 
   constructor() {
@@ -148,6 +155,7 @@ export class LightShow {
       hype: 0.3,
       venueLook: true,
       flash: 0,
+      accent: 0,
       intensity: 1,
     };
   }
@@ -159,6 +167,11 @@ export class LightShow {
   /** manual CO2 hit from the lighting desk */
   fireCo2(): void {
     this.co2Queued = true;
+  }
+
+  /** a key phrase landed (hook line of the lyrics): strength 0..1 */
+  accent(strength = 1): void {
+    this.accentQueued = Math.max(this.accentQueued, strength);
   }
 
   update(f: Features, dt: number, hype: number): ShowState {
@@ -226,12 +239,26 @@ export class LightShow {
       if (this.peakBars >= 15 && s.peak > 0.2) strobe = eighth < 0.3 ? 1 : 0;
       else if (s.build > 0.9 && s.beatInBar >= 2) strobe = sixteenth < 0.3 ? 0.7 : 0;
     }
+    // key-phrase accent: a beat of 1/16 strobes, a blinder pop, a burst of haze
+    let accentStrength = 0;
+    if (this.accentQueued > 0 && s.t - this.accentAt > 1.2 && c.dropFx && !c.blackoutHold) {
+      this.accentAt = s.t;
+      accentStrength = this.accentQueued;
+      this.accentSmoke = Math.max(this.accentSmoke, 0.35 * accentStrength);
+    }
+    this.accentQueued = 0;
+    const beatLen = 60 / Math.max(60, s.bpm);
+    const sinceAccent = s.t - this.accentAt;
+    s.accent = sinceAccent < 3 ? Math.exp(-sinceAccent * 1.6) : 0;
+    if (sinceAccent < beatLen) strobe = Math.max(strobe, sixteenth < 0.35 ? 0.85 : 0);
+    this.accentSmoke *= Math.exp(-dt * 0.45);
     s.strobe = strobe * Math.min(1.2, c.intensity);
 
     // blinders: hold, drop hit, downbeats at the peak
     if (c.blinderHold) this.blinderLevel = 1;
     else {
       if (s.dropHit && c.dropFx) this.blinderLevel = 1;
+      if (accentStrength) this.blinderLevel = Math.max(this.blinderLevel, 0.75 * accentStrength);
       if (react && s.peak > 0.6 && f.beatPulse > 0.95 && s.beatInBar === 0) this.blinderLevel = Math.max(this.blinderLevel, 0.6);
       this.blinderLevel *= Math.exp(-dt * 3.2);
     }
@@ -245,7 +272,7 @@ export class LightShow {
     }
     this.co2Queued = false;
 
-    s.smoke = Math.min(1, c.smoke + s.build * 0.25 + s.peak * 0.1);
+    s.smoke = Math.min(1, c.smoke + s.build * 0.25 + s.peak * 0.1 + this.accentSmoke);
 
     // blackout
     const mTarget = c.blackoutHold ? 0 : 1;

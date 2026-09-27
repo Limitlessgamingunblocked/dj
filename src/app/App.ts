@@ -12,6 +12,8 @@ import { loadSetting, saveSetting } from '../core/settings';
 import type { LibraryTrack, PcmData } from '../core/types';
 import { clamp } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
+import type { LyricLine } from '../lyrics/lyrics';
+import { LyricsEngine } from '../lyrics/LyricsEngine';
 import { MidiManager } from '../midi/MidiManager';
 import { boardById, isTurntable, type BoardDef } from '../three/boards';
 import { venueById } from '../three/venues';
@@ -110,6 +112,9 @@ export class App implements AppContext {
   private audioBanner!: HTMLElement;
   private hype!: Hype;
   private callouts!: HTMLElement;
+  private lyrics!: LyricsEngine;
+  private lyricHud!: HTMLElement;
+  private lyricShown: { line: LyricLine | null; words: HTMLElement[] } = { line: null, words: [] };
   private viewers = 900;
   private last = 0;
   private frame = 0;
@@ -195,7 +200,8 @@ export class App implements AppContext {
     }
     toast(`Importing ${audio.length} file${audio.length > 1 ? 's' : ''}…`);
     this.showTab('library');
-    const created = await this.library.importFiles(audio, crateId ?? null);
+    const lyricFiles = files.filter((f) => /\.(lrc|txt)$/i.test(f.name));
+    const created = await this.library.importFiles(audio, crateId ?? null, lyricFiles);
     const ok = created.filter((t) => t.status === 'ready');
     if (ok.length) toast(`Imported ${ok.length} track${ok.length > 1 ? 's' : ''}`);
     if (loadTo && ok[0]) await this.loadTrack(loadTo, ok[0].id);
@@ -255,6 +261,10 @@ export class App implements AppContext {
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
     this.hype = new Hype(this.engine);
     this.hype.onCallout((c) => this.callout(c));
+    this.lyrics = new LyricsEngine(this.engine, (id) => {
+      const t = this.engine.deck(id).track;
+      return t?.lyrics ? { lyrics: t.lyrics, title: t.meta.title } : null;
+    });
 
     this.buildLayout();
     loading.remove();
@@ -459,7 +469,8 @@ export class App implements AppContext {
     zoomChip.addEventListener('click', () => this.stage.focusZone(null));
     this.hud = { zoomBtn, camBtn, zoomChip, expandBtn };
     this.callouts = h('div', { class: 'callouts', 'aria-live': 'polite' });
-    this.stage.el.append(this.callouts);
+    this.lyricHud = h('div', { class: 'lyric-hud', 'aria-hidden': 'true' });
+    this.stage.el.append(this.callouts, this.lyricHud);
     return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, zoomBtn, camBtn, expandBtn));
   }
 
@@ -472,6 +483,32 @@ export class App implements AppContext {
     const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
     if (z) setText(zoomChip, `🔍 ${z} · move off the board or click here to zoom out`);
+  }
+
+  /** the line being sung, as a subtitle over the booth (the screens show it big) */
+  private updateLyricHud(): void {
+    const s = this.stage.visualizer.settings;
+    const fr = this.stage.lyric;
+    const line = s.lyrics && s.lyricHud && this.stage.view !== 'visual' ? (fr?.line ?? null) : null;
+    const shown = this.lyricShown;
+    if (line !== shown.line) {
+      shown.line = line;
+      if (line) {
+        shown.words = (line.words.length ? line.words : [{ t: line.t, end: line.end, text: line.text }]).map((w) => h('span', {}, w.text));
+        this.lyricHud.replaceChildren(...shown.words.flatMap((el, i) => (i ? [document.createTextNode(' '), el] : [el])));
+      }
+      this.lyricHud.classList.toggle('on', !!line);
+      this.lyricHud.classList.toggle('hook', !!line?.hook);
+    }
+    if (line && fr) {
+      const words = line.words.length ? line.words : [{ t: line.t, end: line.end, text: line.text }];
+      words.forEach((w, i) => {
+        const el = shown.words[i];
+        if (!el) return;
+        el.classList.toggle('sung', fr.pos >= w.t);
+        el.classList.toggle('now', fr.pos >= w.t && fr.pos <= w.end + 0.05);
+      });
+    }
   }
 
   /** a short message from the crowd, over the stage */
@@ -655,11 +692,13 @@ export class App implements AppContext {
       const f = this.features.update(dt);
       this.stage.hype = this.hype.update(dt, f);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
+      this.stage.lyric = this.lyrics.frame();
       this.stage.render(dt, f, this.stage.visualizer.settings);
       this.wave.update();
       for (const d of this.decksUi) d.update();
       this.topbar.update();
       this.updateHud();
+      this.updateLyricHud();
       const tab = this.tabs.get(this.tab);
       tab?.update?.(dt);
       const lib = this.tabs.get('library');

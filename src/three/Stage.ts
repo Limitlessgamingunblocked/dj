@@ -15,6 +15,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { AudioEngine } from '../audio/AudioEngine';
 import type { ControlRegistry } from '../core/controls';
+import type { LyricFrame } from '../lyrics/LyricsEngine';
 import type { Features } from '../visualizer/AudioFeatures';
 import { Visualizer } from '../visualizer/Visualizer';
 import { buildBoard, type BoardDef } from './boards';
@@ -67,6 +68,8 @@ export class Stage {
   venueDef: VenueDef | null = null;
   /** crowd energy 0..1 (set by the app's hype meter) */
   hype = 0.3;
+  /** the lyrics the room is hearing (set by the app every frame) */
+  lyric: LyricFrame | null = null;
   board: BoardBuild | null = null;
   boardDef: BoardDef | null = null;
   /** old stickers on the hardware */
@@ -611,6 +614,9 @@ export class Stage {
     this.updateHover();
     this.updateAutoZoom();
 
+    const lyric = this.lyric;
+    // a hook line landing is a key-phrase hit for the lights
+    if (lyric?.lineStarted && lyric.line?.hook && this.visualizer.settings.lyrics && this.visualizer.settings.lyricHooks) this.show.accent(1);
     const show = this.show.update(f, dt, this.hype);
     const venue = this.venue;
     if (this.view !== 'visual') {
@@ -625,7 +631,7 @@ export class Stage {
 
     const needVis = this.view !== 'booth' || (!!venue && this.onScreen(venue.visObjects));
     if (needVis) {
-      this.visualizer.render(f, dt);
+      this.visualizer.render(f, dt, { frame: lyric, colors: show.colors });
       const tex = this.visualizer.texture;
       if (venue) {
         for (const m of venue.visMaterials) {
