@@ -235,13 +235,13 @@ class BoilerRoom extends VenueBase {
     // the crowd: all around and behind the DJ, phones up
     const clothes = ['#e9e6df', '#1b1d22', '#2a2d33', '#6b1d2a', '#bfae8e', '#101114', '#3a3f4a', '#8a2a2a', '#d6d2cb'];
     const spots = [
-      ...crowdArea(-3.8, 3.8, 1.1, 5.2, 2.7, 71, { avoid: [new THREE.Box2(new THREE.Vector2(2.0, 1.8), new THREE.Vector2(2.9, 2.8))] }),
+      // behind the DJ: guests with drinks, chatting and filming
+      ...crowdArea(-3.8, 3.8, 1.1, 5.2, 2.7, 71, { avoid: [new THREE.Box2(new THREE.Vector2(2.0, 1.8), new THREE.Vector2(2.9, 2.8))], role: 'vip' }),
       ...crowdArea(-6, -1.65, -3.3, 1.05, 2.4, 72, { avoid: [new THREE.Box2(new THREE.Vector2(-3.8, -2.2), new THREE.Vector2(-2.8, -1.2))] }),
       ...crowdArea(1.65, 6, -3.3, 1.05, 2.4, 73),
       ...crowdArea(-6, 6, -3.4, -8, 1.4, 74),
     ];
-    const crowd = this.add(new Crowd(spots, { seed: 70, phones: 0.2, clothes }));
-    crowd.extras.forEach((e) => this.group.add(e));
+    this.add(new Crowd(spots, { seed: 70, phones: 0.2, clothes }));
 
     this.wash(V(0, 3.4, 3.6), 0, 5, 10);
     this.wash(V(-3.6, 3.2, -2.6), 1, 4, 9);

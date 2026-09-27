@@ -179,9 +179,8 @@ class DC10 extends VenueBase {
     this.add(new Co2Jets([V(-1.95, 0.02, -0.72), V(1.95, 0.02, -0.72)], 8));
 
     // the crowd, right up against the booth, and friends in the booth
-    const crowd = this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE }), { seed: 12, phones: 0.05, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));
-    crowd.extras.forEach((e) => this.group.add(e));
-    this.add(new Crowd([{ x: -2.1, z: 1.0 }, { x: -2.9, z: 1.6 }, { x: 2.2, z: 1.1 }, { x: 3.0, z: 1.7 }, { x: -1.9, z: 2.1 }].map((p) => ({ ...p, face: Math.PI + (p.x < 0 ? -0.4 : 0.4) })), { seed: 44, clothes: ['#a39d93', '#1b1d22', '#7d6f5a'] }));
+    this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE }), { seed: 12, phones: 0.07, signs: 2, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));
+    this.add(new Crowd([{ x: -2.1, z: 1.0 }, { x: -2.9, z: 1.6 }, { x: 2.2, z: 1.1 }, { x: 3.0, z: 1.7 }, { x: -1.9, z: 2.1 }].map((p) => ({ ...p, face: Math.PI + (p.x < 0 ? -0.4 : 0.4), role: 'vip' as const })), { seed: 44, clothes: ['#a39d93', '#1b1d22', '#7d6f5a'] }));
     this.add(new HazeLayer(new THREE.Box3(V(-8, 1.6, -16), V(8, CEIL - 0.2, 0)), 5));
 
     this.wash(V(-3, 4, -4), 0, 4.5, 12);

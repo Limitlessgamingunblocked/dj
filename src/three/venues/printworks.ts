@@ -139,17 +139,17 @@ class Printworks extends VenueBase {
     this.add(new Co2Jets([-7.4, -4.8, -2.2, 2.2, 4.8, 7.4].map((x) => V(x, 0.02, -1.55)), 13));
 
     // the crowd, on the floor and along the first gantries
-    const crowd = this.add(
+    this.add(
       new Crowd(
         [
           ...crowdArea(-9.1, 9.1, -2.6, -42, 0.8, 91, { y: -STAGE }),
           ...crowdArea(10.4, 15.3, -5, -52, 0.42, 92, { y: 4.63, face: -Math.PI / 2 }),
           ...crowdArea(-15.3, -10.4, -5, -52, 0.42, 93, { y: 4.63, face: Math.PI / 2 }),
         ],
-        { seed: 90, phones: 0.05 },
+        { seed: 90, phones: 0.07, signs: 6 },
       ),
     );
-    crowd.extras.forEach((e) => this.group.add(e));
+    this.add(new Crowd([{ x: -3.0, z: 0.8, face: Math.PI - 0.5 }, { x: -3.7, z: 1.4, face: Math.PI / 2 + 0.3 }, { x: -3.1, z: 2.0, face: Math.PI - 1.1 }, { x: 3.1, z: 0.9, face: Math.PI + 0.5 }, { x: 3.9, z: 1.5, face: -Math.PI / 2 - 0.3 }, { x: 4.6, z: 0.9, face: Math.PI + 0.9 }].map((p) => ({ ...p, role: 'vip' as const })), { seed: 94 }));
     this.add(new HazeLayer(new THREE.Box3(V(-12, 2, -45), V(12, 16, -2)), 6));
 
     this.wash(V(0, 10, -10), 0, 7, 25);

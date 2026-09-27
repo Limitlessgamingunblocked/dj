@@ -129,8 +129,9 @@ class Berghain extends VenueBase {
     const avoid = [-5, -13, -21].flatMap((z) => [-6.5, 6.5].map((x) => new THREE.Box2(new THREE.Vector2(x - 0.9, z - 0.9), new THREE.Vector2(x + 0.9, z + 0.9))));
     avoid.push(new THREE.Box2(new THREE.Vector2(-5.4, -3.2), new THREE.Vector2(-3.6, -1.4)), new THREE.Box2(new THREE.Vector2(3.6, -3.2), new THREE.Vector2(5.4, -1.4)));
     const dark = ['#0b0b0d', '#141417', '#1c1c20', '#0f1012', '#2a2a2e', '#18181b'];
-    const crowd = this.add(new Crowd([...crowdArea(-10.5, 10.5, -2.2, -24, 1.25, 81, { y: -STAGE, avoid }), ...crowdArea(-12.6, -9.6, -5, -27, 1.1, 82, { y: 5.68 })], { seed: 80, clothes: dark }));
-    crowd.extras.forEach((e) => this.group.add(e));
+    // no phones and no signs: cameras get stickered at the door
+    this.add(new Crowd([...crowdArea(-10.5, 10.5, -2.2, -24, 1.25, 81, { y: -STAGE, avoid }), ...crowdArea(-12.6, -9.6, -5, -27, 1.1, 82, { y: 5.68 })], { seed: 80, clothes: dark, drinks: 0.08 }));
+    this.add(new Crowd([{ x: -2.7, z: 0.9, face: Math.PI - 0.5 }, { x: -3.4, z: 1.6, face: Math.PI / 2 + 0.4 }, { x: 2.8, z: 1.0, face: Math.PI + 0.5 }, { x: 3.5, z: 1.8, face: -Math.PI / 2 - 0.3 }].map((p) => ({ ...p, role: 'vip' as const })), { seed: 83, clothes: dark, phones: 0 }));
     this.add(new HazeLayer(new THREE.Box3(V(-12, 2, -28), V(12, 14, 0)), 6));
 
     this.wash(V(0, 9, -8), 1, 5, 22);

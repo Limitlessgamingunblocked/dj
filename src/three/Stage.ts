@@ -156,7 +156,7 @@ export class Stage {
     fill.position.set(-2, 3, 3);
     this.scene.add(this.keyLight, this.keyLight.target, fill);
     // you, as seen from the crowd and venue cameras
-    this.avatar = new Crowd([{ x: 0, z: 0.7, face: Math.PI, scale: 1.02 }], { clothes: ['#e9e6df'], seed: 3 });
+    this.avatar = new Crowd([{ x: 0, z: 0.7, face: Math.PI, scale: 1.02, role: 'dj' }], { clothes: ['#e9e6df'], seed: 3 });
     this.scene.add(this.avatar.object);
     this.rig = new CameraRig(this.camera, this.canvas);
 

@@ -76,8 +76,9 @@ class Warehouse extends VenueBase {
     this.ball.position.set(0, 5.4, -4.2);
     this.group.add(this.ball);
 
-    const crowd = this.add(new Crowd(crowdArea(-6.8, 6.8, -2.3, -7.4, 2.3, 21, { y: -STAGE }), { seed: 5, phones: 0.06 }));
-    crowd.extras.forEach((e) => this.group.add(e));
+    this.add(new Crowd(crowdArea(-6.8, 6.8, -2.3, -7.4, 2.3, 21, { y: -STAGE }), { seed: 5, phones: 0.08, signs: 3 }));
+    // guests on the riser beside the booth
+    this.add(new Crowd([{ x: -2.5, z: 0.9, face: Math.PI - 0.5 }, { x: -3.1, z: 1.5, face: Math.PI / 2 + 0.3 }, { x: -2.4, z: 1.95, face: Math.PI - 1.2 }, { x: 3.9, z: 1.0, face: Math.PI + 0.6 }, { x: 4.4, z: 1.6, face: -Math.PI / 2 - 0.2 }].map((p) => ({ ...p, role: 'vip' as const })), { seed: 6, clothes: ['#d9d6cf', '#1b1d22', '#5a1e22', '#23262d'] }));
     this.add(new HazeLayer(new THREE.Box3(V(-9, 2, -9), V(9, 5.5, 0.5)), 5));
 
     this.wash(V(-2.5, 2.4, -2.5), 0, 6, 10);
