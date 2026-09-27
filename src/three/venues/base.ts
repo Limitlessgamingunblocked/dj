@@ -22,6 +22,8 @@ export interface VenueViews {
   wideLabel: string;
   /** looking at the booth from the dance floor */
   crowd: Pose;
+  /** FPV drone loop: over the crowd, past the pyro and the booth (closed CatmullRom path) */
+  drone: THREE.Vector3[];
 }
 
 export interface LiveFeed {

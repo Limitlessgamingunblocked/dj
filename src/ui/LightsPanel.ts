@@ -16,6 +16,7 @@ export class LightsPanel {
   private cards: { el: HTMLElement; refresh(): void };
   private autoBtn: HTMLElement;
   private dropBtn: HTMLElement;
+  private pyroBtn: HTMLElement;
   private palBtns = new Map<string, HTMLElement>();
   private laserBtns = new Map<string, HTMLElement>();
   private patBtns = new Map<string, HTMLElement>();
@@ -45,6 +46,7 @@ export class LightsPanel {
     };
     this.autoBtn = toggle('Follow the music', 'Lights run a show locked to the beat grid, energy, breakdowns and drops', () => c.auto, (v) => (c.auto = v));
     this.dropBtn = toggle('Drop FX', 'Strobes, blinders and CO2 fire automatically on drops', () => c.dropFx, (v) => (c.dropFx = v));
+    this.pyroBtn = toggle('Pyro on drops', 'Flame jets (or cold-spark fountains indoors) go off on drops, then chase the next downbeats', () => c.pyro, (v) => (c.pyro = v));
 
     const pal = h('div', { class: 'seg', role: 'group', 'aria-label': 'Colours' });
     for (const p of PALETTES) {
@@ -106,9 +108,9 @@ export class LightsPanel {
         'div',
         { class: 'lights-col desk' },
         h('h3', {}, 'Light show'),
-        h('div', { class: 'light-pads' }, pad('light.strobe', 'Strobe', 'N', 'strobe'), pad('light.blinder', 'Blinders', 'B', 'blinder'), pad('light.lasers', 'Lasers', 'Y', 'laser'), pad('light.co2', 'CO2', 'T', 'co2'), pad('light.blackout', 'Blackout', '`', 'blackout')),
-        h('p', { class: 'note' }, 'Hold a pad (or its key) to fire it. Everything else runs itself: patterns change every 8 bars, lasers sheet over the crowd in breakdowns, the build-up gets a strobe roll and the drop fires CO2, blinders and strobes.'),
-        h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn),
+        h('div', { class: 'light-pads' }, pad('light.strobe', 'Strobe', 'N', 'strobe'), pad('light.blinder', 'Blinders', 'B', 'blinder'), pad('light.lasers', 'Lasers', 'Y', 'laser'), pad('light.co2', 'CO2', 'T', 'co2'), pad('light.pyro', 'Pyro', '⇧T', 'pyro'), pad('light.blackout', 'Blackout', '`', 'blackout')),
+        h('p', { class: 'note' }, 'Hold a pad (or its key) to fire it. Everything else runs itself: patterns change every 8 bars, lasers sheet over the crowd in breakdowns, the build-up gets a strobe roll and the drop fires CO2, blinders, strobes and the pyro.'),
+        h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn, this.pyroBtn),
         h('div', { class: 'field' }, 'Colours', pal),
         h('div', { class: 'field' }, 'Lasers', h('div', { class: 'toggle-row' }, lasers, pats)),
         h('div', { class: 'toggle-row sliders' }, slider('light-int', 'Intensity', 0.2, 1.5, () => c.intensity, (v) => (c.intensity = v)), slider('light-smoke', 'Haze', 0, 1, () => c.smoke, (v) => (c.smoke = v))),
@@ -122,6 +124,7 @@ export class LightsPanel {
     const s = this.stage.show.state;
     setClass(this.autoBtn, 'active', c.auto);
     setClass(this.dropBtn, 'active', c.dropFx);
+    setClass(this.pyroBtn, 'active', c.pyro);
     for (const [id, b] of this.palBtns) setClass(b, 'active', id === c.palette);
     for (const [id, b] of this.laserBtns) setClass(b, 'active', id === c.lasers);
     for (const [id, b] of this.patBtns) setClass(b, 'active', id === c.laserPattern);

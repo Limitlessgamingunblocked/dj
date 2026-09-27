@@ -293,8 +293,8 @@ const FRAG_COLOR = /* glsl */ `
   else if (m > 5.5 && m < 6.5) col = sleeve < 0.6 ? skin : top;
   else if (m > 6.5 && m < 7.5) col = fract(vSeed.w * 5.1) < 0.5 ? vec3(0.6, 0.05, 0.04) : vec3(0.72, 0.74, 0.78);
   else if (m > 7.5 && m < 8.5) col = vec3(0.02);
-  else if (m > 8.5 && m < 9.5) { col = vec3(0.0); glow = vec3(0.55, 0.64, 0.85) * 1.8; }
-  else if (m > 9.5 && m < 10.5) { col = vec3(0.02); glow = vec3(4.0) * step(0.5, fract(vSeed.y * 7.0)); }
+  else if (m > 8.5 && m < 9.5) { col = vec3(0.0); glow = vec3(0.55, 0.64, 0.85) * 1.05; }
+  else if (m > 9.5 && m < 10.5) { col = vec3(0.02); glow = vec3(2.2) * step(0.6, fract(vSeed.y * 7.0)); }
   else if (m > 10.5 && m < 11.5) col = vec3(0.02);
   else if (m > 11.5) {
     vec3 t = texture2D(uSigns, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;

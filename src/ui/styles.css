@@ -3040,7 +3040,7 @@ textarea.json {
 
 .light-pads {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -3080,6 +3080,10 @@ textarea.json {
 
 .hw.light-pad.co2 {
   --pad: #bfe8ff;
+}
+
+.hw.light-pad.pyro {
+  --pad: #ff7a1a;
 }
 
 .hw.light-pad.blackout {

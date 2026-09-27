@@ -84,7 +84,7 @@ const DEFAULTS: Settings = {
   lights: {},
 };
 
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'smoke'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke'] as const;
 
 type TabId = 'library' | 'sets' | 'mixer' | 'lights' | 'sampler' | 'visuals' | 'settings';
 

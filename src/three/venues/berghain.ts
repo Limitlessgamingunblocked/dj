@@ -5,6 +5,7 @@
  * a strobe bank that detonates at the peak.
  */
 import * as THREE from 'three';
+import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { block, booth, Crowd, crowdArea, HazeLayer, Lasers, MovingHeads, speaker, Strobes } from './fixtures';
 import { concreteTexture, floorTexture } from './tex';
@@ -18,6 +19,7 @@ class Berghain extends VenueBase {
     wide: { pos: V(-9.2, 7.4, -11), target: V(0, 0.6, -1.5) },
     wideLabel: 'Balcony',
     crowd: { pos: V(2.8, 2.3, -13.5), target: V(0, 1.6, 0) },
+    drone: [V(0, 4.0, 3.5), V(0.3, 2.5, 1.0), V(0.6, 2.0, -2.8), V(2.0, 2.3, -9.0), V(3.5, 3.2, -17.0), V(0, 5.5, -25.0), V(-4.0, 4.0, -19.0), V(-8.5, 7.5, -12.0), V(-8.0, 3.0, -5.0), V(-4.6, 1.6, -1.6), V(-1.0, 1.6, -1.3), V(3.0, 1.6, -1.4), V(5.6, 2.4, -1.0), V(4.5, 4.5, 3.0)],
   };
 
   constructor() {
@@ -115,7 +117,7 @@ class Berghain extends VenueBase {
     this.add(
       new MovingHeads(
         [-8.5, -3, 3, 8.5].flatMap((x) => [V(x, 13.5, -6), V(x, 13.5, -16)]).map((pos) => ({ pos })),
-        { length: 15, radius: 0.95, gain: 1.15 },
+        { length: 15, radius: 0.95, gain: 1.15, floorY: -STAGE },
       ),
     );
     this.add(new Strobes([-8, -4.8, -1.6, 1.6, 4.8, 8].flatMap((x) => [V(x, 11.5, -8), V(x, 11.5, -18)]).map((p) => ({ pos: p, tilt: Math.PI / 2 })), [0.7, 0.2, 0.1]));
@@ -125,6 +127,8 @@ class Berghain extends VenueBase {
         { pos: V(2.8, 0.25, -1.3), dir: V(-0.1, 0.12, -1), side: 1, beams: 10, color: '#cfe0ff', length: 30 },
       ]),
     );
+
+    this.add(new Pyro([V(-3.9, 0, -0.55), V(3.9, 0, -0.55)].map((pos) => ({ pos, kind: 'spark' as const }))));
 
     const avoid = [-5, -13, -21].flatMap((z) => [-6.5, 6.5].map((x) => new THREE.Box2(new THREE.Vector2(x - 0.9, z - 0.9), new THREE.Vector2(x + 0.9, z + 0.9))));
     avoid.push(new THREE.Box2(new THREE.Vector2(-5.4, -3.2), new THREE.Vector2(-3.6, -1.4)), new THREE.Box2(new THREE.Vector2(3.6, -3.2), new THREE.Vector2(5.4, -1.4)));

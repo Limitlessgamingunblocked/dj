@@ -11,7 +11,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ShowState } from './show';
-import { grilleTexture, mirrorBallTexture, rng, smokeTexture, trussTexture } from './tex';
+import { grilleTexture, mirrorBallTexture, rng, smokeTexture, softDotTexture, trussTexture } from './tex';
 
 export const TABLE_Y = 0.9;
 
@@ -89,14 +89,27 @@ export class MovingHeads implements Fixture {
   private c = new THREE.Color();
   private one = new THREE.Vector3(1, 1, 1);
   private gain: number;
+  /** pools of light where the beams hit the floor */
+  private pools: THREE.InstancedMesh | null = null;
+  private floorY = 0;
+  private len: number;
+  private rad: number;
+  private dir = new THREE.Vector3();
+  private p = new THREE.Vector3();
+  private s = new THREE.Vector3();
+  private yq = new THREE.Quaternion();
+  private down = new THREE.Vector3(0, -1, 0);
+  private yAxis = new THREE.Vector3(0, 1, 0);
 
   constructor(
     private specs: HeadSpec[],
-    o: { length?: number; radius?: number; gain?: number; body?: number } = {},
+    o: { length?: number; radius?: number; gain?: number; body?: number; floorY?: number } = {},
   ) {
     const n = specs.length;
     const len = o.length ?? 12;
     const rad = o.radius ?? 0.9;
+    this.len = len;
+    this.rad = rad;
     this.gain = o.gain ?? 1.2;
     const beamGeo = new THREE.CylinderGeometry(0.05, rad, len, 28, 1, true);
     beamGeo.translate(0, -len / 2 - 0.16, 0);
@@ -128,6 +141,14 @@ export class MovingHeads implements Fixture {
       this.lenses.setColorAt(i, this.c);
     });
     this.object.add(base, this.heads, this.lenses, this.beams);
+    if (o.floorY !== undefined) {
+      this.floorY = o.floorY + 0.012;
+      const mat = new THREE.MeshBasicMaterial({ map: softDotTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      this.pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat, n);
+      this.pools.frustumCulled = false;
+      for (let i = 0; i < n; i++) this.pools.setColorAt(i, this.c.setRGB(0, 0, 0));
+      this.object.add(this.pools);
+    }
   }
 
   update(s: ShowState, dt: number): void {
@@ -180,6 +201,28 @@ export class MovingHeads implements Fixture {
       const col = s.colors[(i + (s.moverPattern === 4 ? Math.floor(b) : 0)) % 3 === 2 ? 2 : (i + (s.peak > 0.5 ? Math.floor(b) : 0)) % 2];
       this.beams.setColorAt(i, this.c.copy(col).multiplyScalar(level * this.gain));
       this.lenses.setColorAt(i, this.c.copy(col).multiplyScalar(0.3 + level * 4));
+      if (this.pools) {
+        const pos = this.specs[i].pos;
+        const dir = this.dir.copy(this.down).applyQuaternion(this.q);
+        const t = dir.y < -0.08 ? (this.floorY - pos.y) / dir.y : -1;
+        if (t > 0 && t < this.len * 1.05) {
+          const r = 0.05 + (this.rad - 0.05) * Math.min(1, t / this.len);
+          const stretch = Math.min(3, 1 / -dir.y);
+          this.yq.setFromAxisAngle(this.yAxis, Math.atan2(dir.x, dir.z));
+          this.p.copy(pos).addScaledVector(dir, t);
+          this.p.y = this.floorY;
+          this.m4.compose(this.p, this.yq, this.s.set(r * 2.4, 1, r * 2.4 * stretch));
+          this.pools.setColorAt(i, this.c.copy(col).multiplyScalar(level * 0.55 * (1 - 0.5 * Math.min(1, t / this.len))));
+        } else {
+          this.m4.makeScale(0, 0, 0);
+          this.pools.setColorAt(i, this.c.setRGB(0, 0, 0));
+        }
+        this.pools.setMatrixAt(i, this.m4);
+      }
+    }
+    if (this.pools) {
+      this.pools.instanceMatrix.needsUpdate = true;
+      this.pools.instanceColor!.needsUpdate = true;
     }
     this.beams.instanceMatrix.needsUpdate = true;
     this.heads.instanceMatrix.needsUpdate = true;

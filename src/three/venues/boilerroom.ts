@@ -6,6 +6,7 @@
  * front of the decks with a monitor showing the live feed.
  */
 import * as THREE from 'three';
+import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { booth, boxUV, Crowd, crowdArea, floor, Lasers, MovingHeads, Strobes, truss } from './fixtures';
 import { floorTexture, foliageTexture, neonTextTexture, rng, skyTexture, windowsTexture } from './tex';
@@ -39,6 +40,7 @@ class BoilerRoom extends VenueBase {
     wide: { pos: V(-0.55, 1.52, -2.2), target: V(0.25, 2.0, 1.0) },
     wideLabel: 'Stream cam',
     crowd: { pos: V(-3.6, 2.5, -5.2), target: V(0, 1.3, 0.8) },
+    drone: [V(0, 3.4, 4.8), V(0.2, 2.5, 1.6), V(0.4, 1.7, -0.9), V(0.5, 2.2, -3.4), V(2.6, 2.7, -6.6), V(5.8, 2.9, -4.2), V(6.6, 2.8, 0.2), V(4.6, 3.1, 4.2), V(1.8, 4.2, 7.0), V(-2.6, 3.6, 6.0), V(-6.2, 2.9, 2.4), V(-6.4, 2.7, -3.0), V(-3.0, 3.4, -6.4), V(-0.8, 4.6, -2.5)],
   };
   private neon: THREE.MeshBasicMaterial[] = [];
   private tally: THREE.MeshBasicMaterial;
@@ -166,7 +168,7 @@ class BoilerRoom extends VenueBase {
         this.group.add(par);
       }
     }
-    this.add(new MovingHeads([{ pos: V(ta.x - 0.35, 4.35, ta.z) }, { pos: V(ta.x + 0.35, 4.35, ta.z) }, { pos: V(tb.x - 0.35, 4.35, tb.z), yaw: Math.PI * 0.8 }, { pos: V(tb.x + 0.35, 4.35, tb.z), yaw: Math.PI * 0.8 }], { length: 9, radius: 0.7 }));
+    this.add(new MovingHeads([{ pos: V(ta.x - 0.35, 4.35, ta.z) }, { pos: V(ta.x + 0.35, 4.35, ta.z) }, { pos: V(tb.x - 0.35, 4.35, tb.z), yaw: Math.PI * 0.8 }, { pos: V(tb.x + 0.35, 4.35, tb.z), yaw: Math.PI * 0.8 }], { length: 9, radius: 0.7, floorY: 0 }));
     this.add(new Strobes([{ pos: V(ta.x, 3.9, ta.z - 0.25), tilt: -0.3 }, { pos: V(tb.x, 3.9, tb.z + 0.25), yaw: Math.PI, tilt: -0.3 }], [0.4, 0.14, 0.07]));
     this.add(
       new Lasers([
@@ -242,6 +244,7 @@ class BoilerRoom extends VenueBase {
       ...crowdArea(-6, 6, -3.4, -8, 1.4, 74),
     ];
     this.add(new Crowd(spots, { seed: 70, phones: 0.2, clothes }));
+    this.add(new Pyro([V(-1.35, 0, -0.8), V(1.35, 0, -0.8)].map((pos) => ({ pos, kind: 'spark' as const }))));
 
     this.wash(V(0, 3.4, 3.6), 0, 5, 10);
     this.wash(V(-3.6, 3.2, -2.6), 1, 4, 9);

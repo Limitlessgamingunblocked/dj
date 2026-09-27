@@ -5,8 +5,8 @@
  *   – moving-head patterns change every 8 bars and on drops
  *   – lasers come in with energy, sheet over the crowd in breakdowns and go
  *     wide at the peak
- *   – build-ups get a strobe roll on the last bar; drops fire CO2, blinders
- *     and a bar of strobes
+ *   – build-ups get a strobe roll on the last bar; drops fire CO2, blinders,
+ *     a bar of strobes and the pyro (flame jets / cold sparks)
  *   – accents (a hook line of the lyrics landing) hit a beat of strobes, a
  *     blinder pop and a burst of lit haze
  */
@@ -38,6 +38,8 @@ export interface ShowControls {
   laserPattern: LaserPattern | 'auto';
   /** strobes, blinders and CO2 fire automatically on drops */
   dropFx: boolean;
+  /** flame jets / cold sparks go off on drops */
+  pyro: boolean;
   /** base haze level 0..1 */
   smoke: number;
   strobeHold: boolean;
@@ -78,6 +80,8 @@ export interface ShowState {
   blinder: number;
   /** CO2 cannons fire this frame */
   co2: boolean;
+  /** pyro fires this frame */
+  pyro: boolean;
   smoke: number;
   /** crowd energy 0..1 */
   hype: number;
@@ -103,6 +107,7 @@ export class LightShow {
     lasers: 'auto',
     laserPattern: 'auto',
     dropFx: true,
+    pyro: true,
     smoke: 0.5,
     strobeHold: false,
     blinderHold: false,
@@ -112,6 +117,8 @@ export class LightShow {
   readonly state: ShowState;
   private venuePalette: THREE.Color[] = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
   private co2Queued = false;
+  private pyroQueued = false;
+  private lastPyro = -10;
   private peakBars = 0;
   private lastBar = -1;
   private laserLevel = 0;
@@ -151,6 +158,7 @@ export class LightShow {
       strobe: 0,
       blinder: 0,
       co2: false,
+      pyro: false,
       smoke: 0.5,
       hype: 0.3,
       venueLook: true,
@@ -167,6 +175,11 @@ export class LightShow {
   /** manual CO2 hit from the lighting desk */
   fireCo2(): void {
     this.co2Queued = true;
+  }
+
+  /** manual pyro hit from the lighting desk */
+  firePyro(): void {
+    this.pyroQueued = true;
   }
 
   /** a key phrase landed (hook line of the lyrics): strength 0..1 */
@@ -271,6 +284,14 @@ export class LightShow {
       this.lastCo2 = s.t;
     }
     this.co2Queued = false;
+
+    // pyro: manual, or on the drop (at most every 3 s)
+    s.pyro = false;
+    if ((this.pyroQueued || (s.dropHit && c.dropFx && c.pyro)) && s.t - this.lastPyro > 3 && !c.blackoutHold) {
+      s.pyro = true;
+      this.lastPyro = s.t;
+    }
+    this.pyroQueued = false;
 
     s.smoke = Math.min(1, c.smoke + s.build * 0.25 + s.peak * 0.1 + this.accentSmoke);
 

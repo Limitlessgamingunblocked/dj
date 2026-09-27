@@ -1,5 +1,6 @@
 /* Deckhouse Warehouse: the house club — stage, LED wall, truss rig, lasers. */
 import * as THREE from 'three';
+import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, Lasers, mirrorBall, MovingHeads, speaker, Strobes, truss } from './fixtures';
 import { concreteTexture, floorTexture } from './tex';
@@ -12,6 +13,7 @@ class Warehouse extends VenueBase {
     wide: { pos: V(2.6, 2.3, 3.3), target: V(0, 1.4, -3.2) },
     wideLabel: 'Club',
     crowd: { pos: V(1.4, 2.5, -7.6), target: V(0, 1.1, 0) },
+    drone: [V(0, 3.2, 3.6), V(0.3, 2.4, 1.2), V(0.6, 1.95, -2.2), V(1.8, 2.1, -5.5), V(4.6, 2.9, -7.6), V(6.2, 2.3, -4.2), V(5.5, 1.5, -1.6), V(2.6, 1.6, -1.6), V(-1.2, 1.6, -1.0), V(-4.2, 1.8, -1.9), V(-6.2, 2.6, -5.5), V(-3.6, 3.6, -8.0), V(-1.5, 4.4, -3.0), V(-2.5, 3.8, 2.8)],
   };
   private ball: THREE.Mesh;
 
@@ -60,7 +62,7 @@ class Warehouse extends VenueBase {
       for (const x of [-6.5, 6.5]) this.group.add(truss(V(x, -STAGE, z), V(x, 4.75, z)));
       for (const x of [-5, -2.5, 0, 2.5, 5]) heads.push({ pos: V(x, 4.3, z) });
     }
-    this.add(new MovingHeads(heads, { length: 10, radius: 0.85 }));
+    this.add(new MovingHeads(heads, { length: 10, radius: 0.85, floorY: -STAGE }));
     this.add(new Strobes([-4, -1.3, 1.3, 4].map((x) => ({ pos: V(x, 4.35, -1.4), tilt: 0.4 }))));
     this.add(new Blinders([-3.4, -1.7, 1.7, 3.4].map((x) => ({ pos: V(x, 0.28, -1.05), tilt: -0.25 }))));
     this.add(
@@ -72,6 +74,15 @@ class Warehouse extends VenueBase {
       ]),
     );
     this.add(new Co2Jets([V(-4, 0.05, -1.4), V(-2.6, 0.05, -1.4), V(2.6, 0.05, -1.4), V(4, 0.05, -1.4)]));
+    this.add(
+      new Pyro(
+        [
+          ...[-3.3, 3.3].map((x) => ({ pos: V(x, 0, -0.55), kind: 'flame' as const })),
+          ...[-1.9, 1.9].map((x) => ({ pos: V(x, 0, -0.7), kind: 'spark' as const })),
+        ],
+        { height: 2.9 },
+      ),
+    );
     this.ball = mirrorBall(0.35);
     this.ball.position.set(0, 5.4, -4.2);
     this.group.add(this.ball);

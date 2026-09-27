@@ -6,6 +6,7 @@
  * hanging over the DJ and the crowd pressed right up to a raised booth.
  */
 import * as THREE from 'three';
+import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, Globes, HazeLayer, Lasers, LedStrings, lineArray, mirrorBall, MovingHeads, speaker, Strobes } from './fixtures';
 import { concreteTexture, floorTexture, rng, signTexture } from './tex';
@@ -20,6 +21,7 @@ class DC10 extends VenueBase {
     wide: { pos: V(-1.45, 2.3, 1.75), target: V(0.9, 1.3, -5.5) },
     wideLabel: 'Over the shoulder',
     crowd: { pos: V(-2.4, 2.6, -11.5), target: V(0.3, 2.0, 0) },
+    drone: [V(0, 3.0, 3.2), V(0.4, 2.3, 0.9), V(0.8, 2.0, -2.6), V(2.5, 2.1, -7.5), V(5.5, 2.8, -13.5), V(7.0, 2.3, -8.0), V(5.0, 1.8, -2.4), V(2.9, 1.5, -1.0), V(0, 1.55, -1.1), V(-2.9, 1.5, -1.0), V(-5.5, 2.0, -3.0), V(-7.0, 2.8, -9.0), V(-4.0, 3.6, -14.5), V(-1.0, 4.4, -8.0), V(-3.4, 3.4, 1.8)],
   };
   private fans: THREE.Group[] = [];
 
@@ -163,7 +165,7 @@ class DC10 extends VenueBase {
           { pos: V(-3.6, CEIL - 0.35, -13.5) },
           { pos: V(3.6, CEIL - 0.35, -13.5) },
         ],
-        { length: 6.2, radius: 0.62, gain: 1.35 },
+        { length: 6.2, radius: 0.62, gain: 1.35, floorY: -STAGE },
       ),
     );
     this.add(
@@ -177,6 +179,8 @@ class DC10 extends VenueBase {
     this.add(new Strobes([V(-6, CEIL - 0.1, -4), V(6, CEIL - 0.1, -4), V(-6, CEIL - 0.1, -10.5), V(6, CEIL - 0.1, -10.5), V(-1.8, CEIL - 0.1, -1.5), V(1.8, CEIL - 0.1, -1.5)].map((p) => ({ pos: p, tilt: Math.PI / 2 }))));
     this.add(new Blinders([V(-2.3, -0.28, -0.6), V(2.3, -0.28, -0.6)].map((p) => ({ pos: p, tilt: -0.15 }))));
     this.add(new Co2Jets([V(-1.95, 0.02, -0.72), V(1.95, 0.02, -0.72)], 8));
+    // low ceiling: cold-spark fountains, not flames
+    this.add(new Pyro([V(-2.6, 0, -0.5), V(2.6, 0, -0.5), V(-3.6, 0, -0.45), V(3.6, 0, -0.45)].map((pos) => ({ pos, kind: 'spark' as const }))));
 
     // the crowd, right up against the booth, and friends in the booth
     this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE }), { seed: 12, phones: 0.07, signs: 2, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));

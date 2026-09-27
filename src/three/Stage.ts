@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { AudioEngine } from '../audio/AudioEngine';
@@ -21,9 +22,11 @@ import { Visualizer } from '../visualizer/Visualizer';
 import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
+import { LensShader } from './lens';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 import type { VenueDef, VenueScene } from './venues/base';
 import { Crowd, TABLE_Y } from './venues/fixtures';
+import { Pyro } from './venues/pyro';
 import { LightShow } from './venues/show';
 
 export type StageView = 'booth' | 'split' | 'visual';
@@ -80,6 +83,7 @@ export class Stage {
   private avatar: Crowd;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
+  private lens: ShaderPass;
   private screenScene = new THREE.Scene();
   private screenCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private screenQuad: THREE.Mesh;
@@ -164,6 +168,8 @@ export class Stage {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
     this.composer.addPass(this.bloom);
+    this.lens = new ShaderPass(LensShader);
+    this.composer.addPass(this.lens);
     this.composer.addPass(new OutputPass());
 
     this.visualizer = new Visualizer(this.renderer, {});
@@ -369,7 +375,7 @@ export class Stage {
    * plus a margin counts as "still here", so it can't oscillate. */
   private updateAutoZoom(): void {
     const now = performance.now();
-    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode) return;
+    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone') return;
     if (this.drags.size || this.rig.interacting || this.rig.moving || now - this.lastDragEnd < 450 || now - this.rig.lastManual < 1200) {
       this.zoneSince = now;
       return;
@@ -429,6 +435,8 @@ export class Stage {
     this.bloom.resolution.set(w * bloomScale, h * bloomScale);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    (this.lens.uniforms.uRes.value as THREE.Vector2).set(w * dpr, h * dpr);
+    Pyro.pixelScale = h * dpr * 1.25;
     const q = this.quality === 'high' ? 1 : this.quality === 'medium' ? 0.75 : 0.5;
     if (this.view === 'visual') this.visualizer.setSize(w * dpr * q, h * dpr * q);
     else this.visualizer.setSize(this.quality === 'low' ? 640 : 960, this.quality === 'low' ? 360 : 540);
@@ -626,7 +634,7 @@ export class Stage {
       this.avatar.update(show, dt);
       // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
       const v = this.rig.view;
-      this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
+      this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
     }
 
     const needVis = this.view !== 'booth' || (!!venue && this.onScreen(venue.visObjects));
@@ -657,6 +665,20 @@ export class Stage {
     }
     this.bloom.enabled = this.quality !== 'low';
     this.bloom.strength = 0.5 + show.kick * 0.2 + show.drop * 0.35 + show.flash * 0.3;
+    // cinematic lens: streaks and ghosts off the brightest fixtures, the drone's wide lens and speed blur
+    const drone = this.rig.droneFx;
+    const a = drone.amount;
+    const lu = this.lens.uniforms;
+    this.lens.enabled = this.quality !== 'low' || a > 0.01;
+    lu.uTime.value = this.ctx.now;
+    lu.uTaps.value = this.quality === 'high' ? 11 : this.quality === 'medium' ? 7 : 0;
+    lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
+    lu.uGhost.value = this.quality === 'low' || this.rig.focused ? 0 : 0.2;
+    lu.uDistort.value = 0.34 * a;
+    lu.uCA.value = 0.014 * a;
+    lu.uBlur.value = a * (0.15 + THREE.MathUtils.clamp((drone.speed - 2.5) / 5, 0, 1) * 0.6);
+    lu.uGrain.value = 0.03 + 0.03 * a;
+    lu.uVignette.value = 0.2 + 0.25 * a;
     // live stream monitor (Boiler Room): low-res feed from the venue camera
     const feed = venue?.feed;
     if (feed && this.frame % 3 === 0 && this.onScreen([feed.screen])) {

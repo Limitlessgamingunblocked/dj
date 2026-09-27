@@ -7,6 +7,7 @@
  * visual player on a screen across the far wall.
  */
 import * as THREE from 'three';
+import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, Lasers, LedStrings, lineArray, MovingHeads, speaker, Strobes, truss } from './fixtures';
 import type { ShowState } from './show';
@@ -25,6 +26,7 @@ class Printworks extends VenueBase {
     wide: { pos: V(-10.3, 10.4, -4.6), target: V(1.5, 3.5, -30) },
     wideLabel: 'Gantry',
     crowd: { pos: V(3.6, 2.4, -17.5), target: V(0, 2.2, 0) },
+    drone: [V(0, 5.5, 4.0), V(0.4, 2.6, 1.0), V(0.8, 1.2, -3.5), V(2.0, 1.6, -14.0), V(4.5, 3.0, -26.0), V(1.0, 7.0, -36.0), V(-6.0, 5.5, -28.0), V(-8.0, 6.5, -16.0), V(-7.0, 2.2, -5.0), V(-6.3, 1.0, -1.9), V(-2.0, 1.2, -1.8), V(2.5, 1.2, -1.8), V(6.3, 1.0, -1.9), V(8.0, 3.5, -4.5), V(5.0, 6.0, 1.5)],
   };
   private rig = new THREE.Group();
   private bars: THREE.InstancedMesh;
@@ -137,6 +139,15 @@ class Printworks extends VenueBase {
     );
     this.add(new Blinders([-7, -5, -3, -1, 1, 3, 5, 7].map((x) => ({ pos: V(x, -0.55, -1.52), tilt: -0.2 }))));
     this.add(new Co2Jets([-7.4, -4.8, -2.2, 2.2, 4.8, 7.4].map((x) => V(x, 0.02, -1.55)), 13));
+    this.add(
+      new Pyro(
+        [
+          ...[-8.4, -6.1, 6.1, 8.4].map((x) => ({ pos: V(x, 0, -1.05), kind: 'flame' as const })),
+          ...[-3.4, 3.4].map((x) => ({ pos: V(x, 0, -1.1), kind: 'spark' as const })),
+        ],
+        { height: 4.2 },
+      ),
+    );
 
     // the crowd, on the floor and along the first gantries
     this.add(
