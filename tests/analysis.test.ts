@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { DEMO_TRACKS, renderDemoTrack } from '../src/audio/synth';
 import { analyzePcm } from '../src/analysis/analyze';
 import { makeKey, compatibility, parseKeyTag, keySyncShift } from '../src/analysis/keys';
 
 describe('track analysis on generated demo tracks', () => {
+  // each render + analysis blocks for seconds: give the worker's event loop a turn between them
+  afterEach(() => new Promise<void>((r) => setTimeout(r, 0)));
   for (const demo of DEMO_TRACKS) {
     it(`${demo.title} (${demo.spec.style} ${demo.spec.bpm} BPM)`, () => {
       const t0 = performance.now();
