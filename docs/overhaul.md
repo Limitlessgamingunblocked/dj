@@ -68,3 +68,44 @@ Each control is marked **M** (used while mixing), **O** (occasionally) or **R** 
 - board: top bar and Settings
 
 The everyday path (load, play, sync, EQ, crossfade) is spread over the deck panels, the 3D board and the Mixer tab.
+
+## Phase 2: performance changes
+
+- **Crowd level of detail and culling.** Dancers are grouped into ~6 m chunks, each its own instanced mesh with padded bounds, so chunks off screen are skipped. Chunks beyond the detail distance swap to a low-detail model with the same skeleton and props: about a third of the triangles. Both models share one set of vertex buffers. The detail distance is 16 m on high, 12 m on medium and 8 m on low, scaled down further by adaptive quality.
+- **Adaptive quality** (`src/three/quality.ts`, with unit tests). It watches frame times and steps through five levels: render scale 1 → 0.5, crowd detail distance down to 30 %, lens streaks off, the visual player at half rate on the venue screens, then no bloom inside the player. It steps down when more than a quarter of recent frames run over budget. It probes back up after a calm spell, and backs off twice as long whenever a probe fails. The Low/Medium/High setting is the ceiling; it can be switched off in Settings.
+- **One fewer full-screen pass.** The lens effects (streaks, ghosts, drone distortion and blur), tone mapping, a new per-venue colour grade and the sRGB output now run in one pass (`LensOutputPass`) instead of a lens pass plus three's output pass.
+- **Multisampling** is off on Low.
+- **Shadows** from the booth light update every second frame.
+- **The visual player** shrinks with the render scale while it's only on the venue screens.
+- **No first-frame stall on venue or board switches.** Shaders are compiled with `compileAsync` against the composer's half-float target, and the club view holds its last frame until they're ready. Compiling against the screen would build tone-mapped variants the club never uses; that mistake briefly doubled the program count.
+- **Per-frame allocations removed:**
+  - knob LED rings now relight only when the value changes, and no longer create two colours per knob per frame
+  - the idle performance sway no longer rebuilds every camera preset
+  - the drone's look-ahead vector is reused
+  - the CO2 tint colour is a constant
+  - fixed light palettes are cached instead of rebuilt every frame
+- **UI panels at 30 Hz.** Deck panels and the lyric subtitle update on even frames; the top bar, stage overlay and open tab on odd frames. The waveform strip stays at 60 Hz for smooth scrolling.
+- **The audio engine keeps running when the tab is hidden.** Sync correction, loops and deck events run on a 50 ms timer while the render loop is paused.
+- **Dialogs over the stage:** the club renders a third of the frames while one is open.
+- **Fixes:**
+  - The drone white-out is fixed preventively. CO2 sprites are capped at 260 px and fade out within 3 m of the camera; haze sheets fade near the camera and when seen edge-on; beam cones fade when the camera is inside them. The original white frame could not be reproduced on demand, either before or after the change.
+  - The light show could crash on a negative bar number (before a track's first beat); the palette index is now always positive.
+
+### After phase 2
+
+Same probe and conditions as the baseline.
+
+| Venue | View | Draw calls (before → after) | Triangles (before → after) |
+|---|---|---:|---:|
+| Warehouse | perf | 420 → 370 | 309k → 288k |
+| Warehouse | wide | 466 → 417 | 311k → 292k |
+| DC-10 | perf | 425 → 378 | 774k → 705k |
+| DC-10 | wide | 205 → 160 | 724k → 692k |
+| Boiler Room | perf | 413 → 362 | 434k → 408k |
+| Boiler Room | wide | 190 → 136 | 391k → 307k |
+| Berghain | perf | 418 → 371 | 910k → 338k |
+| Berghain | wide | 496 → 453 | 913k → 370k |
+| Printworks | perf | 447 → 401 | 1,160k → 248k |
+| Printworks | wide | 196 → 178 | 1,108k → 484k |
+
+Under software rendering the median frame time fell from 1.39 s to 0.54 s at Berghain, 1.70 s to 0.73 s at Printworks and 1.17 s to 0.58 s at Boiler Room wide. That isn't a real-GPU number, but it moves in the same direction as the vertex and fill savings. DC-10 and the warehouse gain least: their crowds stand right in front of the camera, so most chunks stay detailed by design. Shader programs after visiting several venues: 40–55 (baseline 43–69).

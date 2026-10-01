@@ -15,6 +15,7 @@ export function openModal(title: string, content: HTMLElement | ((m: ModalHandle
     close: () => {
       back.remove();
       document.removeEventListener('keydown', onKey, true);
+      if (!document.querySelector('.modal-back')) document.body.classList.remove('modal-open');
     },
   };
   const onKey = (e: KeyboardEvent) => {
@@ -30,6 +31,7 @@ export function openModal(title: string, content: HTMLElement | ((m: ModalHandle
   closeBtn.addEventListener('click', () => handle.close());
   body.append(typeof content === 'function' ? content(handle) : content);
   document.body.append(back);
+  document.body.classList.add('modal-open');
   closeBtn.focus();
   return handle;
 }

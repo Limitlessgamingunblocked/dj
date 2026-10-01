@@ -53,6 +53,8 @@ interface Settings {
   view: StageView;
   camera: ViewId;
   quality: Quality;
+  /** step the render load down / up automatically to keep frames smooth */
+  autoQuality: boolean;
   autoGain: boolean;
   faderCurve: FaderCurve;
   dockHeight: number;
@@ -72,6 +74,7 @@ const DEFAULTS: Settings = {
   view: 'booth',
   camera: 'perf',
   quality: 'medium',
+  autoQuality: true,
   autoGain: true,
   faderCurve: 'log',
   dockHeight: 0,
@@ -116,6 +119,8 @@ export class App implements AppContext {
   private lyricHud!: HTMLElement;
   private lyricShown: { line: LyricLine | null; words: HTMLElement[] } = { line: null, words: [] };
   private viewers = 900;
+  private stageDt = 0;
+  private uiDt = 0;
   private last = 0;
   private frame = 0;
 
@@ -269,6 +274,7 @@ export class App implements AppContext {
     this.buildLayout();
     loading.remove();
     this.setVenue(this.settings.venue, true);
+    this.stage.adaptive.enabled = this.settings.autoQuality;
     this.stage.setQuality(this.settings.quality);
     this.applyBoard(this.settings.board, this.settings.finish, true);
     this.stage.rig.goTo(this.settings.camera, true);
@@ -288,6 +294,7 @@ export class App implements AppContext {
     });
     this.bindGlobalDrop();
     this.bindAudioUnlock();
+    this.bindBackground();
     this.library.on('error', (e) => toast(e.message, 'error'));
 
     requestAnimationFrame((t) => {
@@ -680,6 +687,25 @@ export class App implements AppContext {
   /* frame loop                                                           */
   /* ------------------------------------------------------------------ */
 
+  /** keep the audio engine (sync, loops, deck events) running while the tab is hidden and rAF is paused */
+  private bindBackground(): void {
+    let timer = 0;
+    let last = 0;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        last = performance.now();
+        timer = window.setInterval(() => {
+          const now = performance.now();
+          this.engine.update(clamp((now - last) / 1000, 0, 0.25));
+          last = now;
+        }, 50);
+      } else {
+        clearInterval(timer);
+        this.last = performance.now();
+      }
+    });
+  }
+
   private tick(t: number): void {
     const dt = clamp((t - this.last) / 1000, 0, 0.1);
     this.last = t;
@@ -693,14 +719,26 @@ export class App implements AppContext {
       this.stage.hype = this.hype.update(dt, f);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       this.stage.lyric = this.lyrics.frame();
-      this.stage.render(dt, f, this.stage.visualizer.settings);
+      // a dialog over the stage: the club only needs a third of the frames
+      this.stageDt += dt;
+      const covered = document.body.classList.contains('modal-open');
+      if (!covered || this.frame % 3 === 0) {
+        this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
+        this.stageDt = 0;
+      }
       this.wave.update();
-      for (const d of this.decksUi) d.update();
-      this.topbar.update();
-      this.updateHud();
-      this.updateLyricHud();
-      const tab = this.tabs.get(this.tab);
-      tab?.update?.(dt);
+      // panels refresh at 30 Hz, alternating so each frame does half the work
+      this.uiDt += dt;
+      if (this.frame % 2 === 0) {
+        for (const d of this.decksUi) d.update();
+        this.updateLyricHud();
+      } else {
+        this.topbar.update();
+        this.updateHud();
+        const tab = this.tabs.get(this.tab);
+        tab?.update?.(this.uiDt);
+        this.uiDt = 0;
+      }
       const lib = this.tabs.get('library');
       if (lib?.count && this.frame % 30 === 0) setText(lib.count, String(this.library.tracks.size));
       if (this.frame % 3 === 0) this.midi.updateLeds();

@@ -136,6 +136,8 @@ export class Visualizer {
   private final: ShaderPass;
   private text: ShaderPass;
   readonly lyrics = new LyricsLayer();
+  /** the adaptive quality can switch the player's bloom off under load */
+  bloomAllowed = true;
   private w = 960;
   private h = 540;
   private beatsSinceSwitch = 0;
@@ -230,7 +232,7 @@ export class Visualizer {
     const ref = 16 / 9;
     (tu.uFit.value as THREE.Vector2).set(aspect > ref ? aspect / ref : 1, aspect > ref ? 1 : ref / aspect);
     this.text.enabled = fx.on > 0.002;
-    this.bloom.enabled = s.bloom;
+    this.bloom.enabled = s.bloom && this.bloomAllowed;
     this.bloom.strength = 0.35 + f.level * 0.35 + f.drop * 0.6 * s.intensity;
     const u = this.final.uniforms;
     u.uAberration.value = s.aberration ? (0.004 + f.snarePulse * 0.018 + f.drop * 0.03) * s.intensity : 0;

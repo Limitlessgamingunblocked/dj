@@ -8,6 +8,7 @@
  */
 import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
+import type { Grade } from '../lens';
 import { updateAll, type Fixture } from './fixtures';
 import type { ShowState } from './show';
 
@@ -43,6 +44,8 @@ export interface VenueScene {
   /** tint of the booth work light */
   readonly keyLight: { color: number; intensity: number };
   readonly feed?: LiveFeed;
+  /** colour grade for the club camera (tone-mapped output) */
+  readonly grade?: Grade;
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   dispose(): void;
 }
@@ -82,6 +85,7 @@ export abstract class VenueBase implements VenueScene {
   fog: THREE.FogExp2;
   keyLight = { color: 0xfff4e6, intensity: 15 };
   feed?: LiveFeed;
+  grade?: Grade;
   protected fixtures: Fixture[] = [];
   protected washes: Wash[] = [];
   protected hemi: THREE.HemisphereLight;
@@ -151,6 +155,7 @@ export abstract class VenueBase implements VenueScene {
   }
 
   dispose(): void {
+    for (const f of this.fixtures) f.dispose?.();
     // the visual player's texture belongs to the visualizer
     for (const m of this.visMaterials) m.map = null;
     this.group.traverse((o) => {

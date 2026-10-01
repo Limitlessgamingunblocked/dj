@@ -9,7 +9,7 @@ import { openModal } from './modal';
 import { toast } from './toast';
 
 export interface SetupHooks {
-  settings: { quality: Quality; autoGain: boolean; faderCurve: FaderCurve };
+  settings: { quality: Quality; autoQuality: boolean; autoGain: boolean; faderCurve: FaderCurve };
   save(): void;
   pickBoard(): void;
   stickers(): boolean;
@@ -80,6 +80,14 @@ export class SetupPanel {
       stage.setQuality(s.quality);
       hooks.save();
     });
+    const autoQ = h('input', { type: 'checkbox', id: 'auto-quality' }) as HTMLInputElement;
+    autoQ.checked = s.autoQuality;
+    autoQ.addEventListener('change', () => {
+      s.autoQuality = autoQ.checked;
+      stage.adaptive.enabled = autoQ.checked;
+      stage.setQuality(s.quality);
+      hooks.save();
+    });
     const curve = h('select', { id: 'fader-curve', 'aria-label': 'Channel fader curve' }, h('option', { value: 'log', selected: s.faderCurve === 'log' }, 'Logarithmic (smooth)'), h('option', { value: 'linear', selected: s.faderCurve === 'linear' }, 'Linear'), h('option', { value: 'fast', selected: s.faderCurve === 'fast' }, 'Fast (scratch)')) as HTMLSelectElement;
     curve.addEventListener('change', () => {
       s.faderCurve = curve.value as FaderCurve;
@@ -145,7 +153,7 @@ export class SetupPanel {
         h('label', { class: 'toggle-row', for: 'split-cue' }, split, 'Split cue: master left, headphone cue right'),
         field('Headphone output (Chrome/Edge)', h('div', { class: 'toggle-row' }, phonesSel, findDevices), 'phones-device'),
       ),
-      h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Performance & storage'), field('Graphics quality', quality, 'quality'), h('p', { class: 'note' }, 'Low turns off shadows and bloom and lowers the render resolution — use it on laptops without a dedicated GPU.'), clearLib),
+      h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Performance & storage'), field('Graphics quality', quality, 'quality'), h('label', { class: 'toggle-row', for: 'auto-quality' }, autoQ, 'Adjust automatically to keep it smooth'), h('p', { class: 'note' }, 'The quality you pick is the ceiling. With automatic adjustment on, the resolution, crowd detail and effects step down when frames run long and come back when there is headroom. Low turns off shadows, bloom, multisampling and lens effects — use it on older laptops and phones.'), clearLib),
       h('div', { class: 'card', style: { display: 'grid', gap: '10px', gridColumn: '1 / -1' } }, h('h3', {}, 'Keyboard shortcuts'), shortcutsTable()),
     );
     this.renderAnchors();

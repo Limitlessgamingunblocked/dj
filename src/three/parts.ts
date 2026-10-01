@@ -39,6 +39,7 @@ export interface PointerInfo {
 
 const tmpV = new THREE.Vector3();
 const plane = new THREE.Plane();
+const RING_OFF = new THREE.Color(0x15171b);
 
 export function planeHit(ray: THREE.Ray, worldY: number, out = new THREE.Vector3()): THREE.Vector3 | null {
   plane.set(new THREE.Vector3(0, 1, 0), -worldY);
@@ -116,6 +117,8 @@ export type KnobStyle = 'rubber' | 'chrome' | 'cap' | 'mini';
 export class KnobPart extends Part {
   private spin = new THREE.Group();
   private ring: THREE.InstancedMesh | null = null;
+  private ringValue = -1;
+  private ringOn: THREE.Color | null = null;
   private encoderAngle = 0;
   private v0 = 0;
   private stepAcc = 0;
@@ -179,12 +182,14 @@ export class KnobPart extends Part {
     }
     const v = c.reg.value(this.id!);
     this.spin.rotation.y = -(v - 0.5) * ((300 * Math.PI) / 180);
-    if (this.ring) {
+    if (this.ring && Math.abs(v - this.ringValue) > 1e-4) {
+      // only relight the ring when the value moved
+      this.ringValue = v;
       const ctl = c.reg.get(this.id!);
       const center = ctl && ctl.kind === 'continuous' && ctl.center;
       const n = this.ring.count;
-      const on = new THREE.Color(this.ring.userData.color as string);
-      const off = new THREE.Color(0x15171b);
+      const on = (this.ringOn ??= new THREE.Color(this.ring.userData.color as string));
+      const off = RING_OFF;
       for (let i = 0; i < n; i++) {
         const t = i / (n - 1);
         const lit = center ? (v >= 0.5 ? t >= 0.5 - 1e-6 && t <= v + 1e-6 : t <= 0.5 + 1e-6 && t >= v - 1e-6) : t <= v + 1e-6;

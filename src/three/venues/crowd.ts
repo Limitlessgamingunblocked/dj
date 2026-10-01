@@ -13,6 +13,10 @@
  *     and the DJ (hands on the decks, a hand up on the drop)
  *   – clothing: tops in the venue's palette, sleeves, trousers and shoes
  *     picked per person, skin and hair tones varied
+ *   – performance: dancers are grouped in ~6 m chunks, each its own instanced
+ *     mesh, so chunks off screen are culled; chunks far from the camera swap
+ *     to a low-detail model (about a third of the triangles). Both models
+ *     share one set of vertex buffers.
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -52,7 +56,7 @@ const B = { body: 0, thighL: 1, thighR: 2, shinL: 3, shinR: 4, upperL: 5, foreL:
 /* materials */
 const M = { top: 0, bottoms: 1, skin: 2, hair: 3, shoes: 4, sleeveUp: 5, sleeveLo: 6, cup: 7, phone: 8, screen: 9, torch: 10, signFrame: 11, signFace: 12 };
 
-let personGeo: THREE.BufferGeometry | null = null;
+const personGeo: (THREE.BufferGeometry | null)[] = [null, null];
 
 function part(g: THREE.BufferGeometry, bone: number, mat: number): THREE.BufferGeometry {
   const n = g.attributes.position.count;
@@ -61,39 +65,57 @@ function part(g: THREE.BufferGeometry, bone: number, mat: number): THREE.BufferG
   return g;
 }
 
-/** Rest pose: standing, facing +Z, feet on y = 0, about 1.75 m tall. */
-function personGeometry(): THREE.BufferGeometry {
-  if (personGeo) return personGeo;
+/**
+ * Rest pose: standing, facing +Z, feet on y = 0, about 1.75 m tall.
+ * detail 0 is the close-up model; detail 1 keeps the same skeleton and props
+ * with far fewer segments (used for dancers away from the camera).
+ */
+export function personGeometry(detail: 0 | 1 = 0): THREE.BufferGeometry {
+  const cached = personGeo[detail];
+  if (cached) return cached;
+  const lo = detail === 1;
+  const cap = (r: number, len: number, caps: number, radial: number) => new THREE.CapsuleGeometry(r, len, lo ? Math.max(1, caps - 1) : caps, lo ? Math.max(4, radial - 2) : radial);
+  const sph = (r: number, ws: number, hs: number, ...rest: number[]) => new THREE.SphereGeometry(r, lo ? Math.max(4, ws - 3) : ws, lo ? Math.max(3, hs - 2) : hs, ...rest);
   const parts: THREE.BufferGeometry[] = [];
   for (const sd of [-1, 1]) {
     const L = sd < 0;
     parts.push(
       part(new THREE.BoxGeometry(0.1, 0.07, 0.25).translate(sd * 0.09, 0.035, 0.045), L ? B.shinL : B.shinR, M.shoes),
-      part(new THREE.CapsuleGeometry(0.055, 0.34, 2, 7).translate(sd * 0.09, 0.3, 0), L ? B.shinL : B.shinR, M.bottoms),
-      part(new THREE.CapsuleGeometry(0.072, 0.32, 2, 7).translate(sd * 0.09, 0.7, 0), L ? B.thighL : B.thighR, M.bottoms),
-      part(new THREE.CapsuleGeometry(0.05, 0.2, 2, 7).translate(sd * 0.2, 1.28, 0), L ? B.upperL : B.upperR, M.sleeveUp),
-      part(new THREE.CapsuleGeometry(0.042, 0.2, 2, 6).translate(sd * 0.2, 1.01, 0), L ? B.foreL : B.foreR, M.sleeveLo),
-      part(new THREE.SphereGeometry(0.045, 6, 5).scale(0.8, 1.25, 0.6).translate(sd * 0.2, 0.83, 0.005), L ? B.foreL : B.foreR, M.skin),
+      part(cap(0.055, 0.34, 2, 7).translate(sd * 0.09, 0.3, 0), L ? B.shinL : B.shinR, M.bottoms),
+      part(cap(0.072, 0.32, 2, 7).translate(sd * 0.09, 0.7, 0), L ? B.thighL : B.thighR, M.bottoms),
+      part(cap(0.05, 0.2, 2, 7).translate(sd * 0.2, 1.28, 0), L ? B.upperL : B.upperR, M.sleeveUp),
+      part(cap(0.042, 0.2, 2, 6).translate(sd * 0.2, 1.01, 0), L ? B.foreL : B.foreR, M.sleeveLo),
+      part(sph(0.045, 6, 5).scale(0.8, 1.25, 0.6).translate(sd * 0.2, 0.83, 0.005), L ? B.foreL : B.foreR, M.skin),
     );
   }
   parts.push(
-    part(new THREE.SphereGeometry(1, 10, 6).scale(0.165, 0.13, 0.12).translate(0, 0.93, 0), B.body, M.bottoms),
-    part(new THREE.CapsuleGeometry(0.16, 0.3, 3, 10).scale(1.05, 1, 0.62).translate(0, 1.2, 0), B.body, M.top),
-    part(new THREE.CylinderGeometry(0.045, 0.05, 0.1, 7).translate(0, 1.47, 0), B.head, M.skin),
-    part(new THREE.SphereGeometry(0.105, 10, 8).scale(0.9, 1.08, 1).translate(0, 1.6, 0), B.head, M.skin),
-    part(new THREE.SphereGeometry(0.112, 10, 5, 0, Math.PI * 2, 0, Math.PI * 0.52).scale(0.92, 1.05, 1.02).translate(0, 1.615, -0.006), B.head, M.hair),
+    part(sph(1, 10, 6).scale(0.165, 0.13, 0.12).translate(0, 0.93, 0), B.body, M.bottoms),
+    part(cap(0.16, 0.3, 3, 10).scale(1.05, 1, 0.62).translate(0, 1.2, 0), B.body, M.top),
+    part(new THREE.CylinderGeometry(0.045, 0.05, 0.1, lo ? 5 : 7).translate(0, 1.47, 0), B.head, M.skin),
+    part(sph(0.105, 10, 8).scale(0.9, 1.08, 1).translate(0, 1.6, 0), B.head, M.skin),
+    part(sph(0.112, 10, 5, 0, Math.PI * 2, 0, Math.PI * 0.52).scale(0.92, 1.05, 1.02).translate(0, 1.615, -0.006), B.head, M.hair),
     // phone in the right hand: screen faces the holder once the arm is raised, torch on the back
     part(new THREE.BoxGeometry(0.07, 0.14, 0.012).translate(0.2, 0.76, 0.03), B.foreR, M.phone),
     part(new THREE.PlaneGeometry(0.062, 0.128).translate(0.2, 0.76, 0.0365), B.foreR, M.screen),
-    part(new THREE.PlaneGeometry(0.014, 0.014).rotateY(Math.PI).translate(0.215, 0.705, 0.0235), B.foreR, M.torch),
     // cup in the left hand, pre-tilted so it stands upright in the drinking pose
-    part(new THREE.CylinderGeometry(0.036, 0.028, 0.11, 8).translate(0, 0.02, 0.04).rotateX(2.2).translate(-0.2, 0.83, 0), B.foreL, M.cup),
+    part(new THREE.CylinderGeometry(0.036, 0.028, 0.11, lo ? 5 : 8).translate(0, 0.02, 0.04).rotateX(2.2).translate(-0.2, 0.83, 0), B.foreL, M.cup),
     // LED sign held overhead
     part(new THREE.BoxGeometry(0.76, 0.22, 0.02).translate(0, 2.1, 0.12), B.sign, M.signFrame),
     part(new THREE.PlaneGeometry(0.72, 0.18).translate(0, 2.1, 0.1305), B.sign, M.signFace),
   );
-  personGeo = mergeGeometries(parts)!;
-  return personGeo;
+  if (!lo) parts.push(part(new THREE.PlaneGeometry(0.014, 0.014).rotateY(Math.PI).translate(0.215, 0.705, 0.0235), B.foreR, M.torch));
+  const geo = mergeGeometries(parts)!;
+  personGeo[detail] = geo;
+  return geo;
+}
+
+/** A geometry that shares `base`'s vertex buffers and adds per-chunk instance attributes. */
+function chunkGeometry(base: THREE.BufferGeometry, inst: Record<string, THREE.InstancedBufferAttribute>): THREE.BufferGeometry {
+  const g = new THREE.BufferGeometry();
+  g.setIndex(base.index);
+  for (const [name, attr] of Object.entries(base.attributes)) g.setAttribute(name, attr);
+  for (const [name, attr] of Object.entries(inst)) g.setAttribute(name, attr);
+  return g;
 }
 
 /* LED sign messages (one row each in the atlas) */
@@ -307,8 +329,21 @@ const FRAG_COLOR = /* glsl */ `
   totalEmissiveRadiance += glow;
 `;
 
+interface Chunk {
+  mesh: THREE.InstancedMesh;
+  geos: [THREE.BufferGeometry, THREE.BufferGeometry];
+  center: THREE.Vector3;
+  radius: number;
+  lod: 0 | 1;
+}
+
+const CHUNK = 6;
+
 export class Crowd implements Fixture {
-  readonly object: THREE.InstancedMesh;
+  /** distance (m) inside which chunks use the detailed model; scaled by the adaptive quality */
+  static detailDistance = 12;
+  readonly object = new THREE.Group();
+  private chunks: Chunk[] = [];
   private u = {
     uBeat: { value: 0 },
     uBob: { value: 0 },
@@ -325,7 +360,7 @@ export class Crowd implements Fixture {
   private jump = 0;
   private clap = 0;
   private cheer = 0;
-  private m4 = new THREE.Matrix4();
+  private camPos = new THREE.Vector3();
 
   constructor(spots: CrowdSpot[], o: CrowdOptions = {}) {
     const r = rng(o.seed ?? 11);
@@ -367,28 +402,89 @@ export class Crowd implements Fixture {
         .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * transformed + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;`);
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${FRAG_HEAD}`).replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`);
     };
-    mat.customProgramCacheKey = () => `crowd-${signIdx.size ? 1 : 0}`;
+    mat.customProgramCacheKey = () => 'crowd';
 
-    const geo = personGeometry().clone();
-    geo.setAttribute('iSeed', new THREE.InstancedBufferAttribute(seeds, 4));
-    geo.setAttribute('iInfo', new THREE.InstancedBufferAttribute(info, 4));
-    this.object = new THREE.InstancedMesh(geo, mat, n);
-    this.object.frustumCulled = false;
+    // per-person placement (facing, scale, clothes), then grouped into chunks
     const q = new THREE.Quaternion();
     const yAxis = new THREE.Vector3(0, 1, 0);
+    const mats: THREE.Matrix4[] = [];
+    const cols: THREE.Color[] = [];
     spots.forEach((s, i) => {
       let face = s.face ?? Math.atan2(booth.x - s.x, booth.z - s.z);
       // some dancers turn to their friends instead of the booth
       if (s.face === undefined && info[i * 4] === 0 && r() < 0.1) face += (r() < 0.5 ? -1 : 1) * (1.1 + r() * 0.6);
       const sc = s.scale ?? 0.9 + r() * 0.2;
       q.setFromAxisAngle(yAxis, face);
-      this.m4.compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc, sc, sc));
-      this.object.setMatrixAt(i, this.m4);
-      this.object.setColorAt(i, clothes[Math.floor(r() * clothes.length)]);
+      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc, sc, sc)));
+      cols.push(clothes[Math.floor(r() * clothes.length)]);
     });
+    const cells = new Map<string, number[]>();
+    spots.forEach((s, i) => {
+      const key = `${Math.floor(s.x / CHUNK)},${Math.floor(s.z / CHUNK)},${Math.round((s.y ?? 0) / 2)}`;
+      let list = cells.get(key);
+      if (!list) cells.set(key, (list = []));
+      list.push(i);
+    });
+    const hi = personGeometry(0);
+    const lo = personGeometry(1);
+    for (const idx of cells.values()) {
+      const k = idx.length;
+      const cs = new Float32Array(k * 4);
+      const ci = new Float32Array(k * 4);
+      idx.forEach((i, j) => {
+        cs.set(seeds.subarray(i * 4, i * 4 + 4), j * 4);
+        ci.set(info.subarray(i * 4, i * 4 + 4), j * 4);
+      });
+      const inst = { iSeed: new THREE.InstancedBufferAttribute(cs, 4), iInfo: new THREE.InstancedBufferAttribute(ci, 4) };
+      const geos: [THREE.BufferGeometry, THREE.BufferGeometry] = [chunkGeometry(hi, inst), chunkGeometry(lo, inst)];
+      const mesh = new THREE.InstancedMesh(geos[0], mat, k);
+      idx.forEach((i, j) => {
+        mesh.setMatrixAt(j, mats[i]);
+        mesh.setColorAt(j, cols[i]);
+      });
+      mesh.computeBoundingSphere();
+      // arms up, jumps and signs reach above the rest-pose bounds
+      const sphere = mesh.boundingSphere!;
+      sphere.radius += 0.8;
+      this.chunks.push({ mesh, geos, center: sphere.center.clone(), radius: sphere.radius, lod: 0 });
+      this.object.add(mesh);
+    }
   }
 
-  update(s: ShowState, dt: number): void {
+  /** dancers in total */
+  get count(): number {
+    return this.chunks.reduce((n, c) => n + c.mesh.count, 0);
+  }
+
+  dispose(): void {
+    for (const c of this.chunks) {
+      // the shared person buffers stay alive for other crowds: only drop the per-chunk instance data
+      for (const g of c.geos) {
+        for (const name of Object.keys(g.attributes)) if (name !== 'iSeed' && name !== 'iInfo') g.deleteAttribute(name);
+        g.setIndex(null);
+        g.dispose();
+      }
+      c.mesh.dispose();
+    }
+  }
+
+  /** Swap chunks between the detailed and low-detail model by distance from the camera. */
+  private updateLod(camera: THREE.Camera): void {
+    camera.getWorldPosition(this.camPos);
+    this.object.worldToLocal(this.camPos);
+    const near = Crowd.detailDistance;
+    for (const c of this.chunks) {
+      const d = Math.max(0, c.center.distanceTo(this.camPos) - c.radius);
+      const want: 0 | 1 = c.lod === 0 ? (d > near * 1.12 ? 1 : 0) : d < near * 0.88 ? 0 : 1;
+      if (want !== c.lod) {
+        c.lod = want;
+        c.mesh.geometry = c.geos[want];
+      }
+    }
+  }
+
+  update(s: ShowState, dt: number, camera?: THREE.Camera): void {
+    if (camera) this.updateLod(camera);
     const u = this.u;
     u.uBeat.value = s.beat;
     u.uTime.value += dt;

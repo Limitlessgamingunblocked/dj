@@ -9,9 +9,7 @@
  */
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { AudioEngine } from '../audio/AudioEngine';
@@ -22,7 +20,8 @@ import { Visualizer } from '../visualizer/Visualizer';
 import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
-import { LensShader } from './lens';
+import { LensOutputPass, NEUTRAL_GRADE } from './lens';
+import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 import type { VenueDef, VenueScene } from './venues/base';
 import { Crowd, TABLE_Y } from './venues/fixtures';
@@ -83,7 +82,12 @@ export class Stage {
   private avatar: Crowd;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
-  private lens: ShaderPass;
+  private lens: LensOutputPass;
+  /** steps the render load down (and back up) when frames run long */
+  readonly adaptive = new AdaptiveQuality();
+  private msaa = 4;
+  /** shaders for a new venue or board are compiling in the background: hold the last frame */
+  private compiling = 0;
   private screenScene = new THREE.Scene();
   private screenCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   private screenQuad: THREE.Mesh;
@@ -137,6 +141,7 @@ export class Stage {
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -164,13 +169,13 @@ export class Stage {
     this.scene.add(this.avatar.object);
     this.rig = new CameraRig(this.camera, this.canvas);
 
-    this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+    this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.msaa }));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
     this.composer.addPass(this.bloom);
-    this.lens = new ShaderPass(LensShader);
+    // lens effects, tone mapping, grade and output in one pass
+    this.lens = new LensOutputPass();
     this.composer.addPass(this.lens);
-    this.composer.addPass(new OutputPass());
 
     this.visualizer = new Visualizer(this.renderer, {});
     this.screenQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: this.visualizer.texture, depthTest: false, depthWrite: false }));
@@ -228,7 +233,28 @@ export class Stage {
     this.keyLight.color.set(v.keyLight.color);
     this.keyLight.intensity = v.keyLight.intensity;
     this.show.setVenuePalette(def.palette);
+    this.lens.setGrade(v.grade ?? NEUTRAL_GRADE);
     this.rig.setViews(v.views);
+    this.precompile();
+  }
+
+  /**
+   * Compile the scene's shaders off the main path (KHR_parallel_shader_compile)
+   * so switching venue or board doesn't stall on the first frame. The club
+   * view holds its last frame until they're ready (at most 4 s).
+   */
+  private precompile(): void {
+    const id = ++this.compiling;
+    const done = () => {
+      if (this.compiling === id) this.compiling = 0;
+    };
+    // compile against the composer's target: programs bake in tone mapping and colour space,
+    // which differ between the screen and the half-float buffer the club actually renders into
+    const prev = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this.composer.readBuffer);
+    this.renderer.compileAsync(this.scene, this.camera).then(done, done);
+    this.renderer.setRenderTarget(prev);
+    setTimeout(done, 4000);
   }
 
   /* ------------------------------------------------------------------ */
@@ -265,6 +291,7 @@ export class Stage {
     this.rig.focused = false;
     this.rig.refit(true);
     if (this.rig.view === 'custom') this.rig.goTo('perf', true);
+    this.precompile();
   }
 
   /** Sections of the board the camera can zoom to: one per hardware unit, or
@@ -415,6 +442,21 @@ export class Stage {
       this.keyLight.shadow.map = null as unknown as THREE.WebGLRenderTarget;
     }
     this.renderer.shadowMap.enabled = q !== 'low';
+    // multisampling is the biggest fill cost: none on low
+    const samples = q === 'low' ? 0 : 4;
+    if (samples !== this.msaa) {
+      this.msaa = samples;
+      this.composer.reset(new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples }));
+    }
+    this.adaptive.reset(0);
+    this.applyAdaptive();
+  }
+
+  /** Apply the adaptive quality step: render scale, crowd detail, effects. */
+  applyAdaptive(): void {
+    const st = this.adaptive.step;
+    Crowd.detailDistance = (this.quality === 'high' ? 16 : this.quality === 'medium' ? 12 : 8) * st.crowdDetail;
+    this.visualizer.bloomAllowed = st.visualizerBloom;
     this.resize();
   }
 
@@ -426,7 +468,8 @@ export class Stage {
     const w = Math.max(1, this.el.clientWidth);
     const h = Math.max(1, this.el.clientHeight);
     this.size = { w, h };
-    const dpr = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : this.quality === 'medium' ? 1.5 : 1);
+    const cap = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : this.quality === 'medium' ? 1.5 : 1);
+    const dpr = Math.max(0.5, cap * this.adaptive.step.renderScale);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(dpr);
@@ -435,11 +478,15 @@ export class Stage {
     this.bloom.resolution.set(w * bloomScale, h * bloomScale);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    (this.lens.uniforms.uRes.value as THREE.Vector2).set(w * dpr, h * dpr);
+    this.lens.uniforms.uRes.value.set(w * dpr, h * dpr);
     Pyro.pixelScale = h * dpr * 1.25;
     const q = this.quality === 'high' ? 1 : this.quality === 'medium' ? 0.75 : 0.5;
     if (this.view === 'visual') this.visualizer.setSize(w * dpr * q, h * dpr * q);
-    else this.visualizer.setSize(this.quality === 'low' ? 640 : 960, this.quality === 'low' ? 360 : 540);
+    else {
+      // on the venue screens it's seen small: scale it with the render load
+      const vs = Math.max(0.5, this.adaptive.step.renderScale);
+      this.visualizer.setSize((this.quality === 'low' ? 640 : 960) * vs, (this.quality === 'low' ? 360 : 540) * vs);
+    }
     const fz = this.zones.find((z) => z.id === this.focusedZone);
     if (fz && this.rig.focused) this.rig.focusBox(fz.box);
     else this.rig.refit(false);
@@ -614,8 +661,10 @@ export class Stage {
     return objects.some((o) => this.wallFrustum.intersectsBox(this.wallBox.setFromObject(o)));
   }
 
-  render(dt: number, f: Features, visSettings: { shake: boolean }): void {
+  /** `throttled`: the app is deliberately rendering less often (don't count it as slow frames) */
+  render(dt: number, f: Features, visSettings: { shake: boolean }, throttled = false): void {
     this.frame++;
+    if (!throttled && !this.compiling && this.adaptive.sample(dt * 1000)) this.applyAdaptive();
     this.ctx.dt = dt;
     this.ctx.now += dt;
     this.ctx.frame = this.frame;
@@ -637,8 +686,10 @@ export class Stage {
       this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
     }
 
+    // on the venue screens the visual player can run at half rate when the load is high
     const needVis = this.view !== 'booth' || (!!venue && this.onScreen(venue.visObjects));
-    if (needVis) {
+    const visFrame = this.view !== 'booth' || this.adaptive.step.visualizerFull || this.frame % 2 === 0;
+    if (needVis && visFrame) {
       this.visualizer.render(f, dt, { frame: lyric, colors: show.colors });
       const tex = this.visualizer.texture;
       if (venue) {
@@ -669,18 +720,21 @@ export class Stage {
     const drone = this.rig.droneFx;
     const a = drone.amount;
     const lu = this.lens.uniforms;
-    this.lens.enabled = this.quality !== 'low' || a > 0.01;
+    const lensFx = this.quality !== 'low' && this.adaptive.step.lensFx;
     lu.uTime.value = this.ctx.now;
-    lu.uTaps.value = this.quality === 'high' ? 11 : this.quality === 'medium' ? 7 : 0;
+    lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
     lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
-    lu.uGhost.value = this.quality === 'low' || this.rig.focused ? 0 : 0.2;
+    lu.uGhost.value = !lensFx || this.rig.focused ? 0 : 0.2;
     lu.uDistort.value = 0.34 * a;
     lu.uCA.value = 0.014 * a;
     lu.uBlur.value = a * (0.15 + THREE.MathUtils.clamp((drone.speed - 2.5) / 5, 0, 1) * 0.6);
-    lu.uGrain.value = 0.03 + 0.03 * a;
+    lu.uGrain.value = this.quality === 'low' ? 0 : 0.03 + 0.03 * a;
     lu.uVignette.value = 0.2 + 0.25 * a;
+    // the booth light's shadows update at 30 Hz
+    r.shadowMap.needsUpdate = this.frame % 2 === 0 || !this.keyLight.shadow.map;
     // live stream monitor (Boiler Room): low-res feed from the venue camera
     const feed = venue?.feed;
+    if (this.compiling) return;
     if (feed && this.frame % 3 === 0 && this.onScreen([feed.screen])) {
       const auto = r.shadowMap.autoUpdate;
       r.shadowMap.autoUpdate = false;

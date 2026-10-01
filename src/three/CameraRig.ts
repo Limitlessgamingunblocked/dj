@@ -28,6 +28,7 @@ export const VIEW_LABELS: Record<ViewId, string> = {
 };
 
 const DRONE_FOV = 94;
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 interface DroneState {
   curve: THREE.CatmullRomCurve3;
@@ -75,6 +76,9 @@ export class CameraRig {
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
   private booth = new THREE.Vector3(0, 1.45, 0.3);
+  private ahead = new THREE.Vector3();
+  private perfOffset: THREE.Vector3 | null = null;
+  private perfOffsetAt = 0;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -319,7 +323,7 @@ export class CameraRig {
     const rollTarget = THREE.MathUtils.clamp((dh / Math.max(dt, 1e-3)) * 0.24, -0.75, 0.75);
     d.roll += (rollTarget - d.roll) * Math.min(1, dt * 2.5);
     // look ahead along the path, swinging towards the DJ when flying past the booth
-    const ahead = d.curve.getPointAt((d.u + 3 / d.length) % 1, new THREE.Vector3());
+    const ahead = d.curve.getPointAt((d.u + 3 / d.length) % 1, this.ahead);
     const near = THREE.MathUtils.smoothstep(p.distanceTo(this.booth), 2.5, 7);
     ahead.lerp(this.booth, (1 - near) * 0.55);
     // prop buzz and a bump on the kick
@@ -365,13 +369,15 @@ export class CameraRig {
     const idle = performance.now() - this.lastInteraction > 4000;
     if (this.view === 'perf' && idle && !this.focused && !this.goalPos && f?.playing) {
       this.sway += dt;
-      const p = this.presets().perf;
-      const c = this.controls.target;
-      const off = p.pos.clone().sub(p.target);
+      // the preset only changes with the board or the aspect: refresh it now and then, not every frame
+      if (!this.perfOffset || this.sway - this.perfOffsetAt > 1) {
+        const p = this.presets().perf;
+        this.perfOffset = p.pos.sub(p.target);
+        this.perfOffsetAt = this.sway;
+      }
       const ang = Math.sin(this.sway * 0.12) * 0.22;
-      off.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
-      off.multiplyScalar(1 + Math.sin(this.sway * 0.07) * 0.06);
-      const want = c.clone().add(off);
+      const off = this.tmpB.copy(this.perfOffset).applyAxisAngle(Y_AXIS, ang).multiplyScalar(1 + Math.sin(this.sway * 0.07) * 0.06);
+      const want = this.tmpA.copy(this.controls.target).add(off);
       this.camera.position.lerp(want, 1 - Math.exp(-dt * 0.8));
     }
     this.controls.update();

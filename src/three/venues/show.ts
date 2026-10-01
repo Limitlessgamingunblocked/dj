@@ -128,7 +128,6 @@ export class LightShow {
   private accentQueued = 0;
   private accentAt = -10;
   private accentSmoke = 0;
-  private tmp = new THREE.Color();
 
   constructor() {
     this.state = {
@@ -303,6 +302,16 @@ export class LightShow {
     return s;
   }
 
+  private paletteCache = new Map<PaletteId, THREE.Color[]>();
+  private fixedPalette(id: PaletteId): THREE.Color[] {
+    let cols = this.paletteCache.get(id);
+    if (!cols) {
+      cols = (PALETTES.find((p) => p.id === id)?.colors ?? ['#ffffff', '#ffffff', '#ffffff']).map((x) => new THREE.Color(x));
+      this.paletteCache.set(id, cols);
+    }
+    return cols;
+  }
+
   private palette(f: Features, s: ShowState): void {
     const c = this.controls;
     const shift = s.peak > 0.5 ? Math.floor(s.beat / 2) : Math.floor(s.bar / 8);
@@ -310,7 +319,9 @@ export class LightShow {
       for (let i = 0; i < 3; i++) s.colors[i].setHSL((f.hue + i * 0.33 + (s.peak > 0.5 ? (Math.floor(s.beat) % 4) * 0.25 : 0)) % 1, 1, 0.5);
       return;
     }
-    const src = c.palette === 'venue' ? this.venuePalette : PALETTES.find((p) => p.id === c.palette)!.colors!.map((x) => this.tmp.clone().set(x));
-    for (let i = 0; i < 3; i++) s.colors[i].copy(src[(i + shift) % src.length]);
+    const src = c.palette === 'venue' ? this.venuePalette : this.fixedPalette(c.palette);
+    // before the first beat the bar count is negative: keep the index positive
+    const k = Number.isFinite(shift) ? shift : 0;
+    for (let i = 0; i < 3; i++) s.colors[i].copy(src[(((i + k) % src.length) + src.length) % src.length]);
   }
 }

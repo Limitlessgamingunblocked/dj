@@ -18,7 +18,11 @@ export const TABLE_Y = 0.9;
 export interface Fixture {
   readonly object: THREE.Object3D;
   update(s: ShowState, dt: number, camera: THREE.Camera): void;
+  /** free anything the venue's generic disposal can't see (shared buffers, side geometries) */
+  dispose?(): void;
 }
+
+const WHITE = new THREE.Color(1, 1, 1);
 
 const hash = (n: number) => {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -41,11 +45,14 @@ const BEAM_VERT = /* glsl */ `
   varying vec3 vView;
   varying vec3 vColor;
   varying vec3 vW;
+  varying float vNear;
   void main() {
     vT = uv.y;
     vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
     vW = w.xyz;
     vec4 mv = viewMatrix * w;
+    // a camera flying through a beam would see its whole inside wall: fade near surfaces
+    vNear = smoothstep(0.4, 2.5, length(mv.xyz));
     vN = normalize(mat3(viewMatrix) * mat3(modelMatrix) * mat3(instanceMatrix) * normal);
     vView = normalize(-mv.xyz);
     vColor = instanceColor;
@@ -59,8 +66,9 @@ const BEAM_FRAG = /* glsl */ `
   varying vec3 vView;
   varying vec3 vColor;
   varying vec3 vW;
+  varying float vNear;
   void main() {
-    float edge = pow(abs(dot(normalize(vN), normalize(vView))), 1.6);
+    float edge = pow(abs(dot(normalize(vN), normalize(vView))), 1.6) * vNear;
     float along = pow(vT, 1.25);
     float n = 0.7 + 0.3 * sin(vW.x * 1.3 + uTime * 0.7) * sin(vW.y * 1.9 - uTime * 0.5) * sin(vW.z * 1.1 + uTime * 0.4);
     gl_FragColor = vec4(vColor * edge * along * n * uHaze, 1.0);
@@ -714,8 +722,9 @@ export class Co2Jets implements Fixture {
           varying float vA;
           void main() {
             vec4 mv = modelViewMatrix * vec4(position, 1.0);
-            vA = aAlpha;
-            gl_PointSize = aSize * 700.0 / max(0.5, -mv.z);
+            // flying through the plume must not white out the frame
+            vA = aAlpha * smoothstep(0.8, 3.0, -mv.z);
+            gl_PointSize = min(aSize * 700.0 / max(0.5, -mv.z), 260.0);
             gl_Position = projectionMatrix * mv;
           }`,
         fragmentShader: /* glsl */ `
@@ -756,7 +765,7 @@ export class Co2Jets implements Fixture {
 
   update(s: ShowState, dt: number): void {
     if (s.co2) this.fire();
-    this.tint.value.copy(s.colors[0]).lerp(new THREE.Color(1, 1, 1), 0.75).multiplyScalar(0.55 + s.wash * 0.4);
+    this.tint.value.copy(s.colors[0]).lerp(WHITE, 0.75).multiplyScalar(0.55 + s.wash * 0.4);
     const drag = Math.exp(-dt * 2.2);
     for (let k = 0; k < this.life.length; k++) {
       const l = (this.life[k] += dt);
@@ -821,7 +830,12 @@ export class HazeLayer implements Fixture {
           vec2 p = vW.xz * 0.18 + vec2(vW.y * 0.1, 0.0);
           float v = n(p + uTime * 0.05) * 0.6 + n(p * 2.3 - uTime * 0.07) * 0.4;
           float edge = smoothstep(0.0, 0.25, vUv.x) * smoothstep(1.0, 0.75, vUv.x) * smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
-          gl_FragColor = vec4(uColor * v * edge * uDensity, 1.0);
+          // hide the sheet structure: fade near the camera and at grazing angles
+          vec3 toCam = cameraPosition - vW;
+          float dist = length(toCam);
+          float near = smoothstep(0.6, 3.5, dist);
+          float graze = smoothstep(0.04, 0.3, abs(toCam.y) / max(dist, 1e-3));
+          gl_FragColor = vec4(uColor * v * edge * uDensity * near * graze, 1.0);
         }`,
       transparent: true,
       depthWrite: false,
