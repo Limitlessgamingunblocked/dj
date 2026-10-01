@@ -53,6 +53,8 @@ export interface VenueScene {
 export interface VenueDef {
   id: string;
   name: string;
+  /** short name for tight spaces (phone top bar) */
+  short?: string;
   /** city / country */
   place: string;
   kind: string;

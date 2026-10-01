@@ -106,6 +106,7 @@ class Warehouse extends VenueBase {
 export const warehouse: VenueDef = {
   id: 'warehouse',
   name: 'Deckhouse Warehouse',
+  short: 'Warehouse',
   place: 'Anywhere',
   kind: 'House club · stage + LED wall',
   blurb: 'The house room: a raised stage, an 11 m LED wall running the visual player, a truss of moving heads, strobes, blinders, lasers and CO2.',

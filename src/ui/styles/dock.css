@@ -1,0 +1,128 @@
+/* The dock and its tabs. */
+
+/* ------------------------------------------------------------------ */
+/* dock                                                                 */
+/* ------------------------------------------------------------------ */
+
+.dock-resize {
+  height: 6px;
+  cursor: ns-resize;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  touch-action: none;
+  position: relative;
+}
+
+.dock-resize::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 36px;
+  height: 2px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+
+.dock {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--panel);
+  min-height: 0;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  height: 34px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab.active {
+  color: #fff;
+  border-bottom-color: var(--venue);
+}
+
+.tab .count {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.tab-body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.pane {
+  padding: 12px;
+}
+
+.pane h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.pane p.note {
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 70ch;
+  margin: 6px 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.card {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.card h3 {
+  margin: 0;
+  font-family: var(--font-label);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}

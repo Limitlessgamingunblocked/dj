@@ -53,6 +53,8 @@ interface Settings {
   view: StageView;
   camera: ViewId;
   quality: Quality;
+  /** Simple shows the essentials on the deck panels; Pro shows everything */
+  uiMode: 'simple' | 'pro';
   /** step the render load down / up automatically to keep frames smooth */
   autoQuality: boolean;
   autoGain: boolean;
@@ -74,6 +76,7 @@ const DEFAULTS: Settings = {
   view: 'booth',
   camera: 'perf',
   quality: 'medium',
+  uiMode: 'simple',
   autoQuality: true,
   autoGain: true,
   faderCurve: 'log',
@@ -89,7 +92,11 @@ const DEFAULTS: Settings = {
 
 const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke'] as const;
 
-type TabId = 'library' | 'sets' | 'mixer' | 'lights' | 'sampler' | 'visuals' | 'settings';
+type TabId = 'library' | 'sets' | 'mixer' | 'show' | 'settings';
+/** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */
+const OLD_TABS: Record<string, TabId> = { lights: 'show', visuals: 'show', sampler: 'mixer' };
+/** labels for narrow screens */
+const TAB_SHORT: Partial<Record<TabId, string>> = { sets: 'Sets', mixer: 'Mixer' };
 
 export class App implements AppContext {
   engine!: AudioEngine;
@@ -355,16 +362,19 @@ export class App implements AppContext {
       pickBoard: () => this.pickBoard(),
       pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id)),
       venueName: () => venueById(this.settings.venue).name,
+      venueShort: () => {
+        const v = venueById(this.settings.venue);
+        return v.short ?? v.name;
+      },
       hype: () => this.hype.value,
       beat: () => this.features.f.beatPulse,
       live: () => (this.settings.venue === 'boilerroom' ? (this.viewers >= 1000 ? `${(this.viewers / 1000).toFixed(1)}k` : String(Math.round(this.viewers))) : null),
-      view: (v) => this.setView(v),
-      fullscreen: () => this.fullscreen(),
       record: () => void this.toggleRecord(),
       midi: () => this.showTab('settings'),
-      help: () => openHelp(),
+      menu: (x, y) => this.moreMenu(x, y),
+      uiMode: () => this.settings.uiMode,
+      setUiMode: (m) => this.setUiMode(m),
       boardName: () => this.boardDef.name,
-      currentView: () => this.stage.view,
       midiConnected: () => !!this.midi.access && this.midi.devices().length > 0,
       recording: () => ({ on: this.engine.recorder.recording, elapsed: this.engine.recorder.elapsed }),
     });
@@ -403,7 +413,9 @@ export class App implements AppContext {
         for (const t of this.library.list()) if (t.source === 'file') await this.library.deleteTrack(t.id);
       },
     });
-    const mixerTab = h('div', { class: 'mixer-tab' }, mixer.el, fx.el);
+    // five tabs: the sampler lives with the mixer, lights / venue / visuals / lyrics are "Show"
+    const mixerTab = h('div', { class: 'mixer-tab' }, mixer.el, fx.el, sampler.el);
+    const showTab = h('div', { class: 'show-tab' }, lights.el, visuals.el);
     const settingsTab = h('div', { class: 'settings-tab' }, this.setupPanel.el, midi.el);
     const defs: [TabId, string, HTMLElement, ((dt: number) => void) | undefined][] = [
       ['library', 'Library', this.libPanel.el, undefined],
@@ -411,15 +423,18 @@ export class App implements AppContext {
       ['mixer', 'Mixer & FX', mixerTab, (dt) => {
         mixer.update(dt, this.meters);
         fx.update();
+        sampler.update();
       }],
-      ['lights', 'Lights & venue', lights.el, () => lights.update()],
-      ['sampler', 'Sampler', sampler.el, () => sampler.update()],
-      ['visuals', 'Visuals', visuals.el, () => visuals.update()],
+      ['show', 'Show', showTab, () => {
+        lights.update();
+        visuals.update();
+      }],
       ['settings', 'Settings', settingsTab, () => this.setupPanel.update()],
     ];
     for (const [id, label, el, update] of defs) {
       const count = id === 'library' ? h('span', { class: 'count' }) : undefined;
-      const btn = h('button', { class: 'tab', role: 'tab', type: 'button' }, label, count ?? '') as HTMLButtonElement;
+      const short = TAB_SHORT[id];
+      const btn = h('button', { class: 'tab', role: 'tab', type: 'button' }, short ? h('span', { class: 'lbl-full' }, label) : label, short ? h('span', { class: 'lbl-short' }, short) : '', count ?? '') as HTMLButtonElement;
       btn.addEventListener('click', () => this.showTab(id));
       tabBar.append(btn);
       el.hidden = true;
@@ -449,21 +464,40 @@ export class App implements AppContext {
     this.shell = h('div', { class: 'app' }, this.topbar.el, this.wave.el, main, resize, dock);
     if (this.settings.dockHeight) this.shell.style.setProperty('--dock-h', `${this.settings.dockHeight}px`);
     this.shell.classList.toggle('stage-focus', this.settings.focus);
+    this.shell.classList.toggle('ui-simple', this.settings.uiMode === 'simple');
     this.stage.setAutoZoom(this.settings.autoZoom);
     this.root.append(this.audioBanner, this.shell);
-    this.showTab((this.settings.tab as TabId) ?? 'library');
+    this.showTab((OLD_TABS[this.settings.tab] ?? this.settings.tab ?? 'library') as TabId);
   }
 
-  private hud!: { zoomBtn: HTMLElement; camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement };
+  private setUiMode(m: 'simple' | 'pro'): void {
+    this.settings.uiMode = m;
+    this.shell.classList.toggle('ui-simple', m === 'simple');
+    this.save();
+    this.stage.resize();
+  }
+
+  /** the top bar's ⋯ menu: view, full screen, MIDI, help */
+  private moreMenu(x: number, y: number): void {
+    const v = this.stage.view;
+    const view = (id: StageView, label: string) => ({ label: `${v === id ? '● ' : ''}${label}`, action: () => this.setView(id) });
+    contextMenu(x, y, [
+      view('booth', 'Booth view'),
+      view('split', 'Booth + visual player inset'),
+      view('visual', 'Visual player only'),
+      'sep',
+      { label: document.fullscreenElement ? 'Exit full screen' : 'Full screen', action: () => this.fullscreen() },
+      { label: this.settings.uiMode === 'simple' ? 'Switch to Pro layout' : 'Switch to Simple layout', action: () => this.setUiMode(this.settings.uiMode === 'simple' ? 'pro' : 'simple') },
+      'sep',
+      { label: 'MIDI controllers…', action: () => this.showTab('settings') },
+      { label: 'Help & keyboard shortcuts', action: () => openHelp() },
+    ]);
+  }
+
+  private hud!: { camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement };
 
   /** Camera and zoom controls that float over the 3D stage. */
   private buildStageHud(): HTMLElement {
-    const zoomBtn = h('button', { class: 'btn', title: 'Zoom in on the part of the board under the pointer (tap an empty spot on touch screens)' }, 'Auto-zoom');
-    zoomBtn.addEventListener('click', () => {
-      this.settings.autoZoom = !this.settings.autoZoom;
-      this.stage.setAutoZoom(this.settings.autoZoom);
-      this.save();
-    });
     const camBtn = h('button', { class: 'btn', title: 'Camera view' });
     camBtn.addEventListener('click', (e) => this.cameraMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY));
     const expandBtn = h('button', { class: 'btn icon hide-sm', title: 'Hide or show the deck panels', 'aria-label': 'Hide or show the deck panels' }, '⤢');
@@ -474,17 +508,15 @@ export class App implements AppContext {
     });
     const zoomChip = h('button', { class: 'zoom-chip', title: 'Zoom back out' });
     zoomChip.addEventListener('click', () => this.stage.focusZone(null));
-    this.hud = { zoomBtn, camBtn, zoomChip, expandBtn };
+    this.hud = { camBtn, zoomChip, expandBtn };
     this.callouts = h('div', { class: 'callouts', 'aria-live': 'polite' });
     this.lyricHud = h('div', { class: 'lyric-hud', 'aria-hidden': 'true' });
     this.stage.el.append(this.callouts, this.lyricHud);
-    return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, zoomBtn, camBtn, expandBtn));
+    return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, camBtn, expandBtn));
   }
 
   private updateHud(): void {
-    const { zoomBtn, camBtn, zoomChip } = this.hud;
-    zoomBtn.classList.toggle('active', this.stage.autoZoom);
-    zoomBtn.setAttribute('aria-pressed', String(this.stage.autoZoom));
+    const { camBtn, zoomChip } = this.hud;
     const v = this.stage.rig.view;
     setText(camBtn, `${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
     const z = this.stage.zoomedLabel;
@@ -605,6 +637,14 @@ export class App implements AppContext {
     }));
     items.push('sep');
     for (const a of rig.anchors()) items.push({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) });
+    items.push({
+      label: `${this.stage.autoZoom ? '✓ ' : ''}Zoom in on the board under the pointer`,
+      action: () => {
+        this.settings.autoZoom = !this.settings.autoZoom;
+        this.stage.setAutoZoom(this.settings.autoZoom);
+        this.save();
+      },
+    });
     items.push({
       label: 'Save current view',
       action: () => {

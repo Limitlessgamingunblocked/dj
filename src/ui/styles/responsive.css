@@ -1,0 +1,224 @@
+/* Responsive layout. */
+
+/* ------------------------------------------------------------------ */
+/* responsive                                                           */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 1180px) {
+  .main {
+    grid-template-columns: 250px minmax(0, 1fr) 250px;
+  }
+}
+
+@media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    padding-inline: 0;
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'stage stage' 'left right';
+  }
+
+  .main > .stage {
+    grid-area: stage;
+    height: min(62vh, 560px);
+  }
+
+  .main > .deck-panel.left {
+    grid-area: left;
+  }
+
+  .main > .deck-panel.right {
+    grid-area: right;
+  }
+
+  .dock {
+    min-height: 460px;
+  }
+
+  .dock-resize {
+    display: none;
+  }
+
+  .library {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .setbuilder {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .sb-form {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow: visible;
+  }
+
+  .sb-result {
+    overflow: visible;
+  }
+
+  .lib-side {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: 120px;
+  }
+
+  .wavestrip,
+  .wavestrip.four {
+    height: 120px;
+  }
+}
+
+@media (max-width: 640px) {
+  .main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'stage' 'left' 'right';
+  }
+
+  .main > .stage {
+    height: 56vh;
+  }
+
+  .topbar {
+    padding-inline: 16px;
+  }
+
+  .deck-panel {
+    padding-inline: 16px;
+  }
+
+  .sb-result {
+    padding-inline: 16px;
+  }
+
+  .sb-track {
+    grid-template-columns: 40px minmax(0, 1fr) 50px;
+    row-gap: 6px;
+  }
+
+  .sb-track .idx,
+  .sb-track .sb-energy {
+    display: none;
+  }
+
+  .sb-track .tools {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .sb-trans {
+    margin-left: 12px;
+  }
+
+  .sb-export-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .pane,
+  .fx-grid,
+  .sampler-grid,
+  .soft-mixer {
+    padding-inline: 16px;
+  }
+
+  .zoom-chip {
+    max-width: 100%;
+  }
+
+  .hide-sm {
+    display: none !important;
+  }
+
+  /* one-row top bar: the mark, board, venue, REC and the ⋯ menu */
+  .topbar {
+    gap: var(--space-2);
+    overflow: hidden;
+  }
+
+  .brand .brand-text,
+  .topbar .mode-seg,
+  .topbar .hype-meter {
+    display: none;
+  }
+
+  .topbar .board-btn,
+  .topbar .venue-btn {
+    min-width: 0;
+    flex: 0 1 auto;
+    max-width: 34vw;
+  }
+
+  .master-readout .label {
+    display: none;
+  }
+
+  .topbar .board-btn,
+  .topbar .venue-btn {
+    justify-content: flex-start;
+    gap: 4px;
+  }
+
+  .tab {
+    padding: 0 var(--space-2);
+  }
+
+  /* short labels, icon-only REC; per-deck BPM and master state are in the waveform lanes */
+  .topbar .lbl-full,
+  .tabs .lbl-full,
+  .topbar .master-readout,
+  .topbar .rec-label {
+    display: none;
+  }
+
+  .topbar .lbl-short,
+  .tabs .lbl-short {
+    display: inline;
+  }
+
+  .topbar .rec-btn {
+    min-width: 44px;
+  }
+}
+
+/* touch screens: controls at least 44 px */
+@media (pointer: coarse) {
+  .btn,
+  .tab,
+  .chip,
+  .hw {
+    min-height: 44px;
+  }
+
+  .btn.icon {
+    min-width: 44px;
+  }
+
+  .context-menu button {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

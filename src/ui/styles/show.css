@@ -1,0 +1,328 @@
+/* Venues, crowd meter and the lighting desk. */
+
+/* ------------------------------------------------------------------ */
+/* venue, crowd and lights                                              */
+/* ------------------------------------------------------------------ */
+
+.venue-btn {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-color: color-mix(in srgb, var(--venue) 45%, var(--line-2));
+}
+
+.hype-meter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.hype-meter .cells {
+  display: flex;
+  gap: 2px;
+}
+
+.hype-meter i {
+  width: 5px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--led-off);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.hype-meter i.on {
+  background: var(--venue);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--venue) 70%, transparent);
+}
+
+.hype-meter i.on:nth-child(n + 10) {
+  background: #fff3c4;
+  box-shadow: 0 0 8px #ffd23f;
+}
+
+.beat-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  align-self: center;
+  background: var(--venue);
+  box-shadow: 0 0 10px var(--venue);
+  opacity: 0.2;
+}
+
+.live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 4px;
+  background: #e0142f;
+  color: #fff;
+  font-family: var(--font-label);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  flex: none;
+}
+
+.live-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  animation: pulse 1.2s infinite;
+}
+
+.live-badge .mono {
+  font-size: 11px;
+  letter-spacing: 0;
+  opacity: 0.9;
+}
+
+.callouts {
+  position: absolute;
+  left: 12px;
+  bottom: 44px;
+  display: grid;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.callout {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-family: var(--font-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 15px;
+  text-transform: uppercase;
+  background: rgba(7, 9, 13, 0.82);
+  border-left: 3px solid var(--venue);
+  backdrop-filter: blur(6px);
+  animation: callout-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+  transition: opacity 0.5s, transform 0.5s;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 48px));
+}
+
+.callout.good {
+  border-left-color: var(--ok);
+}
+
+.callout.bad {
+  border-left-color: var(--live);
+  color: #ffd0d6;
+}
+
+.callout.hype {
+  border-left-color: #ffd23f;
+  color: #fff3c4;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--venue) 40%, transparent);
+}
+
+.callout.out {
+  opacity: 0;
+  transform: translateX(-12px);
+}
+
+@keyframes callout-in {
+  from {
+    opacity: 0;
+    transform: translateX(-24px) scale(0.96);
+  }
+}
+
+.venue-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.venue-card {
+  --vc: var(--venue);
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  align-content: start;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.venue-card:hover {
+  border-color: color-mix(in srgb, var(--vc) 60%, var(--line));
+  transform: translateY(-1px);
+}
+
+.venue-card.active {
+  border-color: var(--vc);
+  box-shadow: 0 0 0 1px var(--vc), 0 0 22px color-mix(in srgb, var(--vc) 25%, transparent);
+}
+
+.venue-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+.venue-card .info {
+  padding: 8px 10px 10px;
+  display: grid;
+  gap: 3px;
+}
+
+.venue-card .where {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vc);
+}
+
+.venue-card b {
+  font-family: var(--font-label);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 16px;
+}
+
+.venue-card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.venue-card .cap {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.lights-pane {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.lights-col {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lights-col .venue-cards {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.lights-col .venue-card p {
+  display: none;
+}
+
+.light-pads {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.hw.light-pad {
+  height: 64px;
+  border-radius: 8px;
+  font-family: var(--font-label);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hw.light-pad:not(.lit) {
+  border-color: color-mix(in srgb, var(--pad, #fff) 40%, #2a3442);
+  color: color-mix(in srgb, var(--pad, #fff) 75%, #aeb8c8);
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--pad, #fff) 30%, transparent);
+}
+
+.hw.light-pad kbd {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.hw.light-pad.strobe {
+  --pad: #ffffff;
+}
+
+.hw.light-pad.blinder {
+  --pad: #ffb347;
+}
+
+.hw.light-pad.laser {
+  --pad: #3dff7a;
+}
+
+.hw.light-pad.co2 {
+  --pad: #bfe8ff;
+}
+
+.hw.light-pad.pyro {
+  --pad: #ff7a1a;
+}
+
+.hw.light-pad.blackout {
+  --pad: #ff3b5c;
+}
+
+.lights-col .sliders .field {
+  flex: 1;
+  min-width: 140px;
+}
+
+.show-live {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #080b10;
+}
+
+.show-meter {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 2px;
+}
+
+.show-meter i {
+  height: 8px;
+  border-radius: 1px;
+  background: var(--led-off);
+}
+
+.show-meter i.on {
+  background: var(--venue);
+  box-shadow: 0 0 6px var(--venue);
+}
+
+.show-status {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .lights-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .light-pads {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hype-meter .label {
+    display: none;
+  }
+}

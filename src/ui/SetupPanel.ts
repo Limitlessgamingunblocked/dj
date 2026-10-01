@@ -3,7 +3,6 @@ import type { AppContext } from '../app/context';
 import { KEYMAP, SHIFT_KEYMAP, keyName } from '../app/keyboard';
 import type { FaderCurve } from '../audio/Channel';
 import type { Quality, Stage } from '../three/Stage';
-import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { clear, h } from './dom';
 import { openModal } from './modal';
 import { toast } from './toast';
@@ -56,12 +55,6 @@ export class SetupPanel {
     stickers.checked = hooks.stickers();
     stickers.addEventListener('change', () => hooks.setStickers(stickers.checked));
 
-    const camRow = h('div', { class: 'toggle-row' });
-    (Object.keys(VIEW_LABELS) as ViewId[]).forEach((v) => {
-      const b = h('button', { class: 'btn' }, stage.rig.label(v));
-      b.addEventListener('click', () => stage.goTo(v));
-      camRow.append(b);
-    });
     const anchorName = h('input', { class: 'search', placeholder: 'Name this camera view', style: { maxWidth: '220px' }, id: 'anchor-name' }) as HTMLInputElement;
     anchorName.addEventListener('keydown', (e) => e.stopPropagation());
     const saveAnchor = h('button', { class: 'btn' }, 'Save current view');
@@ -142,7 +135,7 @@ export class SetupPanel {
     this.el = h(
       'div',
       { class: 'cards pane', style: { alignItems: 'start' } },
-      h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Board & camera'), board, h('label', { class: 'toggle-row', for: 'stickers' }, stickers, 'Old stickers and gaffer tape on the hardware'), camRow, h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl, h('p', { class: 'note' }, 'Drag empty space to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. The Performance view drifts gently with the music while you are hands-off.')),
+      h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Board & camera'), board, h('label', { class: 'toggle-row', for: 'stickers' }, stickers, 'Old stickers and gaffer tape on the hardware'), h('div', { class: 'label' }, 'Saved camera views'), h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl, h('p', { class: 'note' }, 'Switch camera views from the camera menu on the stage. Drag empty space to orbit, right-drag or two fingers to pan, scroll or pinch to zoom. The Performance view drifts gently with the music while you are hands-off.')),
       h(
         'div',
         { class: 'card', style: { display: 'grid', gap: '10px' } },

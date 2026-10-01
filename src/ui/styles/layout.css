@@ -1,0 +1,33 @@
+/* App grid. */
+
+/* ------------------------------------------------------------------ */
+/* app grid                                                             */
+/* ------------------------------------------------------------------ */
+
+#app {
+  height: 100%;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto var(--dock-h);
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+}
+
+.main {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  min-height: 0;
+  gap: 1px;
+  background: var(--line);
+}
+
+.app.stage-focus .main {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app.stage-focus .deck-panel {
+  display: none;
+}

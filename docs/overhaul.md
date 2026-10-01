@@ -109,3 +109,32 @@ Same probe and conditions as the baseline.
 | Printworks | wide | 196 → 178 | 1,108k → 484k |
 
 Under software rendering the median frame time fell from 1.39 s to 0.54 s at Berghain, 1.70 s to 0.73 s at Printworks and 1.17 s to 0.58 s at Boiler Room wide. That isn't a real-GPU number, but it moves in the same direction as the vertex and fill savings. DC-10 and the warehouse gain least: their crowds stand right in front of the camera, so most chunks stay detailed by design. Shader programs after visiting several venues: 40–55 (baseline 43–69).
+
+## Phase 3: simpler, cleaner UI
+
+| | Before | After |
+|---|---|---|
+| Top bar | 10 controls (board, venue, Booth/Split/Visuals, MIDI, help, full screen, Rec, meters) | board, venue, crowd, master BPM, Rec, **Simple / Pro**, ⋯ menu (view, full screen, layout, MIDI, help); a MIDI pill only while a controller is connected |
+| Deck panels | everything always visible | **Simple** (default): title, key, BPM, time, overview, Cue / Play / Sync, tempo. **Pro** adds master, tempo range, pad modes, pads, the loops/key/stems drawer and the 🎤 button. Lyrics stay reachable from the deck's ⋯ menu in both |
+| Waveform strip | four lanes on four-deck boards, empty ones included | lanes for the decks on each side plus any other deck with a track |
+| Over the stage | Auto-zoom, camera menu, show/hide panels | camera menu (with the auto-zoom toggle inside), show/hide panels |
+| Dock | 7 tabs | 5: Library · Set Builder · Mixer & FX (sampler included) · Show (venue, lighting desk, visual player, lyrics) · Settings (MIDI included) |
+| Duplicates | venue, MIDI, view and camera views each in two places | the camera-view buttons left Settings; the view switch moved into ⋯ (and the V key) |
+
+**Design system.**
+- The stylesheet is split into 15 component files, imported in the original cascade order; the build output was byte-for-byte the same size before the edits.
+- Four dead rules removed.
+- Tokens for an 8 px spacing grid, three radii, a five-step type scale, motion (easing and two durations) and control heights; buttons use them.
+
+**Accessibility and touch.**
+- Secondary text raised from 3.2:1 to 4.9:1 contrast.
+- A brighter focus ring.
+- Controls at least 44 px on touch screens (checked: none smaller on a 390 px phone).
+- The camera's idle sway and beat shake stop when the OS asks for reduced motion, alongside the existing CSS rule.
+- The Barlow Condensed weights 800–900 used by the lyrics and LED signs are now loaded.
+
+**Phone layout (390 px).**
+- A single-row top bar: logo mark, board, short venue name, a REC dot and ⋯.
+- Deck panels stay stacked but are far shorter in Simple.
+- Short tab labels, so all five tabs fit without scrolling.
+- No horizontal overflow.

@@ -1,6 +1,9 @@
-/* Top bar: board, venue, view, crowd meter, master tempo, recorder, MIDI, help, full screen. */
+/*
+ * Top bar: board, venue, crowd meter, master tempo, recorder, the Simple / Pro
+ * switch and a ⋯ menu (view, full screen, MIDI, help). A MIDI pill appears
+ * only while a controller is connected.
+ */
 import type { AppContext } from '../app/context';
-import type { StageView } from '../three/Stage';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText } from './dom';
 
@@ -8,19 +11,20 @@ export interface TopBarActions {
   pickBoard(): void;
   pickVenue(): void;
   venueName(): string;
+  venueShort(): string;
   /** crowd energy 0..1 */
   hype(): number;
   /** beat pulse 0..1 */
   beat(): number;
   /** livestream viewer count, or null when not streaming */
   live(): string | null;
-  view(v: StageView): void;
-  fullscreen(): void;
   record(): void;
   midi(): void;
-  help(): void;
+  /** open the ⋯ menu at a screen position */
+  menu(x: number, y: number): void;
+  uiMode(): 'simple' | 'pro';
+  setUiMode(m: 'simple' | 'pro'): void;
   boardName(): string;
-  currentView(): StageView;
   midiConnected(): boolean;
   recording(): { on: boolean; elapsed: number };
 }
@@ -29,12 +33,16 @@ export class TopBar {
   readonly el: HTMLElement;
   private boardBtn: HTMLElement;
   private venueBtn: HTMLElement;
+  private boardLabel = h('span', { class: 'ellipsis' });
+  private venueLabel = h('span', { class: 'ellipsis lbl-full' });
+  private venueShort = h('span', { class: 'ellipsis lbl-short' });
   private hypeCells: HTMLElement[];
   private hypeEl: HTMLElement;
   private beatLed: HTMLElement;
   private liveEl: HTMLElement;
   private liveCount: HTMLElement;
-  private viewBtns = new Map<StageView, HTMLElement>();
+  private modeBtns = new Map<'simple' | 'pro', HTMLElement>();
+  private midiBtn: HTMLElement;
   private master: HTMLElement;
   private masterDeck: HTMLElement;
   private rec: HTMLElement;
@@ -45,74 +53,77 @@ export class TopBar {
     private app: AppContext,
     private a: TopBarActions,
   ) {
-    this.boardBtn = h('button', { class: 'btn board-btn', title: 'Choose a board' });
+    this.boardBtn = h('button', { class: 'btn board-btn', title: 'Choose a board' }, this.boardLabel, h('span', { 'aria-hidden': 'true' }, '▾'));
     this.boardBtn.addEventListener('click', () => a.pickBoard());
-    this.venueBtn = h('button', { class: 'btn venue-btn', title: 'Choose where you play' });
+    this.venueBtn = h('button', { class: 'btn venue-btn', title: 'Choose where you play' }, h('span', { 'aria-hidden': 'true' }, '📍'), this.venueLabel, this.venueShort, h('span', { 'aria-hidden': 'true' }, '▾'));
     this.venueBtn.addEventListener('click', () => a.pickVenue());
     this.hypeCells = Array.from({ length: 12 }, () => h('i'));
     this.hypeEl = h('div', { class: 'hype-meter', title: 'Crowd energy: rises with the music, clean blends and drops; trainwrecks and key clashes cost you' }, h('span', { class: 'label' }, 'Crowd'), h('span', { class: 'cells' }, ...this.hypeCells));
     this.beatLed = h('span', { class: 'beat-led' });
     this.liveCount = h('span', { class: 'mono' });
     this.liveEl = h('span', { class: 'live-badge', title: 'Streaming live' }, h('span', { class: 'dot' }), 'LIVE', this.liveCount);
-    const views = h('div', { class: 'seg', role: 'group', 'aria-label': 'What the stage shows' });
+    const mode = h('div', { class: 'seg mode-seg', role: 'group', 'aria-label': 'Interface' });
     ([
-      ['booth', 'Booth'],
-      ['split', 'Split'],
-      ['visual', 'Visuals'],
-    ] as [StageView, string][]).forEach(([v, label]) => {
-      const b = h('button', { class: 'btn', title: v === 'booth' ? '3D booth' : v === 'split' ? '3D booth with the visual player inset' : 'Visual player only' }, label);
-      b.addEventListener('click', () => a.view(v));
-      this.viewBtns.set(v, b);
-      views.append(b);
+      ['simple', 'Simple', 'Just the essentials: play, cue, sync, tempo and the library'],
+      ['pro', 'Pro', 'Everything: pads, loops, key and stems on the deck panels'],
+    ] as ['simple' | 'pro', string, string][]).forEach(([m, label, title]) => {
+      const b = h('button', { class: 'btn', title, type: 'button' }, label);
+      b.addEventListener('click', () => a.setUiMode(m));
+      this.modeBtns.set(m, b);
+      mode.append(b);
     });
     this.master = h('span', { class: 'mono' });
     this.masterDeck = h('span', { class: 'label' });
-    this.rec = h('button', { class: 'btn rec-btn', title: 'Record your mix' }, h('span', { class: 'dot' }), 'Rec');
+    this.rec = h('button', { class: 'btn rec-btn', title: 'Record your mix', 'aria-label': 'Record your mix' }, h('span', { class: 'dot' }), h('span', { class: 'rec-label' }, 'Rec'));
     this.recTime = h('span', { class: 'mono', style: { fontSize: '12px' } });
     this.rec.append(this.recTime);
     this.rec.addEventListener('click', () => a.record());
-    this.midiDot = h('span', { class: 'status-dot' });
-    const midi = h('button', { class: 'btn ghost hide-sm', title: 'MIDI controllers' }, this.midiDot, 'MIDI');
-    midi.addEventListener('click', () => a.midi());
-    const help = h('button', { class: 'btn ghost icon', title: 'How to use Deckhouse', 'aria-label': 'Help' }, '?');
-    help.addEventListener('click', () => a.help());
-    const fs = h('button', { class: 'btn ghost icon hide-sm', title: 'Full screen', 'aria-label': 'Full screen' }, '⛶');
-    fs.addEventListener('click', () => a.fullscreen());
+    this.midiDot = h('span', { class: 'status-dot on' });
+    this.midiBtn = h('button', { class: 'btn ghost hide-sm', title: 'MIDI controller connected — open MIDI settings', hidden: true }, this.midiDot, 'MIDI');
+    this.midiBtn.addEventListener('click', () => a.midi());
+    const more = h('button', { class: 'btn ghost icon', title: 'View, full screen, MIDI and help', 'aria-label': 'More', 'aria-haspopup': 'menu' }, '⋯');
+    more.addEventListener('click', (e) => {
+      const r = more.getBoundingClientRect();
+      a.menu((e as MouseEvent).clientX || r.left, r.bottom + 4);
+    });
     this.el = h(
       'header',
       { class: 'topbar' },
-      h('div', { class: 'brand' }, h('span', { class: 'mark' }), 'DECKHOUSE'),
+      h('div', { class: 'brand' }, h('span', { class: 'mark' }), h('span', { class: 'brand-text' }, 'DECKHOUSE')),
       this.boardBtn,
       this.venueBtn,
-      views,
       h('span', { class: 'spacer' }),
       this.liveEl,
       this.hypeEl,
       h('div', { class: 'master-readout', title: 'Tempo of the sync master deck' }, this.beatLed, this.masterDeck, this.master),
       this.rec,
-      midi,
-      help,
-      fs,
+      this.midiBtn,
+      mode,
+      more,
     );
   }
 
   update(): void {
-    setText(this.boardBtn, `${this.a.boardName()} ▾`);
-    setText(this.venueBtn, `📍 ${this.a.venueName()} ▾`);
+    setText(this.boardLabel, this.a.boardName());
+    setText(this.venueLabel, this.a.venueName());
+    setText(this.venueShort, this.a.venueShort());
     const lit = Math.round(this.a.hype() * this.hypeCells.length);
     this.hypeCells.forEach((c, i) => setClass(c, 'on', i < lit));
     this.beatLed.style.opacity = (0.15 + this.a.beat() * 0.85).toFixed(2);
     const live = this.a.live();
     this.liveEl.hidden = live === null;
     if (live !== null) setText(this.liveCount, live);
-    const view = this.a.currentView();
-    for (const [v, b] of this.viewBtns) setClass(b, 'active', v === view);
-    const m = this.app.engine.masterDeck;
-    setText(this.masterDeck, m ? `Master ${m.id}` : 'Master');
-    setText(this.master, m ? formatBpm(m.bpm) : '--.-');
+    const m = this.a.uiMode();
+    for (const [k, b] of this.modeBtns) {
+      setClass(b, 'active', k === m);
+      b.setAttribute('aria-pressed', String(k === m));
+    }
+    const md = this.app.engine.masterDeck;
+    setText(this.masterDeck, md ? `Master ${md.id}` : 'Master');
+    setText(this.master, md ? formatBpm(md.bpm) : '--.-');
     const r = this.a.recording();
     setClass(this.rec, 'on', r.on);
     setText(this.recTime, r.on ? formatTime(r.elapsed) : '');
-    setClass(this.midiDot, 'on', this.a.midiConnected());
+    this.midiBtn.hidden = !this.a.midiConnected();
   }
 }

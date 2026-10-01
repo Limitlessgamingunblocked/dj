@@ -63,7 +63,7 @@ export class DeckPanel {
     this.layerBtn.addEventListener('click', () => reg.press(`layer.${side}`, 'ui'));
     const more = h('button', { class: 'btn small ghost icon', title: 'Deck options', 'aria-label': 'Deck options' }, '⋯');
     more.addEventListener('click', (e) => this.deckMenu(e as MouseEvent));
-    this.lyricsBtn = h('button', { class: 'btn small ghost icon lyrics-btn', title: 'Lyrics', 'aria-label': 'Lyrics' }, '🎤') as HTMLButtonElement;
+    this.lyricsBtn = h('button', { class: 'btn small ghost icon lyrics-btn pro-only', title: 'Lyrics', 'aria-label': 'Lyrics' }, '🎤') as HTMLButtonElement;
     this.lyricsBtn.addEventListener('click', () => openLyricsEditor(this.app, this.deck()));
 
     this.bpm = h('span');
@@ -73,7 +73,7 @@ export class DeckPanel {
     this.time.addEventListener('click', () => (this.showRemain = !this.showRemain));
     this.keyChip = h('span', { class: 'chip key', title: 'Musical key (Camelot)' });
     this.tempoChip = h('span', { class: 'chip', title: 'Tempo change' });
-    this.rangeChip = h('button', { class: 'chip', title: 'Tempo range — click to change', type: 'button' });
+    this.rangeChip = h('button', { class: 'chip pro-only', title: 'Tempo range — click to change', type: 'button' });
     this.rangeChip.addEventListener('click', () => reg.press(P('range'), 'ui'));
 
     this.overview = h('canvas');
@@ -93,7 +93,7 @@ export class DeckPanel {
     this.jumpSize = h('span', { class: 'chip', style: { minWidth: '30px', justifyContent: 'center' } });
     this.keyShift = h('span', { class: 'chip', style: { minWidth: '34px', justifyContent: 'center' } });
 
-    const pads = h('div', { class: 'pads' });
+    const pads = h('div', { class: 'pads pro-only' });
     for (let i = 0; i < 8; i++) {
       const pw = padButton(reg, P(`pad.${i + 1}`), () => this.deck().padLabel(i));
       pads.append(w(pw));
@@ -103,7 +103,7 @@ export class DeckPanel {
       });
     }
     const shortMode: Record<string, string> = { hotcue: 'Cue', roll: 'Roll', slicer: 'Slice', jump: 'Jump', pitch: 'Pitch', sampler: 'Sample' };
-    const padModes = h('div', { class: 'padmode-seg', role: 'group', 'aria-label': 'Pad mode' }, ...PAD_MODES.map((m) => w(hwButton(reg, P(`padmode.${m}`), shortMode[m], { title: PAD_MODE_LABELS[m] }))));
+    const padModes = h('div', { class: 'padmode-seg pro-only', role: 'group', 'aria-label': 'Pad mode' }, ...PAD_MODES.map((m) => w(hwButton(reg, P(`padmode.${m}`), shortMode[m], { title: PAD_MODE_LABELS[m] }))));
 
     // tools: loops, beat jump, key, deck modes and stems — tucked away until needed
     const stemKnobs = (['vocal', 'drums', 'bass', 'melody'] as const).map((st) => w(knob(reg, P(`stem.${st}`), st === 'vocal' ? 'Vocal' : st === 'drums' ? 'Drums' : st === 'bass' ? 'Bass' : 'Melody', { size: 34 })));
@@ -114,7 +114,7 @@ export class DeckPanel {
     };
     const tools = h(
       'details',
-      { class: 'deck-more' },
+      { class: 'deck-more pro-only' },
       h('summary', {}, 'Loops, key & stems'),
       h(
         'div',
@@ -175,7 +175,7 @@ export class DeckPanel {
         { class: 'transport' },
         w(hwButton(reg, P('cue'), 'Cue', { cls: 'big', color: '#ff9f1c' })),
         w(hwButton(reg, P('play'), '▶︎❚❚', { cls: 'big', color: '#3ddc97', title: 'Play / Pause' })),
-        h('div', { class: 'sync-stack' }, w(hwButton(reg, P('sync'), 'Sync')), w(hwButton(reg, P('master'), 'Master'))),
+        h('div', { class: 'sync-stack' }, w(hwButton(reg, P('sync'), 'Sync')), w(hwButton(reg, P('master'), 'Master', { cls: 'pro-only' }))),
       ),
       h(
         'div',

@@ -1,0 +1,31 @@
+/* Scrolling waveform strip. */
+
+/* ------------------------------------------------------------------ */
+/* waveform strip                                                       */
+/* ------------------------------------------------------------------ */
+
+.wavestrip {
+  position: relative;
+  background: #05070a;
+  border-bottom: 1px solid var(--line);
+  height: clamp(96px, 14vh, 136px);
+}
+
+.wavestrip.four {
+  height: clamp(120px, 17vh, 164px);
+}
+
+.wavestrip canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.wavestrip .zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  display: flex;
+  gap: 4px;
+}

@@ -203,6 +203,7 @@ class DC10 extends VenueBase {
 export const dc10: VenueDef = {
   id: 'dc10',
   name: 'Circoloco @ DC-10',
+  short: 'DC-10',
   place: 'Ibiza, Spain',
   kind: 'Club · main room',
   blurb: 'The Monday institution by the airport: a low red room, orange globe lamps over the crowd, strings of warm bulbs, red laser sheets, the fan wheel on the wall and a crowd pressed right up to the booth.',

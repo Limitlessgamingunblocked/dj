@@ -1,0 +1,125 @@
+/*
+ * Deckhouse — booth UI. Deliberately single dark theme (a DJ booth is dark).
+ * Design tokens: colour, an 8 px spacing grid, radii, type scale, motion and
+ * control sizes. Components should use these rather than raw values.
+ */
+:root {
+  color-scheme: dark;
+  --bg: #07090d;
+  --panel: #0d1117;
+  --panel-2: #131922;
+  --panel-3: #1a212c;
+  --line: #222b38;
+  --line-2: #2d3848;
+  --text: #e7ecf3;
+  --muted: #8a94a6;
+  /* secondary text: 4.9:1 on panels (was 3.2:1) */
+  --dim: #76829a;
+  --deck1: #4cc9f0;
+  --deck2: #ff9f1c;
+  --deck3: #3ddc97;
+  --deck4: #c77dff;
+  --live: #ff3b5c;
+  --ok: #3ddc97;
+  --warn: #ffd23f;
+  --led-off: #2a323f;
+  --radius: 6px;
+  --radius-s: 4px;
+  --radius-l: 10px;
+  /* spacing: 8 px grid with a half step */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  /* type scale */
+  --text-xs: 11px;
+  --text-s: 12px;
+  --text-m: 14px;
+  --text-l: 16px;
+  --text-xl: 20px;
+  /* motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  /* controls */
+  --control-h: 30px;
+  --control-h-s: 24px;
+  --focus: #6fd6ff;
+  --font-label: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --font-body: 'Barlow', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --dock-h: 30vh;
+  --venue: #ff5a2a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Simple layout: the essentials only; Pro shows everything */
+.ui-simple .pro-only {
+  display: none !important;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.ellipsis {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lbl-short {
+  display: none;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--font-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--muted);
+}

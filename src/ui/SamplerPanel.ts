@@ -62,9 +62,9 @@ export class SamplerPanel {
       grid.append(card);
     });
     this.el = h(
-      'div',
-      {},
-      h('div', { class: 'pane', style: { paddingBottom: '0' } }, h('p', { class: 'note' }, 'Trigger slots here, with number keys while holding Shift, or from the performance pads in SAMPLER mode. Drop an audio file on a slot to replace its sound. Loop slots start on the next beat.')),
+      'section',
+      { class: 'sampler-section', 'aria-label': 'Sampler' },
+      h('div', { class: 'pane', style: { paddingBottom: '0' } }, h('h3', {}, 'Sampler'), h('p', { class: 'note' }, 'Trigger slots here, with number keys while holding Shift, or from the performance pads in SAMPLER mode. Drop an audio file on a slot to replace its sound. Loop slots start on the next beat.')),
       grid,
     );
   }

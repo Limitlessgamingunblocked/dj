@@ -1,0 +1,225 @@
+/* Top bar. */
+
+/* ------------------------------------------------------------------ */
+/* top bar                                                              */
+/* ------------------------------------------------------------------ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--venue) 60%, transparent), transparent) bottom / 100% 1px no-repeat,
+    radial-gradient(120% 180% at 50% 0%, color-mix(in srgb, var(--venue) 9%, transparent), transparent 60%),
+    linear-gradient(180deg, #0f141b, #0b0f14);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.topbar::-webkit-scrollbar {
+  display: none;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.22em;
+  white-space: nowrap;
+  padding-right: 6px;
+}
+
+.brand .mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: conic-gradient(from 200deg, var(--deck1), var(--deck3), var(--deck4), var(--deck2), var(--deck1));
+  align-self: center;
+  box-shadow: 0 0 12px rgba(76, 201, 240, 0.4);
+}
+
+.brand small {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: var(--font-label);
+  font-weight: 600;
+  font-size: var(--text-s);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.btn:hover {
+  background: var(--panel-3);
+  border-color: var(--line-2);
+}
+
+.btn.active,
+.btn[aria-pressed='true'] {
+  background: #1e2a38;
+  border-color: var(--deck1);
+  color: #fff;
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.btn.ghost:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: #16324a;
+  border-color: #2b6f99;
+}
+
+.btn.danger {
+  border-color: #6b2230;
+  color: #ffb3c0;
+}
+
+.btn.small {
+  height: var(--control-h-s);
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+}
+
+.btn.icon {
+  width: var(--control-h);
+  padding: 0;
+}
+
+.btn.small.icon {
+  width: var(--control-h-s);
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  overflow: hidden;
+  flex: none;
+}
+
+.seg .btn {
+  border: 0;
+  border-radius: 0;
+  height: 26px;
+  background: var(--panel);
+}
+
+.seg .btn + .btn {
+  border-left: 1px solid var(--line-2);
+}
+
+.seg .btn.active {
+  background: #1e2a38;
+  color: #fff;
+  box-shadow: inset 0 -2px 0 var(--deck1);
+}
+
+.rec-btn {
+  color: #ffb3c0;
+}
+
+.rec-btn .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #6b2230;
+}
+
+.rec-btn.on {
+  border-color: var(--live);
+  background: #2a0f16;
+  color: #fff;
+}
+
+.rec-btn.on .dot {
+  background: var(--live);
+  box-shadow: 0 0 10px var(--live);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.master-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.master-readout .mono {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex: none;
+}
+
+.status-dot.on {
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+
+.audio-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: #2a2208;
+  color: #ffe9a3;
+  border-bottom: 1px solid #4d3f10;
+  font-size: 13px;
+}

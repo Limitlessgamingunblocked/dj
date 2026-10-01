@@ -28,6 +28,9 @@ export const VIEW_LABELS: Record<ViewId, string> = {
 };
 
 const DRONE_FOV = 94;
+/** the OS asks for less motion: no idle sway, no beat shake */
+const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+const reducedMotion = () => !!motionQuery?.matches;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 interface DroneState {
@@ -367,7 +370,7 @@ export class CameraRig {
     }
     // dynamic performance view: slow sway around the board when idle
     const idle = performance.now() - this.lastInteraction > 4000;
-    if (this.view === 'perf' && idle && !this.focused && !this.goalPos && f?.playing) {
+    if (this.view === 'perf' && idle && !this.focused && !this.goalPos && f?.playing && !reducedMotion()) {
       this.sway += dt;
       // the preset only changes with the board or the aspect: refresh it now and then, not every frame
       if (!this.perfOffset || this.sway - this.perfOffsetAt > 1) {
@@ -382,7 +385,7 @@ export class CameraRig {
     }
     this.controls.update();
     if (this.camera.position.y < -1.2) this.camera.position.y = -1.2;
-    if (shakeEnabled && f && !this.focused && (this.view === 'wide' || this.view === 'crowd' || (this.view === 'perf' && idle))) {
+    if (shakeEnabled && f && !this.focused && !reducedMotion() && (this.view === 'wide' || this.view === 'crowd' || (this.view === 'perf' && idle))) {
       const mult = this.view === 'perf' ? 1 : 3;
       this.shake = Math.max(this.shake * Math.exp(-dt * 12), (f.kickPulse * 0.006 * f.intensity + f.drop * 0.01) * mult);
       this.shakeOffset.set((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);

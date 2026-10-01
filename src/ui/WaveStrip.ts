@@ -43,9 +43,12 @@ export class WaveStrip {
     saveSetting('waveZoom', this.pxPerSec);
   }
 
+  /** lanes: the decks on the two sides, plus any other deck that has a track (empty decks 3/4 don't take space) */
   private decks(): number[] {
     const n = this.app.deckCount();
-    return n === 4 ? [1, 2, 3, 4] : [this.app.sideDeck('L'), this.app.sideDeck('R')];
+    const shown = new Set([this.app.sideDeck('L'), this.app.sideDeck('R')]);
+    if (n === 4) for (let id = 1; id <= 4; id++) if (this.app.engine.deck(id).loaded) shown.add(id);
+    return [...shown].sort((x, y) => x - y);
   }
 
   private laneAt(y: number): number {
@@ -81,7 +84,7 @@ export class WaveStrip {
 
   update(): void {
     const ids = this.decks();
-    this.el.classList.toggle('four', ids.length === 4);
+    this.el.classList.toggle('four', ids.length > 2);
     const dpr = fitCanvas(this.canvas);
     const g = this.g;
     const W = this.canvas.width;

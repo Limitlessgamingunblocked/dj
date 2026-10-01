@@ -1,0 +1,270 @@
+/* Hardware-style widgets: LED buttons, knobs, faders, VU and phase meters. */
+
+/* LED hardware-style buttons bound to controls */
+.hw {
+  --led: var(--text);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid #2a3442;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #1b222c, #141a22);
+  color: #aeb8c8;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  white-space: nowrap;
+  transition: transform 0.05s;
+}
+
+.hw:active,
+.hw.down {
+  transform: translateY(1px);
+}
+
+.hw.lit {
+  color: #0a0d12;
+  background: var(--led);
+  border-color: var(--led);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--led) 60%, transparent);
+}
+
+.hw.lit.dim {
+  color: var(--led);
+  background: color-mix(in srgb, var(--led) 18%, #141a22);
+  box-shadow: none;
+}
+
+.hw.flash {
+  outline: 2px solid #fff;
+}
+
+.hw.big {
+  height: 44px;
+  min-width: 56px;
+  font-size: 13px;
+  border-radius: 50%;
+  width: 52px;
+}
+
+.transport {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pads {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.pad {
+  --led: #444;
+  --lvl: 0;
+  height: 38px;
+  border-radius: 5px;
+  border: 1px solid #28303c;
+  background: color-mix(in srgb, var(--led) calc(var(--lvl) * 85%), #151b23);
+  color: color-mix(in srgb, #fff calc(var(--lvl) * 100%), #7b8698);
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+  box-shadow: 0 0 calc(var(--lvl) * 14px) color-mix(in srgb, var(--led) 70%, transparent);
+}
+
+.pad.down {
+  transform: scale(0.97);
+}
+
+/* knobs */
+.knob {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: ns-resize;
+  min-width: 40px;
+}
+
+.knob svg {
+  display: block;
+  overflow: visible;
+}
+
+.knob .kl {
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.knob.flash svg circle.body {
+  stroke: #fff;
+}
+
+/* faders */
+.fader {
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.fader .track {
+  position: absolute;
+  background: #04060a;
+  border: 1px solid #2a3340;
+  border-radius: 3px;
+}
+
+.fader .cap {
+  position: absolute;
+  background: linear-gradient(180deg, #d9dee6, #8f99a8 45%, #c8ced8 55%, #7c8594);
+  border-radius: 3px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+}
+
+.fader .cap::after {
+  content: '';
+  position: absolute;
+  background: #111;
+}
+
+.fader.v {
+  width: 34px;
+}
+
+.fader.v .track {
+  left: 15px;
+  width: 5px;
+  top: 8px;
+  bottom: 8px;
+}
+
+.fader.v .cap {
+  left: 3px;
+  width: 28px;
+  height: 16px;
+  margin-top: -8px;
+}
+
+.fader.v .cap::after {
+  left: 3px;
+  right: 3px;
+  top: 7px;
+  height: 2px;
+}
+
+.fader.h {
+  height: 34px;
+}
+
+.fader.h .track {
+  top: 15px;
+  height: 5px;
+  left: 8px;
+  right: 8px;
+}
+
+.fader.h .cap {
+  top: 3px;
+  width: 16px;
+  height: 28px;
+  margin-left: -8px;
+}
+
+.fader.h .cap::after {
+  top: 3px;
+  bottom: 3px;
+  left: 7px;
+  width: 2px;
+}
+
+.fader.flash .cap {
+  outline: 2px solid #fff;
+}
+
+.fader .ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* VU meters */
+.vu {
+  display: flex;
+  gap: 2px;
+  height: 100%;
+}
+
+.vu .col {
+  width: 5px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+}
+
+.vu .seg {
+  flex: 1;
+  border-radius: 1px;
+  background: var(--led-off);
+}
+
+.vu .seg.on.g {
+  background: var(--ok);
+}
+
+.vu .seg.on.y {
+  background: var(--warn);
+}
+
+.vu .seg.on.r {
+  background: var(--live);
+}
+
+.vu .seg.peak {
+  background: #fff;
+}
+
+/* phase meter */
+.phase {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  height: 6px;
+}
+
+.phase i {
+  background: var(--led-off);
+  border-radius: 2px;
+}
+
+.phase i.on {
+  background: var(--deck);
+  box-shadow: 0 0 6px var(--deck);
+}

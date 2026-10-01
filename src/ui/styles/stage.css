@@ -1,0 +1,136 @@
+/* The 3D stage and its overlay controls. */
+
+/* ------------------------------------------------------------------ */
+/* stage                                                                */
+/* ------------------------------------------------------------------ */
+
+.stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: #030406;
+  overflow: hidden;
+}
+
+.stage canvas.gl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  outline: none;
+}
+
+.stage-hud {
+  position: absolute;
+  inset: 8px 8px auto 8px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.stage-hud > * {
+  pointer-events: auto;
+}
+
+.stage-tools {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stage-tools .btn {
+  background: rgba(13, 17, 23, 0.8);
+  backdrop-filter: blur(6px);
+}
+
+.stage-tools .btn.active {
+  border-color: var(--venue);
+  color: #fff;
+  box-shadow: inset 0 -2px 0 var(--venue);
+}
+
+.zoom-chip {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(76, 201, 240, 0.4);
+  background: rgba(7, 12, 18, 0.82);
+  backdrop-filter: blur(6px);
+  color: #cdefff;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.zoom-chip:hover {
+  border-color: var(--deck1);
+}
+
+.tooltip3d {
+  position: absolute;
+  pointer-events: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(7, 9, 13, 0.9);
+  border: 1px solid var(--line-2);
+  font-size: 12px;
+  white-space: nowrap;
+  transform: translate(-50%, calc(-100% - 14px));
+  z-index: 5;
+}
+
+.tooltip3d b {
+  font-family: var(--font-mono);
+  margin-left: 6px;
+  color: var(--deck1);
+}
+
+.stage-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(7, 9, 13, 0.7);
+  color: var(--muted);
+  font-size: 12px;
+  pointer-events: none;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  text-align: center;
+  transition: opacity 0.6s;
+}
+
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(7, 12, 18, 0.8);
+  border: 2px dashed var(--deck1);
+  font-family: var(--font-label);
+  font-size: 22px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #030406;
+  color: var(--muted);
+  z-index: 4;
+  font-family: var(--font-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
