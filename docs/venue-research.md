@@ -114,3 +114,51 @@ Based on large warehouse clubs such as Depot Mayfield (home of The Warehouse Pro
 - Real rooms have edges: bars, exit signs, doors, pipes and ducts, cables and gaffer tape around the booth.
 - People cast shadows and stand in shadow; the floor under a crowd is dark.
 - No club logos or wordmarks.
+
+---
+
+## What phase 4 changed
+
+Each ranked gap above, as of the end of the October 2026 overhaul. **Done** means it's in the scene; **partly** and **not done** say what's missing.
+
+**DC-10**
+1. Lettering: **done.** The back wall has an unbranded slat panel; the text is gone from the venue card too.
+2. Darkness: **partly.** Fill is down by about a third, the ceiling is lower, and the venue keeps ACES tone mapping for deep blacks. The globes, bulb strings and red spots still light much of the room, so it reads as dark red rather than near-black.
+3. L/C/R speakers: **done.** Left, centre and right clusters hang off the booth wall; the subs stay on the floor.
+4. Ceiling: **done** (5.3 m to 4.8 m).
+5. The finca: **done.** A whitewashed doorway in the left wall glows warm, with silhouettes beyond it.
+6. Planes: **not done.** The terrace isn't modelled.
+
+**Boiler Room LA**
+1. Ring lettering: **done**, also removed from the venue card.
+2. Production: **partly.** The lasers are gone; the moving heads are unchanged.
+3. Sky and city: **partly.** A light-polluted sky glow with no stars; the skyline and street-light pools are unchanged.
+4. Trees: **not done.**
+5. Ground: **partly.** Matte paving with relief and joints; no kerbs or light pools.
+
+**Berghain**
+1. Recessed booth: **done.** No stage; the booth sits in a niche in the back wall behind a steel rail, with a dim strip under the lintel.
+2. Lasers: **done** (removed).
+3. Light bar: **done.** One fixed bar spans the room; the beams stay sparse, and the strobes and red work lamps are kept.
+4. Stacks: **done.** One stack in each corner, turned to the floor.
+5. Bar: **done.** A dim bar sits in a far corner (which corner, against the real room's south-west, isn't modelled), plus exit signs.
+6. Fill: **partly.** The VIP guests and the stage are gone, and the room is bare concrete under ACES. The fill level is unchanged: a darker pass made the floor unreadable.
+- The balcony is still **unverified** and was left in.
+
+**Printworks**
+1. Length: **done.** 112 m, with the gantries and columns the full length.
+2. Presses: **done.** Dark, part-lit machinery along both sides, and press outlines on the floor.
+3. LED strips: **done.** 17 cold strips up each side wall, chasing on the beat.
+4. Pods: **not done.** The rig still lowers as one grid.
+5. d&b-style stacks: **not done.**
+
+**Deckhouse Warehouse**
+1. Pillars: **done.** Steel pillars down both sides, each with two LED battens that chase down the room.
+2. Edges: **done.** Block walls and a ceiling, a bar along the left wall, exit signs.
+3. Surfaces: **done.** A polished floor with relief and worn patches; concrete-block walls.
+
+**Across all venues:**
+- per-venue grade and tone mapping
+- real edges: bars, exits, DC-10's doorway, and booth clutter (laptop, drinks, cables, gaffer tape)
+- contact shadows under every dancer
+- no club logos or wordmarks anywhere, venue cards included

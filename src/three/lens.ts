@@ -107,10 +107,14 @@ const FRAG = /* glsl */ `
       c = NeutralToneMapping(c);
     #endif
 
-    // grade (display-referred, 0..1): tint, black level, contrast around mid-grey, saturation
-    c *= uTint;
-    c = uLift + c * (1.0 - uLift);
-    c = clamp((c - 0.5) * uContrast + 0.5, 0.0, 1.0);
+    // grade (display-referred, 0..1): tint, then black level and contrast in
+    // display gamma around 0.4 (a club frame sits mostly below mid-grey; a
+    // linear-light pivot would crush every dark tone), then saturation
+    c = clamp(c * uTint, 0.0, 1.0);
+    vec3 g = pow(c, vec3(1.0 / 2.2));
+    g = uLift + g * (1.0 - uLift);
+    g = clamp((g - 0.4) * uContrast + 0.4, 0.0, 1.0);
+    c = pow(g, vec3(2.2));
     float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
     c = mix(vec3(luma), c, uSaturation);
     c *= 1.0 + (n - 0.5) * uGrain;

@@ -1,15 +1,18 @@
 /*
  * Boiler Room — an outdoor night session in downtown LA, as in the reference
- * photo: the crowd packed in all around (and behind) the DJ, phones up, the
- * red neon ring sign hanging on wires over them, a truss tower with a hot
- * lamp, trees and the lit City Hall tower behind, and the stream camera in
- * front of the decks with a monitor showing the live feed.
+ * photo (docs/venue-research.md): the crowd packed in all around (and behind)
+ * the DJ, phones up, a red neon ring hanging on wires over them, a truss tower
+ * with a hot lamp, trees and the lit City Hall tower behind, a light-polluted
+ * sky, and the one stream camera in front of the decks with a monitor showing
+ * the live feed. Boiler Room's look is "no fancy stage lights", so no lasers,
+ * and the ring carries no lettering (no branding).
  */
 import * as THREE from 'three';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
-import { booth, boxUV, Crowd, crowdArea, floor, Lasers, MovingHeads, Strobes, truss } from './fixtures';
-import { floorTexture, foliageTexture, neonTextTexture, rng, skyTexture, windowsTexture } from './tex';
+import { boothClutter } from './details';
+import { booth, boxUV, Crowd, crowdArea, floor, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
+import { floorTexture, foliageTexture, rng, skyTexture, windowsTexture, withSurface } from './tex';
 import { silhouettes } from './warehouse';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -52,15 +55,18 @@ class BoilerRoom extends VenueBase {
   constructor() {
     super({ fog: 0x0a0406, fogDensity: 0.012, hemiSky: 0x4a1424, hemiGround: 0x080305, hemi: 0.5, flashAt: V(0, 5, 0), flashRange: 18 });
     this.keyLight = { color: 0xffc2c8, intensity: 12 };
+    this.grade = { tint: 0xfff2ec, contrast: 1.1, saturation: 1.08, lift: 0.006 };
+    this.toneMapping = 'agx';
     const r = rng(2024);
 
-    // night sky and the plaza
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(110, 32, 16), new THREE.MeshBasicMaterial({ map: skyTexture('la', '#030409', '#0b0a14', '#3a1a22'), side: THREE.BackSide, fog: false, depthWrite: false }));
+    // a light-polluted downtown sky: no stars, an orange-brown glow towards the horizon
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(110, 32, 16), new THREE.MeshBasicMaterial({ map: skyTexture('la2', '#06060a', '#14101a', '#4a2a22'), side: THREE.BackSide, fog: false, depthWrite: false }));
     sky.renderOrder = -1;
     this.group.add(sky);
     const ft = floorTexture('#15110f', 'plaza');
     ft.repeat.set(24, 24);
-    this.group.add(floor(220, new THREE.MeshStandardMaterial({ map: ft, roughness: 0.75, metalness: 0.05 })));
+    // paving that catches the street lamps and the hot lamp
+    this.group.add(floor(220, withSurface(new THREE.MeshStandardMaterial({ map: ft, metalness: 0.05 }), 'br-paving', { bumps: 0.3, grain: 0.4, seams: 32, rough: 0.84, roughVar: 0.07, polish: 0.08, repeat: 24, normalScale: 0.45 })));
 
     // City Hall behind the DJ, downtown towers all around
     const hall = new THREE.Group();
@@ -138,6 +144,7 @@ class BoilerRoom extends VenueBase {
     // the booth: a long white-fronted table
     const b = booth({ w: 2.6, d: 0.9, front: new THREE.MeshStandardMaterial({ color: 0xe6e1dc, roughness: 0.7 }), top: 0x19191b, strip: null });
     this.group.add(b.group);
+    boothClutter(this.group, 2.6, TABLE_Y, -0.45, 2025);
 
     // truss towers with the hot lamp and PARs
     const ta = V(2.45, 0, 2.3);
@@ -170,12 +177,6 @@ class BoilerRoom extends VenueBase {
     }
     this.add(new MovingHeads([{ pos: V(ta.x - 0.35, 4.35, ta.z) }, { pos: V(ta.x + 0.35, 4.35, ta.z) }, { pos: V(tb.x - 0.35, 4.35, tb.z), yaw: Math.PI * 0.8 }, { pos: V(tb.x + 0.35, 4.35, tb.z), yaw: Math.PI * 0.8 }], { length: 9, radius: 0.7, floorY: 0 }));
     this.add(new Strobes([{ pos: V(ta.x, 3.9, ta.z - 0.25), tilt: -0.3 }, { pos: V(tb.x, 3.9, tb.z + 0.25), yaw: Math.PI, tilt: -0.3 }], [0.4, 0.14, 0.07]));
-    this.add(
-      new Lasers([
-        { pos: V(ta.x, 4.7, ta.z), dir: V(-0.3, 0.05, -1), beams: 8, side: 1, color: '#ff1030', length: 26 },
-        { pos: V(tb.x, 4.7, tb.z), dir: V(0.4, 0.05, 1), beams: 8, side: -1, color: '#ff1030', length: 26 },
-      ]),
-    );
 
     // the neon ring sign hanging on wires behind the DJ
     const sign = new THREE.Group();
@@ -185,11 +186,7 @@ class BoilerRoom extends VenueBase {
     const disc = new THREE.Mesh(new THREE.CircleGeometry(1.06, 64), new THREE.MeshStandardMaterial({ color: 0x1a0508, transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.2 }));
     disc.position.z = -0.02;
     sign.add(disc);
-    const text = new THREE.MeshBasicMaterial({ map: neonTextTexture('boiler-room', ['BOILER', 'ROOM'], '#ff2a4a'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(1.8, 1.4, 1.5), toneMapped: false });
-    const tm = new THREE.Mesh(new THREE.PlaneGeometry(1.75, 0.88), text);
-    tm.position.z = 0.02;
-    sign.add(tm);
-    this.neon.push(neonA, neonB, text);
+    this.neon.push(neonA, neonB);
     sign.position.set(-1.45, 3.35, 2.75);
     sign.rotation.y = Math.PI;
     this.group.add(sign);
@@ -260,7 +257,6 @@ class BoilerRoom extends VenueBase {
     const n = (this.flicker > 0 ? 0.35 : 1) * (0.6 + 0.4 * s.master);
     this.neon[0].color.setRGB(3.2 * n, 0.25 * n, 0.45 * n);
     this.neon[1].color.setRGB(2.6 * n, 0.35 * n, 0.5 * n);
-    this.neon[2].color.setRGB(1.8 * n, 1.4 * n, 1.5 * n);
     const blink = Math.floor(s.t * 1.1) % 2 === 0;
     for (const b of this.beacons) b.color.setRGB(blink ? 3 : 0.3, 0.1, 0.05);
     this.tally.color.setRGB(0.2, s.playing ? 3 : 0.8, 0.4);
@@ -303,11 +299,6 @@ export const boilerRoom: VenueDef = {
     g.beginPath();
     g.arc(w * 0.33, h * 0.32, h * 0.2, 0, Math.PI * 2);
     g.stroke();
-    g.font = '900 17px "Barlow Condensed", sans-serif';
-    g.textAlign = 'center';
-    g.lineWidth = 1.2;
-    g.strokeText('BOILER', w * 0.33, h * 0.3);
-    g.strokeText('ROOM', w * 0.33, h * 0.38);
     g.shadowBlur = 0;
     const glow = g.createRadialGradient(w * 0.75, h * 0.1, 0, w * 0.75, h * 0.1, w * 0.5);
     glow.addColorStop(0, 'rgba(255,40,70,0.7)');

@@ -215,40 +215,6 @@ export function skyTexture(key: string, top: string, mid: string, horizon: strin
   });
 }
 
-/** Glowing neon lettering on a transparent background (used additively). */
-export function neonTextTexture(key: string, lines: string[], color: string, o: { w?: number; h?: number; font?: string; outline?: boolean } = {}): THREE.CanvasTexture {
-  const W = o.w ?? 1024;
-  const H = o.h ?? 512;
-  return canvasTexture(`neon:${key}`, W, H, (g) => {
-    g.clearRect(0, 0, W, H);
-    const size = (H / lines.length) * 0.62;
-    g.font = o.font ?? `900 ${size}px "Barlow Condensed", "Arial Black", sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    lines.forEach((line, i) => {
-      const y = (H / lines.length) * (i + 0.5);
-      for (const [blur, alpha, width] of [
-        [28, 0.55, 10],
-        [12, 0.8, 6],
-        [0, 1, 3],
-      ] as const) {
-        g.shadowColor = color;
-        g.shadowBlur = blur;
-        g.globalAlpha = alpha;
-        g.strokeStyle = blur ? color : '#fff4f6';
-        g.lineWidth = width;
-        if (o.outline !== false) g.strokeText(line, W / 2, y);
-        else {
-          g.fillStyle = blur ? color : '#fff4f6';
-          g.fillText(line, W / 2, y);
-        }
-      }
-    });
-    g.globalAlpha = 1;
-    g.shadowBlur = 0;
-  });
-}
-
 /** Soft round sprite for particles and glows. */
 export function softDotTexture(): THREE.CanvasTexture {
   return canvasTexture('softdot', 128, 128, (g, w, h) => {
@@ -295,26 +261,6 @@ export function mirrorBallTexture(): THREE.CanvasTexture {
   });
 }
 
-/** Lettering on a light box / wall sign (opaque). */
-export function signTexture(key: string, text: string, o: { bg: string; fg: string; font: string; w?: number; h?: number; glow?: string }): THREE.CanvasTexture {
-  const W = o.w ?? 1024;
-  const H = o.h ?? 256;
-  return canvasTexture(`sign:${key}`, W, H, (g) => {
-    g.fillStyle = o.bg;
-    g.fillRect(0, 0, W, H);
-    g.font = o.font;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    if (o.glow) {
-      g.shadowColor = o.glow;
-      g.shadowBlur = 30;
-    }
-    g.fillStyle = o.fg;
-    g.fillText(text, W / 2, H / 2 + H * 0.03);
-    g.shadowBlur = 0;
-  });
-}
-
 /** Foliage clump alpha texture for trees. */
 export function foliageTexture(): THREE.CanvasTexture {
   return canvasTexture('foliage', 256, 256, (g, w, h) => {
@@ -330,4 +276,168 @@ export function foliageTexture(): THREE.CanvasTexture {
       g.fill();
     }
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* surface detail: normal + roughness maps from a procedural height field */
+/* ------------------------------------------------------------------ */
+
+const surfaceCache = new Map<string, { normal: THREE.CanvasTexture; rough: THREE.CanvasTexture }>();
+
+export interface SurfaceOptions {
+  /** large-scale undulation (0..1) */
+  bumps?: number;
+  /** small aggregate pits and grains (0..1) */
+  grain?: number;
+  /** straight seams (formwork lines, floor joints) every `seams` px of the 256 px tile, 0 = none */
+  seams?: number;
+  /** base roughness (0..1) and how much it varies */
+  rough?: number;
+  roughVar?: number;
+  /** worn, polished paths: patches that are smoother than the rest (0..1) */
+  polish?: number;
+}
+
+/** Tileable value noise on a size×size grid. */
+function tileNoise(size: number, cells: number, r: () => number): Float32Array {
+  const g = new Float32Array(cells * cells);
+  for (let i = 0; i < g.length; i++) g[i] = r();
+  const out = new Float32Array(size * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const fx = (x / size) * cells;
+      const fy = (y / size) * cells;
+      const x0 = Math.floor(fx) % cells;
+      const y0 = Math.floor(fy) % cells;
+      const x1 = (x0 + 1) % cells;
+      const y1 = (y0 + 1) % cells;
+      let tx = fx - Math.floor(fx);
+      let ty = fy - Math.floor(fy);
+      tx = tx * tx * (3 - 2 * tx);
+      ty = ty * ty * (3 - 2 * ty);
+      const a = g[y0 * cells + x0] + (g[y0 * cells + x1] - g[y0 * cells + x0]) * tx;
+      const b = g[y1 * cells + x0] + (g[y1 * cells + x1] - g[y1 * cells + x0]) * tx;
+      out[y * size + x] = a + (b - a) * ty;
+    }
+  }
+  return out;
+}
+
+/**
+ * The pixel data behind `surfaceMaps`: RGBA normal map (tangent space, +Z out
+ * of the surface) and RGBA roughness map, size×size, tileable, deterministic
+ * per key. Pure, so it runs (and is tested) without a canvas.
+ */
+export function surfaceData(key: string, o: SurfaceOptions = {}, S = 256): { normal: Uint8ClampedArray; rough: Uint8ClampedArray } {
+  const r = rng(hashString(key));
+  const bumps = o.bumps ?? 0.5;
+  const grain = o.grain ?? 0.5;
+  const h = new Float32Array(S * S);
+  const n1 = tileNoise(S, 6, r);
+  const n2 = tileNoise(S, 16, r);
+  const n3 = tileNoise(S, 48, r);
+  for (let i = 0; i < h.length; i++) h[i] = n1[i] * bumps * 0.6 + n2[i] * 0.25 + n3[i] * grain * 0.35;
+  // aggregate pits
+  for (let k = 0; k < 900 * grain * (S / 256) ** 2; k++) {
+    const cx = Math.floor(r() * S);
+    const cy = Math.floor(r() * S);
+    const rad = 1 + Math.floor(r() * 2.5);
+    for (let dy = -rad; dy <= rad; dy++)
+      for (let dx = -rad; dx <= rad; dx++) {
+        if (dx * dx + dy * dy > rad * rad) continue;
+        const i = ((cy + dy + S) % S) * S + ((cx + dx + S) % S);
+        h[i] -= 0.25;
+      }
+  }
+  if (o.seams) for (let y = 0; y < S; y += o.seams) for (let x = 0; x < S; x++) h[y * S + x] -= 0.4;
+  // normals by central differences (wrapping, so the tile stays seamless)
+  const normal = new Uint8ClampedArray(S * S * 4);
+  const strength = 2.2;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const hl = h[y * S + ((x + S - 1) % S)];
+      const hr = h[y * S + ((x + 1) % S)];
+      const hu = h[((y + S - 1) % S) * S + x];
+      const hd = h[((y + 1) % S) * S + x];
+      let nx = (hl - hr) * strength;
+      let ny = (hu - hd) * strength;
+      let nz = 1;
+      const len = Math.hypot(nx, ny, nz);
+      nx /= len;
+      ny /= len;
+      nz /= len;
+      const j = (y * S + x) * 4;
+      normal[j] = (nx * 0.5 + 0.5) * 255;
+      normal[j + 1] = (ny * 0.5 + 0.5) * 255;
+      normal[j + 2] = (nz * 0.5 + 0.5) * 255;
+      normal[j + 3] = 255;
+    }
+  }
+  // roughness in every channel (three.js reads G)
+  const rough = new Uint8ClampedArray(S * S * 4);
+  const base = o.rough ?? 0.8;
+  const vary = o.roughVar ?? 0.15;
+  const polish = o.polish ?? 0;
+  for (let i = 0; i < S * S; i++) {
+    let v = base + (n2[i] - 0.5) * vary * 2 + (n3[i] - 0.5) * vary;
+    if (polish > 0) v -= Math.max(0, n1[i] - 0.45) * polish * 1.4;
+    const c = Math.max(0.04, Math.min(1, v)) * 255;
+    const j = i * 4;
+    rough[j] = c;
+    rough[j + 1] = c;
+    rough[j + 2] = c;
+    rough[j + 3] = 255;
+  }
+  return { normal, rough };
+}
+
+/**
+ * Normal and roughness maps (linear, tileable, 256 px) for concrete, painted
+ * floors and similar surfaces, so lights catch real relief and patchy shine.
+ */
+export function surfaceMaps(key: string, o: SurfaceOptions = {}): { normal: THREE.CanvasTexture; rough: THREE.CanvasTexture } {
+  const hit = surfaceCache.get(key);
+  if (hit) return hit;
+  const S = 256;
+  const data = surfaceData(key, o, S);
+  const mk = (px: Uint8ClampedArray) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d')!;
+    const img = g.createImageData(S, S);
+    img.data.set(px);
+    g.putImageData(img, 0, 0);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.NoColorSpace;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    t.userData.shared = true;
+    return t;
+  };
+  const out = { normal: mk(data.normal), rough: mk(data.rough) };
+  surfaceCache.set(key, out);
+  return out;
+}
+
+/**
+ * Apply surface detail to a standard material: normal + roughness maps with
+ * the same repeat as its colour map (or `repeat`).
+ */
+export function withSurface<T extends THREE.MeshStandardMaterial>(m: T, key: string, o: SurfaceOptions & { repeat?: number; normalScale?: number } = {}): T {
+  const maps = surfaceMaps(key, o);
+  const rep = o.repeat ?? (m.map ? m.map.repeat.x : 4);
+  // shared maps can't carry per-material repeats: clone the textures (same image, own repeat)
+  const normal = maps.normal.clone();
+  const rough = maps.rough.clone();
+  for (const t of [normal, rough]) {
+    t.repeat.set(rep, rep);
+    t.userData.shared = false;
+    t.needsUpdate = true;
+  }
+  m.normalMap = normal;
+  m.normalScale.set(o.normalScale ?? 0.8, o.normalScale ?? 0.8);
+  m.roughnessMap = rough;
+  m.roughness = 1;
+  m.needsUpdate = true;
+  return m;
 }

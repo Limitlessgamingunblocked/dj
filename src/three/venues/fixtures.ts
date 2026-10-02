@@ -830,11 +830,12 @@ export class HazeLayer implements Fixture {
           vec2 p = vW.xz * 0.18 + vec2(vW.y * 0.1, 0.0);
           float v = n(p + uTime * 0.05) * 0.6 + n(p * 2.3 - uTime * 0.07) * 0.4;
           float edge = smoothstep(0.0, 0.25, vUv.x) * smoothstep(1.0, 0.75, vUv.x) * smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
-          // hide the sheet structure: fade near the camera and at grazing angles
+          // hide the sheet structure: fade near the camera, and only where a sheet
+          // is seen almost exactly edge-on (a wider fade empties the distant haze)
           vec3 toCam = cameraPosition - vW;
           float dist = length(toCam);
           float near = smoothstep(0.6, 3.5, dist);
-          float graze = smoothstep(0.04, 0.3, abs(toCam.y) / max(dist, 1e-3));
+          float graze = smoothstep(0.008, 0.07, abs(toCam.y) / max(dist, 1e-3));
           gl_FragColor = vec4(uColor * v * edge * uDensity * near * graze, 1.0);
         }`,
       transparent: true,

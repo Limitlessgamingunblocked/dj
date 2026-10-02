@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
+import { blobTexture } from './details';
 import { rng } from './tex';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj';
@@ -49,7 +50,12 @@ export interface CrowdOptions {
   /** role for spots that don't name one */
   role?: CrowdRole;
   booth?: THREE.Vector3;
+  /** soft contact shadows on the floor under each person (default on) */
+  shadows?: boolean;
 }
+
+let shadowGeo: THREE.BufferGeometry | null = null;
+let shadowMat: THREE.MeshBasicMaterial | null = null;
 
 /* bones */
 const B = { body: 0, thighL: 1, thighR: 2, shinL: 3, shinR: 4, upperL: 5, foreL: 6, upperR: 7, foreR: 8, head: 9, sign: 10 };
@@ -344,6 +350,7 @@ export class Crowd implements Fixture {
   static detailDistance = 12;
   readonly object = new THREE.Group();
   private chunks: Chunk[] = [];
+  private shadows: THREE.InstancedMesh[] = [];
   private u = {
     uBeat: { value: 0 },
     uBob: { value: 0 },
@@ -449,6 +456,18 @@ export class Crowd implements Fixture {
       this.chunks.push({ mesh, geos, center: sphere.center.clone(), radius: sphere.radius, lod: 0 });
       this.object.add(mesh);
     }
+    if (o.shadows !== false && n) {
+      // contact shadows: a soft dark patch under each person. Placement never changes, so one
+      // instanced draw covers the whole crowd (per-chunk meshes doubled the crowd's draw calls)
+      shadowGeo ??= new THREE.PlaneGeometry(0.8, 0.62).rotateX(-Math.PI / 2).translate(0, 0.015, 0.02);
+      shadowMat ??= new THREE.MeshBasicMaterial({ color: 0x000000, map: blobTexture(), transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+      const sh = new THREE.InstancedMesh(shadowGeo, shadowMat, n);
+      mats.forEach((m, i) => sh.setMatrixAt(i, m));
+      sh.computeBoundingSphere();
+      sh.renderOrder = -1;
+      this.object.add(sh);
+      this.shadows.push(sh);
+    }
   }
 
   /** dancers in total */
@@ -465,6 +484,11 @@ export class Crowd implements Fixture {
         g.dispose();
       }
       c.mesh.dispose();
+    }
+    // the shadow quad and material are shared by every crowd: keep them, drop only the instances
+    for (const sh of this.shadows) {
+      this.object.remove(sh);
+      sh.dispose();
     }
   }
 

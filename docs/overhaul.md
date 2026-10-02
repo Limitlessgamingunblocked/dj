@@ -93,22 +93,22 @@ The everyday path (load, play, sync, EQ, crossfade) is spread over the deck pane
 
 ### After phase 2
 
-Same probe and conditions as the baseline.
+Measured with `count.cjs`: the mean of eight two-frame windows per venue and view, with the venue's shaders compiled first. The first version of this table took a single two-frame sample with `perf.cjs`, and some of its figures were off by up to 40 % (it showed 338k triangles for Berghain's board view; the steady figure is 551k). The pre-overhaul build gives exactly the baseline figures under the new counter, so the columns compare like with like.
 
 | Venue | View | Draw calls (before → after) | Triangles (before → after) |
 |---|---|---:|---:|
-| Warehouse | perf | 420 → 370 | 309k → 288k |
+| Warehouse | perf | 420 → 369 | 309k → 287k |
 | Warehouse | wide | 466 → 417 | 311k → 292k |
 | DC-10 | perf | 425 → 378 | 774k → 705k |
-| DC-10 | wide | 205 → 160 | 724k → 692k |
+| DC-10 | wide | 205 → 160 | 724k → 679k |
 | Boiler Room | perf | 413 → 362 | 434k → 408k |
 | Boiler Room | wide | 190 → 136 | 391k → 307k |
-| Berghain | perf | 418 → 371 | 910k → 338k |
-| Berghain | wide | 496 → 453 | 913k → 370k |
-| Printworks | perf | 447 → 401 | 1,160k → 248k |
-| Printworks | wide | 196 → 178 | 1,108k → 484k |
+| Berghain | perf | 418 → 371 | 910k → 551k |
+| Berghain | wide | 496 → 453 | 913k → 499k |
+| Printworks | perf | 447 → 401 | 1,160k → 368k |
+| Printworks | wide | 196 → 192 | 1,108k → 562k |
 
-Under software rendering the median frame time fell from 1.39 s to 0.54 s at Berghain, 1.70 s to 0.73 s at Printworks and 1.17 s to 0.58 s at Boiler Room wide. That isn't a real-GPU number, but it moves in the same direction as the vertex and fill savings. DC-10 and the warehouse gain least: their crowds stand right in front of the camera, so most chunks stay detailed by design. Shader programs after visiting several venues: 40–55 (baseline 43–69).
+Under software rendering the median frame time over 20 s fell from 1.39 s to 0.54 s at Berghain, 1.70 s to 0.73 s at Printworks and 1.17 s to 0.58 s at Boiler Room wide. That isn't a real-GPU number, but it moves in the same direction as the vertex and fill savings. DC-10 and the warehouse gain least: their crowds stand right in front of the camera, so most chunks stay detailed by design. Adaptive quality never engaged in these runs: it ignores frames slower than 250 ms, and every software-rendered frame is slower than that.
 
 ## Phase 3: simpler, cleaner UI
 
@@ -138,3 +138,45 @@ Under software rendering the median frame time fell from 1.39 s to 0.54 s at Ber
 - Deck panels stay stacked but are far shorter in Simple.
 - Short tab labels, so all five tabs fit without scrolling.
 - No horizontal overflow.
+
+## Phase 4: realistic venues and environment
+
+The research doc's ranked gaps were the spec; [venue-research.md](venue-research.md#what-phase-4-changed) lists what was done against each one.
+
+**Rendering.**
+- **Tone mapping per venue.** The same frames were rendered with ACES and AgX. AgX rolls saturated lights off towards white the way a camera sensor does, and keeps detail in the shadows; ACES pushes saturated colours further and keeps deeper blacks. The warehouse, Printworks and Boiler Room use AgX, because their look comes from footage. Berghain and DC-10 keep ACES, because both are meant to be near-black rooms; under AgX, DC-10's red walls came out of the dark. Switching recompiles only the output shader, because the scene renders to a float target without tone mapping.
+- **Per-venue colour grade** in the output pass: a white-balance tint, contrast, saturation and black level. Contrast and black level work in display gamma around 0.4. The first version pivoted at 0.5 in linear light, which crushed every dark tone and halved the brightness of every venue; the before/after screenshots caught it.
+- **Surface detail.** Concrete, plaster, paving and painted floors get procedural normal and roughness maps (`surfaceData` / `withSurface` in `tex.ts`, with unit tests). The maps are tileable, 256 px, from a height field of undulation, aggregate pits, formwork seams and worn, polished patches, so lights catch relief and floors shine unevenly.
+- **Contact shadows.** A soft dark patch under every dancer, one instanced draw per crowd.
+- **Dust** drifting through the booth light: 320 points, one draw, visible only within a few metres of the camera. It's left out at the open-air Boiler Room, where it read as stars.
+- **Haze.** Phase 2's edge-on fade, added against the drone white-out, also emptied the distant haze. It now only hides sheets seen almost exactly edge-on.
+- **Ambient occlusion was not added.** The crowd is posed in the vertex shader, and GTAO's normal pass would see every dancer in the rest pose; the contact shadows cover the most visible case, the floor under people.
+
+**Venues** (details and sources in the research doc).
+- **Berghain:** the stage is gone and the booth is recessed into a niche in the back wall. A single fixed light bar spans the room. The stacks moved to the corners. There's a dim bar in the far corner and exit signs. The lasers and the VIP guests are gone. Bare concrete with relief throughout.
+- **Printworks:** the hall is 112 m long instead of 68 m, with gantries and columns the full length. Dark, part-lit presses line both sides; 17 cold LED strips run up each side wall; press outlines are marked on the floor. There are bars and exits at the far end and a sparser crowd at the back.
+- **DC-10:** the "circoloco" lettering is replaced by an unbranded slat panel, including on the venue card. The ceiling is lower (4.8 m) and the fill darker. Left/centre/right speaker clusters replace the line arrays. A whitewashed doorway glows onto the terrace. There's a bar on the right wall, and the hanging booth monitors are on drop rods.
+- **Boiler Room LA:** the lettering on the ring is removed (and from the card), and so are the lasers. A light-polluted LA sky; matte concrete paving.
+- **Warehouse:** block walls and a ceiling close in the room. Steel pillars carry LED battens that chase with the show. There's a polished floor, a bar and exit signs.
+- **Every booth** now carries a laptop on a stand, drinks, a cable run and gaffer tape.
+
+**Cost.** Steady counts (`count.cjs`, medium quality) against phase 2:
+
+| Venue | View | Draw calls (phase 2 → 4) | Triangles (phase 2 → 4) |
+|---|---|---:|---:|
+| Warehouse | perf | 369 → 382 | 287k → 282k |
+| Warehouse | wide | 417 → 441 | 292k → 294k |
+| DC-10 | perf | 378 → 386 | 705k → 704k |
+| DC-10 | wide | 160 → 165 | 679k → 663k |
+| Boiler Room | perf | 362 → 364 | 408k → 408k |
+| Boiler Room | wide | 136 → 137 | 307k → 307k |
+| Berghain | perf | 371 → 379 | 551k → 553k |
+| Berghain | wide | 453 → 439 | 499k → 497k |
+| Printworks | perf | 401 → 413 | 368k → 363k |
+| Printworks | wide | 192 → 251 | 562k → 748k |
+
+- The new details move draw calls by −14 to +24 per view, and triangles by less than 3 %.
+- The exception is Printworks' gantry view, which now looks down a hall nearly twice as long, with about 320 more dancers in it (at low detail, 579 triangles each). That view is still a third below its pre-overhaul cost.
+- The first cut of contact shadows used one mesh per crowd chunk, which doubled the crowd's draw calls (+142 in that view). Folding them into one draw per crowd fixed it.
+- Switching venues back and forth twice settles at 80–86 shader programs, with a flat heap (125 MB): nothing accumulates.
+

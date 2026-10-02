@@ -1,20 +1,24 @@
 /*
- * Circoloco @ DC-10, Ibiza — the main room as seen in the reference photos:
- * a low black room washed red and orange, orange globe lamps hanging over a
- * packed floor, strings of warm bulbs across the ceiling, red laser sheets
- * over the crowd, the spinning fan wheel on the wall, cream booth monitors
- * hanging over the DJ and the crowd pressed right up to a raised booth.
+ * Circoloco @ DC-10, Ibiza — the main room as seen in the reference photos and
+ * described in reviews (docs/venue-research.md): a low, near-black "sweatbox"
+ * washed red and orange, orange globe lamps hanging over a packed floor,
+ * strings of warm bulbs across the ceiling, red laser sheets over the crowd,
+ * the spinning fan wheel on the wall, cream booth monitors hanging over the DJ,
+ * a left/centre/right speaker system and the crowd pressed right up to a
+ * raised booth. A whitewashed doorway on the side wall glows from the terrace
+ * of the old finca. No club lettering: the promoter's wordmark stays out.
  */
 import * as THREE from 'three';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
-import { Blinders, booth, Co2Jets, Crowd, crowdArea, Globes, HazeLayer, Lasers, LedStrings, lineArray, mirrorBall, MovingHeads, speaker, Strobes } from './fixtures';
-import { concreteTexture, floorTexture, rng, signTexture } from './tex';
+import { barCounter, boothClutter, DustMotes, exitSign } from './details';
+import { Blinders, booth, Co2Jets, Crowd, crowdArea, Globes, HazeLayer, Lasers, LedStrings, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y } from './fixtures';
+import { canvasTexture, concreteTexture, floorTexture, rng, withSurface } from './tex';
 import { laserLines, silhouettes } from './warehouse';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const STAGE = 0.7;
-const CEIL = 5.3;
+const CEIL = 4.8;
 
 class DC10 extends VenueBase {
   readonly views: VenueViews = {
@@ -26,8 +30,10 @@ class DC10 extends VenueBase {
   private fans: THREE.Group[] = [];
 
   constructor() {
-    super({ fog: 0x1c0503, fogDensity: 0.05, hemiSky: 0x9a2e16, hemiGround: 0x140404, hemi: 0.38, flashAt: V(0, 4.6, -6) });
+    super({ fog: 0x1c0503, fogDensity: 0.05, hemiSky: 0x9a2e16, hemiGround: 0x140404, hemi: 0.24, flashAt: V(0, 4.2, -6) });
     this.keyLight = { color: 0xffcfb0, intensity: 13 };
+    // a near-black room: ACES keeps the blacks deep (AgX lifted the red walls out of the dark)
+    this.grade = { tint: 0xfff0e4, contrast: 1.08, saturation: 1.05, lift: 0 };
     const r = rng(1010);
 
     // room: black walls and ceiling, worn dark floor
@@ -36,7 +42,8 @@ class DC10 extends VenueBase {
     const ceil = new THREE.MeshStandardMaterial({ color: 0x0a0707, roughness: 0.95 });
     const ft = floorTexture('#140c0b', 'dc10');
     ft.repeat.set(6, 6);
-    const fl = new THREE.MeshStandardMaterial({ map: ft, roughness: 0.55, metalness: 0.1 });
+    // a sweaty dark floor with a little sheen where the crowd has worn it
+    const fl = withSurface(new THREE.MeshStandardMaterial({ map: ft, metalness: 0.1 }), 'dc10-floor', { bumps: 0.3, grain: 0.4, rough: 0.55, roughVar: 0.1, polish: 0.3, repeat: 6, normalScale: 0.5 });
     const room = new THREE.Mesh(new THREE.BoxGeometry(17, CEIL + STAGE, 19.6), [wall, wall, ceil, fl, wall, wall]);
     (room.material as THREE.Material[]).forEach((m) => (m.side = THREE.BackSide));
     room.position.set(0, (CEIL - STAGE) / 2, -7.2);
@@ -50,28 +57,58 @@ class DC10 extends VenueBase {
     const b = booth({ w: 3.4, d: 1.0, strip: '#fff1e6' });
     this.group.add(b.group);
     this.strip(b.strip);
+    boothClutter(this.group, 3.4, TABLE_Y, -0.5, 1011);
+    this.add(new DustMotes(new THREE.Box3(V(-2.6, TABLE_Y - 0.3, -2.4), V(2.6, TABLE_Y + 2.6, 1.6)), 320, 12));
     const skirt = new THREE.Mesh(new THREE.BoxGeometry(3.5, STAGE, 0.06), new THREE.MeshStandardMaterial({ color: 0x0b0909, roughness: 0.7 }));
     skirt.position.set(0, -STAGE / 2, -0.53);
     this.group.add(skirt);
 
-    // the back wall over the booth: lit lettering and hanging black PA
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.8, 0.95),
-      new THREE.MeshBasicMaterial({ map: signTexture('circoloco', 'circoloco', { bg: '#050303', fg: '#fff4ea', font: '800 190px "Barlow", "Helvetica Neue", Arial, sans-serif', glow: '#ff7a4a' }), color: new THREE.Color(1.5, 1.4, 1.35), toneMapped: false }),
+    // the back wall over the booth: slatted panel washed red from below (no lettering)
+    const slats = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.2, 1.6),
+      new THREE.MeshStandardMaterial({
+        color: 0x3a1410,
+        roughness: 0.7,
+        emissive: 0xff3a1a,
+        emissiveIntensity: 0.35,
+        emissiveMap: canvasTexture('dc10-slats', 256, 96, (g, w, h) => {
+          const grad = g.createLinearGradient(0, h, 0, 0);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(1, '#100404');
+          g.fillStyle = grad;
+          g.fillRect(0, 0, w, h);
+          g.fillStyle = 'rgba(0,0,0,0.75)';
+          for (let x = 0; x < w; x += 12) g.fillRect(x, 0, 4, h);
+        }),
+      }),
     );
-    sign.position.set(0, 3.55, 2.62);
-    sign.rotation.y = Math.PI;
-    this.group.add(sign);
+    slats.position.set(0, 3.2, 2.58);
+    slats.rotation.y = Math.PI;
+    this.group.add(slats);
+    // speakers: left / centre / right clusters facing the floor (as the club's L/C/R system), subs on the floor
+    for (const x of [-3.0, 0, 3.0]) {
+      const cluster = new THREE.Group();
+      for (let k = 0; k < 2; k++) {
+        const top = speaker(0.62, 0.52, 0.5, 'top');
+        top.position.set(0, -k * 0.54, 0);
+        top.rotation.x = 0.18 + k * 0.12;
+        cluster.add(top);
+      }
+      cluster.position.set(x, CEIL - 0.4, x === 0 ? -1.15 : -0.6);
+      cluster.rotation.y = Math.PI + (x === 0 ? 0 : x < 0 ? 0.22 : -0.22);
+      this.group.add(cluster);
+    }
+    const hangerMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, metalness: 0.7, roughness: 0.5 });
     for (const s of [-1, 1]) {
-      const pa = lineArray(4, 0.8, 0.3, 0.55);
-      pa.position.set(s * 2.9, CEIL - 0.3, -0.4);
-      pa.rotation.y = Math.PI + s * 0.15;
-      this.group.add(pa);
       // cream booth monitors hanging over the DJ, tilted down at the decks
       const mon = speaker(0.46, 0.68, 0.42, 'monitor', 0xd9cfbd);
       mon.position.set(s * 1.2, 2.65, -0.45);
       mon.rotation.set(0.5, s * -0.25, 0, 'YXZ');
       this.group.add(mon);
+      // on a steel drop rod from the ceiling
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, CEIL - 2.85, 6), hangerMat);
+      rod.position.set(s * 1.2, (CEIL + 2.85) / 2, -0.45);
+      this.group.add(rod);
       const sub = speaker(1.2, 0.9, 0.9, 'sub');
       sub.position.set(s * 3.6, -STAGE + 0.45, -1.2);
       sub.rotation.y = Math.PI;
@@ -119,6 +156,58 @@ class DC10 extends VenueBase {
       colLeds.path(pts);
     }
     this.add(colLeds.done());
+
+    // a whitewashed doorway on the side wall, glowing from the finca's terrace beyond
+    const plaster = withSurface(new THREE.MeshStandardMaterial({ color: 0xd8cfc2, map: concreteTexture(200) }), 'dc10-plaster', { bumps: 0.8, grain: 0.3, rough: 0.95, roughVar: 0.05, repeat: 1 });
+    const whitewash = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 3.6), plaster);
+    whitewash.position.set(-8.47, -STAGE + 1.8, -14.2);
+    whitewash.rotation.y = Math.PI / 2;
+    this.group.add(whitewash);
+    const doorGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.7, 2.6),
+      new THREE.MeshBasicMaterial({
+        toneMapped: false,
+        color: new THREE.Color(1.9, 1.55, 1.15),
+        map: canvasTexture('dc10-door', 128, 192, (g, w, h) => {
+          // an arched opening: warm light outside, a couple of people passing
+          g.fillStyle = '#000';
+          g.fillRect(0, 0, w, h);
+          const grad = g.createLinearGradient(0, 0, 0, h);
+          grad.addColorStop(0, '#ffd9a8');
+          grad.addColorStop(1, '#a8603a');
+          g.fillStyle = grad;
+          g.beginPath();
+          g.moveTo(8, h);
+          g.lineTo(8, 52);
+          g.arc(w / 2, 52, w / 2 - 8, Math.PI, 0);
+          g.lineTo(w - 8, h);
+          g.closePath();
+          g.fill();
+          g.fillStyle = 'rgba(30,14,10,0.85)';
+          for (const [x, s] of [
+            [40, 1],
+            [84, 0.85],
+          ]) {
+            g.beginPath();
+            g.arc(x, h - 92 * s, 9 * s, 0, Math.PI * 2);
+            g.fill();
+            g.fillRect(x - 12 * s, h - 82 * s, 24 * s, 82 * s);
+          }
+        }),
+      }),
+    );
+    doorGlow.position.set(-8.45, -STAGE + 1.3, -14.2);
+    doorGlow.rotation.y = Math.PI / 2;
+    this.group.add(doorGlow);
+    const spill = new THREE.PointLight(0xffc48a, 3.5, 6, 1.8);
+    spill.position.set(-7.6, -STAGE + 1.6, -14.2);
+    this.group.add(spill);
+    this.group.add(exitSign(V(-8.44, -STAGE + 2.95, -14.2), Math.PI / 2));
+    // a bar along the right-hand wall at the back
+    const bar = barCounter(5.5, { glow: '#ff7a3a', body: 0x120807, seed: 1012 });
+    bar.position.set(7.75, -STAGE, -14.5);
+    bar.rotation.y = -Math.PI / 2;
+    this.group.add(bar);
 
     // the fan wheels on the walls
     for (const [x, z, rad] of [
@@ -183,7 +272,7 @@ class DC10 extends VenueBase {
     this.add(new Pyro([V(-2.6, 0, -0.5), V(2.6, 0, -0.5), V(-3.6, 0, -0.45), V(3.6, 0, -0.45)].map((pos) => ({ pos, kind: 'spark' as const }))));
 
     // the crowd, right up against the booth, and friends in the booth
-    this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE }), { seed: 12, phones: 0.07, signs: 2, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));
+    this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE, avoid: [new THREE.Box2(new THREE.Vector2(6.0, -17.5), new THREE.Vector2(8.6, -11.5)), new THREE.Box2(new THREE.Vector2(-8.6, -15.4), new THREE.Vector2(-7.0, -13.0))] }), { seed: 12, phones: 0.07, signs: 2, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));
     this.add(new Crowd([{ x: -2.1, z: 1.0 }, { x: -2.9, z: 1.6 }, { x: 2.2, z: 1.1 }, { x: 3.0, z: 1.7 }, { x: -1.9, z: 2.1 }].map((p) => ({ ...p, face: Math.PI + (p.x < 0 ? -0.4 : 0.4), role: 'vip' as const })), { seed: 44, clothes: ['#a39d93', '#1b1d22', '#7d6f5a'] }));
     this.add(new HazeLayer(new THREE.Box3(V(-8, 1.6, -16), V(8, CEIL - 0.2, 0)), 5));
 
@@ -233,10 +322,6 @@ export const dc10: VenueDef = {
       g.arc(x, y, rad * 2.2, 0, Math.PI * 2);
       g.fill();
     }
-    g.fillStyle = '#fff1e6';
-    g.font = '800 26px "Barlow", sans-serif';
-    g.textAlign = 'center';
-    g.fillText('circoloco', w / 2, h * 0.14);
     silhouettes(g, w, h, '#120202', 11);
   },
 };

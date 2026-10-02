@@ -234,6 +234,8 @@ export class Stage {
     this.keyLight.intensity = v.keyLight.intensity;
     this.show.setVenuePalette(def.palette);
     this.lens.setGrade(v.grade ?? NEUTRAL_GRADE);
+    // only the output pass tone-maps (scene programs render to a float target), so this recompiles one shader
+    this.renderer.toneMapping = v.toneMapping === 'agx' ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping;
     this.rig.setViews(v.views);
     this.precompile();
   }

@@ -46,6 +46,11 @@ export interface VenueScene {
   readonly feed?: LiveFeed;
   /** colour grade for the club camera (tone-mapped output) */
   readonly grade?: Grade;
+  /**
+   * tone mapper: AgX rolls saturated lights off towards white like a camera
+   * sensor and keeps shadow detail; ACES keeps deeper blacks (default)
+   */
+  readonly toneMapping?: 'aces' | 'agx';
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   dispose(): void;
 }
@@ -88,6 +93,7 @@ export abstract class VenueBase implements VenueScene {
   keyLight = { color: 0xfff4e6, intensity: 15 };
   feed?: LiveFeed;
   grade?: Grade;
+  toneMapping?: 'aces' | 'agx';
   protected fixtures: Fixture[] = [];
   protected washes: Wash[] = [];
   protected hemi: THREE.HemisphereLight;

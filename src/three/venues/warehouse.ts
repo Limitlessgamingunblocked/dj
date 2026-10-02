@@ -1,9 +1,15 @@
-/* Deckhouse Warehouse: the house club — stage, LED wall, truss rig, lasers. */
+/*
+ * Deckhouse Warehouse: the house club — stage, LED wall, truss rig, lasers —
+ * modelled on big warehouse rooms like Depot Mayfield (docs/venue-research.md):
+ * steel pillars down both sides carrying pairs of LED battens, a polished
+ * concrete floor, a bar along one wall and exit signs, so the room has edges.
+ */
 import * as THREE from 'three';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
-import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, Lasers, mirrorBall, MovingHeads, speaker, Strobes, truss } from './fixtures';
-import { concreteTexture, floorTexture } from './tex';
+import { barCounter, boothClutter, DustMotes, exitSign, PillarBars } from './details';
+import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, Lasers, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
+import { concreteTexture, floorTexture, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const STAGE = 0.6; // DJ riser height above the dance floor
@@ -18,10 +24,30 @@ class Warehouse extends VenueBase {
   private ball: THREE.Mesh;
 
   constructor() {
-    super({ fog: 0x03040a, fogDensity: 0.05, hemiSky: 0x6a7ba8, hemiGround: 0x07070a, hemi: 0.45, flashAt: V(0, 4.5, -4) });
+    super({ fog: 0x03040a, fogDensity: 0.05, hemiSky: 0x6a7ba8, hemiGround: 0x07070a, hemi: 0.36, flashAt: V(0, 4.5, -4) });
+    this.grade = { tint: 0xf8f6ff, contrast: 1.12, saturation: 1.12, lift: 0 };
+    this.toneMapping = 'agx';
     const fl = floorTexture('#0d0e13', 'warehouse');
     fl.repeat.set(10, 10);
-    this.group.add(floor(60, new THREE.MeshStandardMaterial({ map: fl, roughness: 0.42, metalness: 0.2, envMapIntensity: 0.2 }), -STAGE));
+    // polished concrete: the wash lights and beams skid across it
+    this.group.add(floor(60, withSurface(new THREE.MeshStandardMaterial({ map: fl, metalness: 0.2, envMapIntensity: 0.2 }), 'wh-floor', { bumps: 0.3, grain: 0.4, seams: 128, rough: 0.36, roughVar: 0.12, polish: 0.3, repeat: 10, normalScale: 0.4 }), -STAGE));
+    // the room itself: block walls and a dark ceiling (no more void past the crowd)
+    const wallMat = withSurface(new THREE.MeshStandardMaterial({ color: 0x24262c, map: concreteTexture(44) }), 'wh-wall', { bumps: 0.5, grain: 0.6, seams: 32, rough: 0.9, roughVar: 0.06, repeat: 4 });
+    const hidden = new THREE.MeshBasicMaterial({ visible: false });
+    const ceilMat = new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.95 });
+    const room = new THREE.Mesh(new THREE.BoxGeometry(19, 7, 14), [wallMat, wallMat, ceilMat, hidden, wallMat, wallMat]);
+    (room.material as THREE.Material[]).forEach((m) => (m.side = THREE.BackSide));
+    room.position.set(0, -STAGE + 3.5, -2.5);
+    room.receiveShadow = true;
+    this.group.add(room);
+    // steel pillars down both sides of the floor, each with a pair of LED battens
+    this.add(new PillarBars([-2.8, -5.4, -8.0].flatMap((z) => [V(-7.7, 0, z), V(7.7, 0, z)]), -STAGE, 6.4));
+    // a bar along the left wall, exits at the back
+    const bar = barCounter(5, { glow: '#7ac8ff', body: 0x111318, top: 0x23262c, seed: 21 });
+    bar.position.set(-8.2, -STAGE, -5.4);
+    bar.rotation.y = Math.PI / 2;
+    this.group.add(bar);
+    this.group.add(exitSign(V(-9.46, -STAGE + 2.4, -8.6), Math.PI / 2), exitSign(V(9.46, -STAGE + 2.4, -8.6), -Math.PI / 2), exitSign(V(9.46, -STAGE + 2.4, -1.4), -Math.PI / 2));
     // stage riser under the booth
     const conc = concreteTexture(34);
     const stage = new THREE.Mesh(new THREE.BoxGeometry(12, STAGE, 5), new THREE.MeshStandardMaterial({ color: 0x1a1b20, map: conc, roughness: 0.8 }));
@@ -30,6 +56,8 @@ class Warehouse extends VenueBase {
     this.group.add(stage);
     const b = booth({ w: 2.8, d: 0.95, strip: '#2ec4f1' });
     this.group.add(b.group);
+    boothClutter(this.group, 2.8, TABLE_Y, -0.475, 22);
+    this.add(new DustMotes(new THREE.Box3(V(-2.6, TABLE_Y - 0.3, -2.4), V(2.6, TABLE_Y + 2.6, 1.6)), 320, 23));
     this.strip(b.strip);
     for (const s of [-1, 1]) {
       const mon = speaker(0.34, 0.52, 0.34, 'monitor');
