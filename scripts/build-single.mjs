@@ -22,7 +22,7 @@ if (js.length !== 1) throw new Error(`expected a single JS chunk, found ${js.joi
 const script = readFileSync(resolve(assets, js[0]), 'utf8').replace(/<\/script/gi, '<\\/script');
 const style = css.map((f) => readFileSync(resolve(assets, f), 'utf8')).join('\n');
 const fonts =
-  '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">';
+  '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">';
 
 const body = `<div id="app"></div>\n<script type="module">\n${script}\n</script>`;
 const head = `<title>Deckhouse DJ</title>\n<meta name="theme-color" content="#07090d">\n${fonts}\n<style>\n${style}\n</style>`;
