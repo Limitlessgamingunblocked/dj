@@ -14,13 +14,21 @@ It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library int
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (serve over http(s) or localhost)
-npm test           # DSP, analysis, format, mixer, set builder and lyrics tests
+npm test           # DSP, analysis, format, set builder, lyrics, adaptive quality and surface-map tests
 npm run build:single   # one self-contained HTML file in dist-single/
 ```
 
 Serve `dist/` from `localhost` or any `https://` host. The single-file build (`npm run build:single`) also works when opened straight from disk. Current Chrome, Edge, Firefox and Safari are supported; Web MIDI needs Chrome, Edge or Opera.
 
 ## What's in it
+
+### The screen
+- **Top bar:** board, venue, the crowd meter, master BPM, Rec, the **Simple / Pro** switch and the **⋯** menu. The ⋯ menu holds the stage view (Booth, Split, Visuals; also the `V` key), full screen, the layout switch, MIDI and help. A MIDI pill appears only while a controller is connected.
+- **Simple** (the default) keeps each deck panel to what you mix with: title, key, BPM, time, the overview waveform, Cue / Play / Sync and tempo. **Pro** adds Master, the tempo range, the pads and pad modes, the loops/key/stems drawer and the 🎤 lyrics button. Nothing is removed in Simple: the deck's ⋯ menu, the 3D board, the keyboard and MIDI still reach everything.
+- **Waveform strip:** a lane for each deck on the left and right, plus any other deck with a track loaded.
+- **Five tabs:** Library · Set Builder · Mixer & FX (with the sampler) · Show (venue, lighting desk, visual player, lyrics) · Settings (with MIDI).
+- **On a phone:** one row of controls in the top bar, short tab labels, touch targets of at least 44 px, and no sideways scrolling.
+- **Accessibility:** keyboard focus is visible everywhere. The camera's idle drift and beat shake stop when the system asks for reduced motion.
 
 ### Boards (3D, Three.js)
 | Board | Class | Decks |
@@ -37,7 +45,7 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - Each board comes in several finishes, and every board carries old stickers and gaffer tape — drawn procedurally and aged (sun-faded, scratched, torn and peeling corners), placed only in free space so they never cover a control. Switch them off in Settings.
 - On the one-unit-per-deck boards the software deck panels follow whichever player or turntable you touch.
 - Controls: drag knobs up/down (Shift for fine), drag faders, double-click to reset, scroll wheel over any control. Jogs have a capacitive top (scratch in vinyl mode) and an outer ring (pitch bend). Turntables have platter inertia with adjustable start/brake, slip-mat scratching (the platter keeps spinning under the record), tonearm needle drop, 33/45 and adjustable record wear (crackle, hiss, wow & flutter). Multi-touch works on touch screens.
-- Hover-to-zoom (zones per unit on the multi-unit rigs): rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off with the Auto-zoom button on the stage.
+- Hover-to-zoom (zones per unit on the multi-unit rigs): rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off in the camera menu on the stage.
 - Cameras: top-down, performance (drifts gently with the music when you're hands-off), first-person booth, club views and the FPV drone (see Venues), orbit/pan/zoom with damping, plus saved camera views.
 
 ### Audio engine
@@ -99,28 +107,36 @@ The engine is in `src/setbuilder/` (profiling, harmony, arcs, generation, export
 - **Aligning plain lyrics to the vocals**: the track is scanned for centre-panned tonal energy in the voice band (250 Hz–3.5 kHz, side channel subtracted, broadband drums ignored). That gives a vocal-activity curve and syllable onsets. Lines are laid over the sung parts in proportion to their syllables, and words snap to nearby onsets. This is signal analysis, not speech recognition, so it can drift on dense tracks: the editor has tap-sync (tap at the start of each line while the track plays), an offset slider, a live preview and .lrc export.
 - **Kinetic typography**: the loudest playing deck's lyrics appear on the LED walls and in the visual player. Words pop in as they're sung, the type breathes with the kick, ripples with the vocal and glitches on snares. Styles: neon outline, glitch (slice displacement and RGB split), kinetic wave, tracking (letter-spacing glides in), karaoke wipe, or auto (hooks in neon and glitch, verses tracking and waving). Colours follow the light show's palette.
 - **Key phrases hit the lights**: repeated lines and `[Chorus]`/`[Hook]` sections are hooks. When one lands, the lights fire a beat of strobes, a blinder pop and a burst of lit haze, and the crowd throws their arms up.
-- The 🎤 button on each deck opens the editor; the Visuals tab has the style and switches (hook lighting, booth subtitle). The demo tracks with vocal chops come with word-timed lyrics.
+- The 🎤 button on each deck (Pro layout, or the deck's ⋯ menu) opens the editor; the Show tab has the style and switches (hook lighting, booth subtitle). The demo tracks with vocal chops come with word-timed lyrics.
 
 ### Venues and light show
 | Venue | What it is |
 |---|---|
-| Circoloco @ DC-10, Ibiza | Low red room, orange globe lamps over a packed floor, warm bulb strings, red laser sheets, the fan wheel on the wall, cream booth monitors, the crowd right at the booth |
-| Boiler Room, Los Angeles | Outdoor night session: crowd all around (and behind) you with phones up, the red neon ring on its wires, City Hall behind, a hot lamp on a truss tower and the stream camera — whose monitor shows a live render of the shot. Try the “Stream cam” view |
-| Berghain, Berlin | 18 m concrete hall, pillars, steel balcony, towering stacks, cold white beams, red work lamps and a strobe bank for the peak |
-| Printworks, London | Colossal hall with three levels of gantries, a far-wall screen and the overhead rig of light bars and beams that lowers through the build-up and slams down on the drop; lasers, blinders and CO2 across the stage |
-| Deckhouse Warehouse | Raised stage, 11 m LED wall with the visual player, truss of moving heads |
+| Circoloco @ DC-10, Ibiza | A low, dark red room: orange globe lamps over a packed floor, warm bulb strings, red laser sheets, the fan wheel on the wall. Left/centre/right speaker clusters, cream booth monitors on drop rods, the crowd right at the booth. A whitewashed doorway glows onto the terrace, and there's a bar along the side |
+| Boiler Room, Los Angeles | An outdoor night session under an orange LA sky glow. The crowd is all around (and behind) you with phones up, the plain red neon ring hangs on its wires, City Hall is behind, and a hot lamp sits on a truss tower. No lasers. The stream camera's monitor shows a live render of the shot; try the “Stream cam” view |
+| Berghain, Berlin | An 18 m bare-concrete hall with steel pillars. No stage: the booth is recessed into the back wall. A single fixed light bar crosses the room, the stacks stand in the corners, and there's a dim bar in the far corner. Cold white beams, red work lamps and a strobe bank for the peak; no lasers, no phones |
+| Printworks, London | The 112 m press hall: three levels of gantries the full length, part-lit printing presses down both sides, 17 cold LED strips up each side wall chasing the beat, press outlines on the floor, and a far-wall screen. The overhead rig of light bars lowers through the build-up and slams down on the drop |
+| Deckhouse Warehouse | A raised stage, an 11 m LED wall with the visual player and a truss of moving heads. Steel pillars carry LED battens that chase down the room; block walls, a bar and exit signs |
 
-The real venues are fan-made recreations and are not affiliated with or endorsed by the clubs or promoters.
+The real venues are fan-made recreations and are not affiliated with or endorsed by the clubs or promoters. They carry no club logos or wordmarks. What each room really looks like, with sources and what the scenes still get wrong, is in [docs/venue-research.md](docs/venue-research.md).
 
 - The light show director reads the beat grid, energy, breakdowns and drops: moving-head patterns change every 8 bars, lasers (fan, tunnel, sheet, chase, crossfire) come in with energy and sheet over the crowd in breakdowns, build-ups get a strobe roll, and drops fire CO2, blinders, a bar of strobes and the pyro.
 - **Pyro**: flame-jet machines in the Warehouse and at Printworks; cold-spark fountains (the indoor kind) at DC-10, Boiler Room and Berghain. On a drop they fire a full salvo, then a flame chases across the next downbeats, and the room glows orange.
-- Lighting desk (Lights & venue tab): follow-the-music on/off, drop FX, pyro on drops, palettes, laser mode and pattern, intensity, haze, and pads for strobe, blinders, lasers, CO2, pyro and blackout — also on the keyboard (N, B, Y, T, Shift+T, `) and MIDI-learnable.
-- All fixtures are instanced: volumetric beam cones that throw pools of light on the floor, camera-facing laser beams, dotted LED strings, glowing globes, CO2 particle plumes, drifting haze and colour-washed fog.
-- **The crowd**: every dancer is a jointed figure posed on the GPU. Knees bend on the beat and on kick transients, hips sway, shoulders twist, heads nod and look around. People mix club-dance arms, hands in the air, fist pumps, clapping overhead through build-ups and arms up (with a jump) on drops and hook lines, and some film on phones whose screens and torches light up. LED-dot signs ("ONE MORE TUNE", "HI MUM"…) are held up near the front, VIP guests stand by the booth with drinks, chatting and filming, and some dancers turn to their friends. Tops, sleeves, trousers, shoes, skin and hair vary. (No phones or signs at Berghain.) It is stylised, not photoreal.
+- Lighting desk (Show tab): follow-the-music on/off, drop FX, pyro on drops, palettes, laser mode and pattern, intensity, haze, and pads for strobe, blinders, lasers, CO2, pyro and blackout — also on the keyboard (N, B, Y, T, Shift+T, `) and MIDI-learnable.
+- All fixtures are instanced: volumetric beam cones that throw pools of light on the floor, camera-facing laser beams, dotted LED strings, glowing globes, CO2 particle plumes, drifting haze, dust in the booth light and colour-washed fog.
+- **Rooms with edges:** bars, exit signs and doorways. Every booth has a laptop on a stand, drinks, a cable run and gaffer tape. Concrete, plaster and floors carry procedural normal and roughness maps, so lights catch relief and floors shine unevenly.
+- **The crowd**: every dancer is a jointed figure posed on the GPU. Knees bend on the beat and on kick transients, hips sway, shoulders twist, heads nod and look around. People mix club-dance arms, hands in the air, fist pumps, clapping overhead through build-ups and arms up (with a jump) on drops and hook lines, and some film on phones whose screens and torches light up. LED-dot signs ("ONE MORE TUNE", "HI MUM"…) are held up near the front, VIP guests stand by the booth with drinks, chatting and filming, and some dancers turn to their friends. Tops, sleeves, trousers, shoes, skin and hair vary, and every dancer casts a soft contact shadow. (No phones, signs or VIPs at Berghain.) It is stylised, not photoreal.
 - A crowd meter tracks the room: it rises with the music, beat-locked blends and drops, and falls with trainwrecks and key clashes, with call-outs on the stage.
 - Each venue has its own camera angles (over the shoulder, stream cam, balcony, gantry, from the crowd); you appear in the booth in those shots, hands on the decks.
 - **Drone FPV** (camera menu): a looping fly-through of each venue — over the crowd, banking past the pyro, gliding across the front of the booth and swinging round to look at the DJ — with a wide lens, barrel distortion, colour fringing and a zoom blur that grows with speed. It flies faster as the energy rises.
-- **Lens**: bright fixtures (beam lenses, lasers, strobes, flames) throw anamorphic streaks and faint ghosts, with vignette and film grain (medium and high quality).
+- **Lens and grade**: bright fixtures (beam lenses, lasers, strobes, flames) throw anamorphic streaks and faint ghosts, with vignette and film grain (medium and high quality). Each venue has its own colour grade and tone mapping. AgX rolls lights off to white like a camera, for the warehouse, Printworks and Boiler Room; ACES keeps the blacks deep in Berghain and DC-10. Lens effects, tone mapping, grade and output run in one full-screen pass.
+
+### Performance
+- **Graphics quality** (Settings): Low, Medium or High is the ceiling. With *Adjust automatically to keep it smooth* on (the default), the app steps down when frames run long. The steps are, in order: render resolution, crowd detail distance, lens streaks, the visual player's rate on the venue screens, then bloom inside the player. It steps back up when there's headroom. Low also turns off shadows, bloom, multisampling and lens effects.
+- **Crowd:** dancers are grouped into chunks that are skipped when off screen. Chunks far from the camera swap to a low-detail model with the same skeleton, about half the triangles.
+- **Venue and board switches** compile their shaders in the background, holding the last frame instead of stalling on the first one.
+- **When the tab is hidden**, rendering stops while the audio engine keeps time. While a dialog covers the stage, the club renders a third of the frames. The UI panels update at 30 Hz.
+- Measurements and method (draw calls, triangles, heap and allocation rate, before and after each change) are in [docs/overhaul.md](docs/overhaul.md).
 
 ### Visual player
 Ten GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid, CRT Monitor, Laser Show, Kaleidoscope, Strobe Geometry, Liquid Chrome and Fractal Flight.
@@ -148,6 +164,7 @@ src/three/venues/          venues, light show director, fixtures (beams, lasers,
 src/visualizer/            audio features, visual modes, lyrics typography
 src/ui/                    software panels and widgets
 src/app/                   app shell, control registry bindings, keyboard
+docs/                      venue research (sources, gaps) and the overhaul notes (measurements)
 ```
 
 Every operable control is registered once in a control registry (`src/app/controlDefs.ts`). The 3D boards, the software panels, the keyboard and MIDI all drive controls through that registry by id, so every surface stays in sync.

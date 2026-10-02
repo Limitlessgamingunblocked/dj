@@ -30,7 +30,7 @@ Probe: `perf.cjs` (Playwright). Conditions: 1280×800, medium quality, deck 1 pl
 
 What it shows:
 
-- **The crowd dominates the triangle count.** About 1,700 triangles per dancer and several hundred dancers per venue gives 0.3–1.2M triangles per frame, nearly all of it people, whether they are 2 m or 60 m from the camera.
+- **The crowd dominates the triangle count.** About 1,220 triangles per dancer (counted per mesh after the fact; an earlier estimate said 1,700) and several hundred to about a thousand dancers in view gives 0.3–1.2M triangles per frame, nearly all of it people, whether they are 2 m or 60 m from the camera.
 - **The board dominates draw calls.** Board views cost about 220 more calls than venue views, because every knob, button and LED is its own mesh.
 - **Full-screen passes per frame:**
   - club: a 4× MSAA half-float render at up to 1.5× device pixel ratio, then bloom (5 mip levels), lens and output
@@ -71,7 +71,7 @@ The everyday path (load, play, sync, EQ, crossfade) is spread over the deck pane
 
 ## Phase 2: performance changes
 
-- **Crowd level of detail and culling.** Dancers are grouped into ~6 m chunks, each its own instanced mesh with padded bounds, so chunks off screen are skipped. Chunks beyond the detail distance swap to a low-detail model with the same skeleton and props: about a third of the triangles. Both models share one set of vertex buffers. The detail distance is 16 m on high, 12 m on medium and 8 m on low, scaled down further by adaptive quality.
+- **Crowd level of detail and culling.** Dancers are grouped into ~6 m chunks, each its own instanced mesh with padded bounds, so chunks off screen are skipped. Chunks beyond the detail distance swap to a low-detail model with the same skeleton (and no phone torch): 579 triangles against 1,220, a little under half. Both models share one set of vertex buffers. The detail distance is 16 m on high, 12 m on medium and 8 m on low, scaled down further by adaptive quality.
 - **Adaptive quality** (`src/three/quality.ts`, with unit tests). It watches frame times and steps through five levels: render scale 1 → 0.5, crowd detail distance down to 30 %, lens streaks off, the visual player at half rate on the venue screens, then no bloom inside the player. It steps down when more than a quarter of recent frames run over budget. It probes back up after a calm spell, and backs off twice as long whenever a probe fails. The Low/Medium/High setting is the ceiling; it can be switched off in Settings.
 - **One fewer full-screen pass.** The lens effects (streaks, ghosts, drone distortion and blur), tone mapping, a new per-venue colour grade and the sRGB output now run in one pass (`LensOutputPass`) instead of a lens pass plus three's output pass.
 - **Multisampling** is off on Low.
@@ -179,4 +179,35 @@ The research doc's ranked gaps were the spec; [venue-research.md](venue-research
 - The exception is Printworks' gantry view, which now looks down a hall nearly twice as long, with about 320 more dancers in it (at low detail, 579 triangles each). That view is still a third below its pre-overhaul cost.
 - The first cut of contact shadows used one mesh per crowd chunk, which doubled the crowd's draw calls (+142 in that view). Folding them into one draw per crowd fixed it.
 - Switching venues back and forth twice settles at 80–86 shader programs, with a flat heap (125 MB): nothing accumulates.
+
+## Before and after: the whole overhaul
+
+**Hardware.** A cloud container with no GPU: an Intel Xeon at 2.80 GHz (4 cores), 15 GB RAM, headless Chromium 141 with WebGL through SwiftShader (software rendering). Wall-clock frame times here are a second or more per frame and don't predict a real GPU, so the table shows the counts that do carry over. These figures have not been checked on real GPU hardware.
+
+**Method.** `count.cjs` at 1280×800, medium quality, deck 1 playing, crowd energy 0.8, adaptive quality off (full detail, the worst case). Each figure is the mean of eight two-frame windows, after the venue's shaders have compiled; the spread is about one draw call and a few thousand triangles at most. "Before" is the frozen pre-overhaul build; "after" is the final code.
+
+| Venue | View | Draw calls | Triangles |
+|---|---|---:|---:|
+| Warehouse | perf | 420 → 382 (-9 %) | 309k → 282k (-9 %) |
+| Warehouse | wide | 466 → 441 (-5 %) | 311k → 294k (-5 %) |
+| DC-10 | perf | 425 → 386 (-9 %) | 774k → 704k (-9 %) |
+| DC-10 | wide | 205 → 165 (-20 %) | 724k → 663k (-9 %) |
+| Boiler Room | perf | 413 → 364 (-12 %) | 434k → 408k (-6 %) |
+| Boiler Room | wide | 190 → 137 (-28 %) | 391k → 307k (-21 %) |
+| Berghain | perf | 418 → 379 (-9 %) | 910k → 553k (-39 %) |
+| Berghain | wide | 496 → 439 (-11 %) | 913k → 497k (-46 %) |
+| Printworks | perf | 447 → 413 (-8 %) | 1,160k → 363k (-69 %) |
+| Printworks | wide | 196 → 251 (+28 %) | 1,108k → 748k (-32 %) |
+
+Printworks' gantry view is the one rise in draw calls. It now looks down a hall nearly twice as long, with more crowd chunks, presses and LED strips in view, and its triangles are still down by a third.
+
+Also:
+- **One fewer full-screen pass**, on every frame.
+- **No first-frame stall** when switching venues or boards.
+- **No multisampling on Low.**
+- **Shadows** update every second frame.
+- **UI updates at 30 Hz**, with no redundant DOM writes.
+- **Hidden tab:** no rendering while the tab is hidden.
+- **Allocation:** 0.1–0.5 MB/s and a flat heap, unchanged.
+- **Shader programs:** visiting all five venues ends at 86 programs, against 69 before. The new normal-mapped surfaces, details and dust add variants. Switching back and forth levels off rather than growing.
 
