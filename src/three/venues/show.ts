@@ -3,8 +3,9 @@
  * drops) plus the lighting desk (manual hits and settings) into one ShowState
  * per frame that every venue's fixtures read:
  *   – moving-head patterns change every 8 bars and on drops
- *   – lasers come in with energy, sheet over the crowd in breakdowns and go
- *     wide at the peak
+ *   – lasers come in with energy and follow the track's arc (laserlooks.ts):
+ *     liquid sky, tunnel and convergence through a build, a burst on the
+ *     drop, the busiest looks through the peak
  *   – build-ups get a strobe roll on the last bar; drops fire CO2, blinders,
  *     a bar of strobes and the pyro (flame jets / cold sparks)
  *   – accents (a hook line of the lyrics landing) hit a beat of strobes, a
@@ -12,6 +13,7 @@
  */
 import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
+import { autoLook, type LaserPattern } from './laserlooks';
 
 export type PaletteId = 'venue' | 'rainbow' | 'red' | 'amber' | 'ice' | 'uv' | 'white';
 export const PALETTES: { id: PaletteId; name: string; colors: [string, string, string] | null }[] = [
@@ -24,9 +26,7 @@ export const PALETTES: { id: PaletteId; name: string; colors: [string, string, s
   { id: 'white', name: 'White', colors: ['#ffffff', '#dfe8ff', '#fff0da'] },
 ];
 
-export const LASER_PATTERNS = ['fan', 'tunnel', 'sheet', 'chase', 'cross'] as const;
-export type LaserPattern = (typeof LASER_PATTERNS)[number];
-export const LASER_PATTERN_NAMES: Record<LaserPattern, string> = { fan: 'Fan', tunnel: 'Tunnel', sheet: 'Sheet', chase: 'Chase', cross: 'Crossfire' };
+export { LASER_PATTERN_NAMES, LASER_PATTERNS, type LaserPattern } from './laserlooks';
 
 export interface ShowControls {
   /** lights follow the music (otherwise a calm static look plus manual hits) */
@@ -238,9 +238,7 @@ export class LightShow {
     this.laserLevel += (laserTarget - this.laserLevel) * Math.min(1, dt * (laserTarget > this.laserLevel ? 10 : 2.5));
     s.lasers = this.laserLevel;
     if (c.laserPattern !== 'auto') s.laserPattern = c.laserPattern;
-    else if (s.build > 0.35) s.laserPattern = 'sheet';
-    else if (s.peak > 0.5) s.laserPattern = (['fan', 'cross', 'tunnel', 'fan'] as const)[Math.floor(s.bar / 2) % 4];
-    else s.laserPattern = (['fan', 'sheet', 'tunnel', 'chase', 'cross'] as const)[Math.floor(hash(Math.floor(s.bar / 8) + 17) * 5)];
+    else s.laserPattern = autoLook({ build: s.build, peak: s.peak, bar: s.bar, energy: s.energy, peakBars: react ? this.peakBars : 0, accent: s.accent });
 
     // strobes: manual hold (1/16), drop bar (1/8), build-up roll on the last bar
     const sixteenth = (s.beat * 4) % 1;

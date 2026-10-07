@@ -12,7 +12,8 @@ import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUti
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, pressLine } from './details';
-import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, Lasers, LedStrings, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
+import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
+import { Lasers, laserStands } from './lasers';
 import type { ShowState } from './show';
 import { concreteTexture, floorTexture, withSurface } from './tex';
 import { laserLines, silhouettes } from './warehouse';
@@ -175,16 +176,26 @@ class Printworks extends VenueBase {
     this.cables.frustumCulled = false;
     this.group.add(this.cables);
 
-    // stage front: lasers, blinders, CO2
+    // stage front: lasers on stands (so they can fire flat over heads), blinders, CO2; two more far down the hall
+    const stands = [V(-6.5, 1.75, -1.45), V(-3.3, 1.75, -1.45), V(3.3, 1.75, -1.45), V(6.5, 1.75, -1.45)];
+    this.group.add(laserStands(stands, 0));
     this.add(
-      new Lasers([
-        { pos: V(-6.5, 0.3, -1.45), dir: V(0.12, 0.09, -1), side: -1, beams: 14, color: '#27e1ff', length: 50 },
-        { pos: V(-3.3, 0.3, -1.45), dir: V(0.05, 0.1, -1), side: -1, beams: 12, color: '#3dff7a', length: 50, alt: true },
-        { pos: V(3.3, 0.3, -1.45), dir: V(-0.05, 0.1, -1), side: 1, beams: 12, color: '#3dff7a', length: 50, alt: true },
-        { pos: V(6.5, 0.3, -1.45), dir: V(-0.12, 0.09, -1), side: 1, beams: 14, color: '#27e1ff', length: 50 },
-        { pos: V(-12, 13.6, -62), dir: V(0.2, -0.1, 1), side: -1, beams: 12, color: '#3dff7a', length: 60 },
-        { pos: V(12, 13.6, -62), dir: V(-0.2, -0.1, 1), side: 1, beams: 12, color: '#3dff7a', length: 60 },
-      ]),
+      new Lasers(
+        [
+          { pos: stands[0], dir: V(0.12, 0.03, -1), side: -1, beams: 16, color: '#27e1ff', length: 115 },
+          { pos: stands[1], dir: V(0.05, 0.04, -1), side: -1, beams: 14, color: '#3dff7a', length: 115, alt: true },
+          { pos: stands[2], dir: V(-0.05, 0.04, -1), side: 1, beams: 14, color: '#3dff7a', length: 115, alt: true },
+          { pos: stands[3], dir: V(-0.12, 0.03, -1), side: 1, beams: 16, color: '#27e1ff', length: 115 },
+          { pos: V(-12, 13.6, -62), dir: V(0.2, -0.1, 1), side: -1, beams: 12, color: '#3dff7a', length: 70 },
+          { pos: V(12, 13.6, -62), dir: V(-0.2, -0.1, 1), side: 1, beams: 12, color: '#3dff7a', length: 70 },
+        ],
+        {
+          room: { floorY: -STAGE, x0: -17, x1: 17, z0: FAR, z1: 4, ceilY: 20.5, solids: [new THREE.Box3(V(-9, -STAGE, -1.4), V(9, 0, 4.2))] },
+          audience: { floorY: -STAGE, x0: -9.1, x1: 9.1, z0: -74, z1: -2.6 },
+          focus: V(0, 8, -32),
+          haze: [-0.5, 17],
+        },
+      ),
     );
     this.add(new Blinders([-7, -5, -3, -1, 1, 3, 5, 7].map((x) => ({ pos: V(x, -0.55, -1.52), tilt: -0.2 }))));
     this.add(new Co2Jets([-7.4, -4.8, -2.2, 2.2, 4.8, 7.4].map((x) => V(x, 0.02, -1.55)), 13));

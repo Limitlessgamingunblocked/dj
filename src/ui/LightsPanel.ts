@@ -72,9 +72,9 @@ export class LightsPanel {
       this.laserBtns.set(id, b);
       lasers.append(b);
     }
-    const pats = h('div', { class: 'seg', role: 'group', 'aria-label': 'Laser pattern' });
+    const pats = h('div', { class: 'chip-grid', role: 'group', 'aria-label': 'Laser look' });
     for (const id of ['auto', ...LASER_PATTERNS] as (ShowControls['laserPattern'])[]) {
-      const b = h('button', { class: 'btn', type: 'button' }, id === 'auto' ? 'Auto' : LASER_PATTERN_NAMES[id]);
+      const b = h('button', { class: 'btn chip', type: 'button' }, id === 'auto' ? 'Auto' : LASER_PATTERN_NAMES[id]);
       b.addEventListener('click', () => {
         c.laserPattern = id;
         this.save();
@@ -109,10 +109,11 @@ export class LightsPanel {
         { class: 'lights-col desk' },
         h('h3', {}, 'Light show'),
         h('div', { class: 'light-pads' }, pad('light.strobe', 'Strobe', 'N', 'strobe'), pad('light.blinder', 'Blinders', 'B', 'blinder'), pad('light.lasers', 'Lasers', 'Y', 'laser'), pad('light.co2', 'CO2', 'T', 'co2'), pad('light.pyro', 'Pyro', '⇧T', 'pyro'), pad('light.blackout', 'Blackout', '`', 'blackout')),
-        h('p', { class: 'note' }, 'Hold a pad (or its key) to fire it. Everything else runs itself: patterns change every 8 bars, lasers sheet over the crowd in breakdowns, the build-up gets a strobe roll and the drop fires CO2, blinders, strobes and the pyro.'),
+        h('p', { class: 'note' }, 'Hold a pad (or its key) to fire it. Everything else runs itself: patterns change every 8 bars, the lasers follow the track (a liquid-sky sheet over the crowd as a build starts, a tunnel, everything closing in, a burst on the drop), the build-up gets a strobe roll and the drop fires CO2, blinders, strobes and the pyro.'),
         h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn, this.pyroBtn),
         h('div', { class: 'field' }, 'Colours', pal),
-        h('div', { class: 'field' }, 'Lasers', h('div', { class: 'toggle-row' }, lasers, pats)),
+        h('div', { class: 'field' }, 'Lasers', lasers),
+        h('div', { class: 'field' }, 'Laser look', pats),
         h('div', { class: 'toggle-row sliders' }, slider('light-int', 'Intensity', 0.2, 1.5, () => c.intensity, (v) => (c.intensity = v)), slider('light-smoke', 'Haze', 0, 1, () => c.smoke, (v) => (c.smoke = v))),
         h('div', { class: 'show-live' }, this.meter, this.status),
       ),

@@ -258,12 +258,20 @@ class DC10 extends VenueBase {
       ),
     );
     this.add(
-      new Lasers([
-        { pos: V(-3.3, CEIL - 0.45, 2.2), dir: V(0.08, -0.12, -1), side: -1, beams: 16, length: 22, color: '#ff1a0d' },
-        { pos: V(3.3, CEIL - 0.45, 2.2), dir: V(-0.08, -0.12, -1), side: 1, beams: 16, length: 22, color: '#ff1a0d' },
-        { pos: V(-7.9, CEIL - 0.4, -16.4), dir: V(0.45, -0.1, 1), side: -1, beams: 12, length: 22, alt: true, color: '#ff2a0a' },
-        { pos: V(7.9, CEIL - 0.4, -16.4), dir: V(-0.45, -0.1, 1), side: 1, beams: 12, length: 22, alt: true, color: '#ff2a0a' },
-      ]),
+      new Lasers(
+        [
+          { pos: V(-3.3, CEIL - 0.45, 2.2), dir: V(0.08, -0.12, -1), side: -1, beams: 16, length: 22, color: '#ff1a0d' },
+          { pos: V(3.3, CEIL - 0.45, 2.2), dir: V(-0.08, -0.12, -1), side: 1, beams: 16, length: 22, color: '#ff1a0d' },
+          { pos: V(-7.9, CEIL - 0.4, -16.4), dir: V(0.45, -0.1, 1), side: -1, beams: 12, length: 22, alt: true, color: '#ff2a0a' },
+          { pos: V(7.9, CEIL - 0.4, -16.4), dir: V(-0.45, -0.1, 1), side: 1, beams: 12, length: 22, alt: true, color: '#ff2a0a' },
+        ],
+        {
+          room: { floorY: -STAGE, x0: -8.5, x1: 8.5, z0: -17, z1: 2.6, ceilY: CEIL },
+          audience: { floorY: -STAGE, x0: -8.5, x1: 8.5, z0: -17, z1: -1.45 },
+          focus: V(0, 3.4, -8),
+          haze: [-0.2, CEIL],
+        },
+      ),
     );
     this.add(new Strobes([V(-6, CEIL - 0.1, -4), V(6, CEIL - 0.1, -4), V(-6, CEIL - 0.1, -10.5), V(6, CEIL - 0.1, -10.5), V(-1.8, CEIL - 0.1, -1.5), V(1.8, CEIL - 0.1, -1.5)].map((p) => ({ pos: p, tilt: Math.PI / 2 }))));
     this.add(new Blinders([V(-2.3, -0.28, -0.6), V(2.3, -0.28, -0.6)].map((p) => ({ pos: p, tilt: -0.15 }))));

@@ -8,7 +8,8 @@ import * as THREE from 'three';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, PillarBars } from './details';
-import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, Lasers, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
+import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
+import { Lasers, laserStands } from './lasers';
 import { concreteTexture, floorTexture, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -93,13 +94,22 @@ class Warehouse extends VenueBase {
     this.add(new MovingHeads(heads, { length: 10, radius: 0.85, floorY: -STAGE }));
     this.add(new Strobes([-4, -1.3, 1.3, 4].map((x) => ({ pos: V(x, 4.35, -1.4), tilt: 0.4 }))));
     this.add(new Blinders([-3.4, -1.7, 1.7, 3.4].map((x) => ({ pos: V(x, 0.28, -1.05), tilt: -0.25 }))));
+    this.group.add(laserStands([V(-4.6, 2.55, -1.3), V(4.6, 2.55, -1.3)], 0));
     this.add(
-      new Lasers([
-        { pos: V(-2.2, 0.25, -1.2), dir: V(0.15, 0.1, -1), side: -1, beams: 12 },
-        { pos: V(2.2, 0.25, -1.2), dir: V(-0.15, 0.1, -1), side: 1, beams: 12, alt: true },
-        { pos: V(-4.5, 6.9, -7.8), dir: V(0.2, -0.22, 1), side: -1, beams: 10 },
-        { pos: V(4.5, 6.9, -7.8), dir: V(-0.2, -0.22, 1), side: 1, beams: 10, alt: true },
-      ]),
+      new Lasers(
+        [
+          { pos: V(-4.6, 2.55, -1.3), dir: V(0.25, 0.02, -1), side: -1, beams: 12 },
+          { pos: V(4.6, 2.55, -1.3), dir: V(-0.25, 0.02, -1), side: 1, beams: 12, alt: true },
+          { pos: V(-4.5, 6.0, -7.8), dir: V(0.2, -0.1, 1), side: -1, beams: 10 },
+          { pos: V(4.5, 6.0, -7.8), dir: V(-0.2, -0.1, 1), side: 1, beams: 10, alt: true },
+        ],
+        {
+          room: { floorY: -STAGE, x0: -9.5, x1: 9.5, z0: -9.5, z1: 4.5, ceilY: 6.4 },
+          audience: { floorY: -STAGE, x0: -9.4, x1: 9.4, z0: -9.4, z1: -2.2 },
+          focus: V(0, 3.6, -6),
+          haze: [0, 6.4],
+        },
+      ),
     );
     this.add(new Co2Jets([V(-4, 0.05, -1.4), V(-2.6, 0.05, -1.4), V(2.6, 0.05, -1.4), V(4, 0.05, -1.4)]));
     this.add(

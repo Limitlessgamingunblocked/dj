@@ -28,7 +28,8 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
 import { FarCrowd, scatter } from './farcrowd';
-import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, Lasers, LedStrings, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
+import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
+import { Lasers, laserStands, type AudienceZone, type RoomProxy } from './lasers';
 import { LightField } from './lightfield';
 import type { ShowState } from './show';
 import { canvasTexture, concreteTexture, floorTexture, grilleTexture, rng, withSurface } from './tex';
@@ -49,6 +50,23 @@ export function vault(halfWidth: number, wallHeight: number, crown: number): { r
   const rise = crown - wallHeight;
   const radius = (halfWidth * halfWidth + rise * rise) / (2 * rise);
   return { radius, centreY: crown - radius, halfAngle: Math.asin(halfWidth / radius) };
+}
+
+/** The hall as the lasers see it: floor, side walls, end walls, the vault, the organ gallery and case, plus `solids`. */
+function hallRoom(FL: number, zA: number, solids: THREE.Box3[] = []): RoomProxy {
+  const hw = HALL.width / 2;
+  const zB = zA - HALL.length;
+  const v = vault(hw, HALL.wallHeight, HALL.crown);
+  const GAL = FL + 7.5;
+  return {
+    floorY: FL,
+    x0: -hw,
+    x1: hw,
+    z0: zB,
+    z1: zA,
+    vault: { centreY: FL + v.centreY, radius: v.radius },
+    solids: [new THREE.Box3(new THREE.Vector3(-17, GAL - 0.6, zB), new THREE.Vector3(17, GAL + 1.1, zB + 6)), new THREE.Box3(new THREE.Vector3(-13, GAL, zB), new THREE.Vector3(13, GAL + 9.6, zB + 3.6)), ...solids],
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -611,22 +629,45 @@ class AllyPally extends VenueBase {
       ),
     );
     this.add(new Blinders([-10, -7, -4, -1.3, 1.3, 4, 7, 10].map((x) => ({ pos: V(x, TRIM - 0.55, -1.75), tilt: -0.55 }))));
-    // lasers: the stage lip, above the wall firing down the hall, and back from the mix position
+    // lasers, 14 projectors placed as arena rigs place them: the stage lip, stands at the stage
+    // corners (the flat liquid-sky sheet at 3.4 m), high upstage beside the wall, the audience
+    // trusses, the side walls mid-hall and the mix position firing back at the stage
+    const FOH_Z = -45;
+    const room = hallRoom(FL, 12.3, [
+      new THREE.Box3(new THREE.Vector3(-11.7, 0.9, 8.85), new THREE.Vector3(11.7, 8.3, 9.4)),
+      new THREE.Box3(new THREE.Vector3(-12, FL, -2.5), new THREE.Vector3(12, 0, 12.5)),
+      new THREE.Box3(new THREE.Vector3(-20.1, 0, -2.25), new THREE.Vector3(-19.9, 17, 12.3)),
+      new THREE.Box3(new THREE.Vector3(19.9, 0, -2.25), new THREE.Vector3(20.1, 17, 12.3)),
+      new THREE.Box3(new THREE.Vector3(-5, FL + 3.6, FOH_Z - 3.3), new THREE.Vector3(5, FL + 3.78, FOH_Z + 3.3)),
+    ]);
+    const audience: AudienceZone = { floorY: FL, x0: -hw, x1: hw, z0: zB + 7.5, z1: -4.95 };
+    const low = [V(-12.2, FL + 3.45, -2.2), V(12.2, FL + 3.45, -2.2)];
+    this.group.add(laserStands(low, 0));
     this.add(
-      new Lasers([
-        { pos: V(-8.6, 0.3, -2.4), dir: V(0.1, 0.07, -1), side: -1, beams: 14, length: 105 },
-        { pos: V(-3.4, 0.3, -2.4), dir: V(0.04, 0.08, -1), side: -1, beams: 12, length: 105, alt: true },
-        { pos: V(3.4, 0.3, -2.4), dir: V(-0.04, 0.08, -1), side: 1, beams: 12, length: 105, alt: true },
-        { pos: V(8.6, 0.3, -2.4), dir: V(-0.1, 0.07, -1), side: 1, beams: 14, length: 105 },
-        { pos: V(-6, 8.6, 9.2), dir: V(0.06, -0.06, -1), side: -1, beams: 10, length: 110 },
-        { pos: V(6, 8.6, 9.2), dir: V(-0.06, -0.06, -1), side: 1, beams: 10, length: 110 },
-      ]),
+      new Lasers(
+        [
+          { pos: V(-8.6, 0.3, -2.4), dir: V(0.1, 0.3, -1), side: -1, beams: 18, length: 125 },
+          { pos: V(-3.4, 0.3, -2.4), dir: V(0.04, 0.32, -1), side: -1, beams: 18, length: 125, alt: true },
+          { pos: V(3.4, 0.3, -2.4), dir: V(-0.04, 0.32, -1), side: 1, beams: 18, length: 125, alt: true },
+          { pos: V(8.6, 0.3, -2.4), dir: V(-0.1, 0.3, -1), side: 1, beams: 18, length: 125 },
+          { pos: low[0], dir: V(0.15, 0, -1), side: -1, beams: 24, length: 125 },
+          { pos: low[1], dir: V(-0.15, 0, -1), side: 1, beams: 24, length: 125, alt: true },
+          { pos: V(-11, 9, 8.4), dir: V(0.12, -0.03, -1), side: -1, beams: 16, length: 125 },
+          { pos: V(11, 9, 8.4), dir: V(-0.12, -0.03, -1), side: 1, beams: 16, length: 125, alt: true },
+          { pos: V(-8, TRIM - 0.65, -28), dir: V(0.05, -0.02, -1), side: -1, beams: 14, length: 100 },
+          { pos: V(8, TRIM - 0.65, -28), dir: V(-0.05, -0.02, 1), side: 1, beams: 14, length: 100, alt: true },
+          { pos: V(-hw + 0.6, FL + 7.5, -38), dir: V(1, 0.02, 0.1), side: -1, beams: 14, length: 70 },
+          { pos: V(hw - 0.6, FL + 7.5, -38), dir: V(-1, 0.02, -0.1), side: 1, beams: 14, length: 70, alt: true },
+          { pos: V(-2.8, FL + 3.9, FOH_Z), dir: V(0.05, 0, 1), side: -1, beams: 20, length: 60 },
+          { pos: V(2.8, FL + 3.9, FOH_Z), dir: V(-0.05, 0, 1), side: 1, beams: 20, length: 60, alt: true },
+        ],
+        { room, audience, focus: V(0, FL + 10, -26), haze: [FL + 1, FL + 22] },
+      ),
     );
     this.add(new Co2Jets([-10.6, -7.2, -3.8, 3.8, 7.2, 10.6].map((x) => V(x, 0.02, -2.3)), 12));
     this.add(new Pyro([-11.2, -8, -4.8, 4.8, 8, 11.2].map((x) => ({ pos: V(x, 0, -2.0), kind: 'spark' as const }))));
 
     // the mix position, mid-floor
-    const FOH_Z = -45;
     const riser = block(9, 0.6, 5.5, black, 2);
     riser.position.set(0, FL + 0.3, FOH_Z);
     const desk = block(6.4, 0.95, 1.1, new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5, metalness: 0.4 }), 2);
@@ -796,6 +837,20 @@ class AllyPally extends VenueBase {
       ),
     );
     this.add(new Strobes(corners.flatMap(([x, z]) => [-0.8, 0.8].map((d) => ({ pos: V(x + d, top - 0.4, z), tilt: Math.PI / 2 }))), [1.0, 0.12, 0.12]));
+
+    // lasers: a ring on the riser firing up through the field, the grid's corners and both ends
+    const ringAngles = Array.from({ length: 6 }, (_, k) => (k / 6) * Math.PI * 2 + Math.PI / 6);
+    this.add(
+      new Lasers(
+        [
+          ...ringAngles.map((a, k) => ({ pos: V(Math.cos(a) * 2.35, 0.08, Math.sin(a) * 2.35), dir: V(Math.cos(a), 1.1, Math.sin(a)), side: k % 2 ? 1 : -1, beams: 14, length: 60, alt: k % 2 === 1, skip: ['converge' as const] })),
+          ...corners.map(([x, z], k) => ({ pos: V(x, top - 0.35, z), dir: V(Math.sign(x) * 0.5, 0.04, Math.sign(z)), side: Math.sign(x), beams: 16, length: 90, alt: k % 2 === 1 })),
+          { pos: V(-9, top - 0.35, -42), dir: V(0.1, -0.02, 1), side: -1, beams: 18, length: 110 },
+          { pos: V(9, top - 0.35, 42), dir: V(-0.1, -0.02, -1), side: 1, beams: 18, length: 110, alt: true },
+        ],
+        { room: hallRoom(FL, HALL.length / 2), audience: { floorY: FL, x0: -hw, x1: hw, z0: zB + 1, z1: -zB - 1 }, focus: V(0, FL + 11, 0), haze: [FL + 1, FL + 22] },
+      ),
+    );
 
     // the mix position, behind the DJ's back
     const FOH_Z = 34;
