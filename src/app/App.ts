@@ -90,7 +90,7 @@ const DEFAULTS: Settings = {
   lights: {},
 };
 
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke', 'reduceFlash'] as const;
 
 type TabId = 'library' | 'sets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */

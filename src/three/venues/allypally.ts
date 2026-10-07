@@ -192,23 +192,93 @@ function roseTexture(): THREE.CanvasTexture {
   });
 }
 
-/** Faint LED tile seams and a pixel grid, laid over a screen so it reads as a video wall. */
-function ledSeamTexture(): THREE.CanvasTexture {
-  return canvasTexture(
-    'ally-led-seams',
-    64,
-    64,
-    (g, w, h) => {
-      g.clearRect(0, 0, w, h);
-      g.fillStyle = 'rgba(0,0,0,0.16)';
-      for (let i = 0; i < w; i += 4) g.fillRect(i, 0, 1, h);
-      for (let i = 0; i < h; i += 4) g.fillRect(0, i, w, 1);
-      g.fillStyle = 'rgba(0,0,0,0.55)';
-      g.fillRect(0, 0, 2, h);
-      g.fillRect(0, 0, w, 2);
-    },
-    { srgb: false, repeat: true },
-  );
+/**
+ * Make a screen material read as an LED video wall:
+ *   – the pixel structure shows when you're close (each LED square with dark
+ *     gaps), and fades out as pixels shrink below a couple of screen pixels,
+ *     so there's no moiré at a distance
+ *   – tile seams every 0.5 m
+ *   – LEDs dim seen off-axis, and the wall runs bright enough to bloom
+ *   – optional: the pit camera composited into the middle of the picture, a
+ *     flash on the drop, and an IMAG grade (contrast, vignette, monochrome)
+ * `size` is the screen in metres, `pitch` the LED pitch in metres.
+ */
+interface LedUniforms {
+  uLEDGain: { value: number };
+  uLEDFlash: { value: number };
+  uFeed: { value: THREE.Texture | null };
+  uFeedMix: { value: number };
+  uMono: { value: number };
+}
+function ledScreen(mat: THREE.MeshBasicMaterial, size: [number, number], pitch: number, o: { feed?: THREE.Texture; imag?: boolean } = {}): LedUniforms {
+  const u: LedUniforms = { uLEDGain: { value: 1.4 }, uLEDFlash: { value: 0 }, uFeed: { value: o.feed ?? null }, uFeedMix: { value: 0 }, uMono: { value: 0 } };
+  const res = `vec2(${(size[0] / pitch).toFixed(1)}, ${(size[1] / pitch).toFixed(1)})`;
+  const sz = `vec2(${size[0].toFixed(2)}, ${size[1].toFixed(2)})`;
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vLEDPos;\nvarying vec3 vLEDN;\nvarying vec3 vLEDView;')
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        vLEDPos = position.xy / ${sz} + 0.5;
+        vLEDN = normalize(mat3(modelMatrix) * vec3(0.0, 0.0, 1.0));
+        vLEDView = cameraPosition - (modelMatrix * vec4(position, 1.0)).xyz;`,
+      );
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+        varying vec2 vLEDPos;
+        varying vec3 vLEDN;
+        varying vec3 vLEDView;
+        uniform float uLEDGain, uLEDFlash, uFeedMix, uMono;
+        uniform sampler2D uFeed;`,
+      )
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        ${
+          o.feed
+            ? `// the pit camera in the middle of the wall (portrait feed, cropped to the panel)
+        float fu = (vLEDPos.x - 0.36) / 0.28;
+        if (uFeedMix > 0.001 && fu > 0.0 && fu < 1.0) {
+          vec3 cam = texture2D(uFeed, vec2(fu, 0.5 + (vLEDPos.y - 0.5) * 0.55)).rgb;
+          float edge = smoothstep(0.0, 0.02, fu) * smoothstep(1.0, 0.98, fu);
+          diffuseColor.rgb = mix(diffuseColor.rgb, cam * 1.4, uFeedMix * edge);
+        }`
+            : ''
+        }
+        ${
+          o.imag
+            ? `// broadcast grade: a touch of contrast, a soft vignette, monochrome on cue
+        vec3 gc = diffuseColor.rgb;
+        float lum = dot(gc, vec3(0.2126, 0.7152, 0.0722));
+        gc = mix(gc, vec3(lum), uMono);
+        gc = pow(max(gc, 0.0), vec3(1.12)) * 1.15;
+        vec2 vc = vLEDPos - 0.5;
+        gc *= 1.0 - dot(vc, vc) * 0.9;
+        diffuseColor.rgb = gc;`
+            : ''
+        }
+        // LED pixels, visible only when each one covers a couple of screen pixels
+        vec2 px = vLEDPos * ${res};
+        vec2 cellD = abs(fract(px) - 0.5);
+        float cell = smoothstep(0.5, 0.34, max(cellD.x, cellD.y));
+        float fw = max(fwidth(px.x), fwidth(px.y));
+        float showPx = 1.0 - smoothstep(0.22, 0.55, fw);
+        // tile seams every half metre
+        vec2 tile = abs(fract(vLEDPos * ${sz} * 2.0) - 0.5);
+        float seamFw = max(fwidth(vLEDPos.x * ${sz}.x), fwidth(vLEDPos.y * ${sz}.y));
+        float seam = 1.0 - smoothstep(0.485, 0.5, max(tile.x, tile.y)) * 0.6 * (1.0 - smoothstep(0.02, 0.08, seamFw));
+        // LEDs dim off-axis
+        float facing = abs(dot(vLEDN, normalize(vLEDView)));
+        diffuseColor.rgb = diffuseColor.rgb * mix(1.0, cell * 1.4, showPx) * seam * uLEDGain * (0.42 + 0.58 * pow(facing, 0.6)) + vec3(uLEDFlash);`,
+      );
+  };
+  mat.customProgramCacheKey = () => `led${size.join('x')}${o.feed ? 'f' : ''}${o.imag ? 'i' : ''}`;
+  mat.needsUpdate = true;
+  return u;
 }
 
 /* ------------------------------------------------------------------ */
@@ -289,6 +359,12 @@ class AllyPally extends VenueBase {
   private wallLight: THREE.PointLight | null = null;
   private blinderLight: THREE.PointLight | null = null;
   private warm = new THREE.Color(1, 0.62, 0.28);
+  private wallLed: LedUniforms | null = null;
+  private towerLed: LedUniforms | null = null;
+  private feedCam: THREE.PerspectiveCamera | null = null;
+  private flashEnv = 0;
+  private shot = -1;
+  private shots: { pos: THREE.Vector3; look: THREE.Vector3; fov: number }[] = [];
 
   constructor(layout: Layout) {
     const FL = layout === 'arena' ? -1.8 : -1.5;
@@ -532,20 +608,22 @@ class AllyPally extends VenueBase {
     const wall = this.screen(new THREE.Mesh(wallGeo));
     wall.position.set(0, 4.6, 9.0);
     wall.rotation.y = Math.PI;
-    this.seams(wall, 23, 7);
     const wallFrame = block(23.4, 7.4, 0.3, black, 2);
     wallFrame.position.set(0, 4.6, 9.2);
     this.group.add(wallFrame);
 
     // two portrait LED towers with a live camera on the DJ (IMAG)
     const target = new THREE.WebGLRenderTarget(240, 480, { type: THREE.HalfFloatType });
+    // the main wall: LED pixels up close, the pit camera composited in through the peak, a flash on the drop
+    this.wallLed = ledScreen(wall.material as THREE.MeshBasicMaterial, [23, 7], 0.0039, { feed: target.texture });
     const towers = new THREE.Group();
+    const towerMat = new THREE.MeshBasicMaterial({ map: target.texture });
+    this.towerLed = ledScreen(towerMat, [5, 10], 0.0059, { imag: true });
     for (const s of [-1, 1]) {
-      const t = new THREE.Mesh(new THREE.PlaneGeometry(5, 10), new THREE.MeshBasicMaterial({ map: target.texture, color: new THREE.Color(1.25, 1.25, 1.25) }));
+      const t = new THREE.Mesh(new THREE.PlaneGeometry(5, 10), towerMat);
       t.position.set(s * 16.4, 5.6, 0.4);
       t.rotation.y = Math.PI + s * 0.32;
       towers.add(t);
-      this.seams(t, 5, 10);
       const tf = block(5.3, 10.3, 0.3, black, 2);
       tf.position.copy(t.position);
       tf.rotation.y = t.rotation.y;
@@ -571,6 +649,17 @@ class AllyPally extends VenueBase {
     const feedCam = new THREE.PerspectiveCamera(20, 0.5, 0.1, 200);
     feedCam.position.set(3.2, FL + 2.05, -3.55);
     feedCam.lookAt(0, 1.6, 0.9);
+    this.feedCam = feedCam;
+    this.shots = [
+      // the pit camera, close on the DJ
+      { pos: V(3.2, FL + 2.05, -3.55), look: V(0, 1.6, 0.9), fov: 20 },
+      // a long lens from the mix position: the stage over the heads of the crowd
+      { pos: V(0.4, FL + 4.4, -44), look: V(0, 2.6, 2), fov: 9 },
+      // a crowd camera on stage, looking back at the room
+      { pos: V(6.5, 2.4, -1.4), look: V(-3, FL + 1.2, -26), fov: 46 },
+      // side of stage, on the DJ's hands
+      { pos: V(-8.5, 2.1, 1.4), look: V(0, 1.2, 0.5), fov: 24 },
+    ];
     // 15 fps on a 60 Hz display: the camera sees the decks, which are a few hundred draws
     this.feed = { camera: feedCam, target, screen: towers, every: 4 };
 
@@ -928,17 +1017,6 @@ class AllyPally extends VenueBase {
     this.wash(V(0, FL + 6.5, 6), 1, 7, 18, 0.6);
   }
 
-  /** a faint LED tile grid in front of a screen */
-  private seams(screen: THREE.Mesh, w: number, h: number): void {
-    const tex = ledSeamTexture().clone();
-    tex.repeat.set(w * 2, h * 2);
-    tex.userData.shared = false;
-    tex.needsUpdate = true;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
-    m.position.z = 0.015;
-    screen.add(m);
-  }
-
   update(...args: Parameters<VenueBase['update']>): void {
     // a new frame of light on the floor: the moving heads paint their pools as they update
     this.lm.begin();
@@ -955,7 +1033,33 @@ class AllyPally extends VenueBase {
       this.lm.splat(0, -9, 17, 8, col, 1.1 * m);
       this.lm.splat(0, -17, 24, 15, col, 0.35 * m);
       this.wallLight.color.copy(col).multiplyScalar(1 / Math.max(0.05, Math.max(col.r, col.g, col.b)));
-      this.wallLight.intensity = 90 * lum * m;
+      this.wallLight.intensity = 65 * lum * m;
+    }
+    if (this.wallLed && this.towerLed && this.feedCam) {
+      // the drop: the wall flashes white with everything else
+      if (s.dropHit) this.flashEnv = 1;
+      this.flashEnv *= Math.exp(-args[2] * 7);
+      this.wallLed.uLEDFlash.value = this.flashEnv * (s.reduceFlash ? 0.25 : 1.2) * m;
+      this.wallLed.uLEDGain.value = 1.45 * m;
+      this.towerLed.uLEDGain.value = 1.25 * m;
+      // the pit camera comes up on the wall through alternate phrases of the peak
+      const feedOn = s.peak > 0.5 && Math.floor(s.bar / 8) % 2 === 0 ? 1 : 0;
+      this.wallLed.uFeedMix.value += (feedOn - this.wallLed.uFeedMix.value) * Math.min(1, args[2] * 3);
+      // IMAG: monochrome through a build-up, colour at the peak
+      const mono = s.build > 0.35 ? 1 : 0;
+      this.towerLed.uMono.value += (mono - this.towerLed.uMono.value) * Math.min(1, args[2] * 2);
+      // cut between cameras on the phrase: every 4 bars, every 2 at the peak
+      const len = s.peak > 0.5 ? 2 : s.build > 0.35 ? 8 : 4;
+      const shot = s.playing ? Math.floor(s.bar / len) % this.shots.length : 0;
+      if (shot !== this.shot) {
+        this.shot = shot;
+        const sh = this.shots[shot];
+        this.feedCam.position.copy(sh.pos);
+        this.feedCam.lookAt(sh.look);
+      }
+      // a slow zoom drift, like an operator riding the lens
+      this.feedCam.fov = this.shots[Math.max(0, this.shot)].fov * (1 + 0.05 * Math.sin(s.t * 0.23));
+      this.feedCam.updateProjectionMatrix();
     }
     if (this.blinderLight) {
       this.lm.splat(0, -7.5, 18, 5, this.warm, s.blinder * 2.4);
@@ -971,9 +1075,17 @@ class AllyPally extends VenueBase {
         l.color.copy(s.colors[0]).lerp(this.c.setRGB(1, 0.82, 0.62), 0.6);
         l.intensity = 18 * g;
       }
-      // the floor and the people under the field catch its glow
+      // the floor and the people under the field catch its glow, its kick ripples and the drop's shell
       this.c.copy(s.colors[0]).lerp(this.warm.setRGB(1, 0.82, 0.62), 0.6);
-      this.lm.splat(0, 0, 26, 52, this.c, 0.12 + g * 0.35);
+      this.lm.splat(0, 0, 26, 52, this.c, 0.08 + g * 0.25);
+      for (const [r, k] of [this.field.ripple, this.field.shell]) {
+        if (k < 0.02 || r < 4 || r > 60) continue;
+        const n = 28;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          this.lm.splat(Math.cos(a) * r, Math.sin(a) * r, 3.2, 3.2, this.c, k * 0.5);
+        }
+      }
       this.warm.setRGB(1, 0.62, 0.28);
     }
   }

@@ -524,7 +524,7 @@ export class Lasers implements Fixture {
     switch (this.look) {
       case 'fan':
         this.aim(p, u * (1.1 + 0.25 * Math.sin((b * Math.PI) / 8)) * open, -0.04 + 0.1 * Math.sin((b * Math.PI) / 4 + p * 1.3), out);
-        if (s.peak > 0.5) on = Math.floor(b * 2) % 2 ? 1 : 0.35;
+        if (s.peak > 0.5 && !s.reduceFlash) on = Math.floor(b * 2) % 2 ? 1 : 0.35;
         break;
       case 'gaps':
         // a wide fan with every third beam blanked; the gaps march across on the eighth notes
@@ -589,14 +589,15 @@ export class Lasers implements Fixture {
         const hx = hash(i * 3.1 + p * 17) - 0.5;
         const hy = hash(i * 7.7 + p * 5);
         out.copy(fr.F).addScaledVector(fr.R, hx * 2.8 * k).addScaledVector(fr.U, (0.12 + hy * 1.2) * k).normalize();
-        if (age > 0.55) on = hash(Math.floor(t * 16) + i * 13 + p * 7) > 0.32 ? 1 : 0.12;
+        if (age > 0.55) on = hash(Math.floor(t * (s.reduceFlash ? 2.8 : 16)) + i * 13 + p * 7) > 0.32 ? 1 : 0.12;
         gain = 1.15;
         dot = 1.6;
         break;
       }
       case 'strobe':
         this.aim(p, u * 1.2 * open, -0.03 + 0.05 * Math.sin((b * Math.PI) / 2), out);
-        on = Math.floor(b * 2) % 2 ? 1 : 0;
+        // on and off on the eighth notes (under 3 times a second with reduce flashing)
+        on = s.reduceFlash ? ((t * 2.8) % 1 < 0.5 ? 1 : 0.2) : Math.floor(b * 2) % 2 ? 1 : 0;
         break;
       case 'stars': {
         // beams climb to the ceiling and wander: a field of moving dots overhead

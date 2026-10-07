@@ -10,6 +10,13 @@
  *     a bar of strobes and the pyro (flame jets / cold sparks)
  *   – accents (a hook line of the lyrics landing) hit a beat of strobes, a
  *     blinder pop and a burst of lit haze
+ *   – the drop is choreographed: at the top of a build the last beat of the
+ *     bar drops to near-black, so the drop lands out of darkness, with the
+ *     laser burst, CO2, sparks, blinders, the screen flash and the crowd
+ *     jumping on the same downbeat
+ *   – "reduce flashing" caps strobes, blinders and the room flash at 3
+ *     flashes a second and softens them (photosensitive seizures are rare
+ *     below 3 Hz; see docs/venue-research.md)
  */
 import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
@@ -44,6 +51,8 @@ export interface ShowControls {
   smoke: number;
   strobeHold: boolean;
   blinderHold: boolean;
+  /** at most 3 flashes a second, softer (follows the system's reduced-motion setting by default) */
+  reduceFlash: boolean;
   blackoutHold: boolean;
   laserHold: boolean;
 }
@@ -92,6 +101,8 @@ export interface ShowState {
   /** 0..1 envelope of the last key-phrase accent */
   accent: number;
   intensity: number;
+  /** flashing is capped at 3 a second: fixtures that blink should slow down too */
+  reduceFlash: boolean;
 }
 
 const hash = (n: number) => {
@@ -111,6 +122,7 @@ export class LightShow {
     smoke: 0.5,
     strobeHold: false,
     blinderHold: false,
+    reduceFlash: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     blackoutHold: false,
     laserHold: false,
   };
@@ -164,6 +176,7 @@ export class LightShow {
       flash: 0,
       accent: 0,
       intensity: 1,
+      reduceFlash: false,
     };
   }
 
@@ -240,14 +253,23 @@ export class LightShow {
     if (c.laserPattern !== 'auto') s.laserPattern = c.laserPattern;
     else s.laserPattern = autoLook({ build: s.build, peak: s.peak, bar: s.bar, energy: s.energy, peakBars: react ? this.peakBars : 0, accent: s.accent });
 
-    // strobes: manual hold (1/16), drop bar (1/8), build-up roll on the last bar
+    // strobes: manual hold (1/16), drop bar (1/8), build-up roll on the last bar.
+    // `level` is how hard the strobes are going; `on` is the on/off pattern
     const sixteenth = (s.beat * 4) % 1;
     const eighth = (s.beat * 2) % 1;
-    let strobe = 0;
-    if (c.strobeHold) strobe = sixteenth < 0.35 ? 1 : 0;
-    else if (react && c.dropFx) {
-      if (this.peakBars >= 15 && s.peak > 0.2) strobe = eighth < 0.3 ? 1 : 0;
-      else if (s.build > 0.9 && s.beatInBar >= 2) strobe = sixteenth < 0.3 ? 0.7 : 0;
+    let level = 0;
+    let on = false;
+    if (c.strobeHold) {
+      level = 1;
+      on = sixteenth < 0.35;
+    } else if (react && c.dropFx) {
+      if (this.peakBars >= 15 && s.peak > 0.2) {
+        level = 1;
+        on = eighth < 0.3;
+      } else if (s.build > 0.9 && s.beatInBar >= 2) {
+        level = 0.7;
+        on = sixteenth < 0.3;
+      }
     }
     // key-phrase accent: a beat of 1/16 strobes, a blinder pop, a burst of haze
     let accentStrength = 0;
@@ -260,9 +282,16 @@ export class LightShow {
     const beatLen = 60 / Math.max(60, s.bpm);
     const sinceAccent = s.t - this.accentAt;
     s.accent = sinceAccent < 3 ? Math.exp(-sinceAccent * 1.6) : 0;
-    if (sinceAccent < beatLen) strobe = Math.max(strobe, sixteenth < 0.35 ? 0.85 : 0);
+    if (sinceAccent < beatLen && 0.85 > level) {
+      level = 0.85;
+      on = sixteenth < 0.35;
+    }
     this.accentSmoke *= Math.exp(-dt * 0.45);
+    // reduce flashing: gentle flashes, never more than three in any second (2.8 Hz), whatever the tempo
+    if (c.reduceFlash) on = (s.t * 2.8) % 1 < 0.22;
+    const strobe = level > 0 && on ? (c.reduceFlash ? Math.min(level, 0.55) : level) : 0;
     s.strobe = strobe * Math.min(1.2, c.intensity);
+    s.reduceFlash = c.reduceFlash;
 
     // blinders: hold, drop hit, downbeats at the peak
     if (c.blinderHold) this.blinderLevel = 1;
@@ -272,7 +301,7 @@ export class LightShow {
       if (react && s.peak > 0.6 && f.beatPulse > 0.95 && s.beatInBar === 0) this.blinderLevel = Math.max(this.blinderLevel, 0.6);
       this.blinderLevel *= Math.exp(-dt * 3.2);
     }
-    s.blinder = this.blinderLevel * Math.min(1.2, c.intensity);
+    s.blinder = this.blinderLevel * Math.min(1.2, c.intensity) * (c.reduceFlash ? 0.5 : 1);
 
     // CO2: manual or on the drop (not more than every 4 s)
     s.co2 = false;
@@ -292,8 +321,9 @@ export class LightShow {
 
     s.smoke = Math.min(1, c.smoke + s.build * 0.25 + s.peak * 0.1 + this.accentSmoke);
 
-    // blackout
-    const mTarget = c.blackoutHold ? 0 : 1;
+    // blackout: held from the desk, or the last beat of a build at its peak, so the drop lands out of the dark
+    const preDrop = react && c.dropFx && s.build > 0.93 && s.beatInBar === 3 && !c.reduceFlash;
+    const mTarget = c.blackoutHold ? 0 : preDrop ? 0.12 : 1;
     this.masterLevel += (mTarget - this.masterLevel) * Math.min(1, dt * 25);
     s.master = this.masterLevel;
     s.flash = Math.max(s.strobe, s.blinder * 0.6) * s.master;
