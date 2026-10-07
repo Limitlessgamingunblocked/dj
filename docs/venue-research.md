@@ -132,6 +132,35 @@ Added in October 2026 as two venues: an arena end-stage production, and an in-th
 
 **Palette.** Dark floor and walls under a pale fabric vault. Arena: white, red and violet beams with a bright LED wall. In the round: warm white bulbs with cool accents.
 
+### Lasers and effects
+
+Researched in October 2026 for the effects pass. As with the rest of this doc, most pages were blocked by the proxy, so these facts come from search-result summaries of the cited pages.
+
+| | Finding | Source |
+|---|---|---|
+| Lasers at Ally Pally | At Bicep's 2022 shows, lasers were by Zeallive. A review describes "purple and red lasers shoot[ing] out like fireworks, culminating in pulsating crimson and white strobes". Zeallive's fixtures and their positions aren't documented. | [The Upcoming](https://theupcoming.co.uk/?p=457905) |
+| Arena laser counts | Arena tours vary widely. Ariana Grande's arena tour used 12 DMX-controlled lasers plus 4 scanning systems, in white, blue and pink, run from the lighting console. Alex Vargas at the 16,000-capacity Royal Arena used 8 RGB lasers (4 × 5 W, 4 × 10 W) alongside about 170 moving lights on a truss over the stage. | [TPi: ER Productions for Ariana Grande](https://www.tpimagazine.com/er-productions-creates-scintillating-laser-design-for-ariana-grande/), [TPi: Alex Vargas](https://www.tpimagazine.com/robe-megapointes-light-alex-vargas/) |
+| Colour | Show projectors are RGB diode systems with red around 637 nm, green 520 nm and blue 445 nm. Rated white balance often isn't true in practice: green tends to dominate and is trimmed in software. | [Kvant ClubMAX specs](https://proxdirect.com/products/view/KVANT-ClubMAX1800-18W-R-G-B-Laser-Class-4-Variance-Required-ClubMAX1800), [Pangolin forum](https://forums.pangolin.com/threads/dpss-rgb-white-color-balance-question.351/latest) |
+| Looks | Beam effects (fans, sheets, cones, tunnels) come from X-Y scanners. Surface effects need a wall or ceiling to land on, and scanners draw onto ceilings without refocusing. Diffraction gratings split a beam into fields of dots ("night sky", twinkle). A "laser tunnel" is a cone or plane swept through haze. "Liquid sky" is a marketing name for a flat, persisting plane of laser over the crowd, textured by the haze. | [Wikipedia: laser lighting display](https://en.wikipedia.org/wiki/Laser_lighting_display), [Pangolin: types of laser shows](https://pangolin.com/blogs/news/types-of-laser-shows), [ADJ forum](https://forums.adj.com/topic/i-did-not-see-appear-liquid-sky-with-my-galaxian-sky) |
+| Blanking | The beam is switched off while the scanner jumps between lines, and poor blanking leaves faint lines or a stray dot. Scanned beams also flicker slightly. | [Laserworld glossary](https://www.laserworld.com/en/glossary/72-b/2812-blanking.html), [Pangolin forum](https://forums.pangolin.com/threads/flikker-in-laser-output.785) |
+| Haze | Laser light is nearly invisible in clean air: particles scatter it towards the viewer. Haze is a thin, even, long-hanging layer that makes beams and sheets read smoothly. Fog makes visible clouds and swirls, dissipates faster, and is used for impact, for example a burst on the drop. Arena shows run DMX hazers from the console, placed for the venue's airflow. | [ILDA: haze, fog and lasers](https://ilda.com/hazefoglasers.htm), [TPi: MDG haze on an arena tour](https://tpimagazine.com/?p=28714), [Ticket Fairy](https://www.ticketfairy.com/blog/haze-fog-atmospherics-the-invisible-festival-infrastructure.md) |
+| Safety | Audience scanning is treated as high-risk and needs a competent laser safety adviser. The UK's HSE guidance HS(G)95 has been replaced by an HSE-endorsed industry guide. Keeping beams at least 3 m above where people can stand is common practice (German TÜV guidance, and some US rules), but I found no UK statutory 3 m rule. | [HSE INDG224](https://www.hse.gov.uk/pubns/indg224.htm), [lasershowsafety.info](https://lasershowsafety.info/styled/nonstacks/audscan.html), [Laserworld FAQ](https://www.laserworld.com/en/laser-safety-faq/1040-what-is-the-required-minimum-distance-to-a-laser-projector-to-do-a-safe-laser-show.html) |
+| Strobes | Photosensitive seizures are most likely at 16–25 flashes a second and rare below 3. UK broadcast rules cap flashing at 3 a second, combined with brightness and area limits. Live strobes aren't covered by UK law; guidance cited for clubs is 4 Hz at most. | [Epilepsy Society](https://epilepsysociety.org.uk/sites/default/files/2025-04/PhotosensitiveepilepsyApril2025.pdf), [W3C: three flashes](https://www.w3.org/WAI/WCAG20/Understanding/three-flashes-or-below-threshold) |
+| Screens and IMAG | IMAG brings the stage to the back of the room. Heavy effects defeat it; simple colour treatments and mild effects work. Some tours grade IMAG to black and white or sepia with film flicker (Sam Smith, Bon Iver, Pearl Jam), and Bon Iver's screens were moved in close to the stage at eye level. | [Festival Insights: IMAG](https://www.festivalinsights.com/2015/10/imag/), [TPi: Video Design for Bon Iver](https://tpimagazine.com/?p=28566), [LSi: XL Video for Sam Smith](https://lsionline.com/news/xl-video-supplies-grammy-winning-sam-smith-on-us-tour-nliaz7) |
+
+**Not found:**
+- any laser plot for an Alexandra Palace show (positions, counts or models)
+- a definitive glossary entry for "crossfire" and "convergence" (used here in their common sense: beams crossing from opposite sides; beams meeting at a point)
+- video of the shows, which couldn't be watched from here
+
+**What the scene takes from this:**
+- **Haze:** beams and lasers only show in haze, and thin out in clear air.
+- **Hits:** lasers end where they land, with dots on the vault, walls and floor.
+- **Colour:** RGB primaries, with white mixed from them.
+- **Height:** every beam stays above head height. The liquid sky is a flat sheet 3 m above the floor, not a face-level scan.
+- **Strobes:** a "Reduce flashing" setting caps them at 3 flashes a second.
+- **IMAG:** a light broadcast grade, with cuts between cameras.
+
 ### What the scene does
 - **The hall at its published size:**
   - 116.6 × 55.11 m
