@@ -20,6 +20,7 @@ import { Visualizer } from '../visualizer/Visualizer';
 import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
+import { FX } from './fx';
 import { LensOutputPass, NEUTRAL_GRADE } from './lens';
 import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
@@ -436,6 +437,7 @@ export class Stage {
 
   setQuality(q: Quality): void {
     this.quality = q;
+    FX.quality = q;
     this.keyLight.castShadow = q !== 'low';
     const size = q === 'high' ? 2048 : 1024;
     if (this.keyLight.shadow.mapSize.x !== size) {
@@ -457,6 +459,7 @@ export class Stage {
   /** Apply the adaptive quality step: render scale, crowd detail, effects. */
   applyAdaptive(): void {
     const st = this.adaptive.step;
+    FX.detail = st.crowdDetail;
     Crowd.detailDistance = (this.quality === 'high' ? 16 : this.quality === 'medium' ? 12 : 8) * st.crowdDetail;
     this.visualizer.bloomAllowed = st.visualizerBloom;
     this.resize();
@@ -717,7 +720,8 @@ export class Stage {
       return;
     }
     this.bloom.enabled = this.quality !== 'low';
-    this.bloom.strength = 0.5 + show.kick * 0.2 + show.drop * 0.35 + show.flash * 0.3;
+    // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky
+    this.bloom.strength = 0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1;
     // cinematic lens: streaks and ghosts off the brightest fixtures, the drone's wide lens and speed blur
     const drone = this.rig.droneFx;
     const a = drone.amount;
@@ -737,6 +741,8 @@ export class Stage {
     // live camera feeds (Boiler Room's stream monitor, Alexandra Palace's IMAG towers)
     const feed = venue?.feed;
     if (this.compiling) return;
+    // the venue's own off-screen renders (the floor light map)
+    venue?.prerender?.(r, dt);
     if (feed && this.frame % (feed.every ?? 3) === 0 && this.onScreen([feed.screen])) {
       const auto = r.shadowMap.autoUpdate;
       r.shadowMap.autoUpdate = false;

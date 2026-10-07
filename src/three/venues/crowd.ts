@@ -23,6 +23,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
 import { blobTexture } from './details';
+import { useLightMap, type LightMap } from './lightmap';
 import { rng } from './tex';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj';
@@ -52,6 +53,8 @@ export interface CrowdOptions {
   booth?: THREE.Vector3;
   /** soft contact shadows on the floor under each person (default on) */
   shadows?: boolean;
+  /** the venue's floor light map: people are lit by the light landing where they stand */
+  lightMap?: LightMap;
 }
 
 let shadowGeo: THREE.BufferGeometry | null = null;
@@ -410,6 +413,7 @@ export class Crowd implements Fixture {
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${FRAG_HEAD}`).replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`);
     };
     mat.customProgramCacheKey = () => 'crowd';
+    if (o.lightMap) useLightMap(mat, o.lightMap, 0.9);
 
     // per-person placement (facing, scale, clothes), then grouped into chunks
     const q = new THREE.Quaternion();

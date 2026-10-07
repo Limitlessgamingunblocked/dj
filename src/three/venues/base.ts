@@ -54,6 +54,8 @@ export interface VenueScene {
    */
   readonly toneMapping?: 'aces' | 'agx';
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
+  /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
+  prerender?(renderer: THREE.WebGLRenderer, dt: number): void;
   dispose(): void;
 }
 

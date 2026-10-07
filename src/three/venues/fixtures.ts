@@ -10,6 +10,9 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { fxTier } from '../fx';
+import { HAZE_GLSL } from './atmos';
+import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
 import type { ShowState } from './show';
 import { grilleTexture, mirrorBallTexture, rng, smokeTexture, softDotTexture, trussTexture } from './tex';
 
@@ -40,6 +43,7 @@ function hdr(c: THREE.Color, gain: number, out: THREE.Color): THREE.Color {
 /* ------------------------------------------------------------------ */
 
 const BEAM_VERT = /* glsl */ `
+  varying float vU;
   varying float vT;
   varying vec3 vN;
   varying vec3 vView;
@@ -48,6 +52,7 @@ const BEAM_VERT = /* glsl */ `
   varying float vNear;
   void main() {
     vT = uv.y;
+    vU = uv.x;
     vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
     vW = w.xyz;
     vec4 mv = viewMatrix * w;
@@ -61,17 +66,28 @@ const BEAM_VERT = /* glsl */ `
 const BEAM_FRAG = /* glsl */ `
   uniform float uTime;
   uniform float uHaze;
+  uniform float uSmoke;
+  uniform float uDust;
+  uniform vec2 uBand;
+  varying float vU;
   varying float vT;
   varying vec3 vN;
   varying vec3 vView;
   varying vec3 vColor;
   varying vec3 vW;
   varying float vNear;
+  ${HAZE_GLSL}
   void main() {
     float edge = pow(abs(dot(normalize(vN), normalize(vView))), 1.6) * vNear;
     float along = pow(vT, 1.25);
-    float n = 0.7 + 0.3 * sin(vW.x * 1.3 + uTime * 0.7) * sin(vW.y * 1.9 - uTime * 0.5) * sin(vW.z * 1.1 + uTime * 0.4);
-    gl_FragColor = vec4(vColor * edge * along * n * uHaze, 1.0);
+    // the beam shows where the haze is (the same haze the lasers cut through)
+    float hz = hazeAt(vW, uTime, uBand, uSmoke);
+    // gobo breakup: soft spokes turning slowly in the beam
+    float gobo = 0.8 + 0.2 * sin(vU * 6.2832 * 5.0 + uTime * 0.7);
+    // dust drifting through the light
+    vec3 cell = floor(vW * 6.0 + vec3(0.0, uTime * 0.5, 0.0));
+    float dust = step(0.9965, fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453)) * uDust;
+    gl_FragColor = vec4(vColor * edge * along * (gobo * (0.3 + 1.25 * hz) + dust * 2.5) * uHaze, 1.0);
   }`;
 
 export interface HeadSpec {
@@ -99,6 +115,8 @@ export class MovingHeads implements Fixture {
   private gain: number;
   /** pools of light where the beams hit the floor */
   private pools: THREE.InstancedMesh | null = null;
+  /** the venue's floor light map: pools are painted into it too */
+  lightMap: LightMap | null = null;
   private floorY = 0;
   private len: number;
   private rad: number;
@@ -111,7 +129,7 @@ export class MovingHeads implements Fixture {
 
   constructor(
     private specs: HeadSpec[],
-    o: { length?: number; radius?: number; gain?: number; body?: number; floorY?: number } = {},
+    o: { length?: number; radius?: number; gain?: number; body?: number; floorY?: number; haze?: [number, number] } = {},
   ) {
     const n = specs.length;
     const len = o.length ?? 12;
@@ -122,7 +140,7 @@ export class MovingHeads implements Fixture {
     const beamGeo = new THREE.CylinderGeometry(0.05, rad, len, 28, 1, true);
     beamGeo.translate(0, -len / 2 - 0.16, 0);
     this.beamMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uHaze: { value: 1 } },
+      uniforms: { uTime: { value: 0 }, uHaze: { value: 1 }, uSmoke: { value: 0.5 }, uDust: { value: 1 }, uBand: { value: new THREE.Vector2(...(o.haze ?? [-100, 100])) } },
       vertexShader: BEAM_VERT,
       fragmentShader: BEAM_FRAG,
       transparent: true,
@@ -165,7 +183,9 @@ export class MovingHeads implements Fixture {
     const t = s.t;
     const k = Math.min(1, dt * (s.moverPattern === 4 ? 9 : 5));
     this.beamMat.uniforms.uTime.value = t;
-    this.beamMat.uniforms.uHaze.value = 0.55 + s.smoke * 0.75;
+    this.beamMat.uniforms.uSmoke.value = s.smoke;
+    this.beamMat.uniforms.uHaze.value = 1.05;
+    this.beamMat.uniforms.uDust.value = fxTier() === 'low' ? 0 : 1;
     for (let i = 0; i < n; i++) {
       const u = n > 1 ? i / (n - 1) - 0.5 : 0;
       let pan = 0;
@@ -220,7 +240,10 @@ export class MovingHeads implements Fixture {
           this.p.copy(pos).addScaledVector(dir, t);
           this.p.y = this.floorY;
           this.m4.compose(this.p, this.yq, this.s.set(r * 2.4, 1, r * 2.4 * stretch));
-          this.pools.setColorAt(i, this.c.copy(col).multiplyScalar(level * 0.55 * (1 - 0.5 * Math.min(1, t / this.len))));
+          const pk = level * 0.55 * (1 - 0.5 * Math.min(1, t / this.len));
+          this.pools.setColorAt(i, this.c.copy(col).multiplyScalar(pk));
+          // and onto the light map, so the people standing there are lit
+          this.lightMap?.splat(this.p.x, this.p.z, r * 1.25, r * 1.25 * stretch, col, pk * 1.6, -Math.atan2(dir.x, dir.z));
         } else {
           this.m4.makeScale(0, 0, 0);
           this.pools.setColorAt(i, this.c.setRGB(0, 0, 0));
@@ -561,7 +584,8 @@ export class Co2Jets implements Fixture {
 
   update(s: ShowState, dt: number): void {
     if (s.co2) this.fire();
-    this.tint.value.copy(s.colors[0]).lerp(WHITE, 0.75).multiplyScalar(0.55 + s.wash * 0.4);
+    // the plume picks up the wash, and goes white in the strobes
+    this.tint.value.copy(s.colors[0]).lerp(WHITE, 0.75).multiplyScalar(0.55 + s.wash * 0.4 + s.flash * 0.6);
     const drag = Math.exp(-dt * 2.2);
     for (let k = 0; k < this.life.length; k++) {
       const l = (this.life[k] += dt);
@@ -595,13 +619,48 @@ export class Co2Jets implements Fixture {
 /* haze                                                                  */
 /* ------------------------------------------------------------------ */
 
+/*
+ * Haze, in three tiers (the effects level, src/three/fx.ts):
+ *   low     horizontal sheets of drifting noise (cheap; edge-on they're hidden)
+ *   medium  slices facing the camera at increasing distances, so the haze
+ *           reads as a volume from any angle, its density from the shared haze
+ *           field (atmos.ts) the beams and lasers use
+ *   high    more slices, lit from below by the venue's light map where it has
+ *           one (haze glows over the pools of light)
+ * Slices are one instanced draw.
+ */
 export class HazeLayer implements Fixture {
   readonly object = new THREE.Group();
-  private u = { uTime: { value: 0 }, uColor: { value: new THREE.Color() }, uDensity: { value: 0.5 } };
+  private u = {
+    uTime: { value: 0 },
+    uColor: { value: new THREE.Color() },
+    uDensity: { value: 0.5 },
+    uSmoke: { value: 0.5 },
+    uBand: { value: new THREE.Vector2() },
+    uBoxMin: { value: new THREE.Vector3() },
+    uBoxMax: { value: new THREE.Vector3() },
+    uLit: { value: 0 },
+  };
+  private sheets = new THREE.Group();
+  private slices: THREE.InstancedMesh;
+  private m4 = new THREE.Matrix4();
+  private q = new THREE.Quaternion();
+  private p = new THREE.Vector3();
+  private sc = new THREE.Vector3();
+  private fwd = new THREE.Vector3();
+  private static SLICES = 12;
 
-  /** `gain` scales the density (big rooms look through far more haze) */
-  constructor(box: THREE.Box3, sheets = 6, private gain = 1) {
-    const mat = new THREE.ShaderMaterial({
+  /** `gain` scales the density (big rooms look through far more haze); a light map lights it from below on High */
+  constructor(
+    box: THREE.Box3,
+    sheets = 6,
+    private gain = 1,
+    lightMap?: LightMap,
+  ) {
+    this.u.uBand.value.set(box.min.y, box.max.y);
+    this.u.uBoxMin.value.copy(box.min);
+    this.u.uBoxMax.value.copy(box.max);
+    const sheetMat = new THREE.ShaderMaterial({
       uniforms: this.u,
       vertexShader: /* glsl */ `
         varying vec2 vUv;
@@ -613,22 +672,16 @@ export class HazeLayer implements Fixture {
           gl_Position = projectionMatrix * viewMatrix * w;
         }`,
       fragmentShader: /* glsl */ `
-        uniform float uTime, uDensity;
+        uniform float uTime, uDensity, uSmoke;
+        uniform vec2 uBand;
         uniform vec3 uColor;
         varying vec2 vUv;
         varying vec3 vW;
-        float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-        float n(vec2 p) {
-          vec2 i = floor(p), f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-          return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y);
-        }
+        ${HAZE_GLSL}
         void main() {
-          vec2 p = vW.xz * 0.18 + vec2(vW.y * 0.1, 0.0);
-          float v = n(p + uTime * 0.05) * 0.6 + n(p * 2.3 - uTime * 0.07) * 0.4;
+          float v = hazeAt(vW, uTime, vec2(-100.0, 100.0), uSmoke) * 1.4;
           float edge = smoothstep(0.0, 0.25, vUv.x) * smoothstep(1.0, 0.75, vUv.x) * smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
-          // hide the sheet structure: fade near the camera, and only where a sheet
-          // is seen almost exactly edge-on (a wider fade empties the distant haze)
+          // hide the sheet structure: fade near the camera, and only where a sheet is seen almost exactly edge-on
           vec3 toCam = cameraPosition - vW;
           float dist = length(toCam);
           float near = smoothstep(0.6, 3.5, dist);
@@ -643,18 +696,194 @@ export class HazeLayer implements Fixture {
     const size = box.getSize(new THREE.Vector3());
     const c = box.getCenter(new THREE.Vector3());
     for (let i = 0; i < sheets; i++) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.z), mat);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.z), sheetMat);
       m.rotation.x = -Math.PI / 2;
       m.position.set(c.x, box.min.y + (size.y * (i + 0.5)) / sheets, c.z);
-      this.object.add(m);
+      this.sheets.add(m);
     }
+    // camera-facing slices
+    const sliceU: Record<string, THREE.IUniform> = { ...this.u };
+    if (lightMap) Object.assign(sliceU, lightMap.uniforms);
+    const sliceMat = new THREE.ShaderMaterial({
+      uniforms: sliceU,
+      defines: lightMap ? { USE_LM: '' } : {},
+      vertexShader: /* glsl */ `
+        attribute float iAmp;
+        varying vec3 vW;
+        varying float vAmp;
+        void main() {
+          vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
+          vW = w.xyz;
+          vAmp = iAmp;
+          gl_Position = projectionMatrix * viewMatrix * w;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uTime, uDensity, uSmoke, uLit;
+        uniform vec2 uBand;
+        uniform vec3 uColor, uBoxMin, uBoxMax;
+        varying vec3 vW;
+        varying float vAmp;
+        ${HAZE_GLSL}
+        #ifdef USE_LM
+          ${LIGHTMAP_GLSL}
+        #endif
+        void main() {
+          // only inside the haze volume, softly
+          vec3 a = smoothstep(uBoxMin - 1.5, uBoxMin + 1.5, vW) * (1.0 - smoothstep(uBoxMax - 1.5, uBoxMax + 1.5, vW));
+          float inside = a.x * a.z;
+          float d = hazeAt(vW, uTime, uBand, uSmoke) * inside;
+          vec3 col = uColor;
+          #ifdef USE_LM
+            // lit from below by the pools of light on the floor
+            col += lightMapPools(vW) * uLit * exp(-max(0.0, vW.y - uBoxMin.y) * 0.25);
+          #endif
+          gl_FragColor = vec4(col * d * uDensity * vAmp, 1.0);
+        }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const n = HazeLayer.SLICES;
+    const sliceGeo = new THREE.PlaneGeometry(1, 1);
+    sliceGeo.setAttribute('iAmp', new THREE.InstancedBufferAttribute(new Float32Array(n), 1).setUsage(THREE.DynamicDrawUsage));
+    this.slices = new THREE.InstancedMesh(sliceGeo, sliceMat, n);
+    this.slices.frustumCulled = false;
+    this.object.add(this.sheets, this.slices);
+  }
+
+  update(s: ShowState, _dt: number, camera: THREE.Camera): void {
+    this.u.uTime.value = s.t;
+    this.u.uSmoke.value = s.smoke;
+    this.u.uColor.value.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.2));
+    // a strobe lights the haze, but it shouldn't fill the frame with fog
+    this.u.uDensity.value = (0.025 + s.smoke * 0.05) * (0.4 + s.wash + s.flash * 0.35) * s.master * this.gain;
+    const tier = fxTier();
+    this.sheets.visible = tier === 'low';
+    this.slices.visible = tier !== 'low';
+    if (tier === 'low') return;
+    this.u.uLit.value = tier === 'high' ? 0.22 : 0;
+    // slices in front of the camera, spaced out with distance; each weighs the depth of haze it stands for
+    const cam = camera as THREE.PerspectiveCamera;
+    const n = tier === 'high' ? HazeLayer.SLICES : 7;
+    const amp = this.slices.geometry.getAttribute('iAmp') as THREE.InstancedBufferAttribute;
+    const fov = THREE.MathUtils.degToRad(cam.fov ?? 50);
+    const aspect = cam.aspect ?? 1.6;
+    camera.getWorldQuaternion(this.q);
+    camera.getWorldPosition(this.p);
+    this.fwd.set(0, 0, -1).applyQuaternion(this.q);
+    const near = 2.5;
+    const far = 70;
+    let prev = near;
+    for (let i = 0; i < HazeLayer.SLICES; i++) {
+      if (i >= n) {
+        this.m4.makeScale(0, 0, 0);
+        this.slices.setMatrixAt(i, this.m4);
+        amp.setX(i, 0);
+        continue;
+      }
+      const d = near * Math.pow(far / near, (i + 0.5) / n);
+      const h = 2 * d * Math.tan(fov / 2) * 1.2;
+      this.m4.compose(this.sc.copy(this.p).addScaledVector(this.fwd, d), this.q, new THREE.Vector3(h * aspect, h, 1));
+      this.slices.setMatrixAt(i, this.m4);
+      const next = near * Math.pow(far / near, (i + 1) / n);
+      amp.setX(i, (next - prev) * 0.07 * smoothstepJs(near, near + 2, d));
+      prev = next;
+    }
+    amp.needsUpdate = true;
+    this.slices.instanceMatrix.needsUpdate = true;
+  }
+}
+
+/*
+ * Hazers on stage puffing clouds that roll out over the crowd and thin away.
+ * Every particle's life is worked out in the shader from the clock (no CPU
+ * work per frame); one draw. Medium and High only.
+ */
+export class Hazers implements Fixture {
+  readonly object: THREE.Points;
+  private u = {
+    uTime: { value: 0 },
+    uPuff: { value: 0.5 },
+    uColor: { value: new THREE.Color() },
+    uMap: { value: smokeTexture() },
+  };
+
+  /** each hazer at `pos`, its output drifting along `dir` (m/s) */
+  constructor(spots: { pos: THREE.Vector3; dir: THREE.Vector3 }[], perHazer = 24) {
+    const n = spots.length * perHazer;
+    const pos = new Float32Array(n * 3);
+    const dir = new Float32Array(n * 3);
+    const seed = new Float32Array(n);
+    const r = rng(77);
+    spots.forEach((sp, h) => {
+      for (let i = 0; i < perHazer; i++) {
+        const k = h * perHazer + i;
+        pos.set([sp.pos.x, sp.pos.y, sp.pos.z], k * 3);
+        dir.set([sp.dir.x * (0.8 + r() * 0.4), sp.dir.y, sp.dir.z * (0.8 + r() * 0.4)], k * 3);
+        seed[k] = (i + r() * 0.6) / perHazer;
+      }
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aDir', new THREE.BufferAttribute(dir, 3));
+    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+    this.object = new THREE.Points(
+      g,
+      new THREE.ShaderMaterial({
+        uniforms: this.u,
+        vertexShader: /* glsl */ `
+          attribute vec3 aDir;
+          attribute float aSeed;
+          uniform float uTime, uPuff;
+          varying float vA;
+          varying float vR;
+          void main() {
+            const float LIFE = 11.0;
+            float age = mod(uTime + aSeed * LIFE, LIFE);
+            float k = age / LIFE;
+            vec3 p = position + aDir * age + vec3(sin(age * 0.7 + aSeed * 40.0), 0.0, cos(age * 0.5 + aSeed * 31.0)) * age * 0.18;
+            p.y += age * 0.16 + 0.6;
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            float d = -mv.z;
+            // in quickly, then thinning away; never right on the lens
+            vA = smoothstep(0.0, 0.08, k) * pow(1.0 - k, 1.6) * uPuff * smoothstep(1.5, 4.0, d);
+            vR = aSeed * 6.2832;
+            gl_PointSize = min((1.2 + k * 5.0) * 700.0 / max(d, 0.5), 320.0);
+            gl_Position = projectionMatrix * mv;
+          }`,
+        fragmentShader: /* glsl */ `
+          uniform sampler2D uMap;
+          uniform vec3 uColor;
+          varying float vA;
+          varying float vR;
+          void main() {
+            vec2 c = gl_PointCoord - 0.5;
+            vec2 q = vec2(c.x * cos(vR) - c.y * sin(vR), c.x * sin(vR) + c.y * cos(vR)) + 0.5;
+            gl_FragColor = vec4(uColor * texture2D(uMap, q).a * vA, 1.0);
+          }`,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.object.frustumCulled = false;
   }
 
   update(s: ShowState, dt: number): void {
     this.u.uTime.value += dt;
-    this.u.uColor.value.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.2));
-    this.u.uDensity.value = (0.025 + s.smoke * 0.05) * (0.4 + s.wash + s.flash) * s.master * this.gain;
+    this.object.visible = fxTier() !== 'low';
+    // the operator pumps more haze through a build-up
+    this.u.uPuff.value = (0.25 + s.smoke * 0.5 + s.build * 0.4) * s.master;
+    // lit by the wash, white in the strobes
+    this.u.uColor.value.copy(s.colors[0]).lerp(WHITE, 0.55).multiplyScalar(0.05 + s.wash * 0.05 + s.flash * 0.18);
   }
+}
+
+function smoothstepJs(a: number, b: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
 }
 
 export { Crowd, crowdArea, type CrowdRole, type CrowdSpot } from './crowd';

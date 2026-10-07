@@ -28,7 +28,8 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
 import { FarCrowd, scatter } from './farcrowd';
-import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
+import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, Hazers, LedStrings, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
+import { LightMap, ScreenAverage, useLightMap } from './lightmap';
 import { Lasers, laserStands, type AudienceZone, type RoomProxy } from './lasers';
 import { LightField } from './lightfield';
 import type { ShowState } from './show';
@@ -279,14 +280,22 @@ class AllyPally extends VenueBase {
   private rose!: THREE.MeshBasicMaterial;
   private field: LightField | null = null;
   private fieldLights: THREE.PointLight[] = [];
-  private far: FarCrowd | null = null;
   private tally: THREE.MeshBasicMaterial | null = null;
   private c = new THREE.Color();
+  /** the light on the floor, read by the floor and both crowds */
+  private lm: LightMap;
+  /** the LED wall's average colour, for its spill */
+  private screenAvg: ScreenAverage | null = null;
+  private wallLight: THREE.PointLight | null = null;
+  private blinderLight: THREE.PointLight | null = null;
+  private warm = new THREE.Color(1, 0.62, 0.28);
 
   constructor(layout: Layout) {
     const FL = layout === 'arena' ? -1.8 : -1.5;
     super({ fog: 0x04050a, fogDensity: 0.0125, hemiSky: 0x2c3242, hemiGround: 0x16130f, hemi: 0.15, flashAt: V(0, 14, layout === 'arena' ? -30 : 0), flashRange: 90 });
     this.toneMapping = 'agx';
+    const zA = layout === 'arena' ? 13 : HALL.length / 2;
+    this.lm = new LightMap(new THREE.Vector2(-HALL.width / 2, zA - HALL.length), new THREE.Vector2(HALL.width, HALL.length));
     if (layout === 'arena') {
       // stage end wall 13 m behind the DJ; the hall runs 116.6 m to the organ
       this.buildHall(FL, 13);
@@ -337,6 +346,7 @@ class AllyPally extends VenueBase {
     const ft = floorTexture('#151517', 'ally');
     ft.repeat.set(12, 26);
     const floorMat = withSurface(new THREE.MeshStandardMaterial({ map: ft, metalness: 0.08 }), 'ally-floor', { bumps: 0.25, grain: 0.3, seams: 64, rough: 0.55, roughVar: 0.08, polish: 0.25, repeat: 12, normalScale: 0.4 });
+    useLightMap(floorMat, this.lm, 0.7);
     const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(W, L).rotateX(-Math.PI / 2), floorMat);
     floorMesh.position.set(0, FL, zMid);
     floorMesh.receiveShadow = true;
@@ -609,13 +619,15 @@ class AllyPally extends VenueBase {
         ...stageRows.flatMap((z) => [-10.8, -8.4, -6, -3.6, -1.2, 1.2, 3.6, 6, 8.4, 10.8].map((x) => ({ pos: V(x, TRIM - 0.45, z) }))),
         ...[-10, -7.5, -5, -2.5, 2.5, 5, 7.5, 10].map((x) => ({ pos: V(x, 0.32, 8.1), up: true })),
       ],
-      { length: 24, radius: 1.25, gain: 1.15, floorY: FL },
+      { length: 24, radius: 1.25, gain: 1.15, floorY: FL, haze: [FL + 1, FL + 22] },
     );
+    stageHeads.lightMap = this.lm;
     this.add(stageHeads);
     const audHeads = new MovingHeads(
       audRows.flatMap((z) => [-19, -13.5, -8, -2.7, 2.7, 8, 13.5, 19].map((x) => ({ pos: V(x, TRIM - 0.45, z) }))),
-      { length: 18, radius: 1.5, gain: 0.95, floorY: FL },
+      { length: 18, radius: 1.5, gain: 0.95, floorY: FL, haze: [FL + 1, FL + 22] },
     );
+    audHeads.lightMap = this.lm;
     this.add(audHeads);
     // strobe bars: on the stage trusses, along the lip, and over the crowd
     this.add(
@@ -717,6 +729,7 @@ class AllyPally extends VenueBase {
         phones: 0.08,
         signs: 7,
         drinks: 0.12,
+        lightMap: this.lm,
       }),
     );
     // engineers at the desk (hands on the faders), facing the stage
@@ -734,9 +747,18 @@ class AllyPally extends VenueBase {
       const t = (z - backZ) / (front - backZ);
       return 1.25 + 1.65 * t * t;
     };
-    this.add(new FarCrowd(scatter(-hw, hw, backZ, front, density, 1988, avoid).map((p) => ({ ...p, y: FL })), { seed: 1873, clothes, phones: 0.07, focus: V(0, 4, 4) }));
+    this.add(new FarCrowd(scatter(-hw, hw, backZ, front, density, 1988, avoid).map((p) => ({ ...p, y: FL })), { seed: 1873, clothes, phones: 0.07, focus: V(0, 4, 4), lightMap: this.lm }));
 
-    this.add(new HazeLayer(new THREE.Box3(V(-26, FL + 3, -96), V(26, FL + 21, 6)), 7, 0.5));
+    this.add(new HazeLayer(new THREE.Box3(V(-26, FL + 3, -96), V(26, FL + 21, 6)), 7, 0.5, this.lm));
+    // hazers on stage, their clouds rolling out over the front of the crowd
+    this.add(new Hazers([V(-11, 0, 1), V(11, 0, 1), V(-6, 0, 7.5), V(6, 0, 7.5)].map((pos) => ({ pos, dir: V(-pos.x * 0.02, 0, -0.55) }))));
+    // the LED wall's light spills onto the stage, the front rows and the vault; blinders light the front rows warm
+    this.screenAvg = new ScreenAverage();
+    this.wallLight = new THREE.PointLight(0xffffff, 0, 45, 1.5);
+    this.wallLight.position.set(0, 4.8, 6.5);
+    this.blinderLight = new THREE.PointLight(0xffa060, 0, 28, 1.6);
+    this.blinderLight.position.set(0, 6, -3.5);
+    this.group.add(this.wallLight, this.blinderLight);
 
     // colour washes: stage, the floor, the vault, and the organ end
     this.wash(V(0, 9, 3), 0, 9, 24);
@@ -830,12 +852,12 @@ class AllyPally extends VenueBase {
       [-20, 40],
       [20, 40],
     ];
-    this.add(
-      new MovingHeads(
-        corners.flatMap(([x, z]) => [-1.5, 0, 1.5].map((d) => ({ pos: V(x + d, top - 0.3, z), yaw: Math.atan2(x, z) }))),
-        { length: 22, radius: 1.2, gain: 0.8, floorY: FL },
-      ),
+    const cornerHeads = new MovingHeads(
+      corners.flatMap(([x, z]) => [-1.5, 0, 1.5].map((d) => ({ pos: V(x + d, top - 0.3, z), yaw: Math.atan2(x, z) }))),
+      { length: 22, radius: 1.2, gain: 0.8, floorY: FL, haze: [FL + 1, FL + 22] },
     );
+    cornerHeads.lightMap = this.lm;
+    this.add(cornerHeads);
     this.add(new Strobes(corners.flatMap(([x, z]) => [-0.8, 0.8].map((d) => ({ pos: V(x + d, top - 0.4, z), tilt: Math.PI / 2 }))), [1.0, 0.12, 0.12]));
 
     // lasers: a ring on the riser firing up through the field, the grid's corners and both ends
@@ -879,7 +901,7 @@ class AllyPally extends VenueBase {
       const toSub = Math.abs(a - Math.round(a / (Math.PI / 2)) * (Math.PI / 2));
       return r > RB + 0.45 && r < NEAR && !(toSub < 0.2 && r < 5.6);
     });
-    this.add(new Crowd(near, { seed: 2023, clothes, phones: 0.05, drinks: 0.14 }));
+    this.add(new Crowd(near, { seed: 2023, clothes, phones: 0.05, drinks: 0.14, lightMap: this.lm }));
     const avoid = [
       new THREE.Box2(new THREE.Vector2(-5.5, FOH_Z - 3.5), new THREE.Vector2(5.5, FOH_Z + 3.5)),
       new THREE.Box2(new THREE.Vector2(-hw, 32), new THREE.Vector2(-hw + 4.5, 48)),
@@ -891,9 +913,14 @@ class AllyPally extends VenueBase {
       if (Math.abs(x) > hw - 1.6) return 0;
       return 2.2 - 1.15 * Math.min(1, (r - NEAR) / 40);
     };
-    this.far = this.add(new FarCrowd(scatter(-hw, hw, zB + 7.5, -zB - 2, density, 2023, avoid).map((p) => ({ ...p, y: FL })), { seed: 2019, clothes, phones: 0.04, focus: V(0, 3, 0) }));
+    this.add(new FarCrowd(scatter(-hw, hw, zB + 7.5, -zB - 2, density, 2023, avoid).map((p) => ({ ...p, y: FL })), { seed: 2019, clothes, phones: 0.04, focus: V(0, 3, 0), lightMap: this.lm }));
 
-    this.add(new HazeLayer(new THREE.Box3(V(-26, FL + 3, -54), V(26, FL + 20, 54)), 7, 0.5));
+    this.add(new HazeLayer(new THREE.Box3(V(-26, FL + 3, -54), V(26, FL + 20, 54)), 7, 0.5, this.lm));
+    // hazers round the riser
+    this.add(new Hazers([0, 1, 2, 3].map((k) => {
+      const a = (k / 4) * Math.PI * 2;
+      return { pos: V(Math.cos(a) * 4.2, FL + 0.2, Math.sin(a) * 4.2), dir: V(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5) };
+    })));
     this.wash(V(0, FL + 19, -30), 2, 8, 42, 0.4);
     this.wash(V(0, FL + 19, 30), 1, 8, 42, 0.4);
     // the field and the corner beams spill onto the people round the riser
@@ -913,8 +940,27 @@ class AllyPally extends VenueBase {
   }
 
   update(...args: Parameters<VenueBase['update']>): void {
+    // a new frame of light on the floor: the moving heads paint their pools as they update
+    this.lm.begin();
     super.update(...args);
     const s: ShowState = args[0];
+    const m = s.master;
+    // strobes and blinders light the whole room at once
+    const w = s.flash * 0.28 + s.strobe * m * 0.18;
+    this.lm.flash(w, w, w * 1.05);
+    if (this.screenAvg && this.wallLight) {
+      // the LED wall's picture lights the front of the room in its own colours
+      const col = this.screenAvg.color;
+      const lum = col.r * 0.2126 + col.g * 0.7152 + col.b * 0.0722;
+      this.lm.splat(0, -9, 17, 8, col, 1.1 * m);
+      this.lm.splat(0, -17, 24, 15, col, 0.35 * m);
+      this.wallLight.color.copy(col).multiplyScalar(1 / Math.max(0.05, Math.max(col.r, col.g, col.b)));
+      this.wallLight.intensity = 90 * lum * m;
+    }
+    if (this.blinderLight) {
+      this.lm.splat(0, -7.5, 18, 5, this.warm, s.blinder * 2.4);
+      this.blinderLight.intensity = s.blinder * 60;
+    }
     // the rose window catches the show's light
     const lit = (0.18 + s.wash * 0.25 + s.kick * 0.06 + s.flash * 0.6) * (0.4 + 0.6 * s.master);
     this.rose.color.setRGB(lit, lit, lit).lerp(this.c.copy(s.colors[0]).multiplyScalar(lit), 0.25);
@@ -925,9 +971,22 @@ class AllyPally extends VenueBase {
         l.color.copy(s.colors[0]).lerp(this.c.setRGB(1, 0.82, 0.62), 0.6);
         l.intensity = 18 * g;
       }
-      // the people under the field catch its glow
-      this.far?.ambient(this.c.setRGB(1, 0.8, 0.6).multiplyScalar(0.02 + g * 0.1));
+      // the floor and the people under the field catch its glow
+      this.c.copy(s.colors[0]).lerp(this.warm.setRGB(1, 0.82, 0.62), 0.6);
+      this.lm.splat(0, 0, 26, 52, this.c, 0.12 + g * 0.35);
+      this.warm.setRGB(1, 0.62, 0.28);
     }
+  }
+
+  prerender(renderer: THREE.WebGLRenderer, dt: number): void {
+    this.screenAvg?.update(renderer, this.visMaterials[0]?.map, dt);
+    this.lm.render(renderer);
+  }
+
+  dispose(): void {
+    super.dispose();
+    this.lm.dispose();
+    this.screenAvg?.dispose();
   }
 }
 

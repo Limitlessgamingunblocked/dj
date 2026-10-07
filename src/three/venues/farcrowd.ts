@@ -7,8 +7,11 @@
  *     the drop, jumps on the peak, phones held up by some
  *   – bob and sway on the beat with a per-person phase, so the floor moves
  *     like a crowd rather than a pattern
- *   – lit by the show: front-lit when you look at them from the stage,
- *     silhouettes against the light from behind; phone screens glow
+ *   – lit by the show: with a floor light map (lightmap.ts) each person is lit
+ *     by the light actually landing where they stand (beam pools, the LED
+ *     wall's spill, blinders, strobes); without one, by drifting pools.
+ *     Front-lit seen from the stage, silhouettes against the light from
+ *     behind; phone screens glow
  *   – cards turn part-way towards a camera looking down on them (the drone),
  *     so they don't flatten into slivers from above
  * A sold-out room needs ~10,000 people; at ~600–1,200 triangles a jointed
@@ -18,6 +21,7 @@
 import * as THREE from 'three';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
+import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
 import { canvasTexture, rng } from './tex';
 
 export interface FarSpot {
@@ -160,6 +164,9 @@ function atlas(): THREE.CanvasTexture {
 /* ------------------------------------------------------------------ */
 
 const VERT = /* glsl */ `
+  #ifdef USE_LM
+    ${LIGHTMAP_GLSL}
+  #endif
   attribute vec4 iData; // seed, phone, scale, skin tone
   uniform float uBeat, uBob, uHands, uJump, uCheer, uTime;
   uniform vec3 uLight, uAmb, uFocus, uWhite;
@@ -216,11 +223,16 @@ const VERT = /* glsl */ `
     // lit by the show: faces towards the light are bright, backs are silhouettes
     vec3 toFocus = uFocus - c;
     float facing = dot(normalize(vec3(toFocus.x, 0.0, toFocus.z)), hz);
-    // pools of light sweeping over the floor (the moving heads); most people are in the dark
-    float pool = smoothstep(0.58, 0.9, vn(c.xz * 0.09 + vec2(uTime * 0.11, -uTime * 0.07)));
-    pool += smoothstep(0.7, 0.95, vn(c.xz * 0.05 - vec2(uTime * 0.05, uTime * 0.09) + 17.0)) * 0.6;
     float own = 0.7 + 0.6 * fract(seed * 41.3);
-    vLit = uAmb + uLight * (0.2 + 0.8 * max(0.0, facing)) * (0.06 + 2.2 * pool) * own + uWhite;
+    #ifdef USE_LM
+      // the light landing where this person stands
+      vLit = uAmb + lightMapAt(c) * (0.45 + 0.55 * max(0.0, facing)) * own * 1.1 + uLight * 0.15 * (0.2 + 0.8 * max(0.0, facing)) + uWhite;
+    #else
+      // pools of light sweeping over the floor (the moving heads); most people are in the dark
+      float pool = smoothstep(0.58, 0.9, vn(c.xz * 0.09 + vec2(uTime * 0.11, -uTime * 0.07)));
+      pool += smoothstep(0.7, 0.95, vn(c.xz * 0.05 - vec2(uTime * 0.05, uTime * 0.09) + 17.0)) * 0.6;
+      vLit = uAmb + uLight * (0.2 + 0.8 * max(0.0, facing)) * (0.06 + 2.2 * pool) * own + uWhite;
+    #endif
   }`;
 
 const FRAG = /* glsl */ `
@@ -252,7 +264,7 @@ export class FarCrowd implements Fixture {
   private cheer = 0;
   private c = new THREE.Color();
 
-  constructor(spots: FarSpot[], o: { seed?: number; clothes?: string[]; phones?: number; focus?: THREE.Vector3 } = {}) {
+  constructor(spots: FarSpot[], o: { seed?: number; clothes?: string[]; phones?: number; focus?: THREE.Vector3; lightMap?: LightMap } = {}) {
     const r = rng(o.seed ?? 7);
     const clothes = (o.clothes ?? ['#121316', '#1b1d22', '#0d0e10', '#2a2d33', '#3a2f2a', '#c9c6bf', '#4a1c22', '#1d2b3a']).map((c) => new THREE.Color(c));
     this.u = THREE.UniformsUtils.merge([
@@ -274,7 +286,8 @@ export class FarCrowd implements Fixture {
     ]);
     this.u.uAtlas.value = atlas();
     (this.u.uFocus.value as THREE.Vector3).copy(o.focus ?? new THREE.Vector3(0, 2, 0));
-    const mat = new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: VERT, fragmentShader: FRAG, fog: true });
+    if (o.lightMap) Object.assign(this.u, o.lightMap.uniforms);
+    const mat = new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: VERT, fragmentShader: FRAG, fog: true, defines: o.lightMap ? { USE_LM: '' } : {} });
     const geo = new THREE.PlaneGeometry(1, 1).translate(0, 0.5, 0);
     const n = spots.length;
     const data = new Float32Array(n * 4);
@@ -327,7 +340,7 @@ export class FarCrowd implements Fixture {
     // beams are saturated in the haze, but the light they put on people reads paler
     light.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.4)).lerp(PALE, 0.35).multiplyScalar((0.05 + s.wash * 0.12 + s.kick * 0.1) * m);
     // strobes and blinders light everyone at once
-    const w = s.flash * 0.7 + s.strobe * m * 0.35;
+    const w = s.flash * 0.45 + s.strobe * m * 0.25;
     (u.uWhite.value as THREE.Color).setRGB(w, w, w * 1.05);
     u.uPhoneGlow.value = 1.6 + s.flash;
   }
