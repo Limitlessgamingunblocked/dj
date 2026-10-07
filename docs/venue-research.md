@@ -109,6 +109,50 @@ Based on large warehouse clubs such as Depot Mayfield (home of The Warehouse Pro
 
 ---
 
+## Alexandra Palace, London (the Great Hall)
+
+Added in October 2026 as two venues: an arena end-stage production, and an in-the-round production under a field of hanging lights.
+
+| | Finding | Source |
+|---|---|---|
+| Size | The Great Hall is 116.6 m long and 55.11 m wide, with 6,426 m² of pillar-free floor. Height runs from 14 m minimum to 25 m maximum. Capacity is 10,250 standing, 7,000 theatre-style. | [Alexandra Palace venue hire](https://www.alexandrapalace.com/venue-hire/spaces/), [alexandrapalace.com](https://www.alexandrapalace.com/?p=27226) |
+| Roof and ceiling | After the 1980 fire, the original columns and glazed roof were not reinstated. A new pitched roof hangs below tubular lattice girders, with a ceiling of tensioned acoustic fabric imitating a barrel vault. The palace reopened on 17 March 1988. | Historic England list entry, via search summaries of [British Listed Buildings](https://britishlistedbuildings.co.uk/101268256-alexandra-palace-including-former-alexandra-palace-station-to-north-alexandra-ward) and the [Haringey conservation plan summary](https://www.minutes.haringey.gov.uk/documents/s25456/Appendix%201%20CMP%20Executive%20Summary%20SAC%20CC%206%20March%202012.pdf) |
+| Rose window | A large circular rose window at one end, described by venue listings as the room's focal point and its source of daylight. The great rose window behind the organ was blown out by a flying bomb in 1944. The rebuild allowed for a rose window designed by Maria McClafferty (spelled McLafferty in some sources); her design itself isn't documented online. | [Organ Appeal history](https://allypallyorgan.org.uk/organ-history/), [Hastings Online Times](https://hastingsonlinetimes.co.uk/arts-culture/visual-arts/grenadian-dreams), [Tagvenue listing](https://www.tagvenue.com/rooms/london/143/alexandra-palace/great-hall) |
+| Organ | Father Willis's Grand Concert Organ stands on a gallery at the rose-window end. It was rebuilt in stages after the fire; the gallery took shape in 1986, and the organ was installed on it in 1989. | [Organ Appeal history](https://allypallyorgan.org.uk/organ-history/), [Alexandra Palace blog](https://www.alexandrapalace.com/blog/the-finest-concert-organ-in-europe/) |
+| Rigging | An older trade report says the vaulted roof was not designed for heavy production rigging: 1,500 kg per arch, 500 kg per point. Shows were flown from the roof's 15 ft-deep trusses. Eric Prydz's EPIC set needed 50 points, with 130 moving lights on the trussing. | [LSi: MOBOs fly at Ally Pally](https://lsionline.com/news/mobos-fly-at-ally-pally-gtmr36), [LSi: EPIC](https://lsionline.co.uk/news/colour-sound-supplies-epic-palace-show--qcwvj1) |
+| Arena productions | Skepta: a 23 m × 7 m upstage LED wall (5,888 × 1,792 px, 600+ tiles), twin LED video towers, 100+ wash/strobe fixtures and audience lighting across the hall. Bicep: banks of screens flanking the duo, lasers in purple, red and white, crimson and white strobes. Jamie xx: audience-side trusses of strobes and spots, with cameras on the crowd. | [LSi: VER for Skepta](https://lsionline.com/news/ver-supports-skepta-at-alexandra-palace), [Rolling Stone UK](https://www.rollingstone.co.uk/music/how-bicep-created-one-of-2022s-must-see-live-shows-24604/), [The Upcoming](https://theupcoming.co.uk/?p=457905), [TPi](https://www.tpimagazine.com/from-render-to-reality-tom-edwards-reflects-on-jamie-xx-live-at-ally-pally/) |
+| In the round | Four Tet with Squidsoup (2019 and May 2023) played from the middle of the room, with about 10,000 people around and 42,000+ hanging lights reacting to the music overhead, plus surround sound. The design made the dance floor, not the artist, the focus. Fred again.. (2026) also pulled the decks forward into the room, with crowd behind them. | [Clash](https://www.clashmusic.com/?p=360078), [Mixmag](https://mixmag.net/read/four-tet-self-releases-live-album-from-his-alexandra-palace-show-news), [Crack](https://crackmagazine.net/2018/10/four-tet-to-play-londons-alexandra-palace-with-immersive-light-installation/), [DIY](https://diymag.com/review/live/fred-again-alexandra-palace-london) |
+
+**Unverified or not found:**
+- **Layout:** which end the stage usually sits at, and which compass end has the organ. Sources disagree about north and south, so the scene puts the organ opposite the stage, which matches the "focal point at the far end" descriptions.
+- **Walls:** the side-wall design, the number of vault bays and the colours. The bays, ribs, columns, doors and wall finish are plausible reconstructions, not surveyed.
+- **The window:** the rose window's actual pattern. The scene's tracery and glass are generic, drawn from the form of a rose window.
+- **The lights field:** Squidsoup's grid size and spacing. The scene's field is a generic implementation of the idea.
+- **Not watched:** no video of any show could be watched from here.
+
+**Palette.** Dark floor and walls under a pale fabric vault. Arena: white, red and violet beams with a bright LED wall. In the round: warm white bulbs with cool accents.
+
+### What the scene does
+- **The hall at its published size:**
+  - 116.6 × 55.11 m
+  - a segmental fabric vault springing at 14 m and peaking at 25 m, in ten bays between ribs on steel columns
+  - doors and exits along the walls
+  - the organ on its gallery with five pipe towers, the rose window behind it, and a bar under the gallery
+- **Arena:**
+  - a 23 × 7 m LED wall with the visual player, cropped to the wall's shape, and two portrait LED towers showing a live pit camera on the DJ (IMAG)
+  - flown main, sub and side hangs with delays halfway down, a sub line in the pit, front fills and a barrier
+  - three stage trusses and three audience trusses with 62 moving heads (8 of them standing upstage, firing up), 35 strobe bars and 8 blinders
+  - lasers from the stage and above the wall, CO2 and cold sparks
+  - a mix position with engineers at the desk, and bars
+  - about 8,000 people: 516 jointed dancers at the front and 7,450 animated cut-outs behind them
+- **In the round:**
+  - a 1.5 m round riser with a light rim, a barrier ring and four sub stacks
+  - 43,125 hanging lights over the floor, playing kick ripples, build-up sweeps, drop flashes and colour clouds
+  - a surround PA of eight hangs, a few corner beams, and a mix position behind the DJ
+  - about 8,400 people all the way round
+
+---
+
 ## Across all venues
 - Venues are darker and more contrasty than the scenes: light comes in pools from fixtures, not from ambient fill.
 - Real rooms have edges: bars, exit signs, doors, pipes and ducts, cables and gaffer tape around the booth.

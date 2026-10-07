@@ -32,6 +32,8 @@ export interface LiveFeed {
   target: THREE.WebGLRenderTarget;
   /** the object showing the feed; rendering is skipped when it's off screen */
   screen: THREE.Object3D;
+  /** render the feed every n-th frame (default 3) */
+  every?: number;
 }
 
 export interface VenueScene {

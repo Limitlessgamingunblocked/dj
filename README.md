@@ -1,6 +1,6 @@
 # Deckhouse DJ
 
-A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks or the house warehouse — each with its own room, a dancing crowd (sign holders, VIP guests by the booth) and a light show of lasers, moving heads, strobes, blinders, CO2 and pyro that follows the beat. Fly an FPV drone camera through the room. Load your own music, mix it, add effects and watch an audio-reactive visual player, with the lyrics of whatever is playing as kinetic type on the LED walls.
+A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks, Alexandra Palace (an arena show, or in the round under 43,000 hanging lights) or the house warehouse — each with its own room, a dancing crowd (sign holders, VIP guests by the booth) and a light show of lasers, moving heads, strobes, blinders, CO2 and pyro that follows the beat. Fly an FPV drone camera through the room. Load your own music, mix it, add effects and watch an audio-reactive visual player, with the lyrics of whatever is playing as kinetic type on the LED walls.
 
 It opens ready to play: two generated demo tracks are already loaded on decks 1 and 2.
 
@@ -14,7 +14,7 @@ It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library int
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (serve over http(s) or localhost)
-npm test           # DSP, analysis, format, set builder, lyrics, adaptive quality and surface-map tests
+npm test           # DSP, analysis, format, set builder, lyrics, adaptive quality, surface-map and venue geometry tests
 npm run build:single   # one self-contained HTML file in dist-single/
 ```
 
@@ -116,6 +116,8 @@ The engine is in `src/setbuilder/` (profiling, harmony, arcs, generation, export
 | Boiler Room, Los Angeles | An outdoor night session under an orange LA sky glow. The crowd is all around (and behind) you with phones up, the plain red neon ring hangs on its wires, City Hall is behind, and a hot lamp sits on a truss tower. No lasers. The stream camera's monitor shows a live render of the shot; try the “Stream cam” view |
 | Berghain, Berlin | An 18 m bare-concrete hall with steel pillars. No stage: the booth is recessed into the back wall. A single fixed light bar crosses the room, the stacks stand in the corners, and there's a dim bar in the far corner. Cold white beams, red work lamps and a strobe bank for the peak; no lasers, no phones |
 | Printworks, London | The 112 m press hall: three levels of gantries the full length, part-lit printing presses down both sides, 17 cold LED strips up each side wall chasing the beat, press outlines on the floor, and a far-wall screen. The overhead rig of light bars lowers through the build-up and slams down on the drop |
+| Alexandra Palace, London | The Great Hall at its published size (116.6 × 55 m, a fabric barrel vault rising to 25 m), with the organ on its gallery and the rose window at the far end. An arena show: a 23 × 7 m LED wall with the visual player, LED towers showing a live pit camera on you, flown PA with delays, three stage and three audience trusses of beams and strobe bars, lasers, CO2 and sparks, a mix position mid-floor, and about 8,000 people. Try the “From the stage” view |
+| Alexandra Palace · In the round | The same hall with the decks on a round riser in the middle of the floor, the crowd all the way round, and 43,000 hanging lights over the whole room that play the music in 3D: ripples out from the booth on the kick, sheets of light sweeping through the build, the whole field on the drop. Surround PA. Try the “From the organ gallery” view |
 | Deckhouse Warehouse | A raised stage, an 11 m LED wall with the visual player and a truss of moving heads. Steel pillars carry LED battens that chase down the room; block walls, a bar and exit signs |
 
 The real venues are fan-made recreations and are not affiliated with or endorsed by the clubs or promoters. They carry no club logos or wordmarks. What each room really looks like, with sources and what the scenes still get wrong, is in [docs/venue-research.md](docs/venue-research.md).
@@ -125,9 +127,10 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
 - Lighting desk (Show tab): follow-the-music on/off, drop FX, pyro on drops, palettes, laser mode and pattern, intensity, haze, and pads for strobe, blinders, lasers, CO2, pyro and blackout — also on the keyboard (N, B, Y, T, Shift+T, `) and MIDI-learnable.
 - All fixtures are instanced: volumetric beam cones that throw pools of light on the floor, camera-facing laser beams, dotted LED strings, glowing globes, CO2 particle plumes, drifting haze, dust in the booth light and colour-washed fog.
 - **Rooms with edges:** bars, exit signs and doorways. Every booth has a laptop on a stand, drinks, a cable run and gaffer tape. Concrete, plaster and floors carry procedural normal and roughness maps, so lights catch relief and floors shine unevenly.
+- **Big rooms**: at Alexandra Palace the jointed dancers fill the front of the floor and thousands of animated cut-outs fill the rest (one draw call, two triangles each). They bob on the beat, raise their arms with the crowd, jump on the peak and hold phones up, lit by the beams sweeping over them.
 - **The crowd**: every dancer is a jointed figure posed on the GPU. Knees bend on the beat and on kick transients, hips sway, shoulders twist, heads nod and look around. People mix club-dance arms, hands in the air, fist pumps, clapping overhead through build-ups and arms up (with a jump) on drops and hook lines, and some film on phones whose screens and torches light up. LED-dot signs ("ONE MORE TUNE", "HI MUM"…) are held up near the front, VIP guests stand by the booth with drinks, chatting and filming, and some dancers turn to their friends. Tops, sleeves, trousers, shoes, skin and hair vary, and every dancer casts a soft contact shadow. (No phones, signs or VIPs at Berghain.) It is stylised, not photoreal.
 - A crowd meter tracks the room: it rises with the music, beat-locked blends and drops, and falls with trainwrecks and key clashes, with call-outs on the stage.
-- Each venue has its own camera angles (over the shoulder, stream cam, balcony, gantry, from the crowd); you appear in the booth in those shots, hands on the decks.
+- Each venue has its own camera angles (over the shoulder, stream cam, balcony, gantry, from the stage, from the organ gallery, from the crowd); you appear in the booth in those shots, hands on the decks.
 - **Drone FPV** (camera menu): a looping fly-through of each venue — over the crowd, banking past the pyro, gliding across the front of the booth and swinging round to look at the DJ — with a wide lens, barrel distortion, colour fringing and a zoom blur that grows with speed. It flies faster as the energy rises.
 - **Lens and grade**: bright fixtures (beam lenses, lasers, strobes, flames) throw anamorphic streaks and faint ghosts, with vignette and film grain (medium and high quality). Each venue has its own colour grade and tone mapping. AgX rolls lights off to white like a camera, for the warehouse, Printworks and Boiler Room; ACES keeps the blacks deep in Berghain and DC-10. Lens effects, tone mapping, grade and output run in one full-screen pass.
 
@@ -144,7 +147,7 @@ Ten GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid, CRT Mo
 - Driven by sub-bass, kick, snare, vocal and high bands, locked to the master deck's beat grid, with drop detection.
 - Post-processing: bloom, chromatic aberration, palette shifts, and camera shake that can be switched off.
 - Lyrics as kinetic typography over every mode (see Lyrics on the screens).
-- Shows on the venue screens (the warehouse LED wall, the Printworks far wall), as picture-in-picture, or as a full-screen visual player.
+- Shows on the venue screens (the warehouse LED wall, the Printworks far wall, the Alexandra Palace LED wall), as picture-in-picture, or as a full-screen visual player.
 
 ### Control surfaces
 - **Web MIDI**: hot-plug, MIDI learn (click any on-screen or 3D control, then move the hardware control), relative encoders and jogs, LED feedback, and mapping export/import. No brand-specific presets are included — map your controller with MIDI learn.

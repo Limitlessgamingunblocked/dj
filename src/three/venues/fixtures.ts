@@ -803,7 +803,8 @@ export class HazeLayer implements Fixture {
   readonly object = new THREE.Group();
   private u = { uTime: { value: 0 }, uColor: { value: new THREE.Color() }, uDensity: { value: 0.5 } };
 
-  constructor(box: THREE.Box3, sheets = 6) {
+  /** `gain` scales the density (big rooms look through far more haze) */
+  constructor(box: THREE.Box3, sheets = 6, private gain = 1) {
     const mat = new THREE.ShaderMaterial({
       uniforms: this.u,
       vertexShader: /* glsl */ `
@@ -856,7 +857,7 @@ export class HazeLayer implements Fixture {
   update(s: ShowState, dt: number): void {
     this.u.uTime.value += dt;
     this.u.uColor.value.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.2));
-    this.u.uDensity.value = (0.025 + s.smoke * 0.05) * (0.4 + s.wash + s.flash) * s.master;
+    this.u.uDensity.value = (0.025 + s.smoke * 0.05) * (0.4 + s.wash + s.flash) * s.master * this.gain;
   }
 }
 

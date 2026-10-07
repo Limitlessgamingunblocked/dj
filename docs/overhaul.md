@@ -211,3 +211,25 @@ Also:
 - **Allocation:** 0.1–0.5 MB/s and a flat heap, unchanged.
 - **Shader programs:** visiting all five venues ends at 86 programs, against 69 before. The new normal-mapped surfaces, details and dust add variants. Switching back and forth levels off rather than growing.
 
+## Alexandra Palace (added after the overhaul)
+
+There are two new venues: the Great Hall as an arena show, and in the round. Same counter and conditions as above (`count.cjs`, medium quality, adaptive quality off), with Printworks for comparison.
+
+| Venue | View | Draw calls | Triangles |
+|---|---|---:|---:|
+| Alexandra Palace | perf | 444 | 668k |
+| Alexandra Palace | wide (from the stage) | 184 | 162k |
+| Alexandra Palace | crowd | 485 | 636k |
+| Alexandra Palace · In the round | perf | 392 | 472k |
+| Alexandra Palace · In the round | wide (organ gallery) | 457 | 406k |
+| Alexandra Palace · In the round | crowd | 429 | 632k |
+| Printworks | perf / wide / crowd | 413 / 251 / 469 | 373k / 748k / 418k |
+
+How it stays in budget:
+- **The far crowd.** About 8,000 people would be close to 10 million triangles as jointed dancers. The 516 jointed dancers at the front (493 in the round) are joined by 7,450 (7,900) animated cut-outs in one instanced draw at two triangles each.
+- **The lights field.** 43,125 bulbs are one point draw, with every pattern in the vertex shader. The 8,600 cords were dropped: as one-pixel lines they aliased into bright streaks.
+- **The IMAG towers.** The live pit camera renders every fourth frame (15 fps on a 60 Hz display). It sees the decks, which cost a couple of hundred draws.
+- **Merged geometry.** Speaker hangs, sub lines and doors are merged meshes. A flown hang built from separate cabinets costs two draws per box, and this hall has about 90 boxes.
+
+The arena's average includes the IMAG camera on a quarter of the frames, so its perf and crowd figures spread by about ±36 calls across samples.
+

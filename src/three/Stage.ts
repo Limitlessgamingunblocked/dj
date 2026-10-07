@@ -734,10 +734,10 @@ export class Stage {
     lu.uVignette.value = 0.2 + 0.25 * a;
     // the booth light's shadows update at 30 Hz
     r.shadowMap.needsUpdate = this.frame % 2 === 0 || !this.keyLight.shadow.map;
-    // live stream monitor (Boiler Room): low-res feed from the venue camera
+    // live camera feeds (Boiler Room's stream monitor, Alexandra Palace's IMAG towers)
     const feed = venue?.feed;
     if (this.compiling) return;
-    if (feed && this.frame % 3 === 0 && this.onScreen([feed.screen])) {
+    if (feed && this.frame % (feed.every ?? 3) === 0 && this.onScreen([feed.screen])) {
       const auto = r.shadowMap.autoUpdate;
       r.shadowMap.autoUpdate = false;
       const vis = this.avatar.object.visible;

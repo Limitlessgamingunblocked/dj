@@ -15,7 +15,7 @@
  *     picked per person, skin and hair tones varied
  *   – performance: dancers are grouped in ~6 m chunks, each its own instanced
  *     mesh, so chunks off screen are culled; chunks far from the camera swap
- *     to a low-detail model (about a third of the triangles). Both models
+ *     to a low-detail model (a little under half the triangles). Both models
  *     share one set of vertex buffers.
  */
 import * as THREE from 'three';
