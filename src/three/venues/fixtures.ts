@@ -12,9 +12,10 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { fxTier } from '../fx';
 import { HAZE_GLSL } from './atmos';
+import { BEAM_FRAG, BEAM_VERT, GOBO_GLSL, goboFor, prismFacets } from './beams';
 import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
 import type { ShowState } from './show';
-import { grilleTexture, mirrorBallTexture, rng, smokeTexture, softDotTexture, trussTexture } from './tex';
+import { grilleTexture, mirrorBallTexture, rng, smokeTexture, trussTexture } from './tex';
 
 export const TABLE_Y = 0.9;
 
@@ -42,52 +43,31 @@ function hdr(c: THREE.Color, gain: number, out: THREE.Color): THREE.Color {
 /* moving heads                                                         */
 /* ------------------------------------------------------------------ */
 
-const BEAM_VERT = /* glsl */ `
-  varying float vU;
-  varying float vT;
-  varying vec3 vN;
-  varying vec3 vView;
+// the beams' volume shader (ray / cone, gobo, scattering) lives in beams.ts
+const POOL_VERT = /* glsl */ `
+  attribute vec2 aGobo;
+  varying vec2 vUv;
   varying vec3 vColor;
-  varying vec3 vW;
-  varying float vNear;
+  varying vec2 vGobo;
   void main() {
-    vT = uv.y;
-    vU = uv.x;
-    vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0);
-    vW = w.xyz;
-    vec4 mv = viewMatrix * w;
-    // a camera flying through a beam would see its whole inside wall: fade near surfaces
-    vNear = smoothstep(0.4, 2.5, length(mv.xyz));
-    vN = normalize(mat3(viewMatrix) * mat3(modelMatrix) * mat3(instanceMatrix) * normal);
-    vView = normalize(-mv.xyz);
+    vUv = uv;
     vColor = instanceColor;
-    gl_Position = projectionMatrix * mv;
+    vGobo = aGobo;
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
   }`;
-const BEAM_FRAG = /* glsl */ `
-  uniform float uTime;
-  uniform float uHaze;
-  uniform float uSmoke;
-  uniform float uDust;
-  uniform vec2 uBand;
-  varying float vU;
-  varying float vT;
-  varying vec3 vN;
-  varying vec3 vView;
+const POOL_FRAG = /* glsl */ `
+  varying vec2 vUv;
   varying vec3 vColor;
-  varying vec3 vW;
-  varying float vNear;
-  ${HAZE_GLSL}
+  varying vec2 vGobo;
+  ${GOBO_GLSL}
   void main() {
-    float edge = pow(abs(dot(normalize(vN), normalize(vView))), 1.6) * vNear;
-    float along = pow(vT, 1.25);
-    // the beam shows where the haze is (the same haze the lasers cut through)
-    float hz = hazeAt(vW, uTime, uBand, uSmoke);
-    // gobo breakup: soft spokes turning slowly in the beam
-    float gobo = 0.8 + 0.2 * sin(vU * 6.2832 * 5.0 + uTime * 0.7);
-    // dust drifting through the light
-    vec3 cell = floor(vW * 6.0 + vec3(0.0, uTime * 0.5, 0.0));
-    float dust = step(0.9965, fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453)) * uDust;
-    gl_FragColor = vec4(vColor * edge * along * (gobo * (0.3 + 1.25 * hz) + dust * 2.5) * uHaze, 1.0);
+    vec2 d = vUv - 0.5;
+    float rr = length(d) * 2.0;
+    if (rr > 1.0) discard;
+    // the gobo the beam carries, projected where it lands, with a soft edge
+    float g = goboAt(vGobo.x, atan(d.y, d.x) + vGobo.y, rr);
+    float disc = 1.0 - smoothstep(0.55, 1.0, rr);
+    gl_FragColor = vec4(vColor * disc * (0.25 + 0.75 * g), 1.0);
   }`;
 
 export interface HeadSpec {
@@ -101,6 +81,13 @@ export interface HeadSpec {
 export class MovingHeads implements Fixture {
   readonly object = new THREE.Group();
   private beams: THREE.InstancedMesh;
+  /** per beam instance: gobo id, gobo rotation */
+  private goboAttr: THREE.InstancedBufferAttribute;
+  private poolGobo: THREE.InstancedBufferAttribute | null = null;
+  private sub = new THREE.Quaternion();
+  private tiltQ = new THREE.Quaternion();
+  private xAxis = new THREE.Vector3(1, 0, 0);
+  private zero = new THREE.Matrix4().makeScale(0, 0, 0);
   private heads: THREE.InstancedMesh;
   private lenses: THREE.InstancedMesh;
   private home: THREE.Quaternion[] = [];
@@ -137,18 +124,35 @@ export class MovingHeads implements Fixture {
     this.len = len;
     this.rad = rad;
     this.gain = o.gain ?? 1.2;
-    const beamGeo = new THREE.CylinderGeometry(0.05, rad, len, 28, 1, true);
+    // a little wider than the analytic cone so the mesh always encloses it
+    const beamGeo = new THREE.CylinderGeometry(0.05 * 1.01, rad * 1.01, len, 28, 1, true);
     beamGeo.translate(0, -len / 2 - 0.16, 0);
+    // three instances per head: the beam, and two more for the prism's facets
+    this.goboAttr = new THREE.InstancedBufferAttribute(new Float32Array(n * 3 * 2), 2);
+    this.goboAttr.setUsage(THREE.DynamicDrawUsage);
+    beamGeo.setAttribute('aGobo', this.goboAttr);
     this.beamMat = new THREE.ShaderMaterial({
-      uniforms: { uTime: { value: 0 }, uHaze: { value: 1 }, uSmoke: { value: 0.5 }, uDust: { value: 1 }, uBand: { value: new THREE.Vector2(...(o.haze ?? [-100, 100])) } },
+      uniforms: {
+        uTime: { value: 0 },
+        uHaze: { value: 1 },
+        uSmoke: { value: 0.5 },
+        uDust: { value: 1 },
+        uBand: { value: new THREE.Vector2(...(o.haze ?? [-100, 100])) },
+        uLen: { value: len },
+        uR0: { value: 0.05 },
+        uR1: { value: rad },
+        uLensY: { value: -0.16 },
+        uSteps: { value: 5 },
+        uGain: { value: 16 },
+      },
       vertexShader: BEAM_VERT,
-      fragmentShader: BEAM_FRAG,
+      fragmentShader: BEAM_FRAG(HAZE_GLSL),
       transparent: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
     });
-    this.beams = new THREE.InstancedMesh(beamGeo, this.beamMat, n);
+    this.beams = new THREE.InstancedMesh(beamGeo, this.beamMat, n * 3);
     this.beams.frustumCulled = false;
     const headGeo = mergeGeometries([new THREE.CylinderGeometry(0.12, 0.14, 0.3, 14).translate(0, -0.02, 0), new THREE.BoxGeometry(0.34, 0.06, 0.1).translate(0, 0.16, 0)]);
     this.heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ color: o.body ?? 0x15161a, roughness: 0.45, metalness: 0.6 }), n);
@@ -163,14 +167,19 @@ export class MovingHeads implements Fixture {
       this.tilt.push(0.4);
       this.m4.makeTranslation(sp.pos.x, sp.pos.y + (sp.up ? -0.2 : 0.22), sp.pos.z);
       base.setMatrixAt(i, this.m4);
-      this.beams.setColorAt(i, this.c.setRGB(0, 0, 0));
+      for (let f = 0; f < 3; f++) this.beams.setColorAt(i + f * n, this.c.setRGB(0, 0, 0));
       this.lenses.setColorAt(i, this.c);
     });
     this.object.add(base, this.heads, this.lenses, this.beams);
     if (o.floorY !== undefined) {
       this.floorY = o.floorY + 0.012;
-      const mat = new THREE.MeshBasicMaterial({ map: softDotTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
-      this.pools = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), mat, n);
+      // the gobo lands on the floor with the light
+      const poolGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+      this.poolGobo = new THREE.InstancedBufferAttribute(new Float32Array(n * 2), 2);
+      this.poolGobo.setUsage(THREE.DynamicDrawUsage);
+      poolGeo.setAttribute('aGobo', this.poolGobo);
+      const mat = new THREE.ShaderMaterial({ vertexShader: POOL_VERT, fragmentShader: POOL_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+      this.pools = new THREE.InstancedMesh(poolGeo, mat, n);
       this.pools.frustumCulled = false;
       for (let i = 0; i < n; i++) this.pools.setColorAt(i, this.c.setRGB(0, 0, 0));
       this.object.add(this.pools);
@@ -185,7 +194,12 @@ export class MovingHeads implements Fixture {
     this.beamMat.uniforms.uTime.value = t;
     this.beamMat.uniforms.uSmoke.value = s.smoke;
     this.beamMat.uniforms.uHaze.value = 1.05;
-    this.beamMat.uniforms.uDust.value = fxTier() === 'low' ? 0 : 1;
+    const tier = fxTier();
+    this.beamMat.uniforms.uDust.value = tier === 'low' ? 0 : 1;
+    // steps through each beam: one on low (no wisps), four on medium, seven on high
+    this.beamMat.uniforms.uSteps.value = tier === 'low' ? 1 : tier === 'medium' ? 4 : 7;
+    // an energy budget: a big rig's beams each run lower, so thirty of them don't add up to a white frame
+    this.beamMat.uniforms.uGain.value = 8 * (this.gain / 1.2) * Math.min(1, Math.sqrt(12 / n));
     for (let i = 0; i < n; i++) {
       const u = n > 1 ? i / (n - 1) - 0.5 : 0;
       let pan = 0;
@@ -220,14 +234,37 @@ export class MovingHeads implements Fixture {
       this.e.set(this.tilt[i], this.pan[i], 0);
       this.q.setFromEuler(this.e).premultiply(this.home[i]);
       this.m4.compose(this.specs[i].pos, this.q, this.one);
-      this.beams.setMatrixAt(i, this.m4);
       this.heads.setMatrixAt(i, this.m4);
+      // gobo and prism from the music
+      const gp = goboFor(s, i);
+      if (gp.prism) {
+        prismFacets(gp.spin * 0.3).forEach(([turn, tilt], f) => {
+          // turn about the beam's own axis (local −Y), then tip off it
+          this.sub.setFromAxisAngle(this.yAxis, turn).multiply(this.tiltQ.setFromAxisAngle(this.xAxis, tilt));
+          this.yq.copy(this.q).multiply(this.sub);
+          this.m4.compose(this.specs[i].pos, this.yq, this.one);
+          this.beams.setMatrixAt(i + f * n, this.m4);
+          this.goboAttr.setXY(i + f * n, gp.gobo, gp.spin);
+        });
+        this.m4.compose(this.specs[i].pos, this.q, this.one);
+      } else {
+        this.beams.setMatrixAt(i, this.m4);
+        this.beams.setMatrixAt(i + n, this.zero);
+        this.beams.setMatrixAt(i + 2 * n, this.zero);
+        this.goboAttr.setXY(i, gp.gobo, gp.spin);
+      }
       this.lenses.setMatrixAt(i, this.m4);
       let level = s.movers * s.master * s.intensity;
       if (s.moverPattern === 2) level *= (Math.floor(b) + i) % 2 ? 1 : 0.35;
       level *= 0.7 + s.kick * 0.5 * (0.4 + s.peak);
       const col = s.colors[(i + (s.moverPattern === 4 ? Math.floor(b) : 0)) % 3 === 2 ? 2 : (i + (s.peak > 0.5 ? Math.floor(b) : 0)) % 2];
-      this.beams.setColorAt(i, this.c.copy(col).multiplyScalar(level * this.gain));
+      // through the prism the light is shared by three beams
+      const share = gp.prism ? 0.42 : 1;
+      this.c.copy(col).multiplyScalar(level * this.gain * share);
+      this.beams.setColorAt(i, this.c);
+      this.beams.setColorAt(i + n, gp.prism ? this.c : this.c.setRGB(0, 0, 0));
+      this.beams.setColorAt(i + 2 * n, gp.prism ? this.c.copy(col).multiplyScalar(level * this.gain * share) : this.c.setRGB(0, 0, 0));
+      this.poolGobo?.setXY(i, gp.prism ? 0 : gp.gobo, gp.spin);
       this.lenses.setColorAt(i, this.c.copy(col).multiplyScalar(0.3 + level * 4));
       if (this.pools) {
         const pos = this.specs[i].pos;
@@ -254,7 +291,9 @@ export class MovingHeads implements Fixture {
     if (this.pools) {
       this.pools.instanceMatrix.needsUpdate = true;
       this.pools.instanceColor!.needsUpdate = true;
+      this.poolGobo!.needsUpdate = true;
     }
+    this.goboAttr.needsUpdate = true;
     this.beams.instanceMatrix.needsUpdate = true;
     this.heads.instanceMatrix.needsUpdate = true;
     this.lenses.instanceMatrix.needsUpdate = true;

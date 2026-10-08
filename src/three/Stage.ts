@@ -23,6 +23,7 @@ import { CameraRig, type ViewId } from './CameraRig';
 import { FX } from './fx';
 import { FINITE_GLSL, LensOutputPass, NEUTRAL_GRADE } from './lens';
 import { approachLook, copyLook, lookFor, LOOKS, type LensLook } from './looks';
+import { ExposurePass } from './exposure';
 import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 import type { VenueDef, VenueScene } from './venues/base';
@@ -121,6 +122,10 @@ export class Stage {
   /** time since the picture last updated, for looks with a low frame rate (the security camera) */
   private lookHold = 0;
   private insetFrac = 0;
+  /** auto exposure: a camera that stops down when the frame blows out */
+  readonly exposure = new ExposurePass();
+  /** the club's base exposure; auto exposure works around it */
+  private baseExposure = 1.05;
   /** the auto director is cutting the camera (hover zoom stays out of its way) */
   directing = false;
   /** a cut through a quick dip to black: k is the picture's brightness */
@@ -209,6 +214,8 @@ export class Stage {
 
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.msaa }));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+    // measures the scene for auto exposure (leaves the picture alone)
+    this.composer.addPass(this.exposure);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
     // the bloom blurs its input across the whole frame, so a single NaN pixel would black it all
     // out: scrub non-finite values as they enter
@@ -899,6 +906,8 @@ export class Stage {
       if (fd.k === 1) fd.phase = 'none';
     }
     lu.uFade.value = fd.k;
+    // auto exposure (the security camera's auto gain pumps harder)
+    r.toneMappingExposure = this.baseExposure * (this.exposure.enabled ? this.exposure.exposure : 1);
     // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
     const lookId = this.rig.focused ? 'none' : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
     if (lookId !== this.lookId) {
