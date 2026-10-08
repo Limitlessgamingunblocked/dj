@@ -217,6 +217,16 @@ export class SetupPanel {
         'The time and overview blink red, on screen and on the board.',
       ),
       this.prefCheck('loadLock', 'Don’t load onto a deck that is playing', 'load lock playing safety'),
+      this.row(
+        'Auto DJ mix length',
+        this.prefSelect('autoMixBars', [
+          [8, '8 bars (quick)'],
+          [16, '16 bars'],
+          [32, '32 bars (long blend)'],
+        ]),
+        'auto dj automix transition blend crossfade',
+        'How long Auto DJ takes over each mix (⋯ menu or Shift+A).',
+      ),
       h('p', { class: 'note set-row', 'data-k': 'decks defaults' }, 'These apply to every deck straight away; the buttons on a deck still change it for the moment.'),
     );
   }
@@ -329,6 +339,7 @@ export class SetupPanel {
         },
         'strobe epilepsy photosensitive flash',
       ),
+      this.prefCheck('nowPlaying', 'Show the track name on the stage when a new track takes over', 'now playing title card lower third track name'),
       h('p', { class: 'note set-row', 'data-k': 'palette colours lights' }, 'Light colours (including your own Custom palette), lasers and haze are on the Show tab.'),
     );
   }

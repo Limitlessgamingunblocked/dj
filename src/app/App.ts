@@ -10,11 +10,11 @@ import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
-import { setKeyNotation } from '../analysis/keys';
+import { formatKey, setKeyNotation } from '../analysis/keys';
 import { setCrowdScale } from '../three/venues/crowd';
 import { setWaveScheme } from '../ui/waveform';
-import { DECK_COLORS, type DeckId, type LibraryTrack, type PcmData } from '../core/types';
-import { clamp } from '../core/util';
+import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData } from '../core/types';
+import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
 import type { LyricLine } from '../lyrics/lyrics';
 import { LyricsEngine } from '../lyrics/LyricsEngine';
@@ -26,6 +26,7 @@ import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
 import { Hype, type Callout } from './Hype';
 import { Director } from '../three/director';
+import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
 import { registerLightControls } from './lightControls';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
@@ -94,6 +95,13 @@ export class App implements AppContext {
   private last = 0;
   private frame = 0;
   private director = new Director();
+  private slowT = 0;
+  private autodj!: AutoDJ;
+  private setsPanel!: SetBuilderPanel;
+  /** top-bar chip while Auto DJ runs */
+  private autoChip!: HTMLElement;
+  /** the title card on the stage when a new track takes over */
+  private nowCard!: { el: HTMLElement; title: HTMLElement; artist: HTMLElement; meta: HTMLElement; announced: string; timer: number };
   /** frame-rate meter: frames and seconds since its last update */
   private fps = { el: null as HTMLElement | null, n: 0, t: 0 };
 
@@ -222,6 +230,18 @@ export class App implements AppContext {
       });
     }
     await this.library.init();
+    this.autodj = new AutoDJ(this.engine, this.reg, {
+      loadTrack: (d, id) => this.loadTrack(d, id),
+      nextFromSet: () => this.setsPanel?.takeNext() ?? null,
+      candidates: () => this.library.list(),
+      mixBars: () => prefs.autoMixBars,
+      note: (kind, deck, other) => {
+        if (kind === 'start' && other?.track) toast(`Auto DJ: mixing in “${other.track.meta.title}” on deck ${other.id}`);
+        else if (kind === 'done') this.announce(deck, true);
+        else if (kind === 'off') toast('Auto DJ off: you took over the mix');
+        else if (kind === 'empty') toast('Auto DJ stopped: no track to mix in next. Load one, or build a set.');
+      },
+    });
     this.midi = new MidiManager(this.reg);
     this.features = new AudioFeatures(this.engine.visAnalyser, this.engine);
 
@@ -282,6 +302,8 @@ export class App implements AppContext {
       'browse-down': () => this.libPanel.moveSelection(1),
       'cycle-view': () => this.setView(this.stage.view === 'booth' ? 'split' : this.stage.view === 'split' ? 'visual' : 'booth'),
       'board-full': () => this.boardFull(!this.boardMode),
+      autodj: () => this.setAutoDJ(!this.autodj.on),
+      help: () => openHelp(),
       search: () => {
         this.showTab('library');
         this.libPanel.focusSearch();
@@ -375,6 +397,18 @@ export class App implements AppContext {
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
     this.stage.el.append(this.buildStageHud());
+    this.autoChip = h('button', { class: 'btn autodj-chip', type: 'button', title: 'Auto DJ is mixing: click to stop', hidden: true }, 'Auto DJ');
+    this.autoChip.addEventListener('click', () => this.setAutoDJ(false));
+    const readout = this.topbar.el.querySelector('.master-readout');
+    this.topbar.el.insertBefore(this.autoChip, readout?.nextSibling ?? null);
+    {
+      const title = h('div', { class: 'np-title' });
+      const artist = h('div', { class: 'np-artist' });
+      const meta = h('div', { class: 'np-meta mono' });
+      const el = h('div', { class: 'now-playing', 'aria-live': 'polite' }, h('div', { class: 'np-label' }, 'Now playing'), title, artist, meta);
+      this.stage.el.append(el);
+      this.nowCard = { el, title, artist, meta, announced: '', timer: 0 };
+    }
     const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
     setTimeout(() => (hint.style.opacity = '0'), 10000);
@@ -385,6 +419,7 @@ export class App implements AppContext {
     const body = h('div', { class: 'tab-body' });
     this.libPanel = new LibraryPanel(this);
     const sets = new SetBuilderPanel(this);
+    this.setsPanel = sets;
     const mixer = new MixerPanel(this);
     const fx = new FxPanel(this);
     const sampler = new SamplerPanel(this, (s, f) => this.loadSampleFile(s, f), (s) => this.resetSample(s));
@@ -492,6 +527,7 @@ export class App implements AppContext {
       view('visual', 'Visual player only'),
       'sep',
       { label: this.boardMode ? 'Leave board full screen' : 'Board full screen (Shift+B)', action: () => this.boardFull(!this.boardMode) },
+      { label: `${this.autodj.on ? '✓ ' : ''}Auto DJ: mix by itself (Shift+A)`, action: () => this.setAutoDJ(!this.autodj.on) },
       { label: document.fullscreenElement && !this.boardMode ? 'Exit full screen' : 'Full screen', action: () => this.fullscreen() },
       { label: this.settings.uiMode === 'simple' ? 'Switch to Pro layout' : 'Switch to Simple layout', action: () => this.setUiMode(this.settings.uiMode === 'simple' ? 'pro' : 'simple') },
       'sep',
@@ -990,6 +1026,62 @@ export class App implements AppContext {
     });
   }
 
+  private setAutoDJ(on: boolean): void {
+    if (on === this.autodj.on) return;
+    if (!on) {
+      this.autodj.stop();
+      return;
+    }
+    void this.engine.resume();
+    if (!this.autodj.start()) {
+      toast('Load a track on deck 1 or 2 first, then turn on Auto DJ.');
+      return;
+    }
+    toast(`Auto DJ on: it mixes the next track in over ${prefs.autoMixBars} bars, from your set or the best match in the library. Touch the crossfader, a fader or play to take over.`);
+    this.updateAutoChip();
+  }
+
+  private updateAutoChip(): void {
+    const a = this.autodj;
+    this.autoChip.hidden = !a.on;
+    if (!a.on) return;
+    const p = a.progress();
+    const next = a.next()?.track;
+    const eta = a.eta();
+    const text = p !== null ? `Auto DJ · ${Math.round(p * 100)}%` : a.phase === 'ready' && eta !== null ? `Auto DJ · ${formatTime(eta)}` : 'Auto DJ';
+    setText(this.autoChip, text);
+    const what = p !== null ? `Mixing in “${next?.meta.title ?? ''}”` : a.phase === 'ready' && next ? `Next: “${next.meta.title}”${eta !== null ? ` in ${formatTime(eta)}` : ''}` : a.phase === 'loading' ? 'Getting the next track ready' : 'Waiting for the right moment';
+    this.autoChip.title = `${what}. Click to stop Auto DJ`;
+    this.autoChip.setAttribute('aria-label', `Auto DJ: ${what}. Click to stop`);
+    setClass(this.autoChip, 'mixing', p !== null);
+  }
+
+  /** a new track has taken over (the master deck changed to one playing something new): show its title card */
+  private watchNowPlaying(): void {
+    const m = this.engine.masterDeck;
+    if (!m?.playing || !m.track || m.track.id === this.nowCard.announced) return;
+    // a manual mix: wait until the incoming track is the one out front
+    if (this.autodj.on && this.autodj.phase === 'mixing') return;
+    this.announce(m, false);
+  }
+
+  private announce(d: { track: LibraryTrack | null; bpm: number; currentKey(): KeyInfo | null }, force: boolean): void {
+    const t = d.track;
+    const c = this.nowCard;
+    if (!t || (!force && t.id === c.announced)) return;
+    c.announced = t.id;
+    if (!prefs.nowPlaying) return;
+    setText(c.title, t.meta.title);
+    setText(c.artist, t.meta.artist || t.fileName);
+    const key = d.currentKey();
+    setText(c.meta, `${formatBpm(d.bpm)} BPM${key ? ` · ${formatKey(key)}` : ''}`);
+    c.el.classList.remove('on');
+    void c.el.offsetWidth;
+    c.el.classList.add('on');
+    clearTimeout(c.timer);
+    c.timer = window.setTimeout(() => c.el.classList.remove('on'), 6500);
+  }
+
   /** the auto director's call for this frame: cut, or stay */
   private direct(): void {
     const s = this.stage.show.state;
@@ -1047,6 +1139,7 @@ export class App implements AppContext {
     this.frame++;
     try {
       this.engine.update(dt);
+      this.autodj.update();
       const n = this.deckCount();
       for (let i = 0; i < 4; i++) this.meters.ch[i] = i < n ? this.engine.channels[i].levels() : [0, 0];
       this.meters.master = this.engine.mixer.masterLevels();
@@ -1063,6 +1156,13 @@ export class App implements AppContext {
         if (this.settings.director && this.stage.view !== 'visual') this.direct();
       }
       if (this.fps.el) this.updateFps(raw);
+      // four times a second, however slow the frames are
+      this.slowT += raw;
+      if (this.slowT >= 0.25) {
+        this.slowT = 0;
+        this.updateAutoChip();
+        this.watchNowPlaying();
+      }
       this.wave.update();
       // panels refresh at 30 Hz, alternating so each frame does half the work
       this.uiDt += dt;

@@ -223,3 +223,35 @@
   border-bottom: 1px solid #4d3f10;
   font-size: 13px;
 }
+
+/* Auto DJ is running: what it's doing, click to stop */
+.autodj-chip {
+  height: var(--control-h-s);
+  padding: 0 10px;
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--line-2));
+  color: var(--ok);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.autodj-chip.mixing {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+
+/* while the chip shows, room for the board and venue names: drop the brand text and the "Crowd" label */
+@media (max-width: 1400px) {
+  .topbar:has(.autodj-chip:not([hidden])) .brand-text,
+  .topbar:has(.autodj-chip:not([hidden])) .hype-meter .label {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .autodj-chip {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

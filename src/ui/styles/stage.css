@@ -139,7 +139,7 @@
 .fps-meter {
   position: absolute;
   left: 8px;
-  bottom: calc(8px + var(--inset, 0px));
+  top: 46px;
   padding: 2px 6px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.6);
@@ -253,5 +253,71 @@
   .lens-text[data-look='cctv'] .bl,
   .lens-text[data-look='vhs'] .tl {
     animation: none;
+  }
+}
+
+/* "Now playing": a broadcast-style title card when a new track takes over */
+.now-playing {
+  position: absolute;
+  left: 18px;
+  bottom: calc(18px + var(--inset, 0px));
+  max-width: min(460px, calc(100% - 36px));
+  padding: 10px 16px 11px 14px;
+  border-left: 4px solid var(--venue);
+  border-radius: 0 6px 6px 0;
+  background: linear-gradient(90deg, rgba(5, 7, 10, 0.88), rgba(5, 7, 10, 0.62));
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-16px);
+  transition:
+    opacity 0.45s var(--ease),
+    transform 0.45s var(--ease);
+  z-index: 3;
+}
+
+.now-playing.on {
+  opacity: 1;
+  transform: none;
+}
+
+.now-playing .np-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--venue);
+}
+
+.now-playing .np-title {
+  font-family: var(--font-label);
+  font-size: clamp(18px, 2.6vw, 28px);
+  font-weight: 800;
+  line-height: 1.1;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-playing .np-artist {
+  font-size: 14px;
+  color: #d5dbe5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.now-playing .np-meta {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-playing {
+    transition: opacity 0.2s linear;
+    transform: none;
   }
 }

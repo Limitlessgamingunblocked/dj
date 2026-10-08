@@ -38,6 +38,10 @@ export interface Prefs {
   jumpBeats: number;
   /** crowd size: 0 is an empty room, 1 the venue's normal crowd, 1.5 packed */
   crowd: number;
+  /** Auto DJ: how long each mix takes, in bars */
+  autoMixBars: number;
+  /** a title card on the stage when a new track takes over */
+  nowPlaying: boolean;
   /** lens look on the club camera: 'auto' gives each camera angle its own (fisheye, camcorder…) */
   lens: LensLook | 'auto';
   /** keyboard: default key → assigned key ('' = no key). Only changed keys are stored. */
@@ -79,6 +83,8 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   jumpBeats: 4,
   crowd: 1,
   lens: 'auto',
+  autoMixBars: 16,
+  nowPlaying: true,
   keys: {},
 });
 
@@ -119,6 +125,8 @@ export function sanitizePrefs(raw: unknown): Prefs {
     loopBeats: oneOf(r.loopBeats, BEAT_CHOICES, d.loopBeats),
     jumpBeats: oneOf(r.jumpBeats, BEAT_CHOICES, d.jumpBeats),
     crowd: Math.round(num(r.crowd, 0, 1.5, d.crowd) * 20) / 20,
+    autoMixBars: oneOf(r.autoMixBars, [8, 16, 32], d.autoMixBars),
+    nowPlaying: bool(r.nowPlaying, d.nowPlaying),
     lens: oneOf(r.lens, ['auto', ...LENS_LOOKS.map((l) => l.id)] as (LensLook | 'auto')[], d.lens),
     keys,
   };

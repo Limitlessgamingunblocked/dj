@@ -634,6 +634,15 @@ export class SetBuilderPanel {
   /* rendering                                                            */
   /* ------------------------------------------------------------------ */
 
+  /** For Auto DJ: the next track of the set (moving the set along), or null with no set or at its end. */
+  takeNext(): string | null {
+    const entry = this.plan?.entries[this.cursor + 1];
+    if (!entry) return null;
+    this.cursor++;
+    this.renderResult();
+    return entry.profile.id;
+  }
+
   private renderResult(): void {
     clear(this.result);
     const plan = this.plan;

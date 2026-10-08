@@ -8,6 +8,19 @@
   .main {
     grid-template-columns: calc(250px * var(--ui-zoom)) minmax(0, 1fr) calc(250px * var(--ui-zoom));
   }
+
+  /* narrower deck panels: BPM, tempo change and time still fit on one line */
+  .deck-panel .bpm-big {
+    font-size: 25px;
+  }
+
+  .deck-panel .bpm-big small {
+    display: none;
+  }
+
+  .deck-panel .time-big {
+    font-size: 16px;
+  }
 }
 
 @media (max-width: 980px) {

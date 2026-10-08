@@ -51,6 +51,8 @@ export const KEY_DEFS: KeyDef[] = [
   { key: 'Slash', action: 'search', label: 'Search the library' },
   { key: 'KeyV', action: 'cycle-view', label: 'Cycle booth / split / visuals' },
   { key: 'Shift+KeyB', action: 'board-full', label: 'Board full screen on / off (Esc leaves)' },
+  { key: 'Shift+KeyA', action: 'autodj', label: 'Auto DJ on / off (mixes by itself)' },
+  { key: 'Shift+Slash', action: 'help', label: 'Help and every shortcut' },
   { key: 'Shift+ArrowLeft', id: 'cam.left', label: 'Camera: orbit left (hold)', group: 'Camera: orbit and tilt (hold)' },
   { key: 'Shift+ArrowRight', id: 'cam.right', label: 'Camera: orbit right (hold)', group: 'Camera: orbit and tilt (hold)' },
   { key: 'Shift+ArrowUp', id: 'cam.raise', label: 'Camera: look more from above (hold)', group: 'Camera: orbit and tilt (hold)' },

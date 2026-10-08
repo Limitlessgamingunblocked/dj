@@ -22,7 +22,16 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 
 ## What's in it
 
+### Auto DJ
+Turn it on from the ⋯ menu (or Shift+A) and it mixes by itself, the way you would on two decks:
+- **What comes next:** the next track of your Set Builder set; without a set, the best match in the library (a compatible key, a tempo within a few percent, allowing half / double time, not played this session). Load something onto the free deck yourself and that's the next track.
+- **When:** it cues the next track on its first downbeat, syncs it and cuts its bass, then starts it on an 8-bar line of the outgoing track: the last one that leaves room for the whole mix before the end.
+- **How:** over 8, 16 (default) or 32 bars (Settings → Decks) the crossfader moves across (the channel faders on mixers without one) and the basses swap at the half. The outgoing deck stops; the incoming one keeps the tempo it was synced to, so nothing jumps; the next track gets ready on the deck that just finished.
+- **Taking over:** touch the crossfader, a channel fader or bass knob of deck 1 or 2, or play / pause, and it hands the mix back. A chip in the top bar shows when the next mix starts and how far through it is; click it to stop.
+- With the auto director on too, it's a hands-off show.
+
 ### The screen
+- **Now playing:** when a new track takes over, its title, artist, BPM and key slide in at the bottom of the stage like a broadcast graphic (Settings → Show & venue turns it off).
 - **Board full screen** (⛶ on the stage, Shift+B, or the ⋯ menu): the 3D board fills the whole screen and everything else goes away. Top-down or Angled framing, plus the full camera menu (every angle and your saved views). A camera bar along the bottom changes the angle while you play: hold to orbit round the board, look from higher or lower and zoom, go back to the board view, or step to the next angle (on the keyboard: Shift + arrows, `=` and `-`, Shift+V; all MIDI-learnable; it folds away). The angle you pick is remembered for next time. Every control, the keyboard and MIDI keep working; Esc brings the rest back. Inside embedded viewers that block browser full screen it fills the window instead, and on phones it turns to landscape where the browser allows.
 - **Top bar:** board, venue, the crowd meter, master BPM, Rec, the **Simple / Pro** switch and the **⋯** menu. The ⋯ menu holds the stage view (Booth, Split, Visuals; also the `V` key), full screen, the layout switch, MIDI and help. A MIDI pill appears only while a controller is connected.
 - **Simple** (the default) keeps each deck panel to what you mix with: title, key, BPM, time, the overview waveform, Cue / Play / Sync and tempo. **Pro** adds Master, the tempo range, the pads and pad modes, the loops/key/stems drawer and the 🎤 lyrics button. Nothing is removed in Simple: the deck's ⋯ menu, the 3D board, the keyboard and MIDI still reach everything.
