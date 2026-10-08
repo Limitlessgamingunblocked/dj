@@ -245,7 +245,8 @@ export class PillarBars implements Fixture {
       // chase down the room on the beat, all together on the peak
       const chase = s.peak > 0.5 ? 1 : 0.35 + 0.65 * Math.max(0, Math.cos((b * Math.PI) / 2 - pillar * 0.9));
       const level = (0.25 + s.kick * 0.9 + s.strobe * 2) * chase * s.master * s.intensity;
-      this.bars.setColorAt(i, this.c.copy(s.colors[(i + Math.floor(b / 4)) % 2]).multiplyScalar(level * 2.4));
+      // (the beat count is negative before a track's first beat)
+      this.bars.setColorAt(i, this.c.copy(s.colors[(((i + Math.floor(b / 4)) % 2) + 2) % 2]).multiplyScalar(level * 2.4));
     }
     this.bars.instanceColor!.needsUpdate = true;
   }

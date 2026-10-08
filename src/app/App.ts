@@ -32,6 +32,7 @@ import { registerLightControls } from './lightControls';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
+import { avDelay, FeatureDelay } from '../visualizer/avsync';
 import { openBoardPicker } from '../ui/BoardPicker';
 import { DeckPanel } from '../ui/DeckPanel';
 import { h, setClass, setText } from '../ui/dom';
@@ -70,6 +71,7 @@ export class App implements AppContext {
   private pool!: AnalysisPool;
   private stage!: Stage;
   private features!: AudioFeatures;
+  private avSync = new FeatureDelay();
   private midi!: MidiManager;
   private settings: Settings = cleanSettings(loadSetting<unknown>('settings', {}));
   private boardDef: BoardDef = boardById(this.settings.board);
@@ -1143,7 +1145,8 @@ export class App implements AppContext {
       const n = this.deckCount();
       for (let i = 0; i < 4; i++) this.meters.ch[i] = i < n ? this.engine.channels[i].levels() : [0, 0];
       this.meters.master = this.engine.mixer.masterLevels();
-      const f = this.features.update(dt);
+      // the visuals read the audio as the speakers play it, not as it leaves the mixer
+      const f = this.avSync.push(t / 1000, this.features.update(dt), avDelay(this.engine.ctx, prefs.avOffset));
       this.stage.hype = this.hype.update(dt, f);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       this.stage.lyric = this.lyrics.frame();

@@ -103,6 +103,8 @@ export interface ShowState {
   smoke: number;
   /** crowd energy 0..1 */
   hype: number;
+  /** 0..1 how many phone cameras are flashing in the crowd (a burst after the drop; none with reduce flashing) */
+  photos: number;
   /** the venue's own palette is active (fixtures may use their house colours) */
   venueLook: boolean;
   /** overall white flash for the room this frame */
@@ -153,6 +155,7 @@ export class LightShow {
   private accentQueued = 0;
   private accentAt = -10;
   private accentSmoke = 0;
+  private photoLevel = 0;
 
   constructor() {
     this.state = {
@@ -187,6 +190,7 @@ export class LightShow {
       confettiByHand: false,
       smoke: 0.5,
       hype: 0.3,
+      photos: 0,
       venueLook: true,
       flash: 0,
       accent: 0,
@@ -307,6 +311,11 @@ export class LightShow {
       on = sixteenth < 0.35;
     }
     this.accentSmoke *= Math.exp(-dt * 0.45);
+    // phone cameras going off in the crowd: a burst after the drop that thins out over a few bars,
+    // a few on a hook line. Lots of little flashes at random: off with reduce flashing
+    if (s.dropHit) this.photoLevel = 1;
+    this.photoLevel = Math.max(this.photoLevel * Math.exp(-dt * 0.3), s.accent * 0.35);
+    s.photos = c.reduceFlash || !react ? 0 : this.photoLevel;
     // reduce flashing: gentle flashes, never more than three in any second (2.8 Hz), whatever the tempo
     if (c.reduceFlash) on = (s.t * 2.8) % 1 < 0.22;
     const strobe = level > 0 && on ? (c.reduceFlash ? Math.min(level, 0.55) : level) : 0;

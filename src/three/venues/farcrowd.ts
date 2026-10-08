@@ -181,7 +181,7 @@ const VERT = /* glsl */ `
   }
   varying vec2 vUv;
   varying vec3 vTop, vLegs, vSkin, vHair, vLit;
-  varying float vPhone, vY;
+  varying float vPhone, vY, vSeedF;
   #include <fog_pars_vertex>
   void main() {
     vec3 c = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -201,6 +201,7 @@ const VERT = /* glsl */ `
     if (frame > 1.5 && mod(floor(uBeat + seed * 4.0), 2.0) > 0.5 && uHands > 0.4) frame = 3.0;
     if (uJump > 0.2 && fract(seed * 5.3) < uJump) frame = 3.0;
     vPhone = (iData.y > 0.5 && frame == 1.0) ? 1.0 : 0.0;
+    vSeedF = seed;
     float flip = fract(seed * 13.7) > 0.5 ? 1.0 : 0.0;
     float u = flip > 0.5 ? 1.0 - uv.x : uv.x;
     vUv = vec2((frame + u) * 0.25, uv.y);
@@ -240,10 +241,10 @@ const VERT = /* glsl */ `
 
 const FRAG = /* glsl */ `
   uniform sampler2D uAtlas;
-  uniform float uPhoneGlow;
+  uniform float uPhoneGlow, uPhotos, uTime;
   varying vec2 vUv;
   varying vec3 vTop, vLegs, vSkin, vHair, vLit;
-  varying float vPhone, vY;
+  varying float vPhone, vY, vSeedF;
   #include <fog_pars_fragment>
   void main() {
     vec4 t = texture2D(uAtlas, vUv);
@@ -252,7 +253,11 @@ const FRAG = /* glsl */ `
     base = mix(base, vHair, step(0.3, t.r) * (1.0 - step(0.75, t.r)));
     base = mix(base, vSkin, step(0.75, t.r));
     vec3 col = base * vLit * (0.55 + 0.45 * vY);
-    if (vPhone > 0.5 && t.b > 0.5) col = vec3(0.75, 0.85, 1.0) * uPhoneGlow;
+    if (vPhone > 0.5 && t.b > 0.5) {
+      col = vec3(0.75, 0.85, 1.0) * uPhoneGlow;
+      // a photo flash now and then after the drop
+      if (uPhotos > 0.001) col += vec3(14.0) * step(1.0 - 0.06 * uPhotos, fract(sin(dot(vec2(vSeedF * 113.0, floor(uTime * 9.0 + vSeedF * 37.0)), vec2(12.9898, 78.233))) * 43758.5453));
+    }
     gl_FragColor = vec4(col, 1.0);
     #include <fog_fragment>
   }`;
@@ -285,6 +290,7 @@ export class FarCrowd implements Fixture {
         uWhite: { value: new THREE.Color() },
         uFocus: { value: new THREE.Vector3() },
         uPhoneGlow: { value: 2 },
+        uPhotos: { value: 0 },
       },
     ]);
     this.u.uAtlas.value = atlas();
@@ -337,6 +343,7 @@ export class FarCrowd implements Fixture {
     if (s.dropHit) this.cheer = 1;
     this.cheer = Math.max(this.cheer * Math.exp(-dt * 0.35), s.accent * 0.75 * (0.4 + hype * 0.6));
     u.uCheer.value = s.playing ? this.cheer : 0;
+    u.uPhotos.value = s.photos;
     // light from the show: the palette's wash, the kick, strobes and blinders
     const m = s.master;
     const light = u.uLight.value as THREE.Color;

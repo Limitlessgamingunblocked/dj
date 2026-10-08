@@ -296,7 +296,9 @@ const VERT_HEAD = /* glsl */ `
 
 const FRAG_HEAD = /* glsl */ `
   uniform sampler2D uSigns;
-  uniform float uSignGlow;
+  uniform float uSignGlow, uTime, uPhotos;
+  uniform vec3 uRim, uRimFrom;
+  float crowdHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   varying float vMat;
   varying vec4 vSeed;
   varying vec2 vUv2;
@@ -325,7 +327,12 @@ const FRAG_COLOR = /* glsl */ `
   else if (m > 6.5 && m < 7.5) col = fract(vSeed.w * 5.1) < 0.5 ? vec3(0.6, 0.05, 0.04) : vec3(0.72, 0.74, 0.78);
   else if (m > 7.5 && m < 8.5) col = vec3(0.02);
   else if (m > 8.5 && m < 9.5) { col = vec3(0.0); glow = vec3(0.55, 0.64, 0.85) * 1.05; }
-  else if (m > 9.5 && m < 10.5) { col = vec3(0.02); glow = vec3(2.2) * step(0.6, fract(vSeed.y * 7.0)); }
+  else if (m > 9.5 && m < 10.5) {
+    col = vec3(0.02);
+    glow = vec3(2.2) * step(0.6, fract(vSeed.y * 7.0));
+    // taking photos after the drop: each phone fires its flash now and then
+    if (uPhotos > 0.001) glow += vec3(16.0) * step(1.0 - 0.06 * uPhotos, crowdHash(vec2(vSeed.x * 113.0, floor(uTime * 9.0 + vSeed.z * 9.0))));
+  }
   else if (m > 10.5 && m < 11.5) col = vec3(0.02);
   else if (m > 11.5) {
     vec3 t = texture2D(uSigns, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;
@@ -338,6 +345,20 @@ const FRAG_COLOR = /* glsl */ `
   totalEmissiveRadiance += glow;
 `;
 
+// backlight: the stage's light catching the edges of people seen against it, so the crowd reads
+// as silhouettes with bright rims from the floor instead of flat dark shapes
+const FRAG_RIM = /* glsl */ `
+  {
+    vec3 rimV = normalize(vViewPosition);
+    vec3 rimL = normalize((viewMatrix * vec4(uRimFrom, 1.0)).xyz + vViewPosition);
+    float fres = 1.0 - clamp(dot(normal, rimV), 0.0, 1.0);
+    fres *= fres * fres;
+    float behind = clamp(dot(-rimV, rimL) * 0.6 + 0.4, 0.0, 1.0);
+    float side = clamp(dot(normal, rimL) + 0.35, 0.0, 1.0);
+    totalEmissiveRadiance += uRim * (0.2 + diffuseColor.rgb) * fres * behind * behind * side;
+  }
+`;
+
 interface Chunk {
   mesh: THREE.InstancedMesh;
   geos: [THREE.BufferGeometry, THREE.BufferGeometry];
@@ -347,6 +368,7 @@ interface Chunk {
 }
 
 const CHUNK = 6;
+const RIM_WHITE = new THREE.Color(1, 1, 1);
 
 export class Crowd implements Fixture {
   /** distance (m) inside which chunks use the detailed model; scaled by the adaptive quality */
@@ -365,6 +387,9 @@ export class Crowd implements Fixture {
     uKick: { value: 0 },
     uSigns: { value: null as THREE.Texture | null },
     uSignGlow: { value: 1 },
+    uPhotos: { value: 0 },
+    uRim: { value: new THREE.Color(0, 0, 0) },
+    uRimFrom: { value: new THREE.Vector3(0, 3.5, 1.5) },
   };
   private hands = 0;
   private jump = 0;
@@ -376,6 +401,8 @@ export class Crowd implements Fixture {
     const r = rng(o.seed ?? 11);
     const clothes = (o.clothes ?? ['#1b1d22', '#2a2d33', '#101114', '#3a2f2a', '#23262d', '#d9d6cf', '#5a1e22', '#1d2b3a']).map((c) => new THREE.Color(c));
     const booth = o.booth ?? new THREE.Vector3(0, 0, 0.2);
+    // the rim comes from the rig over and behind the booth
+    this.u.uRimFrom.value.set(booth.x, booth.y + 3.5, booth.z + 1.3);
     const n = spots.length;
     const seeds = new Float32Array(n * 4);
     const info = new Float32Array(n * 4);
@@ -410,7 +437,10 @@ export class Crowd implements Fixture {
         .replace('#include <common>', `#include <common>\n${VERT_HEAD}`)
         .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\ncomputePose();\nobjectNormal = poseR * objectNormal;`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * transformed + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;`);
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${FRAG_HEAD}`).replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>\n${FRAG_HEAD}`)
+        .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`)
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${FRAG_RIM}`);
     };
     mat.customProgramCacheKey = () => 'crowd';
     if (o.lightMap) useLightMap(mat, o.lightMap, 0.9);
@@ -535,6 +565,11 @@ export class Crowd implements Fixture {
     u.uCheer.value = s.playing ? this.cheer : 0;
     u.uKick.value = s.kick;
     u.uSignGlow.value = (0.8 + 0.35 * Math.pow(1 - (((s.beat % 1) + 1) % 1), 2)) * (0.6 + 0.4 * s.master);
+    u.uPhotos.value = s.photos;
+    // the rim: the show's colours, harder with the wash and the kick, white in the strobes
+    const rim = u.uRim.value;
+    rim.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.3)).lerp(RIM_WHITE, 0.25 + s.flash * 0.5);
+    rim.multiplyScalar(((0.25 + s.wash * 0.5 + s.kick * 0.25 + s.peak * 0.2) * s.master + s.flash * 0.8) * 0.9);
   }
 }
 

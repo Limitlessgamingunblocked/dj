@@ -42,6 +42,8 @@ export interface Prefs {
   autoMixBars: number;
   /** a title card on the stage when a new track takes over */
   nowPlaying: boolean;
+  /** lights and visuals: extra delay in ms on top of the audio device's measured latency (to line them up with Bluetooth speakers) */
+  avOffset: number;
   /** lens look on the club camera: 'auto' gives each camera angle its own (fisheye, camcorder…) */
   lens: LensLook | 'auto';
   /** keyboard: default key → assigned key ('' = no key). Only changed keys are stored. */
@@ -85,6 +87,7 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   lens: 'auto',
   autoMixBars: 16,
   nowPlaying: true,
+  avOffset: 0,
   keys: {},
 });
 
@@ -127,6 +130,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
     crowd: Math.round(num(r.crowd, 0, 1.5, d.crowd) * 20) / 20,
     autoMixBars: oneOf(r.autoMixBars, [8, 16, 32], d.autoMixBars),
     nowPlaying: bool(r.nowPlaying, d.nowPlaying),
+    avOffset: Math.round(num(r.avOffset, -150, 400, d.avOffset) / 10) * 10,
     lens: oneOf(r.lens, ['auto', ...LENS_LOOKS.map((l) => l.id)] as (LensLook | 'auto')[], d.lens),
     keys,
   };

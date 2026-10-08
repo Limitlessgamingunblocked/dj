@@ -257,7 +257,9 @@ export class MovingHeads implements Fixture {
       let level = s.movers * s.master * s.intensity;
       if (s.moverPattern === 2) level *= (Math.floor(b) + i) % 2 ? 1 : 0.35;
       level *= 0.7 + s.kick * 0.5 * (0.4 + s.peak);
-      const col = s.colors[(i + (s.moverPattern === 4 ? Math.floor(b) : 0)) % 3 === 2 ? 2 : (i + (s.peak > 0.5 ? Math.floor(b) : 0)) % 2];
+      // (floored mods: the beat count is negative before a track's first beat)
+      const m3 = (((i + (s.moverPattern === 4 ? Math.floor(b) : 0)) % 3) + 3) % 3;
+      const col = s.colors[m3 === 2 ? 2 : (((i + (s.peak > 0.5 ? Math.floor(b) : 0)) % 2) + 2) % 2];
       // through the prism the light is shared by three beams
       const share = gp.prism ? 0.42 : 1;
       this.c.copy(col).multiplyScalar(level * this.gain * share);

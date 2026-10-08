@@ -157,3 +157,18 @@ describe('confetti', () => {
     expect(show.update(frame(1.2, 120), 1 / 60, 0.8).confetti).toBe(false);
   });
 });
+
+describe('phone flashes', () => {
+  it('burst after the drop, thin out, and never show with reduce flashing', () => {
+    const show = new LightShow();
+    show.controls.reduceFlash = false;
+    const hit = show.update(frame(1, 120, { drop: 1, dropHit: true }), 1 / 60, 0.8);
+    expect(hit.photos).toBeCloseTo(1, 1);
+    let s = hit;
+    for (let t = 1; t < 9; t += 1 / 60) s = show.update(frame(t, 120), 1 / 60, 0.8);
+    expect(s.photos).toBeLessThan(0.15);
+    const calm = new LightShow();
+    calm.controls.reduceFlash = true;
+    expect(calm.update(frame(1, 120, { drop: 1, dropHit: true }), 1 / 60, 0.8).photos).toBe(0);
+  });
+});

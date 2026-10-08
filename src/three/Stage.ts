@@ -227,6 +227,8 @@ export class Stage {
     this.composer.addPass(this.bloom);
     // lens effects, tone mapping, grade and output in one pass
     this.lens = new LensOutputPass();
+    // the lens dirt is lit by the bloom's widest blur
+    this.lens.uniforms.tGlow.value = this.bloom.renderTargetsVertical[2].texture;
     this.composer.addPass(this.lens);
 
     this.visualizer = new Visualizer(this.renderer, {});
@@ -893,6 +895,12 @@ export class Stage {
     lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
     lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
     lu.uGhost.value = !lensFx || this.rig.focused ? 0 : 0.2;
+    // dirt on the front element lights up when a wall of light hits it; stars on the brightest points
+    lu.uDirt.value = lensFx && this.bloom.enabled ? 0.5 * (this.rig.focused ? 0.2 : 1) : 0;
+    lu.uStarDirs.value = lensFx && !this.rig.focused ? (this.quality === 'high' ? 3 : 2) : 0;
+    lu.uStar.value = 0.018;
+    // the grade moves with the track: softer through a breakdown, harder at the peak
+    this.lens.followShow(show.build, show.peak);
     // a cut: dark, switch angle, back up
     const fd = this.fade;
     if (fd.phase === 'out') {

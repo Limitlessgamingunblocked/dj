@@ -5,10 +5,14 @@
  *   – anamorphic streaks: bright sources (beam lenses, lasers, strobes,
  *     flames) smear into long horizontal blue-tinted flares
  *   – ghosts: faint mirrored copies of the brightest spots across the centre
+ *   – lens dirt: smudges, dust and bokeh on the front element that light up
+ *     when a wall of light hits the lens (lit by the wide bloom), and a
+ *     six-point starburst on the brightest point lights (the aperture blades)
  *   – FPV drone lens: barrel distortion, chromatic fringing and a zoom blur
  *     that grows with flying speed
  *   – tone mapping (the renderer's setting), then a per-venue grade (tint,
- *     contrast, saturation, black level), vignette and film grain
+ *     contrast, saturation, black level) that follows the music (softer in a
+ *     breakdown, harder and richer at the peak), vignette and film grain
  *   – lens looks (looks.ts): a true fisheye remap, tape (line jitter, a
  *     tracking band, colour shift), tilt-shift blur, letterbox bars, teal and
  *     orange split toning, black and white / night vision, thermal, scanlines
@@ -43,6 +47,9 @@ export const FINITE_GLSL = /* glsl */ `
 const FRAG = /* glsl */ `
   precision highp float;
   uniform sampler2D tDiffuse;
+  uniform sampler2D tGlow;
+  uniform sampler2D tDirt;
+  uniform float uDirt, uStar, uStarThr, uStarDirs;
   uniform vec2 uRes;
   uniform float uTime, uStreak, uTaps, uGhost, uDistort, uBlur, uCA, uGrain, uVignette, uThreshold;
   uniform vec3 uTint;
@@ -62,6 +69,10 @@ const FRAG = /* glsl */ `
   vec3 bright(vec2 uv) {
     vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
     return max(c - uThreshold, 0.0);
+  }
+  vec3 starSrc(vec2 uv) {
+    vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
+    return max(c - uStarThr, 0.0);
   }
   // equidistant fisheye: the angle off the axis grows with the radius, read from the
   // (wide) perspective render at tan(angle); outside it there is nothing: black
@@ -166,6 +177,29 @@ const FRAG = /* glsl */ `
       vec3 gh = bright(0.5 + (g - 0.5) * 0.55) * vec3(0.9, 0.6, 1.0) + bright(0.5 + (g - 0.5) * 1.35) * vec3(0.5, 1.0, 0.8) * 0.6;
       c += gh * uGhost * smoothstep(0.9, 0.1, length(g - 0.5));
     }
+    // dirt on the front element, lit by the wide glow of whatever is bright in frame, and a
+    // faint veil of the same glow over everything
+    if (uDirt > 0.001) {
+      vec3 gw = finite3(texture2D(tGlow, uv).rgb);
+      float dirt = texture2D(tDirt, uv).r;
+      c += gw * (0.05 + dirt * 1.5) * uDirt;
+    }
+    // starburst: the aperture blades turn the brightest points into stars (6 points on high, 4 on medium)
+    if (uStar > 0.001 && uStarDirs > 0.5) {
+      vec3 sb = vec3(0.0);
+      for (int k = 0; k < 3; k++) {
+        if (float(k) >= uStarDirs) break;
+        float ang = uStarDirs > 2.5 ? 1.5708 + float(k) * 1.0472 : 0.7854 + float(k) * 1.5708;
+        vec2 sdir = vec2(cos(ang) / aspect, sin(ang));
+        for (int i = 0; i < 5; i++) {
+          float x = (float(i) + n) / 5.0;
+          float o = 0.003 + x * 0.05;
+          float w = (1.0 - x) * (1.0 - x);
+          sb += (starSrc(uv + sdir * o) + starSrc(uv - sdir * o)) * w;
+        }
+      }
+      c += sb * uStar;
+    }
     c *= mix(1.0, smoothstep(1.35, 0.2, r2), uVignette);
     // a NaN or infinite pixel from any scene shader shows as black, alone, instead of
     // poisoning the whole frame
@@ -242,9 +276,92 @@ export interface Grade {
 
 export const NEUTRAL_GRADE: Grade = { tint: 0xffffff, contrast: 1, saturation: 1, lift: 0 };
 
+/**
+ * The grade follows the track: a breakdown sits softer (a little less
+ * contrast and colour, the blacks lifted as if by the haze), the drop and the
+ * peak harder and richer. `build` and `peak` are the show's 0..1 envelopes.
+ */
+export function sectionGrade(base: Grade, build: number, peak: number): { contrast: number; saturation: number; lift: number } {
+  const b = Math.min(1, Math.max(0, build || 0));
+  const p = Math.min(1, Math.max(0, peak || 0)) * (1 - b);
+  return {
+    contrast: base.contrast * (1 + 0.1 * p - 0.07 * b),
+    saturation: base.saturation * (1 + 0.12 * p - 0.15 * b),
+    lift: base.lift + 0.02 * b,
+  };
+}
+
+let dirt: THREE.Texture | null = null;
+/** smudges, dust and a few bokeh blobs on the front element (made once, grey) */
+function lensDirt(): THREE.Texture | null {
+  if (dirt || typeof document === 'undefined') return dirt;
+  const W = 512;
+  const H = 288;
+  const cv = document.createElement('canvas');
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext('2d');
+  if (!g) return null;
+  let x = 4241;
+  const r = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, W, H);
+  // big soft smudges, more towards the edges
+  for (let i = 0; i < 46; i++) {
+    const cx = r() * W;
+    const cy = r() * H;
+    const edge = Math.hypot(cx / W - 0.5, cy / H - 0.5) * 2;
+    const rad = 18 + r() * 90;
+    const gr = g.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    gr.addColorStop(0, `rgba(255,255,255,${(0.04 + r() * 0.12) * (0.5 + edge)})`);
+    gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr;
+    g.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+  }
+  // a couple of wiped arcs
+  g.lineCap = 'round';
+  for (let i = 0; i < 5; i++) {
+    g.strokeStyle = `rgba(255,255,255,${0.04 + r() * 0.05})`;
+    g.lineWidth = 8 + r() * 18;
+    g.beginPath();
+    g.arc(r() * W, r() * H, 60 + r() * 140, r() * 6.28, r() * 6.28 + 0.6 + r());
+    g.stroke();
+  }
+  // bokeh: soft hexagons with a brighter rim
+  for (let i = 0; i < 16; i++) {
+    const cx = r() * W;
+    const cy = r() * H;
+    const rad = 5 + r() * 16;
+    g.beginPath();
+    for (let k = 0; k < 6; k++) g.lineTo(cx + Math.cos((k / 6) * 6.283 + 0.3) * rad, cy + Math.sin((k / 6) * 6.283 + 0.3) * rad);
+    g.closePath();
+    g.fillStyle = `rgba(255,255,255,${0.06 + r() * 0.1})`;
+    g.fill();
+    g.strokeStyle = `rgba(255,255,255,${0.12 + r() * 0.15})`;
+    g.lineWidth = 1.2;
+    g.stroke();
+  }
+  // dust specks
+  for (let i = 0; i < 260; i++) {
+    g.fillStyle = `rgba(255,255,255,${0.25 + r() * 0.6})`;
+    g.beginPath();
+    g.arc(r() * W, r() * H, 0.5 + r() * 1.6, 0, 6.283);
+    g.fill();
+  }
+  dirt = new THREE.CanvasTexture(cv);
+  dirt.colorSpace = THREE.NoColorSpace;
+  return dirt;
+}
+
 export class LensOutputPass extends Pass {
   readonly uniforms = {
     tDiffuse: { value: null as THREE.Texture | null },
+    tGlow: { value: null as THREE.Texture | null },
+    tDirt: { value: null as THREE.Texture | null },
+    uDirt: { value: 0 },
+    uStar: { value: 0 },
+    uStarThr: { value: 4 },
+    uStarDirs: { value: 0 },
     toneMappingExposure: { value: 1 },
     uRes: { value: new THREE.Vector2(1280, 720) },
     uTime: { value: 0 },
@@ -281,15 +398,26 @@ export class LensOutputPass extends Pass {
   private quad: FullScreenQuad;
   private outputColorSpace: string | null = null;
   private toneMapping: THREE.ToneMapping | null = null;
+  private base: Grade = NEUTRAL_GRADE;
 
   constructor() {
     super();
+    this.uniforms.tDirt.value = lensDirt();
     this.material = new THREE.RawShaderMaterial({ name: 'LensOutput', uniforms: this.uniforms, vertexShader: VERT, fragmentShader: FRAG });
     this.quad = new FullScreenQuad(this.material);
   }
 
   setGrade(g: Grade): void {
+    this.base = g;
     this.uniforms.uTint.value.set(g.tint);
+    this.uniforms.uContrast.value = g.contrast;
+    this.uniforms.uSaturation.value = g.saturation;
+    this.uniforms.uLift.value = g.lift;
+  }
+
+  /** move the grade with the show's sections (see sectionGrade) */
+  followShow(build: number, peak: number): void {
+    const g = sectionGrade(this.base, build, peak);
     this.uniforms.uContrast.value = g.contrast;
     this.uniforms.uSaturation.value = g.saturation;
     this.uniforms.uLift.value = g.lift;

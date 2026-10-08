@@ -340,6 +340,12 @@ export class SetupPanel {
         'strobe epilepsy photosensitive flash',
       ),
       this.prefCheck('nowPlaying', 'Show the track name on the stage when a new track takes over', 'now playing title card lower third track name'),
+      this.row(
+        'Lights and visuals delay',
+        this.slider(() => prefs.avOffset, (v) => setPrefs({ avOffset: v }), { min: -150, max: 400, step: 10, fmt: (v) => (v === 0 ? 'Auto' : `${v > 0 ? '+' : ''}${v} ms`) }),
+        'sync latency delay bluetooth speakers headphones lights early late audio video offset',
+        'The lights already wait for your audio output’s measured latency (shown under Audio). If they still land before the beat you hear — Bluetooth speakers often report too little — add more here.',
+      ),
       h('p', { class: 'note set-row', 'data-k': 'palette colours lights' }, 'Light colours (including your own Custom palette), lasers and haze are on the Show tab.'),
     );
   }
