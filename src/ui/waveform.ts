@@ -3,9 +3,11 @@
  * Full-resolution waveforms are pre-rendered once per track into canvas tiles
  * (WAVE_RATE px per second) and blitted with scaling each frame; beat grid,
  * cues and loops are drawn on top.
- * Colours: low = red, mid = green, high = blue (additively blended).
+ * Colours follow the scheme picked in Settings (RGB by default: low = red,
+ * mid = green, high = blue, additively blended).
  */
 import type { Deck } from '../audio/Deck';
+import type { WaveScheme } from '../core/prefs';
 import type { TrackAnalysis } from '../core/types';
 
 const TILE_W = 2048;
@@ -20,18 +22,63 @@ interface Tiles {
 const tileCache = new Map<TrackAnalysis, Tiles>();
 const overviewCache = new Map<string, HTMLCanvasElement>();
 
-const BAND_COLORS = ['rgb(225,38,64)', 'rgb(40,170,80)', 'rgb(52,104,240)'];
+/**
+ * Colour schemes (Settings → Appearance). "add" blends the three bands
+ * additively (low red + mid green + high blue); "layer" nests them, loudest
+ * behind and quietest in front; "mono" draws the loudest band in one colour.
+ */
+type Scheme = { mode: 'add' | 'layer' | 'mono'; colors: [string, string, string] };
+const SCHEMES: Record<WaveScheme, Scheme> = {
+  rgb: { mode: 'add', colors: ['rgb(225,38,64)', 'rgb(40,170,80)', 'rgb(52,104,240)'] },
+  threeband: { mode: 'layer', colors: ['#2a5cff', '#ff9a1f', '#f4f1ea'] },
+  blue: { mode: 'layer', colors: ['#1c47c9', '#3f8cff', '#cfe6ff'] },
+  mono: { mode: 'mono', colors: ['#f0cf8e', '#f0cf8e', '#f0cf8e'] },
+};
+let scheme: Scheme = SCHEMES.rgb;
+
+/** Switch the waveform colours; the cached waveform images are redrawn on next use. */
+export function setWaveScheme(id: WaveScheme): void {
+  const next = SCHEMES[id] ?? SCHEMES.rgb;
+  if (next === scheme) return;
+  scheme = next;
+  tileCache.clear();
+  overviewCache.clear();
+}
 
 function drawBands(g: CanvasRenderingContext2D, wf: Uint8Array, from: number, to: number, x0: number, pxPerPoint: number, h: number): void {
   const mid = h / 2;
+  const bar = (i: number, a: number) => {
+    const hh = Math.max(1, a * mid);
+    g.fillRect(x0 + (i - from) * pxPerPoint, mid - hh, Math.max(1, pxPerPoint), hh * 2);
+  };
+  if (scheme.mode === 'mono') {
+    g.fillStyle = scheme.colors[0];
+    for (let i = from; i < to; i++) {
+      const a = Math.max(wf[i * 4], wf[i * 4 + 1], wf[i * 4 + 2]) / 255;
+      if (a > 0.01) bar(i, a);
+    }
+    return;
+  }
+  if (scheme.mode === 'layer') {
+    // per point, the loudest band behind and the quietest in front, so all three show
+    const ord = [0, 1, 2];
+    for (let i = from; i < to; i++) {
+      ord.sort((x, y) => wf[i * 4 + y] - wf[i * 4 + x]);
+      for (const band of ord) {
+        const a = wf[i * 4 + band] / 255;
+        if (a <= 0.01) continue;
+        g.fillStyle = scheme.colors[band];
+        bar(i, a);
+      }
+    }
+    return;
+  }
   g.globalCompositeOperation = 'lighter';
   for (let band = 0; band < 3; band++) {
-    g.fillStyle = BAND_COLORS[band];
+    g.fillStyle = scheme.colors[band];
     for (let i = from; i < to; i++) {
       const a = wf[i * 4 + band] / 255;
-      if (a <= 0.01) continue;
-      const hh = Math.max(1, a * mid);
-      g.fillRect(x0 + (i - from) * pxPerPoint, mid - hh, Math.max(1, pxPerPoint), hh * 2);
+      if (a > 0.01) bar(i, a);
     }
   }
   g.globalCompositeOperation = 'source-over';
@@ -239,7 +286,9 @@ export function drawOverview(g: CanvasRenderingContext2D, deck: Deck, w: number,
 
 /** Resize a canvas to its CSS box at device pixel ratio. Returns the ratio used. */
 export function fitCanvas(c: HTMLCanvasElement, maxDpr = 2): number {
-  const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
+  // inside a zoomed panel (Settings → interface size) a CSS pixel covers more device pixels
+  const zoom = (c as HTMLCanvasElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
+  const dpr = Math.min(maxDpr, window.devicePixelRatio || 1) * zoom;
   const w = Math.max(1, Math.round(c.clientWidth * dpr));
   const h = Math.max(1, Math.round(c.clientHeight * dpr));
   if (c.width !== w || c.height !== h) {

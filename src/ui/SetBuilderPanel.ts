@@ -6,7 +6,7 @@
  * a crate, written back as hot cues, and exported for other DJ software.
  */
 import type { AppContext } from '../app/context';
-import { camelotColor } from '../analysis/keys';
+import { camelotColor, formatKey } from '../analysis/keys';
 import { loadSetting, saveSetting } from '../core/settings';
 import type { HotCue, LibraryTrack } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
@@ -454,7 +454,7 @@ export class SetBuilderPanel {
       e.clientX,
       e.clientY,
       alts.map(({ candidate: c }) => ({
-        label: `${c.profile.artist ? `${c.profile.artist} – ` : ''}${c.profile.title} · ${formatBpm(c.profile.bpm)} · ${c.profile.key?.camelot ?? '?'}${c.role === 'discovery' ? ' · discovery' : ''}`,
+        label: `${c.profile.artist ? `${c.profile.artist} – ` : ''}${c.profile.title} · ${formatBpm(c.profile.bpm)} · ${c.profile.key ? formatKey(c.profile.key) : '?'}${c.role === 'discovery' ? ' · discovery' : ''}`,
         action: () => {
           this.seq[i] = c;
           this.update();
@@ -752,7 +752,7 @@ export class SetBuilderPanel {
       const hit = el('circle', { cx, cy, r: 12, class: 'hit', tabindex: 0 });
       const show = () => {
         tip.hidden = false;
-        tip.textContent = `#${i + 1} ${e.profile.title}${e.profile.artist ? ` — ${e.profile.artist}` : ''} · energy ${energyTen(e.level)} (arc ${energyTen(e.target)}) · ${formatBpm(e.profile.bpm)} BPM · ${e.profile.key?.camelot ?? 'key ?'} · starts ${formatTime(e.startAt)}`;
+        tip.textContent = `#${i + 1} ${e.profile.title}${e.profile.artist ? ` — ${e.profile.artist}` : ''} · energy ${energyTen(e.level)} (arc ${energyTen(e.target)}) · ${formatBpm(e.profile.bpm)} BPM · ${e.profile.key ? formatKey(e.profile.key) : 'key ?'} · starts ${formatTime(e.startAt)}`;
         const bw = wrap.clientWidth || W;
         const px = (cx / W) * bw;
         tip.style.left = `${Math.min(Math.max(px, 90), bw - 90)}px`;
@@ -800,7 +800,7 @@ export class SetBuilderPanel {
         { class: `sb-track${i <= this.cursor ? ' done' : ''}`, 'data-id': p.id },
         h('span', { class: 'idx mono' }, String(i + 1)),
         h('span', { class: 'mono start' }, formatTime(e.startAt)),
-        p.key ? h('span', { class: 'chip key', style: { background: camelotColor(p.key) } }, p.key.camelot) : h('span', { class: 'chip' }, '—'),
+        p.key ? h('span', { class: 'chip key', style: { background: camelotColor(p.key) }, title: p.key.name }, formatKey(p.key)) : h('span', { class: 'chip' }, '—'),
         h('span', { class: 'who' }, h('span', { class: 'title' }, p.title), h('span', { class: 'artist' }, p.artist || '—')),
         h('span', { class: `sb-role ${e.role}`, title: e.why }, e.pinned ? `📌 ${roleLabel(e)}` : roleLabel(e)),
         h('span', { class: 'mono bpm' }, formatBpm(p.bpm)),
@@ -833,7 +833,7 @@ export class SetBuilderPanel {
             { class: 'facts' },
             h('span', {}, `${t.bars}-bar ${plan.options.style === 'cut' ? 'cut' : 'blend'} at ${formatTime(t.outAt)}`),
             h('span', { class: 'mono' }, `${formatBpm(t.bpmFrom)} → ${formatBpm(t.bpmTo)} (${pitch}${t.tempoMode !== 'direct' ? `, ${t.tempoMode} time` : ''})`),
-            h('span', { class: `keymove ${t.key.kind}` }, `${t.keyFrom?.camelot ?? '?'} → ${t.keyTo?.camelot ?? '?'} ${t.key.label}`),
+            h('span', { class: `keymove ${t.key.kind}` }, `${t.keyFrom ? formatKey(t.keyFrom) : '?'} → ${t.keyTo ? formatKey(t.keyTo) : '?'} ${t.key.label}`),
             h('span', {}, `energy ${t.energyDelta >= 0.05 ? '↗' : t.energyDelta <= -0.05 ? '↘' : '→'}`),
           ),
           h('span', { class: 'tip' }, t.tip),

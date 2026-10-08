@@ -20,6 +20,33 @@ export function makeKey(root: number, minor: boolean, confidence = 1): KeyInfo {
   };
 }
 
+/** how keys are written: Camelot (8A), Open Key (1m), musical (Am) or Camelot plus musical */
+export type KeyNotation = 'camelot' | 'openkey' | 'musical' | 'both';
+let notation: KeyNotation = 'camelot';
+
+export function setKeyNotation(n: KeyNotation): void {
+  notation = n;
+}
+
+/** Open Key code: the Camelot wheel turned so that C major is 1d and A minor 1m */
+export function openKey(key: KeyInfo): string {
+  const n = parseInt(key.camelot, 10);
+  return `${mod(n - 8, 12) + 1}${key.minor ? 'm' : 'd'}`;
+}
+
+/** A key as the user chose to see it (Settings → Appearance). */
+export function formatKey(key: KeyInfo, n: KeyNotation = notation): string {
+  if (n === 'openkey') return openKey(key);
+  if (n === 'musical') return key.name;
+  if (n === 'both') return `${key.camelot} ${key.name}`;
+  return key.camelot;
+}
+
+/** every way of writing the key, for search */
+export function keySearchText(key: KeyInfo): string {
+  return `${key.camelot} ${openKey(key)} ${key.name}`.toLowerCase();
+}
+
 export function shiftKey(key: KeyInfo, semis: number): KeyInfo {
   return makeKey(key.root + Math.round(semis), key.minor, key.confidence);
 }
@@ -52,7 +79,7 @@ export function keySyncShift(from: KeyInfo, to: KeyInfo): number {
   return s;
 }
 
-/** Parse key tags such as "8A", "Am", "A minor", "F#m", "Dbmaj". */
+/** Parse key tags such as "8A", "1m" (Open Key), "Am", "A minor", "F#m", "Dbmaj". */
 export function parseKeyTag(tag: string | undefined): KeyInfo | null {
   if (!tag) return null;
   const t = tag.trim();
@@ -60,6 +87,13 @@ export function parseKeyTag(tag: string | undefined): KeyInfo | null {
   if (cam) {
     const n = parseInt(cam[1], 10);
     const minor = cam[2].toUpperCase() === 'A';
+    for (let r = 0; r < 12; r++) if (camelotNumber(r, minor) === n) return makeKey(r, minor, 0.5);
+  }
+  // Open Key: 1d = C major, 1m = A minor
+  const ok = /^(1[0-2]|[1-9])\s*([dDmM])$/.exec(t);
+  if (ok) {
+    const n = mod(parseInt(ok[1], 10) + 6, 12) + 1;
+    const minor = ok[2].toLowerCase() === 'm';
     for (let r = 0; r < 12; r++) if (camelotNumber(r, minor) === n) return makeKey(r, minor, 0.5);
   }
   const m = /^([A-Ga-g])\s*([#b♯♭]?)\s*(m(?!aj)|min(?:or)?|maj(?:or)?)?/i.exec(t);

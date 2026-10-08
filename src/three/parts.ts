@@ -11,6 +11,7 @@ import type { ControlRegistry } from '../core/controls';
 import { ledColor } from '../core/controls';
 import type { AudioEngine } from '../audio/AudioEngine';
 import type { Deck } from '../audio/Deck';
+import { nearEnd } from '../core/prefs';
 import { clamp } from '../core/util';
 import { mats, slipmatTexture, strobeTexture, vinylTexture } from './materials';
 
@@ -652,7 +653,7 @@ export class JogPart extends Part {
       g.beginPath();
       g.arc(cx, cy, 108, 0, Math.PI * 2);
       g.stroke();
-      g.strokeStyle = d.remaining < 30 ? '#ff3b5c' : this.accent;
+      g.strokeStyle = nearEnd(d) ? '#ff3b5c' : this.accent;
       g.beginPath();
       g.arc(cx, cy, 108, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2);
       g.stroke();

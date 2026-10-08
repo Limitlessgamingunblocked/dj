@@ -4,7 +4,7 @@
  */
 import type { AppContext } from '../app/context';
 import { beatLabel, PAD_MODE_LABELS, PAD_MODES, type Deck } from '../audio/Deck';
-import { camelotColor, compatibility } from '../analysis/keys';
+import { camelotColor, compatibility, formatKey, openKey } from '../analysis/keys';
 import { DECK_COLORS, HOTCUE_COLORS, type DeckId } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText, setVar } from './dom';
@@ -13,6 +13,7 @@ import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 import { drawOverview, fitCanvas } from './waveform';
 import { fader, hwButton, knob, padButton, type Widget } from './widgets';
+import { nearEnd } from '../core/prefs';
 import { loadSetting, saveSetting } from '../core/settings';
 
 export class DeckPanel {
@@ -359,13 +360,15 @@ export class DeckPanel {
     this.bpmOrig.title = d.analysis ? `Track tempo ${formatBpm(d.analysis.bpm)} BPM` : '';
     const tt = this.showRemain ? `-${formatTime(d.remaining, true)}` : formatTime(d.position(), true);
     setText(this.time, d.loaded ? tt : '-:--.-');
+    // the last seconds of a playing track (Settings → Decks)
+    setClass(this.el, 'ending', d.playing && nearEnd(d));
     const key = d.currentKey();
     const masterKey = this.app.engine.masterDeck && this.app.engine.masterDeck !== d ? this.app.engine.masterDeck.currentKey() : null;
     const compat = compatibility(key, masterKey);
-    setText(this.keyChip, key ? `${key.camelot}${compat === 'same' || compat === 'harmonic' ? ' ✓' : ''}` : '—');
+    setText(this.keyChip, key ? `${formatKey(key)}${compat === 'same' || compat === 'harmonic' ? ' ✓' : ''}` : '—');
     setVar(this.keyChip, 'background', camelotColor(key));
     this.keyChip.style.background = camelotColor(key);
-    this.keyChip.title = key ? `Key ${key.name} (${key.camelot})${masterKey ? ` · master ${masterKey.camelot}: ${compat ?? 'clash'}` : ''}` : 'Key unknown';
+    this.keyChip.title = key ? `Key ${key.name} · Camelot ${key.camelot} · Open Key ${openKey(key)}${masterKey ? ` · master ${formatKey(masterKey)}: ${compat ?? 'clash'}` : ''}` : 'Key unknown';
     const pct = d.tempoPercent;
     setText(this.tempoChip, `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`);
     setText(this.rangeChip, `±${Math.round(d.range * 100)}%`);

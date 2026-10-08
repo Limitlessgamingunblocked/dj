@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
 import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
+import { getCrowdScale } from './crowd';
 import { canvasTexture, rng } from './tex';
 
 export interface FarSpot {
@@ -33,15 +34,17 @@ export interface FarSpot {
 /**
  * Scatter people over a rectangle with a density (people per m²) that can
  * vary over the floor, skipping `avoid` boxes. Jittered grid per 1 m cell, so
- * the count follows the density closely.
+ * the count follows the density closely. Density follows the crowd size setting.
  */
 export function scatter(x0: number, x1: number, z0: number, z1: number, density: (x: number, z: number) => number, seed: number, avoid: THREE.Box2[] = []): FarSpot[] {
   const r = rng(seed);
   const out: FarSpot[] = [];
+  // the crowd size setting (Settings → Show)
+  const k = getCrowdScale();
   const p = new THREE.Vector2();
   for (let z = Math.min(z0, z1); z < Math.max(z0, z1); z += 1) {
     for (let x = Math.min(x0, x1); x < Math.max(x0, x1); x += 1) {
-      const d = Math.max(0, density(x + 0.5, z + 0.5));
+      const d = Math.max(0, density(x + 0.5, z + 0.5)) * k;
       // whole people per cell, plus one more with the fractional chance
       let n = Math.floor(d);
       if (r() < d - n) n++;

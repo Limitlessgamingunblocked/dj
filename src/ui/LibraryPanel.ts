@@ -5,7 +5,7 @@
  * JSON export/import of crates and cues.
  */
 import type { AppContext } from '../app/context';
-import { camelotColor, compatibility } from '../analysis/keys';
+import { camelotColor, compatibility, formatKey } from '../analysis/keys';
 import type { LibraryTrack } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { AUDIO_ACCEPT, matchTrack, parseSearch, type Crate } from '../library/Library';
@@ -429,7 +429,7 @@ export class LibraryPanel {
           : t.status === 'error'
             ? h('span', { class: 'status-pill', title: t.error ?? '', style: { color: '#ff8fa3' } }, 'can’t play')
             : null;
-      const keyCell = a?.key ? h('span', { class: 'chip key', style: { background: camelotColor(a.key) } }, a.key.camelot) : status ?? '—';
+      const keyCell = a?.key ? h('span', { class: 'chip key', style: { background: camelotColor(a.key) }, title: a.key.name }, formatKey(a.key)) : status ?? '—';
       const loads = h('div', { class: 'load-btns' });
       for (const id of deckIds) {
         const b = h('button', { class: 'btn', title: `Load to deck ${id}` }, String(id));

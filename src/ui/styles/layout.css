@@ -18,10 +18,18 @@
 
 .main {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 300px;
+  grid-template-columns: calc(300px * var(--ui-zoom)) minmax(0, 1fr) calc(300px * var(--ui-zoom));
   min-height: 0;
   gap: 1px;
   background: var(--line);
+}
+
+/* interface size (Settings → Appearance): the panels around the stage scale up or
+   down; the 3D stage and the waveform strip keep their own pixels */
+.app > .topbar,
+.app .deck-panel,
+.app > .dock {
+  zoom: var(--ui-zoom);
 }
 
 .app.stage-focus .main {

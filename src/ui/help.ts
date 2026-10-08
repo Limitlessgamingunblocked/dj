@@ -1,7 +1,7 @@
 /* Help screen: quick start and shortcuts. */
 import { h } from './dom';
 import { openModal } from './modal';
-import { shortcutsTable } from './SetupPanel';
+import { shortcutsTable } from './keysTable';
 
 export function openHelp(): void {
   const steps: [string, string][] = [
@@ -22,6 +22,7 @@ export function openHelp(): void {
     ['Lyrics', 'Tracks with lyrics (from the file’s tags, a matching .lrc/.txt file, pasted text or an LRCLIB lookup) show them word by word on the LED walls as kinetic type. The 🎤 button on a deck (Pro layout) or the deck’s ⋯ menu opens the lyrics editor: align plain text to the vocals, tap-sync lines, nudge the offset. Hook lines fire strobes and haze. Styles are in the Show tab.'],
     ['Visuals', 'Ten visual modes follow the music on the venue screens. Pick “Booth + visual player inset” or “Visual player only” from the ⋯ menu in the top bar (or press V) for the full visual player.'],
     ['Record', 'Press REC to capture your mix; press it again to play back or save the file.'],
+    ['Make it yours', 'Settings has it all in one place, with a search box: interface size and colours, deck colours, key notation (Camelot, Open Key or musical), waveform colours, deck defaults (tempo range, key lock, quantize, jog mode, loop and jump sizes), the end-of-track warning, crowd size, camera motion, and every keyboard shortcut (click a key, press the new one). Export your settings to a file to take them to another browser, or reset them.'],
   ];
   openModal(
     'Getting started',

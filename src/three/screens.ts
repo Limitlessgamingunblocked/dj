@@ -1,7 +1,8 @@
 /* Canvas renderers for the on-device screens of the 3D boards. */
 import type { Deck } from '../audio/Deck';
 import { beatLabel } from '../audio/Deck';
-import { camelotColor } from '../analysis/keys';
+import { camelotColor, formatKey } from '../analysis/keys';
+import { nearEnd } from '../core/prefs';
 import { DECK_COLORS, type DeckId } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { drawOverview, drawZoomed } from '../ui/waveform';
@@ -57,10 +58,10 @@ export function drawPlayerScreen(g: CanvasRenderingContext2D, W: number, H: numb
     g.fillStyle = '#05070a';
     g.font = `700 ${H * 0.07}px "JetBrains Mono", monospace`;
     g.textAlign = 'center';
-    g.fillText(key.camelot, pad + W * 0.495, rowY + H * 0.025);
+    g.fillText(formatKey(key), pad + W * 0.495, rowY + H * 0.025);
     g.textAlign = 'left';
   }
-  g.fillStyle = d.remaining < 30 && d.playing ? '#ff3b5c' : '#ffffff';
+  g.fillStyle = nearEnd(d) && d.playing ? '#ff3b5c' : '#ffffff';
   g.font = `700 ${H * 0.11}px "JetBrains Mono", monospace`;
   g.textAlign = 'right';
   g.fillText(d.loaded ? `-${formatTime(d.remaining, true)}` : '-:--.-', W - pad, rowY);

@@ -4,6 +4,8 @@
  * and MIDI.
  */
 import type { AppContext } from '../app/context';
+import { keyForControl } from '../app/keyboard';
+import { onPrefs } from '../core/prefs';
 import type { Stage } from '../three/Stage';
 import { LASER_PATTERN_NAMES, LASER_PATTERNS, PALETTES, type ShowControls } from '../three/venues/show';
 import { h, setClass, setText } from './dom';
@@ -21,6 +23,7 @@ export class LightsPanel {
   private palBtns = new Map<string, HTMLElement>();
   private laserBtns = new Map<string, HTMLElement>();
   private patBtns = new Map<string, HTMLElement>();
+  private customInputs: HTMLInputElement[] = [];
   private status: HTMLElement;
   private meter: HTMLElement;
 
@@ -60,6 +63,20 @@ export class LightsPanel {
       this.palBtns.set(p.id, b);
       pal.append(b);
     }
+    // the Custom palette's three colours; picking one switches to Custom
+    const customRow = h('div', { class: 'toggle-row custom-pal' }, h('span', { class: 'label' }, 'Custom'));
+    c.custom.forEach((col, i) => {
+      const inp = h('input', { type: 'color', value: col, 'aria-label': `Custom light colour ${i + 1}`, title: `Custom colour ${i + 1}` }) as HTMLInputElement;
+      inp.addEventListener('input', () => {
+        const next = [...c.custom] as ShowControls['custom'];
+        next[i] = inp.value;
+        c.custom = next;
+        c.palette = 'custom';
+      });
+      inp.addEventListener('change', () => this.save());
+      this.customInputs.push(inp);
+      customRow.append(inp);
+    });
     const lasers = h('div', { class: 'seg', role: 'group', 'aria-label': 'Lasers' });
     for (const [id, label] of [
       ['auto', 'Auto'],
@@ -93,12 +110,23 @@ export class LightsPanel {
       return h('label', { class: 'field', for: id }, label, inp);
     };
 
-    const pad = (id: string, label: string, key: string, cls: string) => {
+    // each pad shows the key it is on (keys can be moved in Settings)
+    const kbds: [HTMLElement, string][] = [];
+    const pad = (id: string, label: string, cls: string) => {
       const w = hwButton(reg, id, label, { cls: `light-pad ${cls}` });
       this.widgets.push(w);
-      w.el.append(h('kbd', {}, key));
+      const k = h('kbd', {}, keyForControl(id));
+      kbds.push([k, id]);
+      w.el.append(k);
       return w.el;
     };
+    onPrefs((_, changed) => {
+      if (changed.has('keys'))
+        for (const [k, id] of kbds) {
+          setText(k, keyForControl(id));
+          k.hidden = !k.textContent;
+        }
+    });
     this.status = h('div', { class: 'show-status mono' });
     this.meter = h('div', { class: 'show-meter' }, ...Array.from({ length: 16 }, () => h('i')));
 
@@ -110,10 +138,10 @@ export class LightsPanel {
         'div',
         { class: 'lights-col desk' },
         h('h3', {}, 'Light show'),
-        h('div', { class: 'light-pads' }, pad('light.strobe', 'Strobe', 'N', 'strobe'), pad('light.blinder', 'Blinders', 'B', 'blinder'), pad('light.lasers', 'Lasers', 'Y', 'laser'), pad('light.co2', 'CO2', 'T', 'co2'), pad('light.pyro', 'Pyro', '⇧T', 'pyro'), pad('light.blackout', 'Blackout', '`', 'blackout')),
+        h('div', { class: 'light-pads' }, pad('light.strobe', 'Strobe', 'strobe'), pad('light.blinder', 'Blinders', 'blinder'), pad('light.lasers', 'Lasers', 'laser'), pad('light.co2', 'CO2', 'co2'), pad('light.pyro', 'Pyro', 'pyro'), pad('light.blackout', 'Blackout', 'blackout')),
         h('p', { class: 'note' }, 'Hold a pad (or its key) to fire it. Everything else runs itself: patterns change every 8 bars, the lasers follow the track (a liquid-sky sheet over the crowd as a build starts, a tunnel, everything closing in, a burst on the drop), the build-up gets a strobe roll and the drop fires CO2, blinders, strobes and the pyro.'),
         h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn, this.pyroBtn, this.calmBtn),
-        h('div', { class: 'field' }, 'Colours', pal),
+        h('div', { class: 'field' }, 'Colours', pal, customRow),
         h('div', { class: 'field' }, 'Lasers', lasers),
         h('div', { class: 'field' }, 'Laser look', pats),
         h('div', { class: 'toggle-row sliders' }, slider('light-int', 'Intensity', 0.2, 1.5, () => c.intensity, (v) => (c.intensity = v)), slider('light-smoke', 'Haze', 0, 1, () => c.smoke, (v) => (c.smoke = v))),
@@ -130,6 +158,9 @@ export class LightsPanel {
     setClass(this.pyroBtn, 'active', c.pyro);
     setClass(this.calmBtn, 'active', c.reduceFlash);
     for (const [id, b] of this.palBtns) setClass(b, 'active', id === c.palette);
+    this.customInputs.forEach((inp, i) => {
+      if (document.activeElement !== inp && inp.value !== c.custom[i]) inp.value = c.custom[i];
+    });
     for (const [id, b] of this.laserBtns) setClass(b, 'active', id === c.lasers);
     for (const [id, b] of this.patBtns) setClass(b, 'active', id === c.laserPattern);
     for (const w of this.widgets) w.update();

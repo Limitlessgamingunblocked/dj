@@ -1,5 +1,5 @@
 /** localStorage-backed settings. Every access is guarded: storage can be unavailable. */
-const PREFIX = 'deckhouse:';
+export const PREFIX = 'deckhouse:';
 
 export function loadSetting<T>(key: string, fallback: T): T {
   try {

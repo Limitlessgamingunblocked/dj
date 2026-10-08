@@ -6,7 +6,7 @@
 
 @media (max-width: 1180px) {
   .main {
-    grid-template-columns: 250px minmax(0, 1fr) 250px;
+    grid-template-columns: calc(250px * var(--ui-zoom)) minmax(0, 1fr) calc(250px * var(--ui-zoom));
   }
 }
 

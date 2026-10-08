@@ -6,7 +6,7 @@
  */
 import type { AudioEngine } from '../audio/AudioEngine';
 import type { Deck } from '../audio/Deck';
-import { compatibility } from '../analysis/keys';
+import { compatibility, formatKey } from '../analysis/keys';
 import type { Features } from '../visualizer/AudioFeatures';
 
 export interface Callout {
@@ -95,7 +95,7 @@ export class Hype {
           this.clash += dt;
           if (this.clash > 4) {
             v -= dt * 0.03;
-            this.say('clash', { text: `Key clash: ${ka.camelot} over ${kb.camelot}`, tone: 'bad' }, 25);
+            this.say('clash', { text: `Key clash: ${formatKey(ka)} over ${formatKey(kb)}`, tone: 'bad' }, 25);
           }
         } else this.clash = 0;
       }

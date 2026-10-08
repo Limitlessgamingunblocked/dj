@@ -29,7 +29,18 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - **Waveform strip:** a lane for each deck on the left and right, plus any other deck with a track loaded.
 - **Five tabs:** Library · Set Builder · Mixer & FX (with the sampler) · Show (venue, lighting desk, visual player, lyrics) · Settings (with MIDI).
 - **On a phone:** one row of controls in the top bar, short tab labels, touch targets of at least 44 px, and no sideways scrolling.
-- **Accessibility:** keyboard focus is visible everywhere. The camera's idle drift and beat shake stop when the system asks for reduced motion.
+- **Accessibility:** keyboard focus is visible everywhere. The camera's idle drift and beat shake stop when the system asks for reduced motion (or when you turn camera motion off in Settings). Interface size goes from 80 % to 130 %.
+
+### Settings and customising
+Everything you can change is on the Settings tab, in sections with a search box (type "key", "colour", "loop", "crowd"…):
+- **Appearance:** interface size (the panels around the stage; the 3D board keeps its own pixels), Simple / Pro layout, accent colour (follows the venue by default), the four deck colours, **key notation** (Camelot `8A`, Open Key `1m`, musical `Am`, or Camelot plus musical — used in the library, on the decks, in the Set Builder, by the crowd and on the board screens; library search understands all three) and **waveform colours** (RGB, 3-band blue/orange/white, blue, or one colour).
+- **Decks:** tempo range, jog wheels (vinyl scratch or CDJ pitch bend), loop size, beat-jump size, key lock and quantize for every deck, the **end-of-track warning** (the time and overview blink red, and the board's jog ring and screen turn red; off, or the last 15–90 seconds) and the load lock (don't load onto a playing deck).
+- **Audio:** auto gain, fader curve, split cue and the headphone output.
+- **Board & camera:** the board and finish, stickers, hover zoom, camera motion, saved camera views.
+- **Show & venue:** the venue, **crowd size** (from an empty room to 150 %; fewer people is also lighter on slow computers) and Reduce flashing. The Show tab adds a **Custom** light palette with three colour pickers.
+- **Performance:** graphics quality and automatic adjustment.
+- **Keyboard shortcuts:** every binding is listed; click its key and press a new one (Shift for the Shift layer, Backspace for none, Esc to cancel). A key does one thing: taking a key that is in use clears it from the other action, and the app says so. Reset one key or all of them.
+- **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
 ### Boards (3D, Three.js)
 | Board | Class | Decks |
@@ -131,7 +142,7 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
   On Auto they follow the track: slow looks when it's quiet, a liquid-sky sheet over the crowd as a build starts, then a tunnel, then every projector closing in on one point, a burst on the drop, and a new look every 4 bars through the peak. Beams always stay at least 3 m above the crowd.
 - **Haze and light that lands on things**: the haze reads as a volume (lit from below on High), and hazers on stage puff clouds out over the crowd. At Alexandra Palace the light landing on the floor (beam pools, the LED wall's spill in its real colours, blinders, strobes) lights the people standing in it.
 - **Pyro**: flame-jet machines in the Warehouse and at Printworks; cold-spark fountains (the indoor kind) at DC-10, Boiler Room and Berghain. On a drop they fire a full salvo, then a flame chases across the next downbeats, and the room glows orange.
-- Lighting desk (Show tab): follow-the-music on/off, drop FX, pyro on drops, **Reduce flashing**, palettes, laser mode and look, intensity, haze, and pads for strobe, blinders, lasers, CO2, pyro and blackout. The pads are also on the keyboard (N, B, Y, T, Shift+T, `) and MIDI-learnable.
+- Lighting desk (Show tab): follow-the-music on/off, drop FX, pyro on drops, **Reduce flashing**, palettes (including a Custom one with your own three colours), laser mode and look, intensity, haze, and pads for strobe, blinders, lasers, CO2, pyro and blackout. The pads are also on the keyboard (N, B, Y, T, Shift+T, ` by default; each pad shows its current key) and MIDI-learnable.
 - **Reduce flashing** keeps strobes, blinders and blinking lasers under 3 flashes a second, softens them, and skips the blackout before the drop. It's on by default if your system is set to reduce motion.
 - All fixtures are instanced: volumetric beam cones that throw pools of light on the floor, camera-facing laser beams, dotted LED strings, glowing globes, CO2 particle plumes, drifting haze, dust in the booth light and colour-washed fog.
 - **Rooms with edges:** bars, exit signs and doorways. Every booth has a laptop on a stand, drinks, a cable run and gaffer tape. Concrete, plaster and floors carry procedural normal and roughness maps, so lights catch relief and floors shine unevenly.
@@ -160,7 +171,7 @@ Ten GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid, CRT Mo
 
 ### Control surfaces
 - **Web MIDI**: hot-plug, MIDI learn (click any on-screen or 3D control, then move the hardware control), relative encoders and jogs, LED feedback, and mapping export/import. No brand-specific presets are included — map your controller with MIDI learn.
-- **Keyboard**: `Z`/`X`/`C` cue, play and sync the left deck; `M`/`,`/`.` do the same for the right. `1–4 QWER` and `7–0 UIOP` are the pads, `[ ] \` move the crossfader, `↑ ↓` browse, `← →` load, `Shift+1…8` fire the sampler, `N`, `B`, `Y` and the backtick key hold strobe, blinders, lasers and blackout, `T` fires the CO2, `Shift+T` the pyro, and `?` in the app lists everything.
+- **Keyboard**: `Z`/`X`/`C` cue, play and sync the left deck; `M`/`,`/`.` do the same for the right. `1–4 QWER` and `7–0 UIOP` are the pads, `[ ] \` move the crossfader, `↑ ↓` browse, `← →` load, `Shift+1…8` fire the sampler, `N`, `B`, `Y` and the backtick key hold strobe, blinders, lasers and blackout, `T` fires the CO2, `Shift+T` the pyro, and Help lists everything. Every key can be moved in Settings → Keyboard shortcuts.
 
 ## Project layout
 
@@ -175,7 +186,8 @@ src/three/                 stage, camera rig (incl. drone), lens pass, board par
 src/three/venues/          venues, light show director, fixtures (beams, lasers, strobes…), crowd, pyro
 src/visualizer/            audio features, visual modes, lyrics typography
 src/ui/                    software panels and widgets
-src/app/                   app shell, control registry bindings, keyboard
+src/app/                   app shell, saved settings, control registry bindings, keyboard map
+src/core/                  control registry, preferences (prefs.ts), settings backup, storage helpers
 docs/                      venue research (sources, gaps) and the overhaul notes (measurements)
 ```
 

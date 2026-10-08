@@ -52,6 +52,8 @@
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --dock-h: 30vh;
   --venue: #ff5a2a;
+  /* interface size, set from Settings */
+  --ui-zoom: 1;
 }
 
 * {

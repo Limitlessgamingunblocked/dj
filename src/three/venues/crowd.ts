@@ -538,10 +538,24 @@ export class Crowd implements Fixture {
   }
 }
 
-/** Scatter dancers over a rectangle (jittered grid), skipping `avoid` boxes. */
+let crowdScale = 1;
+/**
+ * How full the venues are (Settings → Show): 0 is an empty room, 1 the
+ * venue's normal crowd, 1.5 packed. Applies to venues built after the call.
+ */
+export function setCrowdScale(k: number): void {
+  crowdScale = Math.max(0, Math.min(1.5, k));
+}
+export function getCrowdScale(): number {
+  return crowdScale;
+}
+
+/** Scatter dancers over a rectangle (jittered grid), skipping `avoid` boxes. Density follows the crowd size setting. */
 export function crowdArea(x0: number, x1: number, z0: number, z1: number, density: number, seed: number, o: { y?: number; avoid?: THREE.Box2[]; face?: number; role?: CrowdRole } = {}): CrowdSpot[] {
   const r = rng(seed);
   const spots: CrowdSpot[] = [];
+  density *= crowdScale;
+  if (density <= 0.001) return spots;
   const step = 1 / Math.sqrt(density);
   for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z += step) {
     for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x += step) {

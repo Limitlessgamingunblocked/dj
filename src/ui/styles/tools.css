@@ -231,3 +231,139 @@ kbd {
   border: 1px solid var(--line-2);
   background: var(--panel-3);
 }
+
+/* ------------------------------------------------------------------ */
+/* Settings                                                             */
+/* ------------------------------------------------------------------ */
+
+.settings-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--space-2) 0;
+  background: var(--panel);
+}
+
+.settings-search .search {
+  width: min(420px, 100%);
+}
+
+.settings-cards {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+.settings-card {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-card.wide {
+  grid-column: 1 / -1;
+}
+
+.settings-card .hint {
+  color: var(--dim);
+  font-size: 11px;
+}
+
+.set-row[hidden],
+.settings-card[hidden] {
+  display: none;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.check-row input {
+  margin: 1px 0 0;
+  flex: none;
+}
+
+.settings-card .field > label,
+.settings-card .field > span:first-child {
+  color: var(--muted);
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider-row input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.slider-row output {
+  min-width: 46px;
+  text-align: right;
+  color: var(--text);
+  font-size: 12px;
+}
+
+input[type='color'] {
+  width: 34px;
+  height: 26px;
+  padding: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: var(--panel-3);
+  cursor: pointer;
+}
+
+.deck-col {
+  gap: 3px;
+}
+
+/* key editor: one row per binding, in columns on wide screens */
+.keys-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.keys-edit {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2px 18px;
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px 26px;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.key-row.moved .key-label::after {
+  content: ' •';
+  color: var(--venue);
+}
+
+.key-btn {
+  font-family: var(--font-mono);
+  justify-content: center;
+}
+
+.key-btn.none {
+  color: var(--dim);
+}
+
+.key-btn.listening {
+  border-color: var(--venue);
+  color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--venue) 45%, transparent);
+}
+
+.custom-pal {
+  margin-top: 4px;
+}

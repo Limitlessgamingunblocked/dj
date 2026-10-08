@@ -3,13 +3,16 @@
  * 3D stage + visual player and the software UI, and runs the frame loop.
  */
 import { AudioEngine } from '../audio/AudioEngine';
-import type { FaderCurve } from '../audio/Channel';
 import { SAMPLE_NAMES } from '../audio/synth';
 import { AnalysisPool } from '../analysis/AnalysisPool';
 import { ControlRegistry } from '../core/controls';
 import { Emitter } from '../core/emitter';
+import { onPrefs, prefs, type Prefs } from '../core/prefs';
 import { loadSetting, saveSetting } from '../core/settings';
-import type { LibraryTrack, PcmData } from '../core/types';
+import { setKeyNotation } from '../analysis/keys';
+import { setCrowdScale } from '../three/venues/crowd';
+import { setWaveScheme } from '../ui/waveform';
+import { DECK_COLORS, type DeckId, type LibraryTrack, type PcmData } from '../core/types';
 import { clamp } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
 import type { LyricLine } from '../lyrics/lyrics';
@@ -23,9 +26,8 @@ import { openVenuePicker } from '../ui/VenuePicker';
 import { Hype, type Callout } from './Hype';
 import { registerLightControls } from './lightControls';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
-import { Stage, type Quality, type StageView } from '../three/Stage';
+import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
-import type { VisSettings } from '../visualizer/Visualizer';
 import { openBoardPicker } from '../ui/BoardPicker';
 import { DeckPanel } from '../ui/DeckPanel';
 import { h, setClass, setText } from '../ui/dom';
@@ -45,54 +47,9 @@ import { WaveStrip } from '../ui/WaveStrip';
 import type { AppContext, AppEvents } from './context';
 import { registerControls } from './controlDefs';
 import { bindKeyboard } from './keyboard';
+import { cleanSettings, type Settings } from './settingsModel';
 
-interface Settings {
-  board: string;
-  finish: string;
-  venue: string;
-  view: StageView;
-  camera: ViewId;
-  quality: Quality;
-  /** Simple shows the essentials on the deck panels; Pro shows everything */
-  uiMode: 'simple' | 'pro';
-  /** step the render load down / up automatically to keep frames smooth */
-  autoQuality: boolean;
-  autoGain: boolean;
-  faderCurve: FaderCurve;
-  dockHeight: number;
-  tab: string;
-  vis: Partial<VisSettings>;
-  focus: boolean;
-  /** board full screen framing */
-  boardFraming?: 'top' | 'perf';
-  reactiveLights: boolean;
-  autoZoom: boolean;
-  stickers: boolean;
-  lights: Partial<ShowControls>;
-}
-
-const DEFAULTS: Settings = {
-  board: 'club4',
-  finish: 'booth',
-  venue: 'dc10',
-  view: 'booth',
-  camera: 'perf',
-  quality: 'medium',
-  uiMode: 'simple',
-  autoQuality: true,
-  autoGain: true,
-  faderCurve: 'log',
-  dockHeight: 0,
-  tab: 'library',
-  vis: {},
-  focus: false,
-  reactiveLights: true,
-  autoZoom: true,
-  stickers: true,
-  lights: {},
-};
-
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke', 'reduceFlash'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke', 'reduceFlash'] as const;
 
 type TabId = 'library' | 'sets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */
@@ -109,7 +66,7 @@ export class App implements AppContext {
   private stage!: Stage;
   private features!: AudioFeatures;
   private midi!: MidiManager;
-  private settings: Settings = { ...DEFAULTS, ...loadSetting<Partial<Settings>>('settings', {}) };
+  private settings: Settings = cleanSettings(loadSetting<unknown>('settings', {}));
   private boardDef: BoardDef = boardById(this.settings.board);
   private selected: LibraryTrack | null = null;
   private shell!: HTMLElement;
@@ -156,7 +113,7 @@ export class App implements AppContext {
     const changed = def.id !== this.stage.venueDef?.id;
     this.settings.venue = def.id;
     if (changed || initial) this.stage.setVenue(def);
-    document.documentElement.style.setProperty('--venue', def.ui);
+    document.documentElement.style.setProperty('--venue', prefs.accent || def.ui);
     if (changed && !initial && def.note) toast(def.note);
     this.events.emit('venue', def.id);
     this.save();
@@ -179,8 +136,8 @@ export class App implements AppContext {
       toast(`This board has ${this.deckCount()} decks.`);
       return;
     }
-    if (deck.playing) {
-      toast(`Deck ${deckId} is playing. Pause it before loading a new track.`);
+    if (deck.playing && prefs.loadLock) {
+      toast(`Deck ${deckId} is playing. Pause it before loading a new track (or turn off the load lock in Settings → Decks).`);
       return;
     }
     if (t.status === 'error') {
@@ -193,7 +150,7 @@ export class App implements AppContext {
     try {
       const pcm = await this.library.getPcm(t);
       const analysis = await this.library.ensureAnalysis(t, pcm);
-      if (deck.playing) {
+      if (deck.playing && prefs.loadLock) {
         toast(`Deck ${deckId} started playing — load cancelled.`);
         return;
       }
@@ -233,6 +190,8 @@ export class App implements AppContext {
 
     this.engine = await AudioEngine.create();
     this.engine.isShift = () => this.reg.shift;
+    this.applyPrefs(null);
+    onPrefs((_, changed) => this.applyPrefs(changed));
     this.engine.autoGain = this.settings.autoGain;
     for (const ch of this.engine.channels) ch.faderCurve = this.settings.faderCurve;
     this.pool = new AnalysisPool();
@@ -408,6 +367,14 @@ export class App implements AppContext {
       settings: this.settings,
       save: () => this.save(),
       pickBoard: () => this.pickBoard(),
+      pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id)),
+      setUiMode: (m) => this.setUiMode(m),
+      setAutoZoom: (v) => {
+        this.settings.autoZoom = v;
+        this.stage.setAutoZoom(v);
+        this.save();
+      },
+      saveLights: () => this.saveLights(),
       stickers: () => this.settings.stickers,
       setStickers: (v) => {
         this.settings.stickers = v;
@@ -421,6 +388,7 @@ export class App implements AppContext {
     const mixerTab = h('div', { class: 'mixer-tab' }, mixer.el, fx.el, sampler.el);
     const showTab = h('div', { class: 'show-tab' }, lights.el, visuals.el);
     const settingsTab = h('div', { class: 'settings-tab' }, this.setupPanel.el, midi.el);
+    this.setupPanel.searchAlso(midi.el, 'midi controller hardware learn mapping usb');
     const defs: [TabId, string, HTMLElement, ((dt: number) => void) | undefined][] = [
       ['library', 'Library', this.libPanel.el, undefined],
       ['sets', 'Set Builder', sets.el, undefined],
@@ -618,7 +586,7 @@ export class App implements AppContext {
       this.engine.setDeckCount(def.decks);
       for (const d of this.engine.decks) {
         d.setTurntable(isTurntable(def, d.id));
-        d.vinyl = true;
+        d.vinyl = prefs.jogMode === 'vinyl';
       }
       this.engine.mixer.setCurve(def.xcurve);
       for (const ch of this.engine.channels) ch.state.assign = def.noCrossfader ? 'THRU' : ch.index % 2 === 0 ? 'A' : 'B';
@@ -788,6 +756,41 @@ export class App implements AppContext {
     window.addEventListener('keydown', unlock, { capture: true });
   }
 
+  /**
+   * Put the preferences into effect: everything on start (changed = null),
+   * then only what changed. Deck defaults go to every deck.
+   */
+  private applyPrefs(changed: Set<keyof Prefs> | null): void {
+    const has = (...k: (keyof Prefs)[]) => !changed || k.some((x) => changed.has(x));
+    const root = document.documentElement.style;
+    if (has('keyNotation')) setKeyNotation(prefs.keyNotation);
+    if (has('waveScheme')) setWaveScheme(prefs.waveScheme);
+    if (has('uiScale')) {
+      root.setProperty('--ui-zoom', String(prefs.uiScale));
+      if (changed) requestAnimationFrame(() => this.stage.resize());
+    }
+    if (has('deckColors'))
+      prefs.deckColors.forEach((c, i) => {
+        DECK_COLORS[(i + 1) as DeckId] = c;
+        root.setProperty(`--deck${i + 1}`, c);
+      });
+    if (has('accent') && changed) root.setProperty('--venue', prefs.accent || venueById(this.settings.venue).ui);
+    if (has('tempoRange', 'keylock', 'quantize', 'jogMode', 'loopBeats', 'jumpBeats'))
+      for (const d of this.engine.decks) {
+        if (has('tempoRange')) d.setRange(prefs.tempoRange);
+        if (has('keylock') && d.keylock !== prefs.keylock) d.setKeylock(prefs.keylock);
+        if (has('quantize')) d.quantize = prefs.quantize;
+        if (has('jogMode')) d.vinyl = prefs.jogMode === 'vinyl';
+        if (has('loopBeats') && !d.loop.active) d.loopBeats = prefs.loopBeats;
+        if (has('jumpBeats')) d.jumpBeats = prefs.jumpBeats;
+      }
+    if (has('crowd')) {
+      setCrowdScale(prefs.crowd);
+      // the crowd is part of the venue build: build it again
+      if (changed && this.stage?.venueDef) this.stage.setVenue(this.stage.venueDef);
+    }
+  }
+
   private saveVis(): void {
     this.settings.vis = { ...this.stage.visualizer.settings };
     this.settings.reactiveLights = this.stage.reactiveLights;
@@ -802,7 +805,6 @@ export class App implements AppContext {
   /* frame loop                                                           */
   /* ------------------------------------------------------------------ */
 
-  /** keep the audio engine (sync, loops, deck events) running while the tab is hidden and rAF is paused */
   /** leave board full screen with Esc, or when the browser leaves full screen (its own Esc) */
   private bindBoardFull(): void {
     let fsOn = false;
@@ -818,6 +820,7 @@ export class App implements AppContext {
     });
   }
 
+  /** keep the audio engine (sync, loops, deck events) running while the tab is hidden and rAF is paused */
   private bindBackground(): void {
     let timer = 0;
     let last = 0;

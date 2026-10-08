@@ -154,6 +154,29 @@
   text-align: right;
 }
 
+/* the last seconds of a playing track: the time and overview blink red, once a second */
+.deck-panel.ending .time-big {
+  color: var(--live);
+  animation: end-blink 1s steps(2, jump-none) infinite;
+}
+
+.deck-panel.ending .overview {
+  border-color: var(--live);
+  box-shadow: 0 0 0 1px var(--live);
+}
+
+@keyframes end-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-panel.ending .time-big {
+    animation: none;
+  }
+}
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -171,6 +194,7 @@
 
 .chip.key {
   color: #081018;
+  white-space: nowrap;
 }
 
 .chip.warn {

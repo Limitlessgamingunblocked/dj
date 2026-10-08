@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { prefs } from '../core/prefs';
 import { loadSetting, saveSetting } from '../core/settings';
 import type { Features } from '../visualizer/AudioFeatures';
 import type { VenueViews } from './venues/base';
@@ -28,9 +29,9 @@ export const VIEW_LABELS: Record<ViewId, string> = {
 };
 
 const DRONE_FOV = 94;
-/** the OS asks for less motion: no idle sway, no beat shake */
+/** the OS asks for less motion, or camera motion is off in Settings: no idle sway, no beat shake */
 const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
-const reducedMotion = () => !!motionQuery?.matches;
+const reducedMotion = () => !!motionQuery?.matches || !prefs.cameraMotion;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 interface DroneState {

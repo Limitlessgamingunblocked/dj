@@ -1,6 +1,5 @@
 /* Software mixer: all channel strips, crossfader with curve, master and headphones. */
 import type { AppContext } from '../app/context';
-import { DECK_COLORS, type DeckId } from '../core/types';
 import { h } from './dom';
 import { fader, hwButton, knob, VuMeter, type Widget } from './widgets';
 
@@ -34,7 +33,7 @@ export class MixerPanel {
         h('div', { class: 'fader-row' }, vu.el, w(fader(reg, `ch.${c}.fader`, { orientation: 'v', length: 130, label: `Channel ${c} fader` }))),
         w(hwButton(reg, `ch.${c}.assign`, 'A·B', { title: 'Crossfader assign: A / THRU / B' })),
       );
-      strip.style.setProperty('--deck', DECK_COLORS[c as DeckId]);
+      strip.style.setProperty('--deck', `var(--deck${c})`);
       this.strips.push(strip);
       wrap.append(strip);
     }

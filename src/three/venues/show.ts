@@ -22,7 +22,7 @@ import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
 import { autoLook, type LaserPattern } from './laserlooks';
 
-export type PaletteId = 'venue' | 'rainbow' | 'red' | 'amber' | 'ice' | 'uv' | 'white';
+export type PaletteId = 'venue' | 'rainbow' | 'red' | 'amber' | 'ice' | 'uv' | 'white' | 'custom';
 export const PALETTES: { id: PaletteId; name: string; colors: [string, string, string] | null }[] = [
   { id: 'venue', name: 'Venue', colors: null },
   { id: 'rainbow', name: 'Rainbow', colors: null },
@@ -31,6 +31,7 @@ export const PALETTES: { id: PaletteId; name: string; colors: [string, string, s
   { id: 'ice', name: 'Ice', colors: ['#27e1ff', '#ffffff', '#3a6bff'] },
   { id: 'uv', name: 'UV', colors: ['#7b2bff', '#ff2bd6', '#3a4bff'] },
   { id: 'white', name: 'White', colors: ['#ffffff', '#dfe8ff', '#fff0da'] },
+  { id: 'custom', name: 'Custom', colors: null },
 ];
 
 export { LASER_PATTERN_NAMES, LASER_PATTERNS, type LaserPattern } from './laserlooks';
@@ -41,6 +42,8 @@ export interface ShowControls {
   /** overall brightness / how hard the show hits, 0..1.5 */
   intensity: number;
   palette: PaletteId;
+  /** the three colours of the Custom palette */
+  custom: [string, string, string];
   lasers: 'auto' | 'on' | 'off';
   laserPattern: LaserPattern | 'auto';
   /** strobes, blinders and CO2 fire automatically on drops */
@@ -115,6 +118,7 @@ export class LightShow {
     auto: true,
     intensity: 1,
     palette: 'venue',
+    custom: ['#ff2bd6', '#27e1ff', '#ffb000'],
     lasers: 'auto',
     laserPattern: 'auto',
     dropFx: true,
@@ -342,6 +346,13 @@ export class LightShow {
     return cols;
   }
 
+  private custom = { key: '', cols: [] as THREE.Color[] };
+  private customPalette(hex: [string, string, string]): THREE.Color[] {
+    const key = hex.join();
+    if (key !== this.custom.key) this.custom = { key, cols: hex.map((x) => new THREE.Color(/^#[0-9a-f]{6}$/i.test(x) ? x : '#ffffff')) };
+    return this.custom.cols;
+  }
+
   private palette(f: Features, s: ShowState): void {
     const c = this.controls;
     const shift = s.peak > 0.5 ? Math.floor(s.beat / 2) : Math.floor(s.bar / 8);
@@ -349,7 +360,7 @@ export class LightShow {
       for (let i = 0; i < 3; i++) s.colors[i].setHSL((f.hue + i * 0.33 + (s.peak > 0.5 ? (Math.floor(s.beat) % 4) * 0.25 : 0)) % 1, 1, 0.5);
       return;
     }
-    const src = c.palette === 'venue' ? this.venuePalette : this.fixedPalette(c.palette);
+    const src = c.palette === 'venue' ? this.venuePalette : c.palette === 'custom' ? this.customPalette(c.custom) : this.fixedPalette(c.palette);
     // before the first beat the bar count is negative: keep the index positive
     const k = Number.isFinite(shift) ? shift : 0;
     for (let i = 0; i < 3; i++) s.colors[i].copy(src[(((i + k) % src.length) + src.length) % src.length]);

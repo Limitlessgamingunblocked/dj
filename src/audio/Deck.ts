@@ -690,9 +690,13 @@ export class Deck extends Emitter<DeckEvents> {
   }
 
   cycleRange(): void {
-    const i = TEMPO_RANGES.indexOf(this.range);
+    this.setRange(TEMPO_RANGES[(TEMPO_RANGES.indexOf(this.range) + 1) % TEMPO_RANGES.length]);
+  }
+
+  setRange(range: number): void {
+    if (range === this.range) return;
     const rate = this.tempoRate;
-    this.range = TEMPO_RANGES[(i + 1) % TEMPO_RANGES.length];
+    this.range = range;
     this.tempo = clamp((rate - 1) / this.range, -1, 1); // keep the current speed where possible
     this.emit('change', this);
   }

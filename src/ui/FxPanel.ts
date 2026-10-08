@@ -2,7 +2,6 @@
 import type { AppContext } from '../app/context';
 import { FX_BEATS, FX_LABELS, FX_PARAM_LABELS, FX_TYPES } from '../audio/fx/BeatFX';
 import { beatLabel } from '../audio/Deck';
-import { DECK_COLORS, type DeckId } from '../core/types';
 import { formatBpm } from '../core/util';
 import { h, setText } from './dom';
 import { hwButton, knob, type Widget } from './widgets';
@@ -52,7 +51,7 @@ export class FxPanel {
       const card = h(
         'div',
         { class: 'strip', style: { alignItems: 'stretch' } },
-        h('div', { class: 'strip-head', style: { color: DECK_COLORS[c as DeckId] } }, `CH ${c}`),
+        h('div', { class: 'strip-head', style: { color: `var(--deck${c})` } }, `CH ${c}`),
         h('div', { class: 'knob-row', style: { justifyContent: 'space-around' } }, w(knob(reg, `ch.${c}.filter`, 'Filter')), w(knob(reg, `ch.${c}.res`, 'Reso')), w(knob(reg, `ch.${c}.crush`, 'Crush'))),
       );
       this.chCards.push(card);
