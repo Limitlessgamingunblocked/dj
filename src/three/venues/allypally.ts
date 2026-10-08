@@ -381,6 +381,8 @@ class AllyPally extends VenueBase {
       this.views = {
         wide: { pos: V(-7.5, 7.4, 4.6), target: V(1.5, 5.4, -55) },
         wideLabel: 'From the stage',
+        // a big stage behind a barrier: the camcorder is out in the crowd, the rig camera high on the front truss
+        extra: { crane: { radius: 5.5, low: 1.8, high: 5.2 }, rig: { pos: V(3.2, 8.5, -8), target: V(0, 1, 0.2) }, camcorder: { pos: V(1.6, 0.4, -7.6), target: V(0, 1.5, 0.6) }, vertigo: { near: 2.4, far: 8, height: 1.9 } },
         crowd: { pos: V(4.2, FL + 1.95, -14.6), target: V(0, 3.9, 4) },
         drone: [
           V(0, 9.4, 6.5), V(0, 4.6, -2.8), V(3, 3.0, -10), V(6, 4.6, -30), V(4, 7.6, -60), V(0, 10.5, -84), V(0, 15.2, -95),
@@ -396,6 +398,7 @@ class AllyPally extends VenueBase {
       this.views = {
         wide: { pos: V(0, FL + 9.0, -52.6), target: V(0, FL + 4.0, 0) },
         wideLabel: 'From the organ gallery',
+        extra: { crane: { radius: 4.5, low: 1.8, high: 4.5 }, camcorder: { pos: V(1.8, 0.6, -6.2), target: V(0, 1.35, 0.4) } },
         crowd: { pos: V(5.4, FL + 1.75, -8.6), target: V(0, 1.4, 0) },
         drone: [
           V(0, 5.5, 9), V(3.5, 2.2, 5), V(4.6, 1.6, 0), V(2.5, 1.5, -3.9), V(-2.5, 1.5, -3.9), V(-6, 2.6, -10), V(-10, 3.4, -24), V(-4, 6.8, -38),

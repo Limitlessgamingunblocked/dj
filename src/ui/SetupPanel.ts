@@ -9,6 +9,7 @@ import { formatKey, makeKey } from '../analysis/keys';
 import { clearAllSettings, makeBackup, parseBackup, readAllSettings, restoreSettings } from '../core/backup';
 import { BEAT_CHOICES, DEFAULT_DECK_COLORS, KEY_NOTATIONS, onPrefs, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
 import { beatLabel } from '../audio/Deck';
+import { LENS_LOOKS } from '../three/looks';
 import type { Quality, Stage } from '../three/Stage';
 import { clear, h } from './dom';
 import { KeysEditor } from './keysTable';
@@ -302,6 +303,7 @@ export class SetupPanel {
         'hover zoom auto',
       ),
       this.prefCheck('cameraMotion', 'Camera moves with the music (idle sway, beat shake)', 'motion sway shake', 'Always off when your system asks for reduced motion.'),
+      this.row('Lens effect', this.prefSelect('lens', [['auto', 'Auto — each angle brings its own'], ...LENS_LOOKS.map((l): [Prefs['lens'], string] => [l.id, l.name])]), 'lens fisheye vhs camcorder security cctv tilt-shift miniature cinematic thermal night vision effect filter', 'The fisheye, camcorder and security-camera angles bring their own look on Auto.'),
       h('div', { class: 'set-row field', 'data-k': 'saved camera views anchors' }, h('span', {}, 'Saved camera views'), h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl),
       h('p', { class: 'note set-row', 'data-k': 'orbit pan zoom drag' }, 'Switch views from the camera menu on the stage. Drag empty space to orbit, right-drag or two fingers to pan, scroll or pinch to zoom.'),
     );

@@ -53,8 +53,9 @@ export function contextMenu(x: number, y: number, items: ({ label: string; actio
   }
   document.body.append(menu);
   const r = menu.getBoundingClientRect();
-  menu.style.left = `${Math.min(x, innerWidth - r.width - 8)}px`;
-  menu.style.top = `${Math.min(y, innerHeight - r.height - 8)}px`;
+  menu.style.left = `${Math.max(8, Math.min(x, innerWidth - r.width - 8))}px`;
+  // a long menu on a short screen starts at the top and scrolls
+  menu.style.top = `${Math.max(8, Math.min(y, innerHeight - r.height - 8))}px`;
   const off = (e: PointerEvent) => {
     if (!menu.contains(e.target as Node)) {
       menu.remove();

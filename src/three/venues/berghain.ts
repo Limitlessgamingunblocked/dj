@@ -22,6 +22,8 @@ class Berghain extends VenueBase {
     wide: { pos: V(-9.2, 7.4, -11), target: V(0, 0.6, -1.5) },
     wideLabel: 'Balcony',
     crowd: { pos: V(2.8, 2.3, -13.5), target: V(0, 1.6, 0) },
+    // the booth sits in a niche: the crane and the rig camera reach out over the floor, the camcorder stands in the crowd
+    extra: { crane: { radius: 5, low: 1.8, high: 4.6 }, rig: { pos: V(2.2, 5.6, -6.2), target: V(0, 0.9, 0.3) }, camcorder: { pos: V(1.1, 0.95, -4.6), target: V(0, 1.4, 0.6) } },
     // out of the booth niche, round the hall, across the wall and back in through the opening
     drone: [V(0, 2.5, 2.8), V(0.3, 2.1, 0.8), V(0.6, 2.0, -2.8), V(2.0, 2.3, -9.0), V(3.5, 3.2, -17.0), V(0, 5.5, -25.0), V(-4.0, 4.0, -19.0), V(-8.5, 7.5, -12.0), V(-8.0, 3.0, -5.0), V(-4.6, 1.6, -2.0), V(-1.0, 1.6, -1.8), V(3.0, 1.6, -1.9), V(5.6, 2.4, -2.2), V(1.8, 2.6, -1.6)],
   };

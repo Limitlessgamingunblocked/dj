@@ -134,3 +134,83 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+
+/* text burnt into the picture by the security camera and camcorder looks */
+.lens-text {
+  position: absolute;
+  inset: 0;
+  display: none;
+  padding: 3.2em 1.4em 1.2em;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f2f2f2;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.9), 1px 1px 0 rgba(0, 0, 0, 0.8);
+}
+
+.lens-text[data-look='cctv'],
+.lens-text[data-look='vhs'] {
+  display: block;
+}
+
+.lens-text span {
+  position: absolute;
+  white-space: pre;
+}
+
+.lens-text .tl {
+  left: 1.4em;
+  top: 3.2em;
+}
+
+.lens-text .tr {
+  right: 1.4em;
+  top: 3.2em;
+}
+
+.lens-text .bl {
+  left: 1.4em;
+  bottom: 1.4em;
+}
+
+.lens-text .br {
+  right: 1.4em;
+  bottom: 1.4em;
+}
+
+.lens-text[data-look='cctv'] {
+  color: #e9f2ea;
+  font-weight: 600;
+}
+
+.lens-text[data-look='cctv'] .bl,
+.lens-text[data-look='vhs'] .tl {
+  color: #ff4040;
+  animation: rec-blink 1s steps(2, jump-none) infinite;
+}
+
+/* camcorder: chunky VCR lettering */
+.lens-text[data-look='vhs'] {
+  font-family: var(--font-label);
+  font-size: 1.25em;
+  letter-spacing: 0.1em;
+}
+
+.app.board-full .lens-text .bl,
+.app.board-full .lens-text .br {
+  bottom: calc(1.4em + 56px);
+}
+
+@keyframes rec-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lens-text[data-look='cctv'] .bl,
+  .lens-text[data-look='vhs'] .tl {
+    animation: none;
+  }
+}

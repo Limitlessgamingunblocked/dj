@@ -56,7 +56,7 @@ export const DEFAULTS: Settings = {
   camPad: true,
 };
 
-const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'drone'];
+const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'];
 
 /**
  * Saved settings over the defaults, keeping only fields the app knows with the
@@ -73,6 +73,7 @@ export function cleanSettings(raw: unknown): Settings {
     if (want === 'object' ? typeof v === 'object' && !Array.isArray(v) : typeof v === want) (out as unknown as Record<string, unknown>)[k] = v;
   }
   if (VIEW_IDS.includes(r.boardFraming as ViewId)) out.boardFraming = r.boardFraming as ViewId;
+  if (!VIEW_IDS.includes(out.camera)) out.camera = DEFAULTS.camera;
   if (r.boardHome === 'top' || r.boardHome === 'perf') out.boardHome = r.boardHome;
   const custom = out.lights.custom as unknown;
   if (custom !== undefined && !(Array.isArray(custom) && custom.length === 3 && custom.every((c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)))) delete out.lights.custom;

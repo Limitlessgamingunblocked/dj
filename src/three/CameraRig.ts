@@ -12,7 +12,7 @@ import { loadSetting, saveSetting } from '../core/settings';
 import type { Features } from '../visualizer/AudioFeatures';
 import type { VenueViews } from './venues/base';
 
-export type ViewId = 'top' | 'perf' | 'booth' | 'wide' | 'crowd' | 'drone';
+export type ViewId = 'top' | 'perf' | 'booth' | 'wide' | 'crowd' | 'fisheye' | 'crane' | 'rig' | 'cctv' | 'camcorder' | 'vertigo' | 'drone';
 export interface CameraAnchor {
   name: string;
   pos: [number, number, number];
@@ -25,8 +25,22 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   booth: 'Booth POV',
   wide: 'Venue',
   crowd: 'From the crowd',
+  fisheye: 'Fisheye on the booth',
+  crane: 'Crane sweep',
+  rig: 'Lighting rig',
+  cctv: 'Security camera',
+  camcorder: '90s camcorder',
+  vertigo: 'Dolly zoom',
   drone: 'Drone FPV',
 };
+
+/**
+ * Angles that move on their own, computed every frame: a fisheye clamped to
+ * the booth (the bass shakes it), a crane sweeping round the DJ, a camera up in
+ * the lighting rig, a panning security camera, someone in the front rows
+ * filming on a camcorder, and a dolly zoom that pulls back while zooming in.
+ */
+export const LIVE_VIEWS: ViewId[] = ['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo'];
 
 const DRONE_FOV = 94;
 /** the OS asks for less motion, or camera motion is off in Settings: no idle sway, no beat shake */
@@ -85,6 +99,13 @@ export class CameraRig {
    */
   readonly move = { yaw: 0, pitch: 0, zoom: 0 };
   private sph = new THREE.Spherical();
+  /** field of view a lens look needs (the fisheye renders wide, then remaps), degrees */
+  lensFov: number | null = null;
+  /** the last named angle (lens looks follow it while you nudge the camera by hand) */
+  named: ViewId = 'perf';
+  private liveT = 0;
+  private liveTarget = new THREE.Vector3();
+  private livePos = new THREE.Vector3();
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
   private booth = new THREE.Vector3(0, 1.45, 0.3);
@@ -149,6 +170,11 @@ export class CameraRig {
     return v === 'wide' && this.venueViews ? this.venueViews.wideLabel : VIEW_LABELS[v];
   }
 
+  /** an angle that moves on its own is showing */
+  get isLive(): boolean {
+    return LIVE_VIEWS.includes(this.view as ViewId);
+  }
+
   noteInteraction(): void {
     this.lastInteraction = performance.now();
   }
@@ -175,7 +201,83 @@ export class CameraRig {
       wide: this.venueViews ? { pos: this.venueViews.wide.pos.clone(), target: this.venueViews.wide.target.clone() } : { pos: new THREE.Vector3(c.x + 2.6, 2.3, c.z + 3.3), target: new THREE.Vector3(0, 1.7, -3.2) },
       crowd: this.venueViews ? { pos: this.venueViews.crowd.pos.clone(), target: this.venueViews.crowd.target.clone() } : { pos: new THREE.Vector3(0, 1.2, -6), target: new THREE.Vector3(0, 1.3, 0) },
       drone: { pos: this.camera.position.clone(), target: this.controls.target.clone() },
+      fisheye: this.livePose('fisheye', null, 0),
+      crane: this.livePose('crane', null, 0),
+      rig: this.livePose('rig', null, 0),
+      cctv: this.livePose('cctv', null, 0),
+      camcorder: this.livePose('camcorder', null, 0),
+      vertigo: this.livePose('vertigo', null, 0),
     };
+  }
+
+  /**
+   * Where a live angle's camera is at time t (seconds on it). Venues can place
+   * the rig, security and camcorder cameras and size the crane and dolly
+   * (VenueViews.extra); otherwise they go round the booth. Motion that is just
+   * shake (the camcorder's hand, the bass on the booth) stops when reduced
+   * motion is asked for; the moves that are the point of the angle don't.
+   */
+  private livePose(v: ViewId, f: Features | null, t: number): Pose & { fov?: number } {
+    const x = this.venueViews?.extra ?? {};
+    const still = reducedMotion();
+    // the beat clock: one cycle per 8 bars while the music plays, slower in seconds otherwise
+    const beats = f?.playing && f.bpm > 0 ? f.beatCount + f.beatPhase : t * 2;
+    const cyc = (beats / 32) * Math.PI * 2;
+    const V = (a: number, b: number, c: number) => new THREE.Vector3(a, b, c);
+    switch (v) {
+      case 'fisheye': {
+        const c = this.box.getCenter(new THREE.Vector3());
+        const top = this.box.max.y;
+        // clamped to the front edge of the booth, low, looking back up at the DJ
+        const pos = V(c.x + 0.05, top + 0.07, this.box.min.z - 0.09);
+        if (!still && f) pos.y += Math.sin(t * 80) * f.kickPulse * 0.004;
+        return { pos, target: V(c.x, top + 0.58, this.box.max.z + 0.5) };
+      }
+      case 'rig': {
+        const p = x.rig ?? { pos: V(1.4, 4.6, -3.2), target: V(0, 0.95, 0.35) };
+        const pos = p.pos.clone();
+        pos.x += Math.sin(t * 0.06) * 0.5;
+        return { pos, target: p.target.clone() };
+      }
+      case 'cctv': {
+        const p = x.cctv ?? { pos: V(5.5, 4.0, -6), target: V(0, 1, 0) };
+        // a slow pan back and forth, like a real one on a motor
+        const off = p.target.clone().sub(p.pos).applyAxisAngle(Y_AXIS, Math.sin((t * Math.PI * 2) / 28) * 0.28);
+        return { pos: p.pos.clone(), target: p.pos.clone().add(off) };
+      }
+      case 'crane': {
+        const cr = x.crane ?? { radius: 3.4, low: 1.7, high: 3.4 };
+        const a = Math.sin(cyc) * 0.95;
+        const h = cr.low + (cr.high - cr.low) * (0.5 + 0.5 * Math.sin(cyc * 0.5 + 0.6));
+        return { pos: V(Math.sin(a) * cr.radius, h, 0.6 - Math.cos(a) * cr.radius), target: V(0, 1.2, 0.55) };
+      }
+      case 'camcorder': {
+        const p = x.camcorder ?? { pos: V(0.8, 1.3, -2.4), target: V(0, 1.35, 0.6) };
+        const pos = p.pos.clone();
+        const target = p.target.clone();
+        // whoever is filming drifts between the DJ and the room, and dances a bit
+        target.x += Math.sin(t * 0.21) * 0.6 + Math.sin(t * 0.07) * 0.4;
+        target.y += Math.sin(t * 0.29) * 0.15;
+        if (!still) {
+          pos.x += Math.sin(t * 1.3) * 0.03 + Math.sin(t * 2.9) * 0.012;
+          pos.y += Math.sin(t * 1.7) * 0.02 + Math.sin(t * 4.1) * 0.01 + (f?.kickPulse ?? 0) * 0.012;
+          pos.z += Math.sin(t * 0.9) * 0.03;
+          target.x += Math.sin(t * 1.9) * 0.02;
+          target.y += Math.sin(t * 2.3) * 0.02;
+        }
+        return { pos, target };
+      }
+      case 'vertigo': {
+        const vz = x.vertigo ?? { near: 2.2, far: 6.5, height: 1.7 };
+        const d = vz.near + (vz.far - vz.near) * (0.5 - 0.5 * Math.cos(cyc));
+        const target = V(0, 1.3, 0.6);
+        // pull straight back from the DJ while the lens zooms in to keep them the same size
+        const frame = 2 * vz.near * Math.tan(THREE.MathUtils.degToRad(this.baseFov) / 2);
+        return { pos: V(0, vz.height, target.z - d), target, fov: THREE.MathUtils.radToDeg(2 * Math.atan(frame / 2 / d)) };
+      }
+      default:
+        return { pos: this.camera.position.clone(), target: this.controls.target.clone() };
+    }
   }
 
   goTo(v: ViewId, instant = false): void {
@@ -184,6 +286,19 @@ export class CameraRig {
       return;
     }
     this.stopDrone();
+    this.named = v;
+    if (LIVE_VIEWS.includes(v)) {
+      // live angles fly in from wherever the camera is, then keep moving (update())
+      if (this.view !== v) this.liveT = 0;
+      this.view = v;
+      this.focused = false;
+      const p = this.livePose(v, null, this.liveT);
+      this.base = { pos: p.pos.clone(), target: p.target.clone() };
+      this.goalPos = null;
+      this.goalTarget = null;
+      if (instant) this.setGoal(p.pos, p.target, true);
+      return;
+    }
     const p = this.presets()[v];
     this.view = v;
     this.focused = false;
@@ -380,7 +495,7 @@ export class CameraRig {
   update(dt: number, f: Features | null, shakeEnabled: boolean): void {
     this.inUpdate = true;
     // lens: the drone flies wide, everything else uses the normal lens
-    const wantFov = this.drone ? DRONE_FOV : this.baseFov;
+    const wantFov = this.drone ? DRONE_FOV : (this.lensFov ?? this.baseFov);
     if (Math.abs(this.camera.fov - wantFov) > 0.05) {
       this.camera.fov += (wantFov - this.camera.fov) * Math.min(1, dt * 4);
       this.camera.updateProjectionMatrix();
@@ -406,6 +521,19 @@ export class CameraRig {
         this.goalSpeed = 5.5;
       }
     }
+    // live angles: follow their path; the fly-in from the last angle comes from the same easing
+    let liveFov: number | undefined;
+    if (this.isLive && !this.focused && !this.goalPos) {
+      this.liveT += dt;
+      const p = this.livePose(this.view as ViewId, f, this.liveT);
+      this.livePos.copy(p.pos);
+      this.liveTarget.copy(p.target);
+      const k = 1 - Math.exp(-dt * 3.2);
+      this.camera.position.lerp(this.livePos, k);
+      this.controls.target.lerp(this.liveTarget, k);
+      this.base = { pos: p.pos, target: p.target };
+      liveFov = p.fov;
+    }
     // dynamic performance view: slow sway around the board when idle
     const idle = performance.now() - this.lastInteraction > 4000;
     if (this.view === 'perf' && idle && !this.focused && !this.goalPos && f?.playing && !reducedMotion()) {
@@ -423,6 +551,14 @@ export class CameraRig {
     }
     this.controls.update();
     if (this.camera.position.y < -1.2) this.camera.position.y = -1.2;
+    // the dolly zoom: the lens follows the camera's real distance so the DJ stays the same size
+    if (liveFov !== undefined && this.lensFov === null) {
+      const dNow = this.camera.position.distanceTo(this.controls.target);
+      const dWant = this.livePos.distanceTo(this.liveTarget);
+      const fov = THREE.MathUtils.radToDeg(2 * Math.atan((Math.tan(THREE.MathUtils.degToRad(liveFov) / 2) * dWant) / Math.max(0.1, dNow)));
+      this.camera.fov = THREE.MathUtils.clamp(fov, 8, 70);
+      this.camera.updateProjectionMatrix();
+    }
     if (shakeEnabled && f && !this.focused && !reducedMotion() && (this.view === 'wide' || this.view === 'crowd' || (this.view === 'perf' && idle))) {
       const mult = this.view === 'perf' ? 1 : 3;
       this.shake = Math.max(this.shake * Math.exp(-dt * 12), (f.kickPulse * 0.006 * f.intensity + f.drop * 0.01) * mult);

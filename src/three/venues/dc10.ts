@@ -25,6 +25,8 @@ class DC10 extends VenueBase {
     wide: { pos: V(-1.45, 2.3, 1.75), target: V(0.9, 1.3, -5.5) },
     wideLabel: 'Over the shoulder',
     crowd: { pos: V(-2.4, 2.6, -11.5), target: V(0.3, 2.0, 0) },
+    // the security camera in the corner behind the booth, clear of the mirror ball; the rig under the low ceiling
+    extra: { cctv: { pos: V(7.6, 4.2, 1.9), target: V(-1.5, 0.4, -6.5) }, rig: { pos: V(1.3, 4.2, -3.0), target: V(0, 0.95, 0.35) } },
     drone: [V(0, 3.0, 3.2), V(0.4, 2.3, 0.9), V(0.8, 2.0, -2.6), V(2.5, 2.1, -7.5), V(5.5, 2.8, -13.5), V(7.0, 2.3, -8.0), V(5.0, 1.8, -2.4), V(2.9, 1.5, -1.0), V(0, 1.55, -1.1), V(-2.9, 1.5, -1.0), V(-5.5, 2.0, -3.0), V(-7.0, 2.8, -9.0), V(-4.0, 3.6, -14.5), V(-1.0, 4.4, -8.0), V(-3.4, 3.4, 1.8)],
   };
   private fans: THREE.Group[] = [];

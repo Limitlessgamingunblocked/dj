@@ -31,6 +31,8 @@ class Printworks extends VenueBase {
   readonly views: VenueViews = {
     wide: { pos: V(-10.3, 10.4, -4.6), target: V(1.5, 3.5, -30) },
     wideLabel: 'Gantry',
+    // a high stage in a long hall: a long crane, the rig camera out over the front rows, the camcorder in the crowd
+    extra: { crane: { radius: 5.5, low: 2.0, high: 5.5 }, rig: { pos: V(2.5, 7.5, -7.5), target: V(0, 0.9, 0.2) }, camcorder: { pos: V(1.0, 0.65, -4.6), target: V(0, 1.4, 0.6) } },
     crowd: { pos: V(3.6, 2.4, -17.5), target: V(0, 2.2, 0) },
     drone: [V(0, 5.5, 4.0), V(0.4, 2.6, 1.0), V(0.8, 1.2, -3.5), V(2.0, 1.6, -14.0), V(4.5, 3.0, -30.0), V(3.0, 5.5, -58.0), V(0, 9.0, -84.0), V(-5.0, 6.5, -60.0), V(-7.0, 5.5, -30.0), V(-8.0, 6.0, -16.0), V(-7.0, 2.2, -5.0), V(-6.3, 1.0, -1.9), V(-2.0, 1.2, -1.8), V(2.5, 1.2, -1.8), V(6.3, 1.0, -1.9), V(8.0, 3.5, -4.5), V(5.0, 6.0, 1.5)],
   };

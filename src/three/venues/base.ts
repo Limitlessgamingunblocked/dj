@@ -25,6 +25,19 @@ export interface VenueViews {
   crowd: Pose;
   /** FPV drone loop: over the crowd, past the pyro and the booth (closed CatmullRom path) */
   drone: THREE.Vector3[];
+  /**
+   * Placing the extra angles in this room (anything left out goes round the
+   * booth): the camera up in the lighting rig, the security camera in a high
+   * corner, the camcorder in the front rows, the crane's reach and heights
+   * (above the booth floor) and the dolly zoom's nearest / furthest distance.
+   */
+  extra?: {
+    rig?: Pose;
+    cctv?: Pose;
+    camcorder?: Pose;
+    crane?: { radius: number; low: number; high: number };
+    vertigo?: { near: number; far: number; height: number };
+  };
 }
 
 export interface LiveFeed {

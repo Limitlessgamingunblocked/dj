@@ -58,7 +58,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - On the one-unit-per-deck boards the software deck panels follow whichever player or turntable you touch.
 - Controls: drag knobs up/down (Shift for fine), drag faders, double-click to reset, scroll wheel over any control. Jogs have a capacitive top (scratch in vinyl mode) and an outer ring (pitch bend). Turntables have platter inertia with adjustable start/brake, slip-mat scratching (the platter keeps spinning under the record), tonearm needle drop, 33/45 and adjustable record wear (crackle, hiss, wow & flutter). Multi-touch works on touch screens.
 - Hover-to-zoom (zones per unit on the multi-unit rigs): rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off in the camera menu on the stage.
-- Cameras: top-down, performance (drifts gently with the music when you're hands-off), first-person booth, club views and the FPV drone (see Venues), orbit/pan/zoom with damping, plus saved camera views.
+- Cameras: top-down, performance (drifts gently with the music when you're hands-off), first-person booth, club views, six moving angles with their own lens looks and the FPV drone (see Venues), orbit/pan/zoom with damping, plus saved camera views.
 
 ### Audio engine
 - Each deck is an AudioWorklet: Hermite-interpolated varispeed, position-locked scratching, motor start/brake, loops, slip mode, reverse/censor.
@@ -150,6 +150,14 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
 - **The crowd**: every dancer is a jointed figure posed on the GPU. Knees bend on the beat and on kick transients, hips sway, shoulders twist, heads nod and look around. People mix club-dance arms, hands in the air, fist pumps, clapping overhead through build-ups and arms up (with a jump) on drops and hook lines, and some film on phones whose screens and torches light up. LED-dot signs ("ONE MORE TUNE", "HI MUM"…) are held up near the front, VIP guests stand by the booth with drinks, chatting and filming, and some dancers turn to their friends. Tops, sleeves, trousers, shoes, skin and hair vary, and every dancer casts a soft contact shadow. (No phones, signs or VIPs at Berghain.) It is stylised, not photoreal.
 - A crowd meter tracks the room: it rises with the music, beat-locked blends and drops, and falls with trainwrecks and key clashes, with call-outs on the stage.
 - Each venue has its own camera angles (over the shoulder, stream cam, balcony, gantry, from the stage, from the organ gallery, from the crowd); you appear in the booth in those shots, hands on the decks.
+- **Moving camera angles** (camera menu), placed for each room:
+  - **Fisheye on the booth**: a little camera clamped to the front of the booth, looking back up at the DJ through a real fisheye lens; the bass shakes it.
+  - **Crane sweep**: a jib swinging round in front of the DJ and rising and falling, once every 8 bars, in widescreen with teal-and-orange colour.
+  - **Lighting rig**: from up in the truss, looking down at the booth and the front rows, with a tilt-shift blur that makes the room look like a model.
+  - **Security camera**: a high corner of the room, black and white, scanlines, a burnt-in clock and REC, a slow motorised pan, and a choppy 8 frames a second.
+  - **90s camcorder**: someone in the front rows filming on tape: handheld wobble, colour bleed, tracking noise, REC and a date stamp.
+  - **Dolly zoom**: the camera pulls back while the lens zooms in, so the DJ stays the same size while the room stretches behind them (one cycle every 8 bars).
+- **Lens looks** (camera menu → Lens, Settings → Board & camera, or ◎ on the board full-screen camera bar): Auto gives each angle its own look; or put any look on any angle: Clean, Fisheye, 90s camcorder, Security camera, Tilt-shift miniature, Cinematic widescreen, Thermal or Night vision. Zooming in on the board always shows it clean.
 - **Drone FPV** (camera menu): a looping fly-through of each venue — over the crowd, banking past the pyro, gliding across the front of the booth and swinging round to look at the DJ — with a wide lens, barrel distortion, colour fringing and a zoom blur that grows with speed. It flies faster as the energy rises.
 - **Screens**: the LED wall and towers read as LED up close (pixels, tile seams, dimmer off-axis). The IMAG towers use a broadcast grade and go monochrome through build-ups.
 - **Lens and grade**: bright fixtures (beam lenses, lasers, strobes, flames) throw anamorphic streaks and faint ghosts, with vignette and film grain (medium and high quality). Each venue has its own colour grade and tone mapping. AgX rolls lights off to white like a camera, for the warehouse, Printworks and Boiler Room; ACES keeps the blacks deep in Berghain and DC-10. Lens effects, tone mapping, grade and output run in one full-screen pass.
@@ -182,7 +190,7 @@ src/analysis/              tempo/grid, key, waveform, PCM parsers, worker pool
 src/library/               IndexedDB storage, tags, crates, search
 src/setbuilder/            SmartDJ set generation: track profiles, artist styles, key/tempo rules, energy arcs, exports
 src/lyrics/                lyric formats (LRC, tags, LRCLIB), vocal activity + alignment, lyrics clock
-src/three/                 stage, camera rig (incl. drone), lens pass, board parts and presets, stickers
+src/three/                 stage, camera rig (incl. drone and the moving angles), lens pass and looks, board parts and presets, stickers
 src/three/venues/          venues, light show director, fixtures (beams, lasers, strobes…), crowd, pyro
 src/visualizer/            audio features, visual modes, lyrics typography
 src/ui/                    software panels and widgets

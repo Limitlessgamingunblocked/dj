@@ -22,6 +22,7 @@ import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
 import { FX } from './fx';
 import { FINITE_GLSL, LensOutputPass, NEUTRAL_GRADE } from './lens';
+import { approachLook, copyLook, lookFor, LOOKS, type LensLook } from './looks';
 import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 import type { VenueDef, VenueScene } from './venues/base';
@@ -110,6 +111,16 @@ export class Stage {
    * board full screen): the camera frames the board in the space above it.
    */
   bottomInset = 0;
+  /** the lens look picked in the camera menu / Settings ('auto' = each angle's own) */
+  lensPick: LensLook | 'auto' = 'auto';
+  /** the look on screen now (eases towards the wanted one) */
+  private look = copyLook(LOOKS.none);
+  private lookId: LensLook = 'none';
+  /** time since the picture last updated, for looks with a low frame rate (the security camera) */
+  private lookHold = 0;
+  private insetFrac = 0;
+  /** text burnt into the picture by some looks: the security camera's clock, the camcorder's REC */
+  private lensText: { el: HTMLElement; tl: HTMLElement; tr: HTMLElement; bl: HTMLElement; br: HTMLElement; shown: string; at: number; since: number };
   private zones: Zone[] = [];
   private boardTop = TABLE_Y;
   private pointerInside = false;
@@ -141,6 +152,19 @@ export class Stage {
     this.el = document.createElement('div');
     this.el.className = 'stage';
     this.el.append(this.canvas, this.tooltip);
+    {
+      const span = (cls: string) => Object.assign(document.createElement('span'), { className: cls });
+      const el = document.createElement('div');
+      el.className = 'lens-text';
+      el.setAttribute('aria-hidden', 'true');
+      const tl = span('tl');
+      const tr = span('tr');
+      const bl = span('bl');
+      const br = span('br');
+      el.append(tl, tr, bl, br);
+      this.el.append(el);
+      this.lensText = { el, tl, tr, bl, br, shown: '', at: 0, since: 0 };
+    }
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -417,7 +441,8 @@ export class Stage {
    * plus a margin counts as "still here", so it can't oscillate. */
   private updateAutoZoom(): void {
     const now = performance.now();
-    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone') return;
+    // the angles that move on their own are for watching: hovering over the board doesn't zoom them in
+    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone' || this.rig.isLive) return;
     if (this.drags.size || this.rig.interacting || this.rig.moving || now - this.lastDragEnd < 450 || now - this.rig.lastManual < 1200) {
       this.zoneSince = now;
       return;
@@ -481,6 +506,34 @@ export class Stage {
   /* sizing                                                               */
   /* ------------------------------------------------------------------ */
 
+  /** The text some looks burn into the picture, refreshed twice a second. */
+  private updateLensText(look: LensLook): void {
+    const t = this.lensText;
+    const kind = this.view === 'visual' ? '' : look === 'cctv' || look === 'vhs' ? look : '';
+    if (kind !== t.shown) {
+      t.shown = kind;
+      t.el.dataset.look = kind;
+      t.at = 0;
+    }
+    if (!kind || this.ctx.now - t.at < 0.5) return;
+    t.at = this.ctx.now;
+    const d = new Date();
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const clock = `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+    if (kind === 'cctv') {
+      t.tl.textContent = `CAM 0${(this.venueDef?.id.length ?? 3) % 8 + 1}  ${(this.venueDef?.short ?? this.venueDef?.name ?? '').toUpperCase()}`;
+      t.tr.textContent = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}  ${clock}`;
+      t.bl.textContent = '● REC';
+      t.br.textContent = '';
+    } else {
+      const el = Math.floor(this.ctx.now - t.since);
+      t.tl.textContent = '● REC';
+      t.tr.textContent = '▮▮▮▯';
+      t.bl.textContent = `SP  ${Math.floor(el / 3600)}:${p2(Math.floor(el / 60) % 60)}:${p2(el % 60)}`;
+      t.br.textContent = `${d.toLocaleString('en-US', { month: 'short' }).toUpperCase()}. ${p2(d.getDate())} ${d.getFullYear()}  ${clock}`;
+    }
+  }
+
   resize(): void {
     const w = Math.max(1, this.el.clientWidth);
     const h = Math.max(1, this.el.clientHeight);
@@ -495,6 +548,8 @@ export class Stage {
     this.bloom.resolution.set(w * bloomScale, h * bloomScale);
     // with a bottom inset the lens is centred on the area above it (the picture still fills the stage)
     const inset = Math.min(Math.max(0, this.bottomInset), h * 0.35);
+    this.insetFrac = inset / h;
+    this.lensText.el.style.fontSize = `${Math.round(Math.max(11, Math.min(22, h * 0.03)))}px`;
     this.camera.aspect = w / (h - inset);
     if (inset > 0) this.camera.setViewOffset(w, h - inset, 0, 0, w, h);
     else this.camera.clearViewOffset();
@@ -608,7 +663,7 @@ export class Stage {
       if (t && t.id === e.pointerId) {
         this.tap = null;
         // a tap/click on an empty part of the board zooms to that section (touch has no hover)
-        if (e.type === 'pointerup' && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8 && performance.now() - t.t < 350 && this.autoZoom && this.view !== 'visual') {
+        if (e.type === 'pointerup' && Math.hypot(e.clientX - t.x, e.clientY - t.y) < 8 && performance.now() - t.t < 350 && this.autoZoom && this.view !== 'visual' && !this.rig.isLive && this.rig.view !== 'drone') {
           const zone = this.zoneAt(e.clientX, e.clientY);
           this.focusZone(zone === this.focusedZone && e.pointerType !== 'mouse' ? null : zone);
           this.zoneCandidate = zone;
@@ -704,7 +759,7 @@ export class Stage {
       this.avatar.update(show, dt);
       // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
       const v = this.rig.view;
-      this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
+      this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || this.rig.isLive || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
     }
 
     // on the venue screens the visual player can run at half rate when the load is high
@@ -747,16 +802,53 @@ export class Stage {
     lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
     lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
     lu.uGhost.value = !lensFx || this.rig.focused ? 0 : 0.2;
-    lu.uDistort.value = 0.34 * a;
-    lu.uCA.value = 0.014 * a;
+    // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
+    const lookId = this.rig.focused ? 'none' : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
+    if (lookId !== this.lookId) {
+      this.lookId = lookId;
+      this.lookHold = 1e9;
+      this.lensText.since = this.ctx.now;
+    }
+    const L = approachLook(this.look, LOOKS[lookId], 1 - Math.exp(-dt * 6));
+    this.rig.lensFov = L.fov || null;
+    lu.uDistort.value = 0.34 * a + L.distort;
+    lu.uCA.value = 0.014 * a + L.ca;
     lu.uBlur.value = a * (0.15 + THREE.MathUtils.clamp((drone.speed - 2.5) / 5, 0, 1) * 0.6);
-    lu.uGrain.value = this.quality === 'low' ? 0 : 0.03 + 0.03 * a;
-    lu.uVignette.value = 0.2 + 0.25 * a;
+    lu.uGrain.value = (this.quality === 'low' ? 0 : 0.03 + 0.03 * a) + L.grain;
+    lu.uVignette.value = Math.min(1.2, 0.2 + 0.25 * a + L.vignette);
+    lu.uFish.value = L.fish < 0.002 ? 0 : L.fish;
+    lu.uMono.value = L.mono < 0.002 ? 0 : L.mono;
+    lu.uMonoTint.value.setRGB(...L.monoTint);
+    lu.uMonoGain.value = L.monoGain;
+    lu.uScan.value = L.scan < 0.002 ? 0 : L.scan;
+    lu.uVhs.value = L.vhs < 0.002 ? 0 : L.vhs;
+    lu.uTilt.value = L.tilt < 0.002 ? 0 : L.tilt;
+    lu.uBars.value = L.bars < 0.002 ? 0 : L.bars;
+    lu.uSplit.value = L.split;
+    lu.uThermal.value = L.thermal < 0.002 ? 0 : L.thermal;
+    lu.uSatBoost.value = L.sat;
+    if (L.fish > 0) {
+      // the fisheye reads the wide render at tan(angle): its focal length in pixels, and a
+      // fisheye scale that brings the frame's side edges to the render's side edges
+      const res = lu.uRes.value;
+      const hFull = res.y * (1 - this.insetFrac);
+      const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+      lu.uCenter.value.set(0.5, 0.5 + this.insetFrac / 2);
+      lu.uFocal.value = hFull / 2 / tanHalf;
+      lu.uFishF.value = res.x / 2 / (Math.atan((tanHalf * res.x) / hFull) * 0.97);
+    }
+    this.updateLensText(lookId);
     // the booth light's shadows update at 30 Hz
     r.shadowMap.needsUpdate = this.frame % 2 === 0 || !this.keyLight.shadow.map;
     // live camera feeds (Boiler Room's stream monitor, Alexandra Palace's IMAG towers)
     const feed = venue?.feed;
     if (this.compiling) return;
+    // a security camera updates a few times a second: hold the last picture in between
+    if (L.fps > 0) {
+      this.lookHold += dt;
+      if (this.lookHold < 1 / L.fps) return;
+      this.lookHold = Math.min(this.lookHold - 1 / L.fps, 1 / L.fps);
+    }
     // the venue's own off-screen renders (the floor light map)
     venue?.prerender?.(r, dt);
     if (feed && this.frame % (feed.every ?? 3) === 0 && this.onScreen([feed.screen])) {

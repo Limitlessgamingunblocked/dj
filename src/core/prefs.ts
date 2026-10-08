@@ -7,6 +7,7 @@
  * defaults.
  */
 import type { KeyNotation } from '../analysis/keys';
+import { LENS_LOOKS, type LensLook } from '../three/looks';
 import { loadSetting, saveSetting } from './settings';
 
 export type { KeyNotation } from '../analysis/keys';
@@ -37,6 +38,8 @@ export interface Prefs {
   jumpBeats: number;
   /** crowd size: 0 is an empty room, 1 the venue's normal crowd, 1.5 packed */
   crowd: number;
+  /** lens look on the club camera: 'auto' gives each camera angle its own (fisheye, camcorder…) */
+  lens: LensLook | 'auto';
   /** keyboard: default key → assigned key ('' = no key). Only changed keys are stored. */
   keys: Record<string, string>;
 }
@@ -75,6 +78,7 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   loopBeats: 4,
   jumpBeats: 4,
   crowd: 1,
+  lens: 'auto',
   keys: {},
 });
 
@@ -115,6 +119,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
     loopBeats: oneOf(r.loopBeats, BEAT_CHOICES, d.loopBeats),
     jumpBeats: oneOf(r.jumpBeats, BEAT_CHOICES, d.jumpBeats),
     crowd: Math.round(num(r.crowd, 0, 1.5, d.crowd) * 20) / 20,
+    lens: oneOf(r.lens, ['auto', ...LENS_LOOKS.map((l) => l.id)] as (LensLook | 'auto')[], d.lens),
     keys,
   };
 }

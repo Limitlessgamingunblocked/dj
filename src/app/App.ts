@@ -7,7 +7,8 @@ import { SAMPLE_NAMES } from '../audio/synth';
 import { AnalysisPool } from '../analysis/AnalysisPool';
 import { ControlRegistry } from '../core/controls';
 import { Emitter } from '../core/emitter';
-import { onPrefs, prefs, type Prefs } from '../core/prefs';
+import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
+import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
 import { setKeyNotation } from '../analysis/keys';
 import { setCrowdScale } from '../three/venues/crowd';
@@ -234,7 +235,8 @@ export class App implements AppContext {
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
-    registerCameraControls(this.reg, this.stage.rig, { next: () => this.nextAngle(), reset: () => this.resetAngle() });
+    registerCameraControls(this.reg, this.stage.rig, { next: () => this.nextAngle(), reset: () => this.resetAngle(), lens: () => this.nextLens() });
+    this.stage.lensPick = prefs.lens;
     this.hype = new Hype(this.engine);
     this.hype.onCallout((c) => this.callout(c));
     this.lyrics = new LyricsEngine(this.engine, (id) => {
@@ -535,7 +537,7 @@ export class App implements AppContext {
         group(b('cam.left', '↶', 'Orbit left (hold)', ''), b('cam.right', '↷', 'Orbit right (hold)', '')),
         group(b('cam.raise', '▲', 'Look more from above (hold)', ''), b('cam.lower', '▼', 'Look from lower down (hold)', '')),
         group(b('cam.out', '−', 'Zoom out (hold)', ''), b('cam.in', '+', 'Zoom in (hold)', '')),
-        group(b('cam.reset', '⌂', 'Back to the board view', ''), b('cam.next', '⇢', 'Next camera angle', '')),
+        group(b('cam.reset', '⌂', 'Back to the board view', ''), b('cam.next', '⇢', 'Next camera angle', ''), b('cam.lens', '◎', 'Next lens look (fisheye, camcorder…)', '')),
         fold,
       ),
     );
@@ -571,6 +573,17 @@ export class App implements AppContext {
   }
 
   /** ⌂: in board full screen back to the board (Top-down or Angled); otherwise to the chosen camera view */
+  private lensName(): string {
+    return prefs.lens === 'auto' ? 'Auto' : (LENS_LOOKS.find((l) => l.id === prefs.lens)?.name ?? 'Clean');
+  }
+
+  /** step through the lens looks: Auto (each angle's own), then every look */
+  private nextLens(): void {
+    const order = ['auto', ...LENS_LOOKS.map((l) => l.id)] as Prefs['lens'][];
+    setPrefs({ lens: order[(order.indexOf(prefs.lens) + 1) % order.length] });
+    toast(`Lens: ${this.lensName()}`);
+  }
+
   private resetAngle(): void {
     if (this.boardMode) this.frameBoard(this.settings.boardHome ?? 'top');
     else this.stage.goTo(this.settings.camera);
@@ -757,6 +770,16 @@ export class App implements AppContext {
       action: () => this.pickAngle(v),
     }));
     items.push('sep');
+    items.push({
+      label: `Lens: ${this.lensName()} ▸`,
+      action: () =>
+        contextMenu(x, y, [
+          { label: `${prefs.lens === 'auto' ? '● ' : ''}Auto — each angle's own`, action: () => setPrefs({ lens: 'auto' }) },
+          'sep',
+          ...LENS_LOOKS.map((l) => ({ label: `${prefs.lens === l.id ? '● ' : ''}${l.name}`, action: () => setPrefs({ lens: l.id }) })),
+        ]),
+    });
+    items.push('sep');
     for (const a of rig.anchors()) items.push({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) });
     items.push({
       label: `${this.stage.autoZoom ? '✓ ' : ''}Zoom in on the board under the pointer`,
@@ -862,6 +885,7 @@ export class App implements AppContext {
         if (has('loopBeats') && !d.loop.active) d.loopBeats = prefs.loopBeats;
         if (has('jumpBeats')) d.jumpBeats = prefs.jumpBeats;
       }
+    if (has('lens') && this.stage) this.stage.lensPick = prefs.lens;
     if (has('crowd')) {
       setCrowdScale(prefs.crowd);
       // the crowd is part of the venue build: build it again

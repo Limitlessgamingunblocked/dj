@@ -9,6 +9,9 @@
  *     that grows with flying speed
  *   – tone mapping (the renderer's setting), then a per-venue grade (tint,
  *     contrast, saturation, black level), vignette and film grain
+ *   – lens looks (looks.ts): a true fisheye remap, tape (line jitter, a
+ *     tracking band, colour shift), tilt-shift blur, letterbox bars, teal and
+ *     orange split toning, black and white / night vision, thermal, scanlines
  */
 import * as THREE from 'three';
 import { FullScreenQuad, Pass } from 'three/examples/jsm/postprocessing/Pass.js';
@@ -44,6 +47,10 @@ const FRAG = /* glsl */ `
   uniform float uTime, uStreak, uTaps, uGhost, uDistort, uBlur, uCA, uGrain, uVignette, uThreshold;
   uniform vec3 uTint;
   uniform float uContrast, uSaturation, uLift;
+  // lens looks
+  uniform float uFish, uFocal, uFishF, uMono, uMonoGain, uScan, uVhs, uTilt, uBars, uSplit, uThermal, uSatBoost;
+  uniform vec2 uCenter;
+  uniform vec3 uMonoTint;
   varying vec2 vUv;
 
   #include <tonemapping_pars_fragment>
@@ -55,16 +62,53 @@ const FRAG = /* glsl */ `
     vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
     return max(c - uThreshold, 0.0);
   }
+  // equidistant fisheye: the angle off the axis grows with the radius, read from the
+  // (wide) perspective render at tan(angle); outside it there is nothing: black
+  vec2 fisheyeUv(vec2 uv, out float inside) {
+    vec2 p = (uv - uCenter) * uRes;
+    float r = length(p);
+    float th = r / uFishF;
+    float rs = th < 1.5 ? uFocal * tan(th) : 1e5;
+    vec2 q = uCenter + (r > 1e-3 ? p * (rs / r) : vec2(0.0)) / uRes;
+    vec2 e = smoothstep(vec2(0.0), vec2(0.006), q) * smoothstep(vec2(0.0), vec2(0.006), 1.0 - q);
+    inside = e.x * e.y;
+    return q;
+  }
+  vec3 heat(float t) {
+    t = clamp(t, 0.0, 1.0);
+    vec3 a = vec3(0.02, 0.0, 0.12), b = vec3(0.38, 0.0, 0.6), c = vec3(0.92, 0.12, 0.28), d = vec3(1.0, 0.66, 0.0), e = vec3(1.0, 1.0, 0.86);
+    if (t < 0.25) return mix(a, b, t * 4.0);
+    if (t < 0.5) return mix(b, c, t * 4.0 - 1.0);
+    if (t < 0.75) return mix(c, d, t * 4.0 - 2.0);
+    return mix(d, e, t * 4.0 - 3.0);
+  }
   void main() {
     float aspect = uRes.x / uRes.y;
-    vec2 d = vUv - 0.5;
+    vec2 base = vUv;
+    float inside = 1.0;
+    if (uFish > 0.001) {
+      float ins;
+      vec2 q = fisheyeUv(vUv, ins);
+      base = mix(vUv, q, uFish);
+      inside = mix(1.0, ins, uFish);
+    }
+    float n0 = hash(vUv * uRes + fract(uTime) * 91.0);
+    if (uVhs > 0.001) {
+      // tape: every few lines slip sideways a little, and a tracking band rolls up the frame
+      float line = floor(vUv.y * uRes.y / 3.0);
+      float jit = (hash(vec2(line, floor(uTime * 30.0))) - 0.5) * 0.003;
+      float bd = (fract(vUv.y * 0.8 - uTime * 0.06) - 0.5) * 24.0;
+      float band = exp(-bd * bd);
+      base.x += (jit + band * (hash(vec2(line, uTime)) - 0.5) * 0.03) * uVhs;
+    }
+    vec2 d = base - 0.5;
     // radius normalised so the corners are 1
     vec2 dn = d * vec2(aspect, 1.0) / (0.5 * sqrt(aspect * aspect + 1.0));
     float r2 = dot(dn, dn);
     // barrel distortion (corners stay put, the centre bulges)
     vec2 uv = 0.5 + d * (1.0 + uDistort * r2) / (1.0 + uDistort);
     vec3 c;
-    float n = hash(vUv * uRes + fract(uTime) * 91.0);
+    float n = n0;
     if (uBlur > 0.001 || uCA > 0.0001) {
       // zoom blur towards the centre with a colour fringe at the edges
       c = vec3(0.0);
@@ -80,6 +124,25 @@ const FRAG = /* glsl */ `
       c /= 7.0;
     } else {
       c = texture2D(tDiffuse, uv).rgb;
+    }
+    if (uTilt > 0.001) {
+      // tilt-shift: sharp in a band just below the middle, blurred above and below it
+      float amt = smoothstep(0.06, 0.4, abs(uv.y - 0.42)) * uTilt;
+      if (amt > 0.01) {
+        vec3 acc = c;
+        for (int i = 0; i < 12; i++) {
+          float a = float(i) * 2.39996 + n * 6.2832;
+          float rr = sqrt((float(i) + 0.5) / 12.0) * amt * 0.028;
+          acc += texture2D(tDiffuse, uv + vec2(cos(a) / aspect, sin(a)) * rr).rgb;
+        }
+        c = acc / 13.0;
+      }
+    }
+    if (uVhs > 0.001) {
+      // the colour signal sits off the brightness on tape: red one way, blue the other
+      vec2 sh = vec2(0.0035 * uVhs, 0.0);
+      c.r = mix(c.r, texture2D(tDiffuse, uv + sh).r, uVhs);
+      c.b = mix(c.b, texture2D(tDiffuse, uv - sh * 1.4).b, uVhs);
     }
     // anamorphic streaks: exponentially spaced taps, jittered per pixel
     if (uStreak > 0.001 && uTaps > 0.5) {
@@ -131,8 +194,35 @@ const FRAG = /* glsl */ `
     g = clamp((g - 0.4) * uContrast + 0.4, 0.0, 1.0);
     c = pow(g, vec3(2.2));
     float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    c = mix(vec3(luma), c, uSaturation);
+    c = mix(vec3(luma), c, uSaturation * (1.0 + uSatBoost));
+    if (uSplit > 0.001) {
+      // teal shadows, orange highlights
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(c, c * mix(vec3(0.82, 1.0, 1.12), vec3(1.14, 1.0, 0.8), smoothstep(0.05, 0.6, l)), uSplit);
+    }
+    if (uThermal > 0.001) {
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(c, heat(l * sqrt(l) * 1.3), uThermal);
+    }
+    if (uMono > 0.001) {
+      // black and white with an exposure curve: night vision lifts the dark a long way
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(c, uMonoTint * (1.0 - exp(-l * uMonoGain)), uMono);
+    }
+    if (uVhs > 0.001) {
+      float l = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(c, mix(vec3(l), c, 0.78) * vec3(1.06, 1.0, 0.9) + 0.025, uVhs);
+    }
+    if (uScan > 0.001) {
+      c *= 1.0 - uScan * 0.22 * (0.5 + 0.5 * sin(vUv.y * uRes.y * 1.5708));
+      c *= 1.0 - uScan * 0.07 * (0.5 + 0.5 * sin(vUv.y * 5.0 - uTime * 1.7));
+    }
     c *= 1.0 + (n - 0.5) * uGrain;
+    if (uBars > 0.001) {
+      float bar = 0.5 - 0.5 * min(1.0, aspect / 2.39);
+      c *= 1.0 - uBars * (step(vUv.y, bar) + step(1.0 - bar, vUv.y));
+    }
+    c *= inside;
 
     vec4 outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
     #ifdef SRGB_TRANSFER
@@ -170,6 +260,20 @@ export class LensOutputPass extends Pass {
     uContrast: { value: 1 },
     uSaturation: { value: 1 },
     uLift: { value: 0 },
+    uFish: { value: 0 },
+    uFocal: { value: 1 },
+    uFishF: { value: 1 },
+    uCenter: { value: new THREE.Vector2(0.5, 0.5) },
+    uMono: { value: 0 },
+    uMonoTint: { value: new THREE.Color(1, 1, 1) },
+    uMonoGain: { value: 1 },
+    uScan: { value: 0 },
+    uVhs: { value: 0 },
+    uTilt: { value: 0 },
+    uBars: { value: 0 },
+    uSplit: { value: 0 },
+    uThermal: { value: 0 },
+    uSatBoost: { value: 0 },
   };
   private material: THREE.RawShaderMaterial;
   private quad: FullScreenQuad;

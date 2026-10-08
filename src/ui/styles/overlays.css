@@ -166,6 +166,8 @@ textarea.json {
   border-radius: 6px;
   padding: 4px;
   min-width: 170px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }
 
