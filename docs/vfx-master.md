@@ -93,7 +93,7 @@ Pulled forward from Phase 5, because the drops needed it.
 - **Measuring.** A pass after the scene render measures it without changing it. It reduces the frame to 16 × 9 cells, each the average brightness of its patch, log-encoded into a byte, and reads them back asynchronously every 4 frames.
 - **Metering.** It meters the **highlights**: the 80th-percentile cell. A log average doesn't work here, because half dark crowd and half blown-out beams averages "dark" while the frame is white.
 - **Adjusting.** The tone-mapping exposure eases in stops: 3.2/s stopping down, 0.9/s opening up, within 0.35–1.12 around the venue's base. A drop's first frames still land at full punch (under a tenth of a stop on the first frame); dark clubs sit at the top of the range and stay dark.
-- **Result.** At Alexandra Palace's drop from the crowd it settles at about 0.7. The frame went from a white sheet to a readable LED wall, beams and crowd (`cust/ally-drop-settled.png`).
+- **Result.** At Alexandra Palace's drop from the crowd it settles at about 0.7. The frame went from a white sheet to a readable LED wall, beams and crowd.
 
 ### Measured on the drop
 Berghain, crowd angle, mean frame brightness (0–255), 24 frames after the drop hit:
@@ -108,3 +108,93 @@ The white-out came from beams seen end-on near the camera. Absorption and the up
 - Beam pixels cost about 2 noise lookups (as before) plus 4 or 7 cheap steps: a gobo function, an `atan` and a few multiply-adds each.
 - Draw calls are unchanged. The prism uses the same instanced draw with three times the instances (the spare ones scaled to zero when it's out).
 - On SwiftShader, frame rate is dominated by the library's background analysis and is not a measure of GPU cost.
+
+## Phase 2–4: things in the air
+
+### Confetti (`src/three/venues/confetti.ts`)
+- **Nothing per piece on the CPU.** Each piece's whole flight is worked out in the vertex shader from its seed and the time since the burst:
+  - launched up and out of a cone
+  - heavy drag (paper), so it slows hard and then sinks at a slow flutter (0.35–0.65 m/s)
+  - swaying as it falls and tumbling all the way
+- **Landing.** It stops where it touches the floor: the shader bisects between the top of its arc and now, then lays the piece flat.
+- **Look.** Lit from the rig above. Gold and silver foil (a third of the pieces) glints when it catches the light; the rest is in the show's colours.
+- **Timing.** It fades out after 40 seconds. `paperHeight()` and `paperLanding()` are the same maths in TypeScript, tested.
+- **When it fires.** On a drop at most every 90 seconds, so it stays special, or from the new desk pad (Shift+Y). "Confetti on drops" can be turned off.
+- **Per venue.** Berghain and Boiler Room fire it only by hand (neither is a confetti room). Outdoors in LA a breeze carries it.
+- **Ceiling heights.** Launch speeds are set per venue so the highest pieces stay under the ceiling (they rise at most 0.8 × speed, tested): 6 m/s under DC-10's 4.8 m roof, 17 m/s in Alexandra Palace.
+- **Cost.** One instanced draw while a burst is in the air (2,400 pieces, 3,600 at Alexandra Palace; 55 % on medium, 20 % on low), nothing between bursts, plus one draw for the cannons.
+
+### Mirror-ball spots (`src/three/venues/mirrorball.ts`)
+- **The spots.** DC-10's three balls and the warehouse ball each throw 110–240 spots. As the ball turns they drift over the walls, floor and ceiling.
+- **How they're placed.** The vertex shader turns each facet's direction with the ball, finds where it leaves the room's box (the same room proxy the lasers stop on), and lays a soft spot on that surface. Spots stretch where they hit at a slant and grow with distance.
+- **Rays.** On medium and high, a faint line runs from the ball to each spot through the haze.
+- **When they show.** It's the breakdown light: full as the floor drops, faint in the groove, nearly gone at the peak.
+- **Tests.** `spotHit()` is tested: every spot lands on a face of the box, and spots move as the ball turns.
+- **Cost.** Two instanced draws per venue.
+
+### CO2
+The plumes were flat white discs. Now:
+- each puff is turned its own way
+- puffs tear into wisps as they thin out (value noise thresholded by age)
+- they're lit white from the rig above and in the show's colour underneath
+- they start as a denser, narrower jet: more, smaller, thinner puffs (140 per nozzle, alpha 0.34, point size capped at 180 px)
+
+### LED walls
+The LED look (pixels up close fading out before they can moiré, tile seams, dimmer off-axis) moved from Alexandra Palace into `led.ts`. The warehouse and Printworks screens use it too.
+
+## Phase 5: the camera
+
+- **Lens dirt.** Smudges, dust, wiped arcs and a few bokeh hexagons sit on the front element: a procedural texture, made once. It's lit by the bloom's widest blur, so it shows only when a wall of light hits the lens. A faint veil of the same glow lies over everything.
+- **Starburst.** The brightest points (over 4 in HDR: beam lenses, strobes, flames) become six-point stars on high and four-point on medium. That's 5 jittered taps each way along each blade direction, in the existing output pass.
+- **Grade by section** (`sectionGrade()`, tested), from the venue's own grade:
+  - a breakdown: about 7 % less contrast, 15 % less saturation, blacks lifted a touch
+  - the peak: up to 10 % more contrast and 12 % more saturation
+- **Auto exposure** (Phase 1) completes the camera.
+- **Cost.** No new passes. Dirt adds 2 texture reads per pixel; stars add 20–30 on medium and high (lens effects off on low and when the adaptive quality steps them down).
+
+## Phase 6: lights on the beat you hear
+
+- **The problem.** The analyser and the beat grid read the audio as it leaves the mixer. The speakers play it later: a few ms wired, 100–250 ms over Bluetooth.
+- **The fix.** Every visual now reads the audio features through a delay line (`src/visualizer/avsync.ts`). The delay is the audio device's reported latency (`baseLatency + outputLatency`) plus a new setting, **Lights and visuals delay** (Settings → Show & venue, −150 to +400 ms), capped at 0.5 s.
+- **How the delay line works.**
+  - It hands out the newest frame at least that old.
+  - Kick, snare and drop hits in frames it skips are carried forward, and each hit comes out exactly once (tested, including uneven frame times and startup).
+  - At startup it shows the oldest frame without firing its hits early.
+- **Not done:** a full cue engine (stored looks and timecoded cues). The lighting desk gained the confetti pad and "confetti on drops" toggle; everything else stays with the automatic director.
+
+## Phase 7: the crowd
+
+- **Rim light.** A rim from the rig behind the booth catches the edges of people seen against it. The floor reads as silhouettes edged in the show's colours: harder with the wash and the kick, white in the strobes.
+- **Phone flashes.** After a drop, phone cameras flash at random across the crowd (`photos` in the show state: a burst that thins out over a few bars, a few on a hook line). They're on both the jointed crowd and Alexandra Palace's cut-out crowd, and off with Reduce flashing (tested).
+
+## Measured after (medium quality, same method as Phase 0)
+
+| Venue | View | Draw calls | Triangles |
+|---|---|---:|---:|
+| Warehouse | perf | 382 → 385 | 284 k → 287 k |
+| Warehouse | wide | 440 → 444 | 295 k → 296 k |
+| DC-10 | perf | 384 → 387 | 704 k → 706 k |
+| DC-10 | wide | 163 → 166 | 663 k → 664 k |
+| Boiler Room | perf | 364 → 365 | 408 k → 408 k |
+| Boiler Room | wide | 137 → 138 | 307 k → 307 k |
+| Berghain | perf | 374 → 375 | 553 k → 554 k |
+| Berghain | wide | 434 → 435 | 497 k → 498 k |
+| Printworks | perf | 411 → 412 | 363 k → 366 k |
+| Printworks | wide | 248 → 248 | 748 k → 751 k |
+| Alexandra Palace | perf | 424 → 460 * | 632 k → 702 k * |
+| Alexandra Palace | wide | 183 → 184 | 166 k → 173 k |
+| Ally Pally, in the round | perf | 393 → 394 | 477 k → 478 k |
+| Ally Pally, in the round | wide | 458 → 459 | 411 k → 413 k |
+
+\* Alexandra Palace's booth view swings by ±30–70 calls between samples because the pit-camera feed renders every fourth frame. A re-run gave 460 and 489. The difference is inside that spread.
+
+**Brightness on the drop**, from the crowd, against the Phase 1 shots: Alexandra Palace 228 → 158, Berghain 115 → 78 (mean 0–255). The new effects don't push the drops back towards white.
+
+## Known limits
+
+- Confetti doesn't collide with people or the stage: pieces land on the floor plane. Under the crowd that's hidden; near the stage edge a few can disappear into it.
+- Mirror-ball spots don't fall on people, and they're occluded by the camera's depth only (no shadowing from the crowd).
+- Pyro heat haze was not done: it needs a distortion pass with a mask.
+- On a real GPU the costs should be small, but they were measured on SwiftShader, where frame time says nothing. Auto exposure's adaptation can only be checked roughly there, because readbacks finish every few seconds.
+- The AV delay uses what the browser reports. Some Bluetooth stacks report too little, which is what the manual offset is for.
+
