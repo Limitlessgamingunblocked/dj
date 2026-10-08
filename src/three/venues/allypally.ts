@@ -1040,8 +1040,9 @@ class AllyPally extends VenueBase {
       if (s.dropHit) this.flashEnv = 1;
       this.flashEnv *= Math.exp(-args[2] * 7);
       this.wallLed.uLEDFlash.value = this.flashEnv * (s.reduceFlash ? 0.25 : 1.2) * m;
-      this.wallLed.uLEDGain.value = 1.45 * m;
-      this.towerLed.uLEDGain.value = 1.25 * m;
+      // screens stay up through the lighting's dips (as on real shows the video runs on its own)
+      this.wallLed.uLEDGain.value = 1.45;
+      this.towerLed.uLEDGain.value = 1.25;
       // the pit camera comes up on the wall through alternate phrases of the peak
       const feedOn = s.peak > 0.5 && Math.floor(s.bar / 8) % 2 === 0 ? 1 : 0;
       this.wallLed.uFeedMix.value += (feedOn - this.wallLed.uFeedMix.value) * Math.min(1, args[2] * 3);

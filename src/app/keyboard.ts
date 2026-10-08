@@ -62,6 +62,7 @@ export const SHIFT_KEYMAP: Record<string, Binding> = {
   Digit7: { id: 'sampler.pad.7', label: '' },
   Digit8: { id: 'sampler.pad.8', label: '' },
   KeyT: { id: 'light.pyro', label: 'Lights: fire the pyro (Shift + T)' },
+  KeyB: { action: 'board-full', label: 'Board full screen on / off (Shift + B; Esc leaves)' },
 };
 
 const KEY_NAMES: Record<string, string> = {

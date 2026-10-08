@@ -23,6 +23,7 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 ## What's in it
 
 ### The screen
+- **Board full screen** (⛶ on the stage, Shift+B, or the ⋯ menu): the 3D board fills the whole screen and everything else goes away. Top-down or Angled framing; every control, the keyboard and MIDI keep working; Esc brings the rest back. Inside embedded viewers that block browser full screen it fills the window instead, and on phones it turns to landscape where the browser allows.
 - **Top bar:** board, venue, the crowd meter, master BPM, Rec, the **Simple / Pro** switch and the **⋯** menu. The ⋯ menu holds the stage view (Booth, Split, Visuals; also the `V` key), full screen, the layout switch, MIDI and help. A MIDI pill appears only while a controller is connected.
 - **Simple** (the default) keeps each deck panel to what you mix with: title, key, BPM, time, the overview waveform, Cue / Play / Sync and tempo. **Pro** adds Master, the tempo range, the pads and pad modes, the loops/key/stems drawer and the 🎤 lyrics button. Nothing is removed in Simple: the deck's ⋯ menu, the 3D board, the keyboard and MIDI still reach everything.
 - **Waveform strip:** a lane for each deck on the left and right, plus any other deck with a track loaded.

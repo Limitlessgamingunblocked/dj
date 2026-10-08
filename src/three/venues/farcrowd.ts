@@ -222,7 +222,7 @@ const VERT = /* glsl */ `
     vHair = h < 0.6 ? vec3(0.03, 0.022, 0.018) : (h < 0.85 ? vec3(0.17, 0.1, 0.05) : vec3(0.5, 0.4, 0.22));
     // lit by the show: faces towards the light are bright, backs are silhouettes
     vec3 toFocus = uFocus - c;
-    float facing = dot(normalize(vec3(toFocus.x, 0.0, toFocus.z)), hz);
+    float facing = dot(normalize(vec3(toFocus.x, 0.0, toFocus.z) + vec3(1e-4, 0.0, 0.0)), hz);
     float own = 0.7 + 0.6 * fract(seed * 41.3);
     #ifdef USE_LM
       // the light landing where this person stands

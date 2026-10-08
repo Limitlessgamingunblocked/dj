@@ -28,7 +28,7 @@ import { AudioFeatures } from '../visualizer/AudioFeatures';
 import type { VisSettings } from '../visualizer/Visualizer';
 import { openBoardPicker } from '../ui/BoardPicker';
 import { DeckPanel } from '../ui/DeckPanel';
-import { h, setText } from '../ui/dom';
+import { h, setClass, setText } from '../ui/dom';
 import { FxPanel } from '../ui/FxPanel';
 import { openHelp } from '../ui/help';
 import { LibraryPanel } from '../ui/LibraryPanel';
@@ -63,6 +63,8 @@ interface Settings {
   tab: string;
   vis: Partial<VisSettings>;
   focus: boolean;
+  /** board full screen framing */
+  boardFraming?: 'top' | 'perf';
   reactiveLights: boolean;
   autoZoom: boolean;
   stickers: boolean;
@@ -294,6 +296,7 @@ export class App implements AppContext {
       'browse-up': () => this.libPanel.moveSelection(-1),
       'browse-down': () => this.libPanel.moveSelection(1),
       'cycle-view': () => this.setView(this.stage.view === 'booth' ? 'split' : this.stage.view === 'split' ? 'visual' : 'booth'),
+      'board-full': () => this.boardFull(!this.boardMode),
       search: () => {
         this.showTab('library');
         this.libPanel.focusSearch();
@@ -302,6 +305,7 @@ export class App implements AppContext {
     this.bindGlobalDrop();
     this.bindAudioUnlock();
     this.bindBackground();
+    this.bindBoardFull();
     this.library.on('error', (e) => toast(e.message, 'error'));
 
     requestAnimationFrame((t) => {
@@ -486,7 +490,8 @@ export class App implements AppContext {
       view('split', 'Booth + visual player inset'),
       view('visual', 'Visual player only'),
       'sep',
-      { label: document.fullscreenElement ? 'Exit full screen' : 'Full screen', action: () => this.fullscreen() },
+      { label: this.boardMode ? 'Leave board full screen' : 'Board full screen (Shift+B)', action: () => this.boardFull(!this.boardMode) },
+      { label: document.fullscreenElement && !this.boardMode ? 'Exit full screen' : 'Full screen', action: () => this.fullscreen() },
       { label: this.settings.uiMode === 'simple' ? 'Switch to Pro layout' : 'Switch to Simple layout', action: () => this.setUiMode(this.settings.uiMode === 'simple' ? 'pro' : 'simple') },
       'sep',
       { label: 'MIDI controllers…', action: () => this.showTab('settings') },
@@ -494,11 +499,15 @@ export class App implements AppContext {
     ]);
   }
 
-  private hud!: { camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement };
+  private hud!: { camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement; fullBtn: HTMLElement; framing: HTMLElement };
+  /** board full screen: the 3D board fills the whole screen */
+  private boardMode = false;
+  /** what to put back when leaving it */
+  private beforeBoard: { camera: ViewId; view: StageView } | null = null;
 
   /** Camera and zoom controls that float over the 3D stage. */
   private buildStageHud(): HTMLElement {
-    const camBtn = h('button', { class: 'btn', title: 'Camera view' });
+    const camBtn = h('button', { class: 'btn cam-btn', title: 'Camera view' });
     camBtn.addEventListener('click', (e) => this.cameraMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY));
     const expandBtn = h('button', { class: 'btn icon hide-sm', title: 'Hide or show the deck panels', 'aria-label': 'Hide or show the deck panels' }, '⤢');
     expandBtn.addEventListener('click', () => {
@@ -508,17 +517,30 @@ export class App implements AppContext {
     });
     const zoomChip = h('button', { class: 'zoom-chip', title: 'Zoom back out' });
     zoomChip.addEventListener('click', () => this.stage.focusZone(null));
-    this.hud = { camBtn, zoomChip, expandBtn };
+    // board full screen, and (in it) the framing switch
+    const fullBtn = h('button', { class: 'btn icon board-full-btn', title: 'Board full screen (Shift+B)', 'aria-label': 'Board full screen' }, '⛶');
+    fullBtn.addEventListener('click', () => this.boardFull(!this.boardMode));
+    const framing = h('div', { class: 'seg board-framing', role: 'group', 'aria-label': 'Board framing' });
+    for (const [v, label] of [
+      ['top', 'Top-down'],
+      ['perf', 'Angled'],
+    ] as [ViewId, string][]) {
+      const b = h('button', { class: 'btn', type: 'button', 'data-view': v }, label);
+      b.addEventListener('click', () => this.frameBoard(v));
+      framing.append(b);
+    }
+    this.hud = { camBtn, zoomChip, expandBtn, fullBtn, framing };
     this.callouts = h('div', { class: 'callouts', 'aria-live': 'polite' });
     this.lyricHud = h('div', { class: 'lyric-hud', 'aria-hidden': 'true' });
     this.stage.el.append(this.callouts, this.lyricHud);
-    return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, camBtn, expandBtn));
+    return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, framing, camBtn, expandBtn, fullBtn));
   }
 
   private updateHud(): void {
-    const { camBtn, zoomChip } = this.hud;
+    const { camBtn, zoomChip, framing } = this.hud;
     const v = this.stage.rig.view;
     setText(camBtn, `${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
+    if (this.boardMode) for (const b of framing.children) setClass(b as HTMLElement, 'active', (b as HTMLElement).dataset.view === v);
     const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
     if (z) setText(zoomChip, `🔍 ${z} · move off the board or click here to zoom out`);
@@ -613,6 +635,59 @@ export class App implements AppContext {
     this.stage.setView(v);
     this.settings.view = v;
     this.shell.classList.toggle('visual-only', v === 'visual' && !!document.fullscreenElement);
+    this.save();
+  }
+
+  /**
+   * Board full screen: everything but the 3D board goes away and the board fills the screen
+   * (browser full screen where it's allowed; the whole window otherwise, e.g. inside an
+   * embedded viewer or on iPhone). Top-down or angled framing; Esc, Shift+B or ✕ leaves.
+   */
+  private boardFull(on: boolean): void {
+    if (on === this.boardMode) return;
+    this.boardMode = on;
+    this.shell.classList.toggle('board-full', on);
+    setText(this.hud.fullBtn, on ? '✕' : '⛶');
+    this.hud.fullBtn.title = on ? 'Leave board full screen (Esc)' : 'Board full screen (Shift+B)';
+    this.hud.fullBtn.setAttribute('aria-label', on ? 'Leave board full screen' : 'Board full screen');
+    if (on) {
+      void this.engine.resume();
+      this.beforeBoard = { camera: this.stage.rig.view === 'custom' ? this.settings.camera : (this.stage.rig.view as ViewId), view: this.stage.view };
+      if (this.stage.view !== 'booth') this.stage.setView('booth');
+      const phone = matchMedia('(pointer: coarse)').matches;
+      const fs = document.fullscreenElement ? Promise.resolve() : document.documentElement.requestFullscreen?.();
+      // on a phone the board is wide and the screen tall: turn to landscape where the browser allows it
+      fs?.then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.('landscape'))
+        .catch(() => {})
+        .finally(() =>
+          // give a rotation a moment to land before suggesting it
+          setTimeout(() => {
+            if (phone && this.boardMode && window.innerHeight > window.innerWidth) toast('Turn your phone sideways for a bigger board.');
+          }, 800),
+        );
+      if (!fs && phone && window.innerHeight > window.innerWidth) toast('Turn your phone sideways for a bigger board.');
+    } else {
+      (screen.orientation as ScreenOrientation & { unlock?: () => void })?.unlock?.();
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+      const b = this.beforeBoard;
+      this.beforeBoard = null;
+      if (b) {
+        this.stage.setView(b.view);
+        this.stage.goTo(b.camera);
+      }
+    }
+    // frame the board once the layout has settled at its new size
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        this.stage.resize();
+        if (on) this.frameBoard(this.settings.boardFraming ?? 'top');
+      }),
+    );
+  }
+
+  private frameBoard(v: ViewId): void {
+    this.stage.goTo(v);
+    this.settings.boardFraming = v === 'perf' ? 'perf' : 'top';
     this.save();
   }
 
@@ -728,6 +803,21 @@ export class App implements AppContext {
   /* ------------------------------------------------------------------ */
 
   /** keep the audio engine (sync, loops, deck events) running while the tab is hidden and rAF is paused */
+  /** leave board full screen with Esc, or when the browser leaves full screen (its own Esc) */
+  private bindBoardFull(): void {
+    let fsOn = false;
+    document.addEventListener('fullscreenchange', () => {
+      const now = !!document.fullscreenElement;
+      if (fsOn && !now && this.boardMode) this.boardFull(false);
+      fsOn = now;
+    });
+    window.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || !this.boardMode || document.querySelector('.modal-back, .context-menu')) return;
+      e.preventDefault();
+      this.boardFull(false);
+    });
+  }
+
   private bindBackground(): void {
     let timer = 0;
     let last = 0;

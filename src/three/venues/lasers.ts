@@ -216,7 +216,9 @@ const BEAM_FRAG = /* glsl */ `
   ${HAZE_GLSL}
   void main() {
     // the three diode beams don't quite converge: a whisper of red on one edge, blue on the other
-    vec3 core = vec3(exp(-pow((vSide - 0.045) * 6.0, 2.0)), exp(-pow(vSide * 6.0, 2.0)), exp(-pow((vSide + 0.045) * 6.0, 2.0)));
+    // (squares, not pow(x, 2.0): pow of a negative number is undefined in GLSL and NaN on many GPUs)
+    vec3 e = vec3(vSide - 0.045, vSide, vSide + 0.045) * 6.0;
+    vec3 core = exp(-e * e);
     float halo = exp(-abs(vSide) * 4.0) * 0.04;
     // a beam that hits something runs right up to it; one that doesn't fades out into the room
     float fade = smoothstep(0.0, 0.008, vAlong) * mix(1.0 - smoothstep(0.55, 1.0, vAlong), 1.0, vColor.a);
@@ -247,10 +249,14 @@ const SHEET_FRAG = /* glsl */ `
   ${HAZE_GLSL}
   void main() {
     // a thin slab of lit haze: seen edge-on it's a bright line, face-on a faint plane
-    vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
+    // the sheet's normal from screen derivatives; seen exactly edge-on they're parallel (no normal),
+    // so guard the length rather than normalize a zero vector (NaN)
+    vec3 cr = cross(dFdx(vW), dFdy(vW));
+    float cl = length(cr);
     vec3 toCam = cameraPosition - vW;
     float dist = length(toCam);
-    float graze = clamp(1.0 / max(abs(dot(n, toCam / max(dist, 1e-4))), 0.2), 1.0, 4.0);
+    float facing = cl > 1e-12 ? abs(dot(cr / cl, toCam / max(dist, 1e-4))) : 0.0;
+    float graze = clamp(1.0 / max(facing, 0.2), 1.0, 4.0);
     // streaky texture: the scanner sweeping through rolling haze
     float streak = hzN(vW * vec3(0.32, 1.6, 0.32) + vec3(uT * 0.22, uT * 0.05, uT * 0.17));
     float hz = hazeAt(vW, uT, uBand, uSmoke);

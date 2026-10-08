@@ -94,19 +94,22 @@ describe('reduce flashing', () => {
 });
 
 describe('the drop', () => {
-  it('drops to near-black on the last beat of a build at its peak, then lands on the drop', () => {
+  it('dips the lights on the last half-beat of the phrase at the top of a build, then lands on the drop', () => {
     const show = new LightShow();
     show.controls.reduceFlash = false;
-    const bpm = 120; // 2 beats a second
+    const bpm = 120; // 2 beats a second, a bar every 2 s
     let darkest = 1;
+    let darkestElsewhere = 1;
     let t = 0;
-    // two bars at the top of the build
-    for (; t < 4; t += 1 / 60) {
+    // one 8-bar phrase at the top of the build
+    for (; t < 16; t += 1 / 60) {
       const s = show.update(frame(t, bpm, { breakdown: 0.97 }), 1 / 60, 0.8);
-      if (s.beatInBar === 3) darkest = Math.min(darkest, s.master);
-      else if (s.beatInBar === 1) expect(s.master).toBeGreaterThan(0.9);
+      if (s.bar === 7 && s.beatInBar === 3 && s.beatPhase > 0.75) darkest = Math.min(darkest, s.master);
+      else if (s.bar < 7 && s.beatPhase > 0.2) darkestElsewhere = Math.min(darkestElsewhere, s.master);
     }
-    expect(darkest).toBeLessThan(0.2);
+    expect(darkest).toBeLessThan(0.35);
+    // never a dip in the other bars of the phrase
+    expect(darkestElsewhere).toBeGreaterThan(0.95);
     // the drop: everything at once
     const hit = show.update(frame(t, bpm, { breakdown: 0, drop: 1, dropHit: true }), 1 / 60, 0.8);
     expect(hit.co2).toBe(true);

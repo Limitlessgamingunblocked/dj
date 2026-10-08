@@ -211,3 +211,53 @@ textarea.json {
 .app.visual-only .main {
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* board full screen: only the 3D board, filling the screen */
+.board-framing {
+  display: none;
+}
+
+.app.board-full .topbar,
+.app.board-full .wavestrip,
+.app.board-full .deck-panel,
+.app.board-full .dock,
+.app.board-full .dock-resize,
+.app.board-full .stage-tools [aria-label='Hide or show the deck panels'],
+.app.board-full .stage-tools .cam-btn,
+.app.board-full .stage-hint {
+  display: none !important;
+}
+
+.app.board-full .main > .stage {
+  position: fixed;
+  inset: 0;
+  /* under dialogs (50), toasts (60) and menus (70) */
+  z-index: 40;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.app.board-full .board-framing {
+  display: inline-flex;
+}
+
+.app.board-full .board-framing .btn {
+  height: var(--control-h);
+}
+
+.app.board-full .stage-tools .btn {
+  height: var(--control-h);
+}
+
+.app.board-full .board-full-btn {
+  min-width: var(--control-h);
+  font-size: var(--text-m);
+}
+
+@media (pointer: coarse) {
+  .app.board-full .board-framing .btn,
+  .app.board-full .stage-tools .btn {
+    min-height: 44px;
+  }
+}

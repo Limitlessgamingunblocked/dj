@@ -64,6 +64,8 @@ const VERT = /* glsl */ `
   uniform float uRain, uBreath, uSphereR, uSphere, uPlanes, uHype, uSparkleRate;
   uniform vec3 uOrigin, uA, uB, uC;
   varying vec3 vC;
+  // a gaussian bump; x*x, never pow(x, 2.0) (undefined for negative x in GLSL, NaN on many GPUs)
+  float bump(float x) { return exp(-x * x); }
   float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
   float n3(vec3 p) {
     vec3 i = floor(p), f = fract(p);
@@ -77,11 +79,11 @@ const VERT = /* glsl */ `
     float hN = (p.y - uLow) / max(0.01, uHigh - uLow);
     // 1. ripples: a ring leaves the booth on every beat and runs out across the room
     float ph = fract(uBeat);
-    float ring = exp(-pow((d - ph * 34.0) / (1.4 + ph * 2.0), 2.0)) * (1.0 - ph) * (0.35 + uKick * 0.9);
+    float ring = bump((d - ph * 34.0) / (1.4 + ph * 2.0)) * (1.0 - ph) * (0.35 + uKick * 0.9);
     // 2. the build: a sheet sweeping up and down, faster as it tightens; the field fills in
     float rate = 0.25 + uBuild * uBuild * 3.0;
     float sweepY = 0.5 + 0.5 * sin(uBeat * 3.14159 * rate);
-    float sheet = exp(-pow((hN - sweepY) / 0.12, 2.0)) * uBuild;
+    float sheet = bump((hN - sweepY) / 0.12) * uBuild;
     // 3. colour clouds drifting through the room between sections
     float cloud = n3(p * vec3(0.07, 0.18, 0.07) + vec3(0.0, uT * 0.08, uT * 0.05));
     cloud = smoothstep(0.38, 0.9, cloud) * (1.0 - uPeak * 0.6);
@@ -91,11 +93,11 @@ const VERT = /* glsl */ `
     // 5. rain down the strings (each string its own timing)
     float sh = fract(sin(dot(floor(p.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);
     float drop = 1.0 - fract(uT * (0.35 + sh * 0.3) + sh);
-    float rain = exp(-pow((hN - drop) / 0.07, 2.0)) * uRain;
+    float rain = bump((hN - drop) / 0.07) * uRain;
     // 6. a band of light breathing up and down with the energy
-    float breath = exp(-pow((hN - (0.5 + 0.38 * sin(uT * 0.45))) / (0.1 + uEnergy * 0.25), 2.0)) * uBreath;
+    float breath = bump((hN - (0.5 + 0.38 * sin(uT * 0.45))) / (0.1 + uEnergy * 0.25)) * uBreath;
     // 7. the drop: a shell of light bursting out from the booth
-    float shell = exp(-pow((length(p - uOrigin) - uSphereR) / 1.6, 2.0)) * uSphere;
+    float shell = bump((length(p - uOrigin) - uSphereR) / 1.6) * uSphere;
     // 8. planes of light turning through the volume
     float ang = uT * 0.35;
     vec3 pn = normalize(vec3(cos(ang), 0.45 * sin(uT * 0.21), sin(ang)));

@@ -25,6 +25,18 @@ const VERT = /* glsl */ `
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }`;
 
+/**
+ * Keep only real, in-range values: NaN fails every comparison, so it (and ±Inf)
+ * becomes 0. One NaN pixel in the HDR buffer would otherwise be blurred by the
+ * bloom across the whole frame and turn it black (pow() of a negative number,
+ * normalize() of a zero vector and 0/0 all give NaN on many GPUs).
+ */
+export const FINITE_GLSL = /* glsl */ `
+  vec3 finite3(vec3 c) {
+    return vec3(c.r >= 0.0 && c.r <= 65504.0 ? c.r : 0.0, c.g >= 0.0 && c.g <= 65504.0 ? c.g : 0.0, c.b >= 0.0 && c.b <= 65504.0 ? c.b : 0.0);
+  }
+`;
+
 const FRAG = /* glsl */ `
   precision highp float;
   uniform sampler2D tDiffuse;
@@ -38,8 +50,9 @@ const FRAG = /* glsl */ `
   #include <colorspace_pars_fragment>
 
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+  ${FINITE_GLSL}
   vec3 bright(vec2 uv) {
-    vec3 c = texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb;
+    vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
     return max(c - uThreshold, 0.0);
   }
   void main() {
@@ -90,7 +103,9 @@ const FRAG = /* glsl */ `
       c += gh * uGhost * smoothstep(0.9, 0.1, length(g - 0.5));
     }
     c *= mix(1.0, smoothstep(1.35, 0.2, r2), uVignette);
-    c = max(c, 0.0);
+    // a NaN or infinite pixel from any scene shader shows as black, alone, instead of
+    // poisoning the whole frame
+    c = finite3(c);
 
     // tone mapping
     #if defined( LINEAR_TONE_MAPPING )

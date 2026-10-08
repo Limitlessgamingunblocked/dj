@@ -10,8 +10,8 @@
  *     a bar of strobes and the pyro (flame jets / cold sparks)
  *   – accents (a hook line of the lyrics landing) hit a beat of strobes, a
  *     blinder pop and a burst of lit haze
- *   – the drop is choreographed: at the top of a build the last beat of the
- *     bar drops to near-black, so the drop lands out of darkness, with the
+ *   – the drop is choreographed: at the top of a build the lights dip on the
+ *     last half-beat of the phrase, so the drop lands out of the dark, with the
  *     laser burst, CO2, sparks, blinders, the screen flash and the crowd
  *     jumping on the same downbeat
  *   – "reduce flashing" caps strobes, blinders and the room flash at 3
@@ -321,9 +321,11 @@ export class LightShow {
 
     s.smoke = Math.min(1, c.smoke + s.build * 0.25 + s.peak * 0.1 + this.accentSmoke);
 
-    // blackout: held from the desk, or the last beat of a build at its peak, so the drop lands out of the dark
-    const preDrop = react && c.dropFx && s.build > 0.93 && s.beatInBar === 3 && !c.reduceFlash;
-    const mTarget = c.blackoutHold ? 0 : preDrop ? 0.12 : 1;
+    // blackout: held from the desk; and at the top of a build, the lights dip on the last half-beat of
+    // an 8-bar phrase (where drops land), so the drop comes out of the dark. Once a phrase at most:
+    // a dip every bar reads as the picture flickering
+    const preDrop = react && c.dropFx && !c.reduceFlash && s.build > 0.93 && ((s.bar % 8) + 8) % 8 === 7 && s.beatInBar === 3 && s.beatPhase > 0.5;
+    const mTarget = c.blackoutHold ? 0 : preDrop ? 0.25 : 1;
     this.masterLevel += (mTarget - this.masterLevel) * Math.min(1, dt * 25);
     s.master = this.masterLevel;
     s.flash = Math.max(s.strobe, s.blinder * 0.6) * s.master;

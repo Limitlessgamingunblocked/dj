@@ -21,7 +21,7 @@ import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
 import { CameraRig, type ViewId } from './CameraRig';
 import { FX } from './fx';
-import { LensOutputPass, NEUTRAL_GRADE } from './lens';
+import { FINITE_GLSL, LensOutputPass, NEUTRAL_GRADE } from './lens';
 import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 import type { VenueDef, VenueScene } from './venues/base';
@@ -173,6 +173,13 @@ export class Stage {
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.msaa }));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
+    // the bloom blurs its input across the whole frame, so a single NaN pixel would black it all
+    // out: scrub non-finite values as they enter
+    const hp = this.bloom.materialHighPassFilter;
+    hp.fragmentShader = hp.fragmentShader
+      .replace('void main() {', `${FINITE_GLSL}\nvoid main() {`)
+      .replace('vec4 texel = texture2D( tDiffuse, vUv );', 'vec4 texel = vec4( finite3( texture2D( tDiffuse, vUv ).rgb ), 1.0 );');
+    hp.needsUpdate = true;
     this.composer.addPass(this.bloom);
     // lens effects, tone mapping, grade and output in one pass
     this.lens = new LensOutputPass();
