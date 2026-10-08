@@ -200,7 +200,8 @@ const BEAM_VERT = /* glsl */ `
     vW = p;
     // nothing right on the lens (the drone flies through beams), and no smear when seen end-on
     float endOn = 1.0 - abs(dot(iDir, toCam / max(dist, 1e-4)));
-    vNear = smoothstep(0.35, 1.8, dist) * smoothstep(0.0, 0.06, endOn);
+    // (a camera-facing ribbon twists when it passes right by the lens: fade it out over the last few metres)
+    vNear = smoothstep(0.8, 5.0, dist) * smoothstep(0.0, 0.06, endOn);
     gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
   }`;
 

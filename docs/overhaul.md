@@ -233,3 +233,78 @@ How it stays in budget:
 
 The arena's average includes the IMAG camera on a quarter of the frames, so its perf and crowd figures spread by about ±36 calls across samples.
 
+## Lasers and effects pass (Alexandra Palace)
+
+A pass to make lasers and effects look like a real arena show on camera, starting with the two Alexandra Palace venues. The research is in [venue-research.md](venue-research.md#lasers-and-effects).
+
+**How it was judged.**
+- **Show moments.** A test-page patch forces the light show into a breakdown, the top of a build-up and the first bar of a drop. Captures were taken of every view, before and after, plus frame strips through a drop.
+- **The patch isn't production code.** It overrides the audio features the show reads.
+- **Frame strips don't show real time.** Software rendering runs at about one frame a second while the music plays in real time, so a strip covers several bars.
+
+**Lasers** (`src/three/venues/lasers.ts`, shared by every laser venue):
+- Beams only show where there's haze. A shared haze field (`atmos.ts`) is used by lasers, moving-head beams and haze slices alike, so beams brighten in the clumps and thin in clear pockets as clouds drift through.
+- Each beam has a hard core, a faint halo, a slight red/blue fringe and slight divergence, and shimmers like a scanned beam.
+- Beams end where they hit the room (floor, walls, ceiling or the barrel vault, and solids such as the LED wall and the organ gallery) and leave a dot. The hit test is analytic, against a proxy of the room, and unit-tested.
+- Sheet looks are real planes of light between neighbouring beams: liquid sky, sheets, waves and tunnel cones.
+- Every beam stays at least 3 m above the floor over the crowd. This follows the common practice described in the research; there's no audience scanning. It's unit-tested.
+- Looks ease in: fans open and beams sweep to their new places.
+- Projectors take part by tier. The liquid sky comes from low projectors, the starfield from high ones, and a projector can sit a look out.
+
+**Looks.** There are 13 now (8 new: fan with gaps, liquid sky, wave, converge, rotating fan, burst, strobe fan, starfield). A tested scheduler picks them from the track:
+- quiet stretches get slow, sparse looks
+- a build goes liquid sky → tunnel → every projector closing in on one point
+- the drop is a burst
+- the peak gets a new busy look every 4 bars
+- a hook line landing also bursts
+
+The Show tab lists every look. Auto, the Y key and MIDI learn work as before.
+
+**Rigs:**
+- Alexandra Palace, arena (14 projectors): the stage lip, stands at the stage corners (for the liquid sky), high upstage beside the wall, the audience trusses, the side walls mid-hall, and the mix position firing back at the stage.
+- In the round (12 projectors): a ring on the riser firing up through the light field, plus the grid corners and both ends.
+- Printworks and the warehouse: lasers moved onto stands, so they fire over heads.
+
+**Haze and light that lands on things:**
+- **Floor light map** (`lightmap.ts`). Each frame the venue paints a small top-down map of the light on its floor: moving-head pools, the LED wall's spill, blinders, the light field's glow, its kick ripples and drop shell, and strobes. The floor, the jointed dancers and the far crowd all read it, so beams sweeping the room light the people where they land. The far crowd's procedural pools are gone where a map exists.
+- **LED wall spill.** The wall's actual average colour is read back without stalling (4×4, every sixth frame) and drives a spill light and the map.
+- **Haze tiers.** Low keeps the horizontal sheets. Medium and High use camera-facing slices in one instanced draw, so haze reads as a volume from any angle; High lights the slices from the pools below. One slice draw replaced six or seven sheet draws.
+- **Stage hazers** puff clouds that roll out over the crowd (Medium and High).
+- **Moving-head beams** use the shared haze, with gobo breakup and dust in the light (dust is off on Low).
+- **Bloom on drops** is eased back in every venue: glow, not fog.
+
+**Screens, the light field, the drop:**
+- **LED wall and IMAG towers** show:
+  - pixel structure up close, fading out before it can alias
+  - tile seams
+  - dimming off-axis, and enough brightness to bloom
+  - the pit camera composited into the wall through the peak, and a flash on the drop
+- **IMAG** cuts between four cameras on the phrase (pit close-up, long lens from the mix position, crowd camera from the stage, side of stage), with a slow zoom drift, a light broadcast grade, and monochrome through build-ups.
+- **The light field** adds rain down the strings, a band breathing with the energy, a shell of light bursting from the booth on the drop, planes turning through the volume at the peak, per-bulb tints, halos and a lift from the crowd meter.
+- **The drop** is choreographed and tested: the last beat of a build drops to near-black, then the laser burst, CO2, sparks, blinders, wall flash and crowd jump land together.
+
+**Reduce flashing** (Show tab). It's on by default when the system asks for reduced motion, and saved with the other light settings:
+- strobes, blinders, laser blinking and field sparkle stay under 3 flashes a second, and no one-second window ever holds more than 3 (tested)
+- flashes are softer
+- there's no blackout before the drop
+
+**Cost.** Steady counts (`count.cjs`, medium quality, adaptive quality off), before and after the pass:
+
+| Venue | View | Draw calls | Triangles |
+|---|---|---:|---:|
+| Alexandra Palace | perf | 444 → 492 (+11 %) | 668k → 705k |
+| Alexandra Palace | wide | 184 → 183 | 162k → 166k |
+| Alexandra Palace | crowd | 485 → 540 (+11 %) | 636k → 713k |
+| Alexandra Palace · In the round | perf / wide / crowd | 391 / 457 / 429 → 393 / 458 / 430 | 469k / 406k / 632k → 477k / 411k / 637k |
+| Printworks | perf / wide / crowd | 413 / 251 / 469 → 411 / 248 / 467 | unchanged |
+| Warehouse | perf / wide / crowd | 384 / 441 / 450 → 383 / 440 / 449 | unchanged |
+| DC-10 | perf / wide / crowd | 386 / 165 / 464 → 384 / 163 / 462 | unchanged |
+| Berghain | perf / wide / crowd | 379 / 439 / 403 → 374 / 434 / 398 | unchanged |
+| Boiler Room | perf / wide | 364 / 137 → 364 / 137 | unchanged |
+
+- Every view is within the +15 % budget set for the pass.
+- **Alexandra Palace's rise** comes from the IMAG cameras' new wide shots (long lens and crowd camera), which draw more of the hall on the quarter of frames that render the feed. The new lasers, light map, haze slices and hazers are a few draws each.
+- **Boiler Room's crowd view** (473 → 398) is sampling noise from its own stream-camera feed, which already varied by ±76.
+- **Fill.** One extra full-screen-ish pass was added: the 128×256 light map, plus two tiny reads for the wall colour. Haze slices are full-screen additive quads: 7 on Medium, 12 on High.
+- **Not measured.** Real-GPU fill rate couldn't be measured here (software rendering only).
+

@@ -95,19 +95,19 @@ const VERT = /* glsl */ `
     // 6. a band of light breathing up and down with the energy
     float breath = exp(-pow((hN - (0.5 + 0.38 * sin(uT * 0.45))) / (0.1 + uEnergy * 0.25), 2.0)) * uBreath;
     // 7. the drop: a shell of light bursting out from the booth
-    float shell = exp(-pow((length(p - uOrigin) - uSphereR) / 2.2, 2.0)) * uSphere;
+    float shell = exp(-pow((length(p - uOrigin) - uSphereR) / 1.6, 2.0)) * uSphere;
     // 8. planes of light turning through the volume
     float ang = uT * 0.35;
     vec3 pn = normalize(vec3(cos(ang), 0.45 * sin(uT * 0.21), sin(ang)));
     float planes = smoothstep(0.86, 1.0, sin(dot(p - uOrigin, pn) * 0.45 - uT * 2.4)) * uPlanes;
     float b = 0.02 + 0.015 * sin(uT * 0.7 + aSeed * 40.0) + ring * (0.5 + uEnergy) + sheet * 1.3 + cloud * 0.55 + sp * 1.4 + down * 0.6
-      + rain * 1.4 + breath * 0.8 + shell * 2.2 + planes * 1.2 + uFlash * 0.8;
+      + rain * 1.4 + breath * 0.8 + shell * 1.1 + planes * 1.2 + uFlash * 0.45;
     b *= mix(0.35, 1.0, uPlaying) * uMaster * (0.75 + 0.5 * uHype);
     // colour: each bulb its own tint in the palette; ripples warm-white, the peak white-hot
     vec3 col = mix(uA, uB, smoothstep(0.2, 0.8, n3(p * 0.05 + uT * 0.03)));
     col = mix(col, uC, step(0.82, aSeed) * 0.6);
     col = mix(col, uC, ring * 0.6);
-    col = mix(col, vec3(1.0, 0.95, 0.88), clamp(sp + down + uFlash + shell * 0.7, 0.0, 1.0));
+    col = mix(col, vec3(1.0, 0.95, 0.88), clamp(sp + down + uFlash * 0.6 + shell * 0.5, 0.0, 1.0));
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     float dist = -mv.z;
     // the haze swallows the far side of the field; nothing right on the lens
