@@ -4,9 +4,24 @@ A DJ studio that runs in the browser. Pick a real-world style board — from an 
 
 It opens ready to play: two generated demo tracks are already loaded on decks 1 and 2.
 
-It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library into an ordered, harmonically mixed set around the artists, labels or genres you pick, shaped to an energy arc, with transition guidance for every mix. It can build sets in the style of Chris Stussy, OMAR+, Prospa and Cloonee, even when your library holds none of their records.
+It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library into an ordered, harmonically mixed set around the artists, labels or genres you pick, shaped to an energy arc, with transition guidance for every mix. It can build sets in four house sounds (Deep & Groovy, Rolling Minimal, Bouncy Tech House, Rave Energy) from whatever your library holds.
 
 **No install:** download [`Deckhouse-DJ.html`](Deckhouse-DJ.html) and open it in Chrome or Edge. It is the whole app in one file, rebuilt with `npm run build:single`.
+
+## Becoming a game
+
+The project is turning into **DeckHouse DJ, a house-music DJ career game** (bedroom to sunrise closing set), built in stages:
+- [AUDIT.md](AUDIT.md) maps the brief against the code.
+- [TODO.md](TODO.md) tracks placeholders and the stage backlog.
+- [DECISIONS.md](DECISIONS.md) records the choices made.
+- [ASSETS.md](ASSETS.md) lists the 3D assets.
+
+Stage 1 added the foundation:
+- a central beat clock with beat, bar, phrase, build, breakdown and drop events (`src/core/BeatClock.ts`)
+- versioned career saves with migrations and backups (`src/core/SaveSystem.ts`, `src/core/models.ts`)
+- a master redline signal
+- the Blender export pipeline (`assets_source/blender/README.md`)
+- a **debug menu**: press **Ctrl+Shift+D**, or open the page with `?debug`, to jump venues, set the fame tier, unlock everything, change the crowd and fire a drop
 
 ## Run it
 
@@ -101,15 +116,15 @@ Everything you can change is on the Settings tab, in sections with a search box 
 ### Set Builder (SmartDJ)
 Builds a set from the analysed tracks in your library (or one crate). The library ships with 32 generated demo tracks by fictional artists on seven fictional labels, so you can try it straight away with anchors such as `Kora Vance`, `Tidal Room` or `techno`.
 
-- **In the style of**: `Chris Stussy`, `OMAR+`, `Prospa` and `Cloonee` work as anchors (type them or use the ≈ buttons). Their own tracks come first when you have them; otherwise the builder matches their sound from your library and says so. Each artist has a sound profile — tempo range, energy band, genre words, sounds to avoid and major/minor leaning:
-  | Artist | Sound profile |
+- **Sound lanes**: `Deep & Groovy`, `Rolling Minimal`, `Bouncy Tech House` and `Rave Energy` work as anchors (type them or use the ≈ buttons). The builder matches the sound from your library and says so. Each lane has a profile: tempo range, energy band, genre words, sounds to avoid and major/minor leaning.
+  | Lane | Sound |
   |---|---|
-  | Chris Stussy | deep, rolling minimal house: swung hats, walking basslines, jazzy chord stabs · 125–129 BPM |
-  | OMAR+ | percussive, groove-first minimal tech house: congas, shakers, hypnotic loops · 126–130 BPM |
-  | Cloonee | bouncy, bass-led tech house: chopped vocal hooks, big drops · 126–129 BPM |
-  | Prospa | euphoric rave house: breakbeats, rave piano, stabs, huge builds · 126–133 BPM |
+  | Deep & Groovy | deep, rolling minimal house: swung hats, walking basslines, jazzy chord stabs · 125–129 BPM |
+  | Rolling Minimal | percussive, groove-first minimal tech house: congas, shakers, hypnotic loops · 126–130 BPM |
+  | Bouncy Tech House | bouncy, bass-led tech house: chopped vocal hooks, big drops · 126–129 BPM |
+  | Rave Energy | euphoric rave house: breakbeats, rave piano, stabs, huge builds · 126–133 BPM |
 
-  The profiles are approximations written from the artists' public releases and sets, not an official description; the fictional demo artists (deep minimal, minimal tech house, tech house, rave house) exist so each style has something to match. *All four → journey* builds a **Style Journey**: the set moves through the styles one after another (deepest first, or in the order you typed them), with each section's energy fitted to how those tracks actually sound, and keys walking between Camelot neighbours at the joins.
+  The fictional demo artists (deep minimal, minimal tech house, tech house, rave house) exist so each lane has something to match. *All four → journey* builds a **Style Journey**: the set moves through the styles one after another (deepest first, or in the order you typed them), with each section's energy fitted to how those tracks actually sound, and keys walking between Camelot neighbours at the joins.
 
 - **Anchors**: artists, labels (ID3 `TPUB`, Vorbis `LABEL`) or genres. Tracks by anchor artists and labels come first, then tracks whose genre matches. Anchors that aren't in the library are reported.
 - **Length**: a target in minutes (10–360) or a track count (2–100). Set time accounts for the overlap of each transition.

@@ -1,0 +1,129 @@
+/* the debug menu (Ctrl+Shift+D or ?debug): a compact panel over the stage */
+.debug-menu {
+  position: fixed;
+  top: 56px;
+  left: var(--space-2);
+  z-index: 60;
+  width: min(300px, calc(100vw - 2 * var(--space-2)));
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+  padding: var(--space-2) var(--space-3);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-l);
+  font-size: var(--text-s);
+  color: var(--text);
+  box-shadow: 0 8px 30px rgb(0 0 0 / 50%);
+}
+
+.debug-menu[hidden] {
+  display: none;
+}
+
+.debug-menu header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.debug-menu header strong {
+  letter-spacing: 0.12em;
+  color: var(--live);
+}
+
+.debug-menu header .btn {
+  margin-left: auto;
+}
+
+.debug-menu .dim {
+  color: var(--dim);
+}
+
+.debug-menu section {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.debug-menu h4 {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.debug-menu label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.debug-menu label.row,
+.debug-menu .row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-start;
+}
+
+.debug-menu .row.wrap {
+  flex-wrap: wrap;
+}
+
+.debug-menu input[type='number'],
+.debug-menu select {
+  width: 140px;
+}
+
+.debug-menu input[type='range'] {
+  flex: 1;
+}
+
+.dbg-phase {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.dbg-phase i {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--led-off);
+}
+
+.dbg-phase i.on {
+  background: var(--ok);
+}
+
+.dbg-log {
+  margin: 0;
+  min-height: 3em;
+  max-height: 9em;
+  overflow: hidden;
+  white-space: pre;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.dbg-meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--led-off);
+  overflow: hidden;
+}
+
+.dbg-meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--warn);
+  transition: width 0.08s linear;
+}
+
+.dbg-meter.hot i {
+  background: var(--live);
+}

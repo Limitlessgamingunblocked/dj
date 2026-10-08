@@ -9,6 +9,7 @@
  * and runs the master/follower sync with continuous phase lock.
  */
 import { clamp, dbToGain } from '../core/util';
+import { nextRedline } from './redline';
 import { Channel, gainToTrimKnob } from './Channel';
 import { Deck, type DeckHost } from './Deck';
 import { Mixer } from './Mixer';
@@ -224,7 +225,14 @@ export class AudioEngine {
     return this.masterDeck?.bpm ?? 0;
   }
 
+  /**
+   * 0..1 how far the master is in the red (the limiter catching it): the mix
+   * never clips, but redlining still shows on the meter and costs vibe.
+   */
+  redline = 0;
+
   update(dt: number): void {
+    this.redline = nextRedline(this.redline, this.mixer.limiterReduction(), dt);
     this.updateSync();
     for (const d of this.decks) d.update(dt);
     this.fx.update();

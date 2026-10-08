@@ -43,7 +43,7 @@ export interface SetOptions {
   journeyOrder?: 'energy' | 'typed';
 }
 
-/** library: no anchors were given (or none matched); sound: carries an anchor artist's sound profile; filler: outside the anchors' sound, used only to reach the target */
+/** library: no anchors were given (or none matched); sound: carries a sound lane's profile; filler: outside the anchors' sound, used only to reach the target */
 export type Role = 'anchor' | 'style' | 'sound' | 'discovery' | 'library' | 'filler';
 
 export interface Candidate {
@@ -194,7 +194,7 @@ export interface CandidatePool {
   journey: StyleProfile[];
 }
 
-/** Tracks at or above this fit carry an artist's sound. */
+/** Tracks at or above this fit carry a lane's sound. */
 const SOUND_FIT = 0.62;
 
 /** Scores the library against the anchors and decides each track's role in the set. */
@@ -235,7 +235,7 @@ export function buildPool(profiles: TrackProfile[], opts: Pick<SetOptions, 'anch
       }
     }
   }
-  // artist sound profiles: tracks that carry the sound of a style anchor
+  // sound lanes: tracks that carry the sound of a lane anchor
   const notes: string[] = [];
   const journey = journeyOrder(opts.anchors, opts.journeyOrder);
   const fits = new Map<string, Record<string, number>>();
@@ -259,10 +259,10 @@ export function buildPool(profiles: TrackProfile[], opts: Pick<SetOptions, 'anch
       if (n) hit.add(a);
       notes.push(
         own
-          ? `${st.name}: your ${st.name} tracks plus ${n} track${n === 1 ? '' : 's'} with their sound (${st.sound}).`
+          ? `${st.name}: your tracks tagged ${st.name} plus ${n} more in that sound (${st.sound}).`
           : n
-            ? `No ${st.name} tracks in your library — matched their sound instead: ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM (${n} track${n === 1 ? '' : 's'}).`
-            : `No ${st.name} tracks in your library, and nothing close to their sound (${st.sound}) yet — import some.`,
+            ? `${st.name}: matched the sound from your library — ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM (${n} track${n === 1 ? '' : 's'}).`
+            : `${st.name}: nothing in your library close to that sound (${st.sound}) yet — import some.`,
       );
     }
     for (const [id, snd] of sounds) if (!matched.has(id) || matched.get(id)!.role === 'style') matched.set(id, { role: 'sound', why: snd.why });

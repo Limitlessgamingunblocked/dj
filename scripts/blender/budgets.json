@@ -1,0 +1,26 @@
+{
+  "note": "Triangle budgets from Section 14.4. First matching rule wins. Shared by export_glb.py and assets-report.mjs.",
+  "categories": {
+    "characters": "character",
+    "outfits": "outfit",
+    "hair": "hair",
+    "accessories": "accessory",
+    "board": "board",
+    "venues": "venue",
+    "props": "prop",
+    "animations": "anim"
+  },
+  "rules": [
+    { "match": "^character_crowd_.*_lod2$", "max": 200, "label": "Crowd LOD2 (impostor / billboard)" },
+    { "match": "^character_crowd_.*_lod1$", "max": 3000, "label": "Crowd LOD1 (middle rows)" },
+    { "match": "^character_crowd_", "max": 8000, "label": "Crowd LOD0 (front rows)" },
+    { "match": "^character_vip_", "max": 18000, "label": "VIP crew member" },
+    { "match": "^character_", "max": 35000, "label": "Player character (body + outfit + hair)" },
+    { "match": "^(outfit|hair|accessory)_", "max": 12000, "label": "Player part (counts towards the 35k player total)" },
+    { "match": "^board_", "max": 5000, "label": "Board component" },
+    { "match": "^prop_", "max": 5000, "label": "Prop" },
+    { "match": "^venue_.*_hero(_|$)", "max": 30000, "label": "Hero venue piece" },
+    { "match": "^venue_", "max": 10000, "label": "Venue kit piece" },
+    { "match": "^anim_", "max": 0, "label": "Animation (no mesh)" }
+  ]
+}

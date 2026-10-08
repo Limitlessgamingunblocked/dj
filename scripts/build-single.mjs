@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fragment = process.argv.includes('--fragment');
-execFileSync('npx', ['vite', 'build', '--outDir', 'dist-single', '--emptyOutDir'], { cwd: root, stdio: 'inherit' });
+execFileSync('npx', ['vite', 'build', '--outDir', 'dist-single', '--emptyOutDir'], { cwd: root, stdio: 'inherit', env: { ...process.env, DECKHOUSE_SINGLE: '1' } });
 
 const dist = resolve(root, 'dist-single');
 const assets = resolve(dist, 'assets');

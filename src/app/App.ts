@@ -20,7 +20,9 @@ import type { LyricLine } from '../lyrics/lyrics';
 import { LyricsEngine } from '../lyrics/LyricsEngine';
 import { MidiManager } from '../midi/MidiManager';
 import { boardById, isTurntable, type BoardDef } from '../three/boards';
-import { venueById } from '../three/venues';
+import { venueById, VENUES } from '../three/venues';
+import { Career } from '../game/Career';
+import { DebugMenu } from '../ui/DebugMenu';
 import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
@@ -33,6 +35,7 @@ import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
 import { avDelay, FeatureDelay } from '../visualizer/avsync';
+import { BeatClock } from '../core/BeatClock';
 import { openBoardPicker } from '../ui/BoardPicker';
 import { DeckPanel } from '../ui/DeckPanel';
 import { h, setClass, setText } from '../ui/dom';
@@ -72,6 +75,13 @@ export class App implements AppContext {
   private stage!: Stage;
   private features!: AudioFeatures;
   private avSync = new FeatureDelay();
+  /** musical time for everything that moves with the music (see core/BeatClock.ts) */
+  readonly clock = new BeatClock();
+  private clockDrop = false;
+  /** the career saves (profile, progress…); see game/Career.ts */
+  readonly career = new Career();
+  private debug: DebugMenu | null = null;
+  private debugDrop = false;
   private midi!: MidiManager;
   private settings: Settings = cleanSettings(loadSetting<unknown>('settings', {}));
   private boardDef: BoardDef = boardById(this.settings.board);
@@ -246,6 +256,7 @@ export class App implements AppContext {
     });
     this.midi = new MidiManager(this.reg);
     this.features = new AudioFeatures(this.engine.visAnalyser, this.engine);
+    this.clock.onDrop(() => (this.clockDrop = true));
 
     this.stage = new Stage(this.reg, this.engine, {
       levels: (ch) => this.meters.ch[ch - 1] ?? [0, 0],
@@ -288,6 +299,30 @@ export class App implements AppContext {
     });
 
     this.buildLayout();
+    this.debug = new DebugMenu({
+      clock: this.clock,
+      career: this.career,
+      venues: VENUES.map((v) => ({ id: v.id, name: v.name })),
+      venue: () => this.settings.venue,
+      setVenue: (id) => this.setVenue(id),
+      crowd: () => prefs.crowd,
+      setCrowd: (k) => setPrefs({ crowd: k }),
+      fire: (what) => {
+        const show = this.stage.show;
+        if (what === 'drop') this.debugDrop = true;
+        else if (what === 'confetti') show.fireConfetti();
+        else if (what === 'co2') show.fireCo2();
+        else if (what === 'pyro') show.firePyro();
+        else {
+          show.controls.strobeHold = true;
+          setTimeout(() => (show.controls.strobeHold = false), 1000);
+        }
+      },
+      redline: () => this.engine.redline,
+    });
+    document.body.append(this.debug.el);
+    // career saves land before the tab goes away
+    addEventListener('pagehide', () => this.career.saves.flush());
     loading.remove();
     this.setVenue(this.settings.venue, true);
     this.stage.adaptive.enabled = this.settings.autoQuality;
@@ -1087,7 +1122,9 @@ export class App implements AppContext {
   /** the auto director's call for this frame: cut, or stay */
   private direct(): void {
     const s = this.stage.show.state;
-    const v = this.director.update({ t: s.t, playing: s.playing, bar: s.bar, build: s.build, peak: s.peak, dropHit: s.dropHit }, this.stage.rig.view);
+    // cuts land on the clock's bars and drops; the show supplies how built-up / peaking it is
+    const v = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: this.clockDrop }, this.stage.rig.view);
+    this.clockDrop = false;
     if (v) this.stage.cutTo(v);
   }
 
@@ -1147,6 +1184,14 @@ export class App implements AppContext {
       this.meters.master = this.engine.mixer.masterLevels();
       // the visuals read the audio as the speakers play it, not as it leaves the mixer
       const f = this.avSync.push(t / 1000, this.features.update(dt), avDelay(this.engine.ctx, prefs.avOffset));
+      if (this.debugDrop) {
+        // the debug menu's drop: the whole game sees it, as if the track dropped
+        f.dropHit = true;
+        f.drop = 1;
+        this.debugDrop = false;
+      }
+      this.clock.update(f, dt);
+      this.debug?.update(dt);
       this.stage.hype = this.hype.update(dt, f);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       this.stage.lyric = this.lyrics.frame();
@@ -1157,6 +1202,8 @@ export class App implements AppContext {
         this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
         this.stageDt = 0;
         if (this.settings.director && this.stage.view !== 'visual') this.direct();
+        // a drop the director didn't take (it's off, or the view is the visual player) doesn't wait for later
+        this.clockDrop = false;
       }
       if (this.fps.el) this.updateFps(raw);
       // four times a second, however slow the frames are

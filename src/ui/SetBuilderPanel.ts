@@ -267,10 +267,10 @@ export class SetBuilderPanel {
     const go = h('button', { class: 'btn primary sb-go', type: 'button' }, 'Generate set');
     go.addEventListener('click', () => this.generate(true));
 
-    // artist sound presets
+    // sound-lane presets
     const presets = h('div', { class: 'sb-presets' });
     for (const st of STYLES) {
-      const b = h('button', { class: 'btn small', type: 'button', title: `In the style of ${st.name}: ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM` }, `≈ ${st.name}`);
+      const b = h('button', { class: 'btn small', type: 'button', title: `The ${st.name} sound: ${st.sound}, ${st.bpm[0]}–${st.bpm[1]} BPM` }, `≈ ${st.name}`);
       b.addEventListener('click', () => {
         const has = this.s.anchors.findIndex((a) => styleForAnchor(a) === st);
         if (has >= 0) this.s.anchors.splice(has, 1);
@@ -654,7 +654,7 @@ export class SetBuilderPanel {
           h('strong', {}, plan ? 'No set could be built' : 'Build a set from your library'),
           ...(plan?.warnings.length ? plan.warnings.map((w) => h('span', {}, w)) : []),
           plan ? null : 'Add anchor artists, labels or genres, choose a length and an energy arc, then Generate. SmartDJ orders the tracks for harmonic, beat-matched mixing and tells you where and how to mix each one.',
-          plan ? null : h('span', { class: 'note' }, 'Try “All four → journey” for a set in the styles of Chris Stussy, OMAR+, Cloonee and Prospa — the demo crate includes tracks synthesised in those sounds. Or anchor on demo artists like Kora Vance and labels like Tidal Room.'),
+          plan ? null : h('span', { class: 'note' }, 'Try “All four → journey” for a set that travels through the four sounds — Deep & Groovy, Rolling Minimal, Bouncy Tech House and Rave Energy; the demo crate has tracks in each. Or anchor on demo artists like Kora Vance and labels like Tidal Room.'),
         ),
       );
       return;

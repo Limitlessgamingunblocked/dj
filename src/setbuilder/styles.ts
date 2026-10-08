@@ -1,10 +1,10 @@
 /*
- * Artist sound profiles. When an anchor names one of these artists, the
- * builder also matches their *sound* — tempo range, energy, genre words and,
- * for the built-in demos, the groove style they were synthesised in — so a
- * set can be built "in the style of" an artist whose records aren't in the
- * library. Profiles are Deckhouse's reading of each artist's typical club
- * sound, not official descriptions; they only steer track selection.
+ * Sound lanes: the four house sounds the game is built around (Section 2.1 of
+ * the build brief). When an anchor names a lane, the builder matches its
+ * *sound* — tempo range, energy, genre words and, for the built-in demos, the
+ * groove style they were synthesised in — so a set can be built in that
+ * sound from whatever the library holds. Lanes are described by their
+ * musical traits only: no real artists' names anywhere in the game.
  */
 import type { DemoSpec } from '../core/types';
 import { clamp } from '../core/util';
@@ -45,9 +45,9 @@ export interface StyleProfile {
 
 export const STYLES: StyleProfile[] = [
   {
-    id: 'stussy',
-    name: 'Chris Stussy',
-    aliases: ['stussy'],
+    id: 'deep',
+    name: 'Deep & Groovy',
+    aliases: ['deep and groovy', 'deep groovy'],
     sound: 'deep, rolling minimal house — swung hats, walking basslines, jazzy chord stabs',
     bpm: [125, 129],
     energy: [0.3, 0.6],
@@ -57,9 +57,9 @@ export const STYLES: StyleProfile[] = [
     mode: 'minor',
   },
   {
-    id: 'omar',
-    name: 'OMAR+',
-    aliases: ['omar plus', 'omar'],
+    id: 'rolling',
+    name: 'Rolling Minimal',
+    aliases: [],
     sound: 'percussive, groove-first minimal tech house — congas, shakers, hypnotic rolling loops',
     bpm: [126, 130],
     energy: [0.45, 0.7],
@@ -68,9 +68,9 @@ export const STYLES: StyleProfile[] = [
     demo: ['rolling', 'minimal', 'house'],
   },
   {
-    id: 'cloonee',
-    name: 'Cloonee',
-    aliases: [],
+    id: 'bouncy',
+    name: 'Bouncy Tech House',
+    aliases: ['bouncy tech'],
     sound: 'bouncy, bass-led tech house — chopped vocal hooks and big drops',
     bpm: [126, 129],
     energy: [0.6, 0.85],
@@ -79,9 +79,9 @@ export const STYLES: StyleProfile[] = [
     demo: ['techhouse', 'house'],
   },
   {
-    id: 'prospa',
-    name: 'Prospa',
-    aliases: [],
+    id: 'rave',
+    name: 'Rave Energy',
+    aliases: ['rave house energy'],
     sound: 'euphoric rave house — breakbeats, rave piano, stabs and huge builds',
     bpm: [126, 133],
     energy: [0.74, 1],
@@ -96,7 +96,7 @@ export function styleById(id: string): StyleProfile | undefined {
   return STYLES.find((s) => s.id === id);
 }
 
-/** The sound profile an anchor names, if any ("chris stussy", "Stussy", "OMAR+"). */
+/** The sound lane an anchor names, if any ("Deep & Groovy", "deep and groovy", "RAVE ENERGY"). */
 export function styleForAnchor(anchor: string): StyleProfile | null {
   const a = normalize(anchor);
   if (!a) return null;
@@ -142,5 +142,5 @@ export function styleFit(p: TrackProfile, st: StyleProfile): { score: number; wh
   if (tempo > 0.8) bits.push(`${Math.round(p.bpm)} BPM`);
   if (genre >= 0.85 && (p.genre || p.demoStyle)) bits.push(`${p.genre || p.demoStyle} feel`);
   if (energy > 0.8) bits.push('the right energy');
-  return { score, why: bits.length ? `Sounds like ${st.name}: ${bits.join(', ')}` : `Close to ${st.name}’s sound` };
+  return { score, why: bits.length ? `${st.name} sound: ${bits.join(', ')}` : `Close to the ${st.name} sound` };
 }

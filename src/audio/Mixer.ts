@@ -169,6 +169,12 @@ export class Mixer {
     }
   }
 
+  /** how hard the limiter is pulling the master down right now, in dB (0 = not at all) */
+  limiterReduction(): number {
+    const r = this.limiter.reduction;
+    return Number.isFinite(r) ? Math.max(0, -r) : 0;
+  }
+
   masterLevels(): [number, number] {
     const out: [number, number] = [0, 0];
     [this.analyserL, this.analyserR].forEach((an, i) => {
