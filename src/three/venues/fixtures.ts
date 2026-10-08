@@ -551,8 +551,10 @@ export class Co2Jets implements Fixture {
   private max: Float32Array;
   private alpha: THREE.BufferAttribute;
   private size: THREE.BufferAttribute;
-  private per = 90;
+  private age: THREE.BufferAttribute;
+  private per = 140;
   private tint = { value: new THREE.Color(1, 1, 1) };
+  private top = { value: new THREE.Color(1, 1, 1) };
   private rnd = rng(7);
 
   constructor(
@@ -568,30 +570,64 @@ export class Co2Jets implements Fixture {
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     this.alpha = new THREE.BufferAttribute(new Float32Array(n), 1);
     this.size = new THREE.BufferAttribute(new Float32Array(n), 1);
+    this.age = new THREE.BufferAttribute(new Float32Array(n), 1);
+    const seed = new Float32Array(n);
+    for (let i = 0; i < n; i++) seed[i] = this.rnd();
     g.setAttribute('aAlpha', this.alpha);
     g.setAttribute('aSize', this.size);
+    g.setAttribute('aAge', this.age);
+    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     this.pts = new THREE.Points(
       g,
       new THREE.ShaderMaterial({
-        uniforms: { uMap: { value: smokeTexture() }, uTint: this.tint },
+        uniforms: { uMap: { value: smokeTexture() }, uTint: this.tint, uTop: this.top },
         vertexShader: /* glsl */ `
           attribute float aAlpha;
           attribute float aSize;
+          attribute float aAge;
+          attribute float aSeed;
           varying float vA;
+          varying float vAge;
+          varying float vSeed;
           void main() {
             vec4 mv = modelViewMatrix * vec4(position, 1.0);
             // flying through the plume must not white out the frame
             vA = aAlpha * smoothstep(0.8, 3.0, -mv.z);
-            gl_PointSize = min(aSize * 700.0 / max(0.5, -mv.z), 260.0);
+            vAge = aAge;
+            vSeed = aSeed;
+            gl_PointSize = min(aSize * 700.0 / max(0.5, -mv.z), 180.0);
             gl_Position = projectionMatrix * mv;
           }`,
+        // each puff turned its own way and torn into wisps as it thins out, lit from the
+        // rig above (bright on top, the show's colour underneath) rather than a flat white disc
         fragmentShader: /* glsl */ `
           uniform sampler2D uMap;
           uniform vec3 uTint;
+          uniform vec3 uTop;
           varying float vA;
+          varying float vAge;
+          varying float vSeed;
+          float h21(vec2 p) {
+            p = fract(p * vec2(123.34, 456.21));
+            p += dot(p, p + 45.32);
+            return fract(p.x * p.y);
+          }
+          float vnoise(vec2 p) {
+            vec2 i = floor(p);
+            vec2 f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+          }
           void main() {
-            vec4 t = texture2D(uMap, gl_PointCoord);
-            gl_FragColor = vec4(uTint, t.a * vA);
+            vec2 pc = gl_PointCoord - 0.5;
+            float a = vSeed * 6.2832;
+            vec2 rp = mat2(cos(a), -sin(a), sin(a), cos(a)) * pc + 0.5;
+            float t = texture2D(uMap, rp).a;
+            float nz = vnoise(rp * 4.0 + vSeed * 17.0) * 0.65 + vnoise(rp * 9.0 - vSeed * 11.0) * 0.35;
+            float wisp = smoothstep(vAge * 0.8 - 0.1, vAge * 0.8 + 0.3, nz);
+            float up = 1.0 - gl_PointCoord.y;
+            vec3 col = mix(uTint, uTop, smoothstep(0.1, 0.9, up));
+            gl_FragColor = vec4(col, t * wisp * vA);
           }`,
         transparent: true,
         depthWrite: false,
@@ -623,8 +659,10 @@ export class Co2Jets implements Fixture {
 
   update(s: ShowState, dt: number): void {
     if (s.co2) this.fire();
-    // the plume picks up the wash, and goes white in the strobes
-    this.tint.value.copy(s.colors[0]).lerp(WHITE, 0.75).multiplyScalar(0.55 + s.wash * 0.4 + s.flash * 0.6);
+    // the plume picks up the wash underneath, the rig's white on top, and goes white in the strobes
+    const lit = (0.4 + s.wash * 0.35 + s.flash * 0.7) * (0.3 + 0.7 * s.master);
+    this.tint.value.copy(s.colors[0]).lerp(WHITE, 0.3 + s.flash * 0.5).multiplyScalar(lit * 0.7);
+    this.top.value.copy(s.colors[1]).lerp(WHITE, 0.7).multiplyScalar(lit * 1.15);
     const drag = Math.exp(-dt * 2.2);
     for (let k = 0; k < this.life.length; k++) {
       const l = (this.life[k] += dt);
@@ -645,12 +683,15 @@ export class Co2Jets implements Fixture {
       this.pos[k * 3 + 1] += this.vel[k * 3 + 1] * dt;
       this.pos[k * 3 + 2] += this.vel[k * 3 + 2] * dt;
       const u = l / this.max[k];
-      this.alpha.setX(k, Math.min(1, u * 8) * (1 - u) * 0.42);
-      this.size.setX(k, 0.3 + u * 1.5);
+      // a dense jet out of the nozzle that billows and thins as it slows
+      this.alpha.setX(k, Math.min(1, u * 10) * (1 - u) * (1 - u * 0.4) * 0.34);
+      this.size.setX(k, 0.18 + u * 1.25);
+      this.age.setX(k, u);
     }
     (this.pts.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     this.alpha.needsUpdate = true;
     this.size.needsUpdate = true;
+    this.age.needsUpdate = true;
   }
 }
 

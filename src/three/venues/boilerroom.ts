@@ -8,6 +8,7 @@
  * and the ring carries no lettering (no branding).
  */
 import * as THREE from 'three';
+import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { boothClutter } from './details';
@@ -242,6 +243,8 @@ class BoilerRoom extends VenueBase {
     ];
     this.add(new Crowd(spots, { seed: 70, phones: 0.2, clothes }));
     this.add(new Pyro([V(-1.35, 0, -0.8), V(1.35, 0, -0.8)].map((pos) => ({ pos, kind: 'spark' as const }))));
+    // no stage production here: confetti only by hand, and the night breeze takes it
+    this.add(new Confetti([-1, 1].map((s) => ({ pos: V(s * 1.0, 0, -1.25), dir: V(s * 0.15, 0.75, -0.65) })), { floorY: 0, speed: 7, count: 1600, onDrops: false, wind: V(0.45, 0, 0.12) }));
 
     this.wash(V(0, 3.4, 3.6), 0, 5, 10);
     this.wash(V(-3.6, 3.2, -2.6), 1, 4, 9);

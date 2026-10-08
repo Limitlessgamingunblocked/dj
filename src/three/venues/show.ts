@@ -50,6 +50,8 @@ export interface ShowControls {
   dropFx: boolean;
   /** flame jets / cold sparks go off on drops */
   pyro: boolean;
+  /** confetti cannons go off on a drop (at most every 90 s, so it stays special) */
+  confetti: boolean;
   /** base haze level 0..1 */
   smoke: number;
   strobeHold: boolean;
@@ -94,6 +96,10 @@ export interface ShowState {
   co2: boolean;
   /** pyro fires this frame */
   pyro: boolean;
+  /** confetti cannons fire this frame */
+  confetti: boolean;
+  /** ...fired from the desk (venues that don't do confetti on drops still fire it by hand) */
+  confettiByHand: boolean;
   smoke: number;
   /** crowd energy 0..1 */
   hype: number;
@@ -123,6 +129,7 @@ export class LightShow {
     laserPattern: 'auto',
     dropFx: true,
     pyro: true,
+    confetti: true,
     smoke: 0.5,
     strobeHold: false,
     blinderHold: false,
@@ -135,6 +142,8 @@ export class LightShow {
   private co2Queued = false;
   private pyroQueued = false;
   private lastPyro = -10;
+  private confettiQueued = false;
+  private lastConfetti = -1e9;
   private peakBars = 0;
   private lastBar = -1;
   private laserLevel = 0;
@@ -174,6 +183,8 @@ export class LightShow {
       blinder: 0,
       co2: false,
       pyro: false,
+      confetti: false,
+      confettiByHand: false,
       smoke: 0.5,
       hype: 0.3,
       venueLook: true,
@@ -196,6 +207,11 @@ export class LightShow {
   /** manual pyro hit from the lighting desk */
   firePyro(): void {
     this.pyroQueued = true;
+  }
+
+  /** manual confetti burst from the lighting desk */
+  fireConfetti(): void {
+    this.confettiQueued = true;
   }
 
   /** a key phrase landed (hook line of the lyrics): strength 0..1 */
@@ -322,6 +338,18 @@ export class LightShow {
       this.lastPyro = s.t;
     }
     this.pyroQueued = false;
+
+    // confetti: by hand (a few seconds apart, so a held key doesn't restart it), or on a drop
+    // at most every 90 s: every drop would make it wallpaper
+    s.confetti = false;
+    s.confettiByHand = false;
+    const sinceConfetti = s.t - this.lastConfetti;
+    if (!c.blackoutHold && ((this.confettiQueued && sinceConfetti > 4) || (s.dropHit && c.dropFx && c.confetti && sinceConfetti > 90))) {
+      s.confetti = true;
+      s.confettiByHand = this.confettiQueued;
+      this.lastConfetti = s.t;
+    }
+    this.confettiQueued = false;
 
     s.smoke = Math.min(1, c.smoke + s.build * 0.25 + s.peak * 0.1 + this.accentSmoke);
 

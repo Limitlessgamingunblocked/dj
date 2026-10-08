@@ -5,6 +5,8 @@
  * concrete floor, a bar along one wall and exit signs, so the room has edges.
  */
 import * as THREE from 'three';
+import { Confetti } from './confetti';
+import { MirrorBallSpots } from './mirrorball';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, PillarBars } from './details';
@@ -22,7 +24,6 @@ class Warehouse extends VenueBase {
     crowd: { pos: V(1.4, 2.5, -7.6), target: V(0, 1.1, 0) },
     drone: [V(0, 3.2, 3.6), V(0.3, 2.4, 1.2), V(0.6, 1.95, -2.2), V(1.8, 2.1, -5.5), V(4.6, 2.9, -7.6), V(6.2, 2.3, -4.2), V(5.5, 1.5, -1.6), V(2.6, 1.6, -1.6), V(-1.2, 1.6, -1.0), V(-4.2, 1.8, -1.9), V(-6.2, 2.6, -5.5), V(-3.6, 3.6, -8.0), V(-1.5, 4.4, -3.0), V(-2.5, 3.8, 2.8)],
   };
-  private ball: THREE.Mesh;
 
   constructor() {
     super({ fog: 0x03040a, fogDensity: 0.05, hemiSky: 0x6a7ba8, hemiGround: 0x07070a, hemi: 0.36, flashAt: V(0, 4.5, -4) });
@@ -74,12 +75,12 @@ class Warehouse extends VenueBase {
     }
 
     // LED wall + side screens (visual player)
-    this.screen(new THREE.Mesh(new THREE.PlaneGeometry(11.2, 6.3))).position.set(0, 3.3, -8);
+    this.screen(new THREE.Mesh(new THREE.PlaneGeometry(11.2, 6.3)), { size: [11.2, 6.3], pitch: 0.0039 }).position.set(0, 3.3, -8);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(11.6, 6.7, 0.25), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.8 }));
     frame.position.set(0, 3.3, -8.14);
     this.group.add(frame);
     for (const s of [-1, 1]) {
-      const side = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(4.8, 2.7)));
+      const side = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(4.8, 2.7)), { size: [4.8, 2.7], pitch: 0.0039 });
       side.position.set(s * 8.2, 3.1, -5.2);
       side.rotation.y = -s * 0.75;
     }
@@ -112,6 +113,7 @@ class Warehouse extends VenueBase {
       ),
     );
     this.add(new Co2Jets([V(-4, 0.05, -1.4), V(-2.6, 0.05, -1.4), V(2.6, 0.05, -1.4), V(4, 0.05, -1.4)]));
+    this.add(new Confetti([-1, 1].map((s) => ({ pos: V(s * 3.3, 0.05, -1.25), dir: V(s * 0.12, 0.72, -0.7) })), { floorY: -STAGE, speed: 8 }));
     this.add(
       new Pyro(
         [
@@ -121,9 +123,11 @@ class Warehouse extends VenueBase {
         { height: 2.9 },
       ),
     );
-    this.ball = mirrorBall(0.35);
-    this.ball.position.set(0, 5.4, -4.2);
-    this.group.add(this.ball);
+    const ball = mirrorBall(0.35);
+    ball.position.set(0, 5.4, -4.2);
+    this.group.add(ball);
+    // (it turns with its spots)
+    this.add(new MirrorBallSpots([{ mesh: ball, spots: 240 }], { floorY: -STAGE, x0: -9.5, x1: 9.5, z0: -9.5, z1: 4.5, ceilY: 6.4 }));
 
     this.add(new Crowd(crowdArea(-6.8, 6.8, -2.3, -7.4, 2.3, 21, { y: -STAGE }), { seed: 5, phones: 0.08, signs: 3 }));
     // guests on the riser beside the booth
@@ -133,11 +137,6 @@ class Warehouse extends VenueBase {
     this.wash(V(-2.5, 2.4, -2.5), 0, 6, 10);
     this.wash(V(2.5, 2.4, -2.5), 1, 6, 10);
     this.wash(V(0, 3.2, -6), 2, 5, 12);
-  }
-
-  update(...args: Parameters<VenueBase['update']>): void {
-    super.update(...args);
-    this.ball.rotation.y += args[2] * 0.4;
   }
 }
 

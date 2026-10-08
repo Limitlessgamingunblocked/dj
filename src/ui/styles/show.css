@@ -227,12 +227,12 @@
 
 .light-pads {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
 .hw.light-pad {
-  height: 64px;
+  height: 56px;
   border-radius: 8px;
   font-family: var(--font-label);
   font-size: 14px;
@@ -273,8 +273,13 @@
   --pad: #ff7a1a;
 }
 
+.hw.light-pad.confetti {
+  --pad: #ffd23f;
+}
+
 .hw.light-pad.blackout {
   --pad: #ff3b5c;
+  grid-column: span 2;
 }
 
 .lights-col .sliders .field {
@@ -339,6 +344,10 @@
 
   .light-pads {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hw.light-pad.blackout {
+    grid-column: 1 / -1;
   }
 
   .hype-meter .label {

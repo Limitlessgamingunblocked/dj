@@ -124,3 +124,36 @@ describe('the drop', () => {
     for (let t = 0; t < 4; t += 1 / 60) expect(show.update(frame(t, 120, { breakdown: 0.97 }), 1 / 60, 0.8).master).toBeGreaterThan(0.9);
   });
 });
+
+describe('confetti', () => {
+  const drop = (show: LightShow, t: number) => show.update(frame(t, 120, { drop: 1, dropHit: true }), 1 / 60, 0.8);
+
+  it('fires on a drop, then not again for 90 s, so it stays special', () => {
+    const show = new LightShow();
+    let t = 0;
+    for (; t < 2; t += 1 / 60) show.update(frame(t, 120), 1 / 60, 0.8);
+    const first = drop(show, t);
+    expect(first.confetti).toBe(true);
+    expect(first.confettiByHand).toBe(false);
+    // the next drop a minute later: CO2 and pyro, no paper
+    for (; t < 62; t += 1 / 60) show.update(frame(t, 120), 1 / 60, 0.8);
+    const second = drop(show, t);
+    expect(second.co2).toBe(true);
+    expect(second.confetti).toBe(false);
+    for (; t < 95; t += 1 / 60) show.update(frame(t, 120), 1 / 60, 0.8);
+    expect(drop(show, t).confetti).toBe(true);
+  });
+
+  it('can be turned off for drops and still fired from the desk', () => {
+    const show = new LightShow();
+    show.controls.confetti = false;
+    expect(drop(show, 1).confetti).toBe(false);
+    show.fireConfetti();
+    const s = show.update(frame(1.1, 120), 1 / 60, 0.8);
+    expect(s.confetti).toBe(true);
+    expect(s.confettiByHand).toBe(true);
+    // a held key doesn't keep restarting it
+    show.fireConfetti();
+    expect(show.update(frame(1.2, 120), 1 / 60, 0.8).confetti).toBe(false);
+  });
+});

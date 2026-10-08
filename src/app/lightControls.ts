@@ -2,7 +2,8 @@
  * Lighting desk controls in the control registry, so the Lights panel, the
  * keyboard and MIDI (learn) can all fire them:
  *   light.strobe / light.blinder / light.lasers / light.blackout  (hold)
- *   light.co2 / light.pyro (hit), light.auto / light.dropfx / light.autopyro (toggle)
+ *   light.co2 / light.pyro / light.confetti (hit),
+ *   light.auto / light.dropfx / light.autopyro / light.autoconfetti (toggle)
  */
 import type { ControlRegistry } from '../core/controls';
 import type { LightShow } from '../three/venues/show';
@@ -11,6 +12,7 @@ export function registerLightControls(reg: ControlRegistry, show: LightShow, cha
   const c = show.controls;
   let co2Flash = 0;
   let pyroFlash = 0;
+  let confettiFlash = 0;
   const hold = (id: string, label: string, key: 'strobeHold' | 'blinderHold' | 'laserHold' | 'blackoutHold', color: string) =>
     reg.register({
       id,
@@ -43,6 +45,26 @@ export function registerLightControls(reg: ControlRegistry, show: LightShow, cha
       pyroFlash = performance.now();
     },
     lit: () => (performance.now() - pyroFlash < 900 ? '#ff7a1a' : false),
+  });
+  reg.register({
+    id: 'light.confetti',
+    label: 'Lights: confetti cannons',
+    kind: 'button',
+    press: () => {
+      show.fireConfetti();
+      confettiFlash = performance.now();
+    },
+    lit: () => (performance.now() - confettiFlash < 900 ? '#ffd23f' : false),
+  });
+  reg.register({
+    id: 'light.autoconfetti',
+    label: 'Lights: confetti on big drops',
+    kind: 'button',
+    press: () => {
+      c.confetti = !c.confetti;
+      changed();
+    },
+    lit: () => (c.confetti ? '#ffd23f' : false),
   });
   reg.register({
     id: 'light.autopyro',

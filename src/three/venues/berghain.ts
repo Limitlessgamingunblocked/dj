@@ -7,6 +7,7 @@
  * mirrors, no VIP area, no phones. The steel balcony is unverified.
  */
 import * as THREE from 'three';
+import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, LightBar } from './details';
@@ -161,6 +162,8 @@ class Berghain extends VenueBase {
     this.add(new Strobes([-8, -4.8, -1.6, 1.6, 4.8, 8].flatMap((x) => [V(x, 11.5, -8), V(x, 11.5, -18)]).map((p) => ({ pos: p, tilt: Math.PI / 2 })), [0.7, 0.2, 0.1]));
     // cold sparks only at the niche's front corners
     this.add(new Pyro([V(-2.25, 0, -0.62), V(2.25, 0, -0.62)].map((pos) => ({ pos, kind: 'spark' as const }))));
+    // not a confetti club: only by hand from the desk
+    this.add(new Confetti([-1, 1].map((s) => ({ pos: V(s * 1.85, 0.02, -0.75), dir: V(s * 0.1, 0.8, -0.6) })), { floorY: -STAGE, speed: 12, onDrops: false }));
 
     const avoid = [-5, -13, -21].flatMap((z) => [-6.5, 6.5].map((x) => new THREE.Box2(new THREE.Vector2(x - 0.9, z - 0.9), new THREE.Vector2(x + 0.9, z + 0.9))));
     avoid.push(new THREE.Box2(new THREE.Vector2(9.6, -29), new THREE.Vector2(13, -24)));

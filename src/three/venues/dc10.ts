@@ -9,6 +9,8 @@
  * of the old finca. No club lettering: the promoter's wordmark stays out.
  */
 import * as THREE from 'three';
+import { Confetti } from './confetti';
+import { MirrorBallSpots } from './mirrorball';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
@@ -126,15 +128,18 @@ class DC10 extends VenueBase {
       globes.push({ pos: V(x, 2.75 + r() * 1.6, z), r: 0.12 + r() * 0.08 });
     }
     this.add(new Globes(globes, '#ff761a', CEIL));
-    for (const [x, y, z] of [
+    const balls = [
       [-3, 4.3, -6],
       [2.6, 4.5, -9.5],
       [5.4, 4.1, -4],
-    ]) {
+    ].map(([x, y, z]) => {
       const ball = mirrorBall(0.17);
       ball.position.set(x, y, z);
       this.group.add(ball);
-    }
+      return { mesh: ball, spots: 110 };
+    });
+    // their spots drift round the room through the breakdowns
+    this.add(new MirrorBallSpots(balls, { floorY: -STAGE, x0: -8.5, x1: 8.5, z0: -17, z1: 2.6, ceilY: CEIL }, 0.18));
 
     // warm bulb strings across the ceiling, zig-zag strips up the columns
     const leds = new LedStrings({ warm: '#ffae66', size: 0.075, spacing: 0.24 });
@@ -278,6 +283,8 @@ class DC10 extends VenueBase {
     this.add(new Strobes([V(-6, CEIL - 0.1, -4), V(6, CEIL - 0.1, -4), V(-6, CEIL - 0.1, -10.5), V(6, CEIL - 0.1, -10.5), V(-1.8, CEIL - 0.1, -1.5), V(1.8, CEIL - 0.1, -1.5)].map((p) => ({ pos: p, tilt: Math.PI / 2 }))));
     this.add(new Blinders([V(-2.3, -0.28, -0.6), V(2.3, -0.28, -0.6)].map((p) => ({ pos: p, tilt: -0.15 }))));
     this.add(new Co2Jets([V(-1.95, 0.02, -0.72), V(1.95, 0.02, -0.72)], 8));
+    // confetti over the terrace, kept under the roof
+    this.add(new Confetti([-1, 1].map((s) => ({ pos: V(s * 3.1, 0.02, -0.62), dir: V(s * 0.14, 0.62, -0.78) })), { floorY: -STAGE, speed: 6, count: 2000 }));
     // low ceiling: cold-spark fountains, not flames
     this.add(new Pyro([V(-2.6, 0, -0.5), V(2.6, 0, -0.5), V(-3.6, 0, -0.45), V(3.6, 0, -0.45)].map((pos) => ({ pos, kind: 'spark' as const }))));
 

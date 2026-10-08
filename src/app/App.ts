@@ -54,7 +54,7 @@ import { registerControls } from './controlDefs';
 import { bindKeyboard } from './keyboard';
 import { cleanSettings, type Settings } from './settingsModel';
 
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'smoke', 'reduceFlash'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
 
 type TabId = 'library' | 'sets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */

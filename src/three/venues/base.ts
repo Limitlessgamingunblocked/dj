@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { Grade } from '../lens';
 import { updateAll, type Fixture } from './fixtures';
+import { ledScreen } from './led';
 import type { ShowState } from './show';
 
 export interface Pose {
@@ -152,9 +153,14 @@ export abstract class VenueBase implements VenueScene {
     if (m) this.boothStrips.push(m);
   }
 
-  /** a mesh that shows the visual player */
-  protected screen(mesh: THREE.Mesh): THREE.Mesh {
+  /**
+   * A mesh that shows the visual player. With `led` (a plane's size in metres
+   * and the LED pitch) it reads as an LED wall: pixels up close, tile seams,
+   * dimmer off-axis.
+   */
+  protected screen(mesh: THREE.Mesh, led?: { size: [number, number]; pitch: number }): THREE.Mesh {
     const mat = new THREE.MeshBasicMaterial({ color: 0x050608, toneMapped: false });
+    if (led) ledScreen(mat, led.size, led.pitch).uLEDGain.value = 1.15;
     mesh.material = mat;
     this.visMaterials.push(mat);
     this.visObjects.push(mesh);

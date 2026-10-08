@@ -9,6 +9,7 @@
  */
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, pressLine } from './details';
@@ -147,7 +148,7 @@ class Printworks extends VenueBase {
     }
 
     // far wall screen for the visual player
-    this.screen(new THREE.Mesh(new THREE.PlaneGeometry(26, 14.6))).position.set(0, 9, FAR + 0.3);
+    this.screen(new THREE.Mesh(new THREE.PlaneGeometry(26, 14.6)), { size: [26, 14.6], pitch: 0.0059 }).position.set(0, 9, FAR + 0.3);
 
     // the rig: truss grid with light bars, beam fixtures and strobes
     for (const z of RIG_ROWS) this.rig.add(truss(V(-8.6, 0, z), V(8.6, 0, z), 0.4));
@@ -201,6 +202,7 @@ class Printworks extends VenueBase {
     );
     this.add(new Blinders([-7, -5, -3, -1, 1, 3, 5, 7].map((x) => ({ pos: V(x, -0.55, -1.52), tilt: -0.2 }))));
     this.add(new Co2Jets([-7.4, -4.8, -2.2, 2.2, 4.8, 7.4].map((x) => V(x, 0.02, -1.55)), 13));
+    this.add(new Confetti([-6.1, -3.5, 3.5, 6.1].map((x) => ({ pos: V(x, 0.02, -1.55), dir: V(Math.sign(x) * 0.14, 0.8, -0.6) })), { floorY: -STAGE, speed: 15, count: 3200 }));
     this.add(
       new Pyro(
         [
