@@ -58,6 +58,8 @@ export const KEY_DEFS: KeyDef[] = [
   { key: 'Equal', id: 'cam.in', label: 'Camera: zoom in (hold)', group: 'Camera: zoom in / out (hold)' },
   { key: 'Minus', id: 'cam.out', label: 'Camera: zoom out (hold)', group: 'Camera: zoom in / out (hold)' },
   { key: 'Shift+KeyV', id: 'cam.next', label: 'Camera: next angle' },
+  { key: 'Quote', id: 'cam.auto', label: 'Camera: auto director on / off' },
+  { key: 'Shift+Quote', id: 'cam.photo', label: 'Camera: take a photo' },
   { key: 'KeyN', id: 'light.strobe', label: 'Lights: strobe (hold)' },
   { key: 'KeyB', id: 'light.blinder', label: 'Lights: blinders (hold)' },
   { key: 'KeyY', id: 'light.lasers', label: 'Lights: lasers (hold)' },

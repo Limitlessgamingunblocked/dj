@@ -36,12 +36,18 @@ export function openModal(title: string, content: HTMLElement | ((m: ModalHandle
   return handle;
 }
 
-export function contextMenu(x: number, y: number, items: ({ label: string; action: () => void; danger?: boolean } | 'sep')[]): void {
+export type MenuItem = { label: string; action: () => void; danger?: boolean } | { header: string } | 'sep';
+
+export function contextMenu(x: number, y: number, items: MenuItem[]): void {
   document.querySelectorAll('.context-menu').forEach((m) => m.remove());
   const menu = h('div', { class: 'context-menu', role: 'menu' });
   for (const it of items) {
     if (it === 'sep') {
       menu.append(h('div', { class: 'sep' }));
+      continue;
+    }
+    if ('header' in it) {
+      menu.append(h('div', { class: 'cm-head', role: 'presentation' }, it.header));
       continue;
     }
     const b = h('button', { role: 'menuitem', style: it.danger ? { color: '#ff8fa3' } : undefined }, it.label);

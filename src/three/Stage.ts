@@ -49,6 +49,8 @@ export interface StageHooks {
   learning(): boolean;
   /** a control of fixed deck `n` was touched */
   focusDeck(n: number): void;
+  /** the user moved the camera by hand (drag, camera pad, keys) */
+  cameraTouched?(): void;
 }
 
 interface Zone {
@@ -119,6 +121,12 @@ export class Stage {
   /** time since the picture last updated, for looks with a low frame rate (the security camera) */
   private lookHold = 0;
   private insetFrac = 0;
+  /** the auto director is cutting the camera (hover zoom stays out of its way) */
+  directing = false;
+  /** a cut through a quick dip to black: k is the picture's brightness */
+  private fade: { k: number; phase: 'none' | 'out' | 'in'; view: ViewId | null } = { k: 1, phase: 'none', view: null };
+  /** a photo was asked for: called with the canvas right after the next frame is drawn */
+  private shotWanted: ((src: HTMLCanvasElement) => void) | null = null;
   /** text burnt into the picture by some looks: the security camera's clock, the camcorder's REC */
   private lensText: { el: HTMLElement; tl: HTMLElement; tr: HTMLElement; bl: HTMLElement; br: HTMLElement; shown: string; at: number; since: number };
   private zones: Zone[] = [];
@@ -234,6 +242,7 @@ export class Stage {
     this.rig.onManualMove(() => {
       this.focusedZone = null;
       this.zoneCandidate = null;
+      this.hooks.cameraTouched?.();
     });
     new ResizeObserver(() => this.resize()).observe(this.el);
   }
@@ -442,7 +451,7 @@ export class Stage {
   private updateAutoZoom(): void {
     const now = performance.now();
     // the angles that move on their own are for watching: hovering over the board doesn't zoom them in
-    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone' || this.rig.isLive) return;
+    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone' || this.rig.isLive || this.directing) return;
     if (this.drags.size || this.rig.interacting || this.rig.moving || now - this.lastDragEnd < 450 || now - this.rig.lastManual < 1200) {
       this.zoneSince = now;
       return;
@@ -469,7 +478,54 @@ export class Stage {
 
   goTo(v: ViewId): void {
     this.focusedZone = null;
-    this.rig.goTo(v);
+    const p = this.rig.poseOf(v);
+    // a long way to go (across the room, through walls and the crowd): cut instead of flying
+    if (p && p.pos.distanceTo(this.camera.position) > 9 && this.view !== 'visual') this.cutTo(v);
+    else this.rig.goTo(v);
+  }
+
+  /** Cut to an angle through a quick dip to black (the auto director, and moves too long to fly). */
+  cutTo(v: ViewId): void {
+    this.focusedZone = null;
+    this.fade.view = v;
+    // asked again while it's going dark: just change where it cuts to
+    if (this.fade.phase !== 'out') this.fade.phase = 'out';
+    if (this.view === 'visual') {
+      this.rig.goTo(v, true);
+      this.fade = { k: 1, phase: 'none', view: null };
+    }
+  }
+
+  /** The next frame as a PNG, with the lens look and the text it burns in. */
+  snapshot(): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      this.shotWanted = (src) => {
+        const c = document.createElement('canvas');
+        c.width = src.width;
+        c.height = src.height;
+        const g = c.getContext('2d');
+        if (!g) return resolve(null);
+        g.drawImage(src, 0, 0);
+        const t = this.lensText;
+        if (t.shown && this.view !== 'visual') {
+          // the burnt-in text is HTML over the canvas: draw it where it sits, at the canvas's scale
+          const box = this.canvas.getBoundingClientRect();
+          const k = src.width / Math.max(1, box.width);
+          g.textBaseline = 'top';
+          for (const sp of [t.tl, t.tr, t.bl, t.br]) {
+            if (!sp.textContent) continue;
+            const r = sp.getBoundingClientRect();
+            const cs = getComputedStyle(sp);
+            g.font = `${cs.fontWeight} ${parseFloat(cs.fontSize) * k}px ${cs.fontFamily}`;
+            g.fillStyle = cs.color;
+            g.shadowColor = 'rgba(0,0,0,0.85)';
+            g.shadowBlur = 3 * k;
+            g.fillText(sp.textContent, (r.left - box.left) * k, (r.top - box.top) * k);
+          }
+        }
+        c.toBlob((b) => resolve(b), 'image/png');
+      };
+    });
   }
 
   setQuality(q: Quality): void {
@@ -534,28 +590,55 @@ export class Stage {
     }
   }
 
-  resize(): void {
-    const w = Math.max(1, this.el.clientWidth);
-    const h = Math.max(1, this.el.clientHeight);
-    this.size = { w, h };
+  /**
+   * The fisheye reads the wide render at tan(angle): its focal length in pixels, and a
+   * fisheye scale that brings the frame's side edges to the render's side edges.
+   */
+  private fisheyeUniforms(): void {
+    const lu = this.lens.uniforms;
+    const res = lu.uRes.value;
+    const hFull = res.y * (1 - this.insetFrac);
+    const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
+    lu.uCenter.value.set(0.5, 0.5 + this.insetFrac / 2);
+    lu.uFocal.value = hFull / 2 / tanHalf;
+    lu.uFishF.value = res.x / 2 / (Math.atan((tanHalf * res.x) / hFull) * 0.97);
+  }
+
+  /** the render's pixel ratio for live frames: the quality's cap times the adaptive resolution */
+  private livePixelRatio(): number {
     const cap = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : this.quality === 'medium' ? 1.5 : 1);
-    const dpr = Math.max(0.5, cap * this.adaptive.step.renderScale);
+    return Math.max(0.5, cap * this.adaptive.step.renderScale);
+  }
+
+  private setPixels(dpr: number): void {
+    const { w, h } = this.size;
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(w, h);
+    this.lens.uniforms.uRes.value.set(w * dpr, h * dpr);
+    // pyro sparks are sized in pixels
+    Pyro.pixelScale = h * dpr * 1.25;
+    this.fisheyeUniforms();
+  }
+
+  resize(): void {
+    const w = Math.max(1, this.el.clientWidth);
+    const h = Math.max(1, this.el.clientHeight);
+    this.size = { w, h };
+    this.setPixels(this.livePixelRatio());
     const bloomScale = this.quality === 'high' ? 1 : 0.5;
     this.bloom.resolution.set(w * bloomScale, h * bloomScale);
     // with a bottom inset the lens is centred on the area above it (the picture still fills the stage)
     const inset = Math.min(Math.max(0, this.bottomInset), h * 0.35);
     this.insetFrac = inset / h;
+    this.el.style.setProperty('--inset', `${inset}px`);
     this.lensText.el.style.fontSize = `${Math.round(Math.max(11, Math.min(22, h * 0.03)))}px`;
     this.camera.aspect = w / (h - inset);
     if (inset > 0) this.camera.setViewOffset(w, h - inset, 0, 0, w, h);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
-    this.lens.uniforms.uRes.value.set(w * dpr, h * dpr);
-    Pyro.pixelScale = h * dpr * 1.25;
+    const dpr = this.renderer.getPixelRatio();
     const q = this.quality === 'high' ? 1 : this.quality === 'medium' ? 0.75 : 0.5;
     if (this.view === 'visual') this.visualizer.setSize(w * dpr * q, h * dpr * q);
     else {
@@ -788,6 +871,7 @@ export class Stage {
     if (this.view === 'visual') {
       r.setRenderTarget(null);
       r.render(this.screenScene, this.screenCam);
+      this.takeShot();
       return;
     }
     this.bloom.enabled = this.quality !== 'low';
@@ -802,6 +886,19 @@ export class Stage {
     lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
     lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
     lu.uGhost.value = !lensFx || this.rig.focused ? 0 : 0.2;
+    // a cut: dark, switch angle, back up
+    const fd = this.fade;
+    if (fd.phase === 'out') {
+      fd.k = Math.max(0, fd.k - dt / 0.16);
+      if (fd.k === 0 && fd.view) {
+        this.rig.goTo(fd.view, true);
+        fd.phase = 'in';
+      }
+    } else if (fd.phase === 'in') {
+      fd.k = Math.min(1, fd.k + dt / 0.3);
+      if (fd.k === 1) fd.phase = 'none';
+    }
+    lu.uFade.value = fd.k;
     // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
     const lookId = this.rig.focused ? 'none' : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
     if (lookId !== this.lookId) {
@@ -827,16 +924,7 @@ export class Stage {
     lu.uSplit.value = L.split;
     lu.uThermal.value = L.thermal < 0.002 ? 0 : L.thermal;
     lu.uSatBoost.value = L.sat;
-    if (L.fish > 0) {
-      // the fisheye reads the wide render at tan(angle): its focal length in pixels, and a
-      // fisheye scale that brings the frame's side edges to the render's side edges
-      const res = lu.uRes.value;
-      const hFull = res.y * (1 - this.insetFrac);
-      const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2);
-      lu.uCenter.value.set(0.5, 0.5 + this.insetFrac / 2);
-      lu.uFocal.value = hFull / 2 / tanHalf;
-      lu.uFishF.value = res.x / 2 / (Math.atan((tanHalf * res.x) / hFull) * 0.97);
-    }
+    if (L.fish > 0) this.fisheyeUniforms();
     this.updateLensText(lookId);
     // the booth light's shadows update at 30 Hz
     r.shadowMap.needsUpdate = this.frame % 2 === 0 || !this.keyLight.shadow.map;
@@ -864,7 +952,14 @@ export class Stage {
       this.avatar.object.visible = vis;
       r.shadowMap.autoUpdate = auto;
     }
+    // a photo is drawn at full resolution (at least 1920 px wide), whatever the live frames use
+    const photo = !!this.shotWanted;
+    if (photo) this.setPixels(Math.min(3, Math.max(this.livePixelRatio(), 1920 / this.size.w)));
     this.composer.render(dt);
+    if (photo) {
+      this.takeShot();
+      this.setPixels(this.livePixelRatio());
+    }
     if (this.view === 'split') {
       const { w, h } = this.size;
       const pw = Math.round(Math.min(w * 0.34, 420));
@@ -878,5 +973,14 @@ export class Stage {
       r.setViewport(0, 0, w, h);
       r.autoClear = true;
     }
+    this.takeShot();
+  }
+
+  /** hand the frame just drawn to a waiting photo (same task: the drawing buffer is still there) */
+  private takeShot(): void {
+    const f = this.shotWanted;
+    if (!f) return;
+    this.shotWanted = null;
+    f(this.canvas);
   }
 }

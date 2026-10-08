@@ -25,6 +25,7 @@ import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
 import { Hype, type Callout } from './Hype';
+import { Director } from '../three/director';
 import { registerCameraControls } from './cameraControls';
 import { registerLightControls } from './lightControls';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
@@ -38,7 +39,7 @@ import { openHelp } from '../ui/help';
 import { LibraryPanel } from '../ui/LibraryPanel';
 import { MidiPanel } from '../ui/MidiPanel';
 import { MixerPanel } from '../ui/MixerPanel';
-import { contextMenu, openModal } from '../ui/modal';
+import { contextMenu, openModal, type MenuItem } from '../ui/modal';
 import { SamplerPanel } from '../ui/SamplerPanel';
 import { SetBuilderPanel } from '../ui/SetBuilderPanel';
 import { SetupPanel } from '../ui/SetupPanel';
@@ -92,6 +93,9 @@ export class App implements AppContext {
   private uiDt = 0;
   private last = 0;
   private frame = 0;
+  private director = new Director();
+  /** frame-rate meter: frames and seconds since its last update */
+  private fps = { el: null as HTMLElement | null, n: 0, t: 0 };
 
   constructor(private root: HTMLElement) {}
 
@@ -210,6 +214,12 @@ export class App implements AppContext {
     for (const d of this.engine.decks) {
       d.on('cues', (deck) => deck.track && this.library.updateCues(deck.track, deck.track.cues));
       d.on('ended', (deck) => deck.track && toast(`Deck ${deck.id}: “${deck.track.meta.title}” ended`));
+      // remembered, so a reload puts the same tracks back on the decks
+      d.on('loaded', (deck) => {
+        if (!deck.track) return;
+        this.settings.lastTracks = { ...this.settings.lastTracks, [deck.id]: deck.track.id };
+        this.save();
+      });
     }
     await this.library.init();
     this.midi = new MidiManager(this.reg);
@@ -220,6 +230,9 @@ export class App implements AppContext {
       master: () => this.meters.master,
       learning: () => this.midi.learning,
       learnPick: (id) => this.midi.pick(id),
+      cameraTouched: () => {
+        if (this.settings.director) this.setDirector(false);
+      },
       focusDeck: (n) => {
         // boards with one unit per deck: the software panels follow the deck you touch
         if (!this.boardDef.fixedDecks) return;
@@ -235,7 +248,15 @@ export class App implements AppContext {
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
-    registerCameraControls(this.reg, this.stage.rig, { next: () => this.nextAngle(), reset: () => this.resetAngle(), lens: () => this.nextLens() });
+    registerCameraControls(this.reg, this.stage.rig, {
+      next: () => this.nextAngle(),
+      reset: () => this.resetAngle(),
+      lens: () => this.nextLens(),
+      auto: () => this.setDirector(!this.settings.director),
+      autoOn: () => this.settings.director,
+      photo: () => void this.takePhoto(),
+    });
+    this.stage.directing = this.settings.director;
     this.stage.lensPick = prefs.lens;
     this.hype = new Hype(this.engine);
     this.hype.onCallout((c) => this.callout(c));
@@ -310,12 +331,17 @@ export class App implements AppContext {
     this.engine.sampler.setBuffer(slot, pcm, SAMPLE_NAMES[slot], false);
   }
 
-  /** Opens in a working state: two harmonically compatible demo tracks on decks 1 and 2. */
+  /**
+   * Opens in a working state: the tracks that were on the decks last time, or two
+   * harmonically compatible demo tracks on decks 1 and 2.
+   */
   private async loadDemoDecks(): Promise<void> {
-    const plan: [number, string][] = [
-      [1, 'demo-11'],
-      [2, 'demo-73'],
-    ];
+    const last = this.settings.lastTracks;
+    const plan: [number, string][] = [];
+    for (let d = 1; d <= this.deckCount(); d++) {
+      const id = last[d] && this.library.get(last[d]) ? last[d] : d === 1 ? 'demo-11' : d === 2 ? 'demo-73' : '';
+      if (id) plan.push([d, id]);
+    }
     await Promise.all(plan.map(([deck, id]) => (!this.engine.deck(deck).loaded && this.library.get(id) ? this.loadTrack(deck, id) : Promise.resolve())));
   }
 
@@ -380,6 +406,7 @@ export class App implements AppContext {
         this.save();
       },
       saveLights: () => this.saveLights(),
+      setFpsMeter: (v) => this.setFpsMeter(v),
       stickers: () => this.settings.stickers,
       setStickers: (v) => {
         this.settings.stickers = v;
@@ -443,6 +470,7 @@ export class App implements AppContext {
     this.shell.classList.toggle('stage-focus', this.settings.focus);
     this.shell.classList.toggle('ui-simple', this.settings.uiMode === 'simple');
     this.stage.setAutoZoom(this.settings.autoZoom);
+    if (this.settings.fpsMeter) this.setFpsMeter(true);
     this.root.append(this.audioBanner, this.shell);
     this.showTab((OLD_TABS[this.settings.tab] ?? this.settings.tab ?? 'library') as TabId);
   }
@@ -538,6 +566,7 @@ export class App implements AppContext {
         group(b('cam.raise', '▲', 'Look more from above (hold)', ''), b('cam.lower', '▼', 'Look from lower down (hold)', '')),
         group(b('cam.out', '−', 'Zoom out (hold)', ''), b('cam.in', '+', 'Zoom in (hold)', '')),
         group(b('cam.reset', '⌂', 'Back to the board view', ''), b('cam.next', '⇢', 'Next camera angle', ''), b('cam.lens', '◎', 'Next lens look (fisheye, camcorder…)', '')),
+        group(b('cam.auto', 'Auto', 'Auto director: the camera cuts with the music', 'auto'), b('cam.photo', '📷', 'Take a photo', '')),
         fold,
       ),
     );
@@ -584,13 +613,45 @@ export class App implements AppContext {
     toast(`Lens: ${this.lensName()}`);
   }
 
+  /** The auto director: the camera cuts between angles with the music; any hand on the camera stops it. */
+  private setDirector(on: boolean): void {
+    if (on === this.settings.director) return;
+    this.settings.director = on;
+    this.stage.directing = on;
+    if (on) this.director.reset();
+    toast(on ? 'Auto director on: the camera cuts with the music. Move the camera to take over.' : 'Auto director off');
+    this.save();
+  }
+
+  /** a still of the stage as it looks now (lens look included), to look at and save */
+  private async takePhoto(): Promise<void> {
+    const flash = h('div', { class: 'photo-flash' });
+    this.stage.el.append(flash);
+    setTimeout(() => flash.remove(), 450);
+    const blob = await this.stage.snapshot();
+    if (!blob) {
+      toast('Couldn’t take a photo here.', 'error');
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const venue = venueById(this.settings.venue);
+    const name = `deckhouse-${venue.id}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+    const link = h('a', { class: 'btn primary', href: url, download: name }, 'Save photo');
+    openModal(
+      'Photo',
+      h('div', { style: { display: 'grid', gap: '10px' } }, h('img', { src: url, alt: `The stage at ${venue.name}`, style: { width: '100%', borderRadius: '6px', display: 'block' } }), h('div', { class: 'toggle-row' }, link), h('p', { class: 'note' }, 'If the save button does nothing (some embedded viewers block downloads), right-click or long-press the picture to save it, or open the page on its own.')),
+      { wide: true },
+    );
+  }
+
   private resetAngle(): void {
     if (this.boardMode) this.frameBoard(this.settings.boardHome ?? 'top');
     else this.stage.goTo(this.settings.camera);
   }
 
-  /** go to a camera angle and remember it (for board full screen separately from the normal layout) */
-  private pickAngle(v: ViewId): void {
+  /** go to a camera angle and remember it (for board full screen separately from the normal layout); picking one by hand stops the auto director */
+  private pickAngle(v: ViewId, user = true): void {
+    if (user && this.settings.director) this.setDirector(false);
     this.stage.goTo(v);
     if (this.boardMode) this.settings.boardFraming = v;
     else this.settings.camera = v;
@@ -601,7 +662,7 @@ export class App implements AppContext {
     const { camBtn, zoomChip, framing } = this.hud;
     if (this.boardMode && !this.hud.pad.classList.contains('folded')) for (const w of this.hud.padWidgets) w.update();
     const v = this.stage.rig.view;
-    setText(camBtn, `${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
+    setText(camBtn, `${this.settings.director ? 'Auto · ' : ''}${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
     if (this.boardMode) for (const b of framing.children) setClass(b as HTMLElement, 'active', (b as HTMLElement).dataset.view === v);
     const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
@@ -743,7 +804,7 @@ export class App implements AppContext {
       requestAnimationFrame(() => {
         this.fitUnderPad(false);
         this.stage.resize();
-        if (on) this.pickAngle(this.settings.boardFraming ?? this.settings.boardHome ?? 'top');
+        if (on && !this.settings.director) this.pickAngle(this.settings.boardFraming ?? this.settings.boardHome ?? 'top', false);
       }),
     );
   }
@@ -765,11 +826,17 @@ export class App implements AppContext {
 
   private cameraMenu(x: number, y: number): void {
     const rig = this.stage.rig;
-    const items: ({ label: string; action: () => void } | 'sep')[] = (Object.keys(VIEW_LABELS) as ViewId[]).map((v) => ({
-      label: `${rig.view === v ? '● ' : ''}${rig.label(v)}`,
-      action: () => this.pickAngle(v),
-    }));
-    items.push('sep');
+    const angle = (v: ViewId): MenuItem => ({ label: `${rig.view === v ? '● ' : ''}${rig.label(v)}`, action: () => this.pickAngle(v) });
+    const items: MenuItem[] = [
+      { header: 'Board' },
+      ...(['top', 'perf', 'booth'] as ViewId[]).map(angle),
+      { header: 'Room' },
+      ...(['wide', 'crowd'] as ViewId[]).map(angle),
+      { header: 'Moving' },
+      ...(['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'] as ViewId[]).map(angle),
+      'sep',
+      { label: `${this.settings.director ? '✓ ' : ''}Auto director: cut with the music`, action: () => this.setDirector(!this.settings.director) },
+    ];
     items.push({
       label: `Lens: ${this.lensName()} ▸`,
       action: () =>
@@ -779,6 +846,7 @@ export class App implements AppContext {
           ...LENS_LOOKS.map((l) => ({ label: `${prefs.lens === l.id ? '● ' : ''}${l.name}`, action: () => setPrefs({ lens: l.id }) })),
         ]),
     });
+    items.push({ label: '📷 Take a photo', action: () => void this.takePhoto() });
     items.push('sep');
     for (const a of rig.anchors()) items.push({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) });
     items.push({
@@ -922,6 +990,37 @@ export class App implements AppContext {
     });
   }
 
+  /** the auto director's call for this frame: cut, or stay */
+  private direct(): void {
+    const s = this.stage.show.state;
+    const v = this.director.update({ t: s.t, playing: s.playing, bar: s.bar, build: s.build, peak: s.peak, dropHit: s.dropHit }, this.stage.rig.view);
+    if (v) this.stage.cutTo(v);
+  }
+
+  private setFpsMeter(on: boolean): void {
+    this.settings.fpsMeter = on;
+    this.save();
+    if (on && !this.fps.el) {
+      this.fps.el = h('div', { class: 'fps-meter mono', 'aria-hidden': 'true' }, '…');
+      this.stage.el.append(this.fps.el);
+    } else if (!on && this.fps.el) {
+      this.fps.el.remove();
+      this.fps.el = null;
+    }
+  }
+
+  /** frames a second, the frame time and the render resolution, twice a second */
+  private updateFps(raw: number): void {
+    const m = this.fps;
+    m.n++;
+    m.t += Math.max(0, raw);
+    if (m.t < 0.5 || !m.el) return;
+    const res = Math.round(this.stage.adaptive.step.renderScale * 100);
+    setText(m.el, `${Math.round(m.n / m.t)} fps · ${((m.t / m.n) * 1000).toFixed(1)} ms · ${res}% res`);
+    m.n = 0;
+    m.t = 0;
+  }
+
   /** keep the audio engine (sync, loops, deck events) running while the tab is hidden and rAF is paused */
   private bindBackground(): void {
     let timer = 0;
@@ -942,7 +1041,8 @@ export class App implements AppContext {
   }
 
   private tick(t: number): void {
-    const dt = clamp((t - this.last) / 1000, 0, 0.1);
+    const raw = (t - this.last) / 1000;
+    const dt = clamp(raw, 0, 0.1);
     this.last = t;
     this.frame++;
     try {
@@ -960,7 +1060,9 @@ export class App implements AppContext {
       if (!covered || this.frame % 3 === 0) {
         this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
         this.stageDt = 0;
+        if (this.settings.director && this.stage.view !== 'visual') this.direct();
       }
+      if (this.fps.el) this.updateFps(raw);
       this.wave.update();
       // panels refresh at 30 Hz, alternating so each frame does half the work
       this.uiDt += dt;

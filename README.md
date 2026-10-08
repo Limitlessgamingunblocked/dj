@@ -29,6 +29,7 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - **Waveform strip:** a lane for each deck on the left and right, plus any other deck with a track loaded.
 - **Five tabs:** Library · Set Builder · Mixer & FX (with the sampler) · Show (venue, lighting desk, visual player, lyrics) · Settings (with MIDI).
 - **On a phone:** one row of controls in the top bar, short tab labels, touch targets of at least 44 px, and no sideways scrolling.
+- **Picks up where you left off:** a reload puts the tracks that were on the decks back on them.
 - **Accessibility:** keyboard focus is visible everywhere. The camera's idle drift and beat shake stop when the system asks for reduced motion (or when you turn camera motion off in Settings). Interface size goes from 80 % to 130 %.
 
 ### Settings and customising
@@ -38,7 +39,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **Audio:** auto gain, fader curve, split cue and the headphone output.
 - **Board & camera:** the board and finish, stickers, hover zoom, camera motion, saved camera views.
 - **Show & venue:** the venue, **crowd size** (from an empty room to 150 %; fewer people is also lighter on slow computers) and Reduce flashing. The Show tab adds a **Custom** light palette with three colour pickers.
-- **Performance:** graphics quality and automatic adjustment.
+- **Performance:** graphics quality, automatic adjustment and a frame-rate meter on the stage.
 - **Keyboard shortcuts:** every binding is listed; click its key and press a new one (Shift for the Shift layer, Backspace for none, Esc to cancel). A key does one thing: taking a key that is in use clears it from the other action, and the app says so. Reset one key or all of them.
 - **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
@@ -157,6 +158,9 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
   - **Security camera**: a high corner of the room, black and white, scanlines, a burnt-in clock and REC, a slow motorised pan, and a choppy 8 frames a second.
   - **90s camcorder**: someone in the front rows filming on tape: handheld wobble, colour bleed, tracking noise, REC and a date stamp.
   - **Dolly zoom**: the camera pulls back while the lens zooms in, so the DJ stays the same size while the room stretches behind them (one cycle every 8 bars).
+- **Auto director** (camera menu, `'`, or Auto on the board full-screen camera bar): the camera cuts between the angles with the music like a livestream director: calm, wide shots in a breakdown; the crane, the dolly zoom and the rig through a build, every 4 bars; a cut on the drop to the booth fisheye, the drone, the crowd or the camcorder; every 8 bars in the groove, always on a phrase line and never the same shot twice in a row. Cuts dip quickly through black. Touch the camera (drag, camera bar, keys, or pick an angle) and it hands over to you.
+- **Photo** (camera menu, `Shift+'`, or 📷 on the camera bar): a full-resolution still of the stage as it looks, lens look and burnt-in text included, to save.
+- Long camera moves (across the room, through walls) cut through a quick dip to black instead of flying.
 - **Lens looks** (camera menu → Lens, Settings → Board & camera, or ◎ on the board full-screen camera bar): Auto gives each angle its own look; or put any look on any angle: Clean, Fisheye, 90s camcorder, Security camera, Tilt-shift miniature, Cinematic widescreen, Thermal or Night vision. Zooming in on the board always shows it clean.
 - **Drone FPV** (camera menu): a looping fly-through of each venue — over the crowd, banking past the pyro, gliding across the front of the booth and swinging round to look at the DJ — with a wide lens, barrel distortion, colour fringing and a zoom blur that grows with speed. It flies faster as the energy rises.
 - **Screens**: the LED wall and towers read as LED up close (pixels, tile seams, dimmer off-axis). The IMAG towers use a broadcast grade and go monochrome through build-ups.

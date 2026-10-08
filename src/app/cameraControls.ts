@@ -7,11 +7,13 @@
  *   cam.next                the next camera angle
  *   cam.reset               back to the board view (in board full screen) or the chosen view
  *   cam.lens                the next lens look (Auto, Clean, Fisheye, VHS…)
+ *   cam.auto                the auto director on / off
+ *   cam.photo               take a photo of the stage
  */
 import type { ControlRegistry } from '../core/controls';
 import type { CameraRig } from '../three/CameraRig';
 
-export function registerCameraControls(reg: ControlRegistry, rig: CameraRig, actions: { next(): void; reset(): void; lens(): void }): void {
+export function registerCameraControls(reg: ControlRegistry, rig: CameraRig, actions: { next(): void; reset(): void; lens(): void; auto(): void; autoOn(): boolean; photo(): void }): void {
   const hold = (id: string, label: string, axis: keyof CameraRig['move'], dir: 1 | -1) =>
     reg.register({
       id,
@@ -33,6 +35,8 @@ export function registerCameraControls(reg: ControlRegistry, rig: CameraRig, act
   hold('cam.in', 'Camera: zoom in (hold)', 'zoom', 1);
   hold('cam.out', 'Camera: zoom out (hold)', 'zoom', -1);
   reg.register({ id: 'cam.next', label: 'Camera: next angle', kind: 'button', press: () => actions.next() });
+  reg.register({ id: 'cam.auto', label: 'Camera: auto director on / off', kind: 'button', press: () => actions.auto(), lit: () => (actions.autoOn() ? '#ff3b5c' : false) });
+  reg.register({ id: 'cam.photo', label: 'Camera: take a photo', kind: 'button', press: () => actions.photo() });
   reg.register({ id: 'cam.lens', label: 'Camera: next lens look', kind: 'button', press: () => actions.lens() });
   reg.register({ id: 'cam.reset', label: 'Camera: back to the board view', kind: 'button', press: () => actions.reset() });
 }

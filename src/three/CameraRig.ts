@@ -228,10 +228,10 @@ export class CameraRig {
       case 'fisheye': {
         const c = this.box.getCenter(new THREE.Vector3());
         const top = this.box.max.y;
-        // clamped to the front edge of the booth, low, looking back up at the DJ
-        const pos = V(c.x + 0.05, top + 0.07, this.box.min.z - 0.09);
+        // clamped to the front edge of the booth, just above the decks, looking across them at the DJ
+        const pos = V(c.x + 0.05, top + 0.12, this.box.min.z - 0.09);
         if (!still && f) pos.y += Math.sin(t * 80) * f.kickPulse * 0.004;
-        return { pos, target: V(c.x, top + 0.58, this.box.max.z + 0.5) };
+        return { pos, target: V(c.x, top + 0.32, this.box.max.z + 0.6) };
       }
       case 'rig': {
         const p = x.rig ?? { pos: V(1.4, 4.6, -3.2), target: V(0, 0.95, 0.35) };
@@ -332,6 +332,11 @@ export class CameraRig {
       this.view = 'custom';
       this.onManual?.();
     }
+  }
+
+  /** Where an angle puts the camera (its starting point, for the moving ones); null for the drone. */
+  poseOf(v: ViewId): Pose | null {
+    return v === 'drone' ? (this.venueViews?.drone[0] ? { pos: this.venueViews.drone[0].clone(), target: this.controls.target.clone() } : null) : this.presets()[v];
   }
 
   /** Zoom in on a board section, framing `box` from above the DJ's side. */

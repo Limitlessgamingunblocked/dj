@@ -28,6 +28,12 @@ export interface Settings {
   boardHome?: 'top' | 'perf';
   /** the camera pad shows in board full screen (it can be folded away) */
   camPad: boolean;
+  /** the auto director cuts the camera with the music */
+  director: boolean;
+  /** frame rate shown over the stage */
+  fpsMeter: boolean;
+  /** the track on each deck when the page closed (deck number → track id), loaded again on start */
+  lastTracks: Record<string, string>;
   reactiveLights: boolean;
   autoZoom: boolean;
   stickers: boolean;
@@ -54,6 +60,9 @@ export const DEFAULTS: Settings = {
   stickers: true,
   lights: {},
   camPad: true,
+  director: false,
+  fpsMeter: false,
+  lastTracks: {},
 };
 
 const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'];
@@ -63,7 +72,7 @@ const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 
  * type it expects (an old version's or a hand-edited file can't break startup).
  */
 export function cleanSettings(raw: unknown): Settings {
-  const out: Settings = { ...DEFAULTS, vis: {}, lights: {} };
+  const out: Settings = { ...DEFAULTS, vis: {}, lights: {}, lastTracks: {} };
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out;
   const r = raw as Record<string, unknown>;
   for (const k of Object.keys(DEFAULTS) as (keyof Settings)[]) {
@@ -74,6 +83,7 @@ export function cleanSettings(raw: unknown): Settings {
   }
   if (VIEW_IDS.includes(r.boardFraming as ViewId)) out.boardFraming = r.boardFraming as ViewId;
   if (!VIEW_IDS.includes(out.camera)) out.camera = DEFAULTS.camera;
+  out.lastTracks = Object.fromEntries(Object.entries(out.lastTracks).filter(([k, v]) => /^[1-4]$/.test(k) && typeof v === 'string' && v.length < 200));
   if (r.boardHome === 'top' || r.boardHome === 'perf') out.boardHome = r.boardHome;
   const custom = out.lights.custom as unknown;
   if (custom !== undefined && !(Array.isArray(custom) && custom.length === 3 && custom.every((c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)))) delete out.lights.custom;

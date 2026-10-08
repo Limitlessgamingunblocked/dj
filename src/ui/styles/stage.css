@@ -135,6 +135,46 @@
   text-transform: uppercase;
 }
 
+/* Settings → Performance: frame rate over the stage */
+.fps-meter {
+  position: absolute;
+  left: 8px;
+  bottom: calc(8px + var(--inset, 0px));
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #b8f5c8;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* a photo was taken */
+.photo-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: photo-flash 0.45s ease-out;
+  z-index: 4;
+}
+
+@keyframes photo-flash {
+  0% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-flash {
+    animation-duration: 0.01s;
+  }
+}
+
 /* text burnt into the picture by the security camera and camcorder looks */
 .lens-text {
   position: absolute;
@@ -197,9 +237,10 @@
   letter-spacing: 0.1em;
 }
 
-.app.board-full .lens-text .bl,
-.app.board-full .lens-text .br {
-  bottom: calc(1.4em + 56px);
+.lens-text .bl,
+.lens-text .br {
+  /* above the camera bar in board full screen */
+  bottom: calc(1.4em + var(--inset, 0px));
 }
 
 @keyframes rec-blink {

@@ -48,6 +48,7 @@ const FRAG = /* glsl */ `
   uniform vec3 uTint;
   uniform float uContrast, uSaturation, uLift;
   // lens looks
+  uniform float uFade;
   uniform float uFish, uFocal, uFishF, uMono, uMonoGain, uScan, uVhs, uTilt, uBars, uSplit, uThermal, uSatBoost;
   uniform vec2 uCenter;
   uniform vec3 uMonoTint;
@@ -222,7 +223,7 @@ const FRAG = /* glsl */ `
       float bar = 0.5 - 0.5 * min(1.0, aspect / 2.39);
       c *= 1.0 - uBars * (step(vUv.y, bar) + step(1.0 - bar, vUv.y));
     }
-    c *= inside;
+    c *= inside * uFade;
 
     vec4 outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
     #ifdef SRGB_TRANSFER
@@ -260,6 +261,7 @@ export class LensOutputPass extends Pass {
     uContrast: { value: 1 },
     uSaturation: { value: 1 },
     uLift: { value: 0 },
+    uFade: { value: 1 },
     uFish: { value: 0 },
     uFocal: { value: 1 },
     uFishF: { value: 1 },

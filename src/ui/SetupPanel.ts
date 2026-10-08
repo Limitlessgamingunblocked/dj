@@ -19,7 +19,7 @@ import { toast } from './toast';
 export { shortcutsTable } from './keysTable';
 
 export interface SetupHooks {
-  settings: { quality: Quality; autoQuality: boolean; autoGain: boolean; faderCurve: FaderCurve; uiMode: 'simple' | 'pro'; autoZoom: boolean };
+  settings: { quality: Quality; autoQuality: boolean; autoGain: boolean; faderCurve: FaderCurve; uiMode: 'simple' | 'pro'; autoZoom: boolean; fpsMeter: boolean };
   save(): void;
   pickBoard(): void;
   pickVenue(): void;
@@ -29,6 +29,7 @@ export interface SetupHooks {
   setAutoZoom(v: boolean): void;
   /** the light show's settings changed (reduce flashing) */
   saveLights(): void;
+  setFpsMeter(v: boolean): void;
   clearLibrary(): Promise<void>;
 }
 
@@ -362,6 +363,7 @@ export class SetupPanel {
         },
         'adaptive auto quality',
       ),
+      this.check('Show the frame rate on the stage', () => s.fpsMeter, (v) => this.hooks.setFpsMeter(v), 'fps frame rate meter speed ms'),
       h('p', { class: 'note set-row', 'data-k': 'quality low medium high' }, 'The quality you pick is the ceiling. With automatic adjustment on, resolution, crowd detail and effects step down when frames run long and come back when there is headroom. Low turns off shadows, bloom, multisampling and lens effects — use it on older laptops and phones.'),
     );
   }
