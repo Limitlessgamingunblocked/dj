@@ -23,7 +23,7 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 ## What's in it
 
 ### The screen
-- **Board full screen** (⛶ on the stage, Shift+B, or the ⋯ menu): the 3D board fills the whole screen and everything else goes away. Top-down or Angled framing; every control, the keyboard and MIDI keep working; Esc brings the rest back. Inside embedded viewers that block browser full screen it fills the window instead, and on phones it turns to landscape where the browser allows.
+- **Board full screen** (⛶ on the stage, Shift+B, or the ⋯ menu): the 3D board fills the whole screen and everything else goes away. Top-down or Angled framing, plus the full camera menu (every angle and your saved views). A camera bar along the bottom changes the angle while you play: hold to orbit round the board, look from higher or lower and zoom, go back to the board view, or step to the next angle (on the keyboard: Shift + arrows, `=` and `-`, Shift+V; all MIDI-learnable; it folds away). The angle you pick is remembered for next time. Every control, the keyboard and MIDI keep working; Esc brings the rest back. Inside embedded viewers that block browser full screen it fills the window instead, and on phones it turns to landscape where the browser allows.
 - **Top bar:** board, venue, the crowd meter, master BPM, Rec, the **Simple / Pro** switch and the **⋯** menu. The ⋯ menu holds the stage view (Booth, Split, Visuals; also the `V` key), full screen, the layout switch, MIDI and help. A MIDI pill appears only while a controller is connected.
 - **Simple** (the default) keeps each deck panel to what you mix with: title, key, BPM, time, the overview waveform, Cue / Play / Sync and tempo. **Pro** adds Master, the tempo range, the pads and pad modes, the loops/key/stems drawer and the 🎤 lyrics button. Nothing is removed in Simple: the deck's ⋯ menu, the 3D board, the keyboard and MIDI still reach everything.
 - **Waveform strip:** a lane for each deck on the left and right, plus any other deck with a track loaded.
@@ -171,7 +171,7 @@ Ten GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid, CRT Mo
 
 ### Control surfaces
 - **Web MIDI**: hot-plug, MIDI learn (click any on-screen or 3D control, then move the hardware control), relative encoders and jogs, LED feedback, and mapping export/import. No brand-specific presets are included — map your controller with MIDI learn.
-- **Keyboard**: `Z`/`X`/`C` cue, play and sync the left deck; `M`/`,`/`.` do the same for the right. `1–4 QWER` and `7–0 UIOP` are the pads, `[ ] \` move the crossfader, `↑ ↓` browse, `← →` load, `Shift+1…8` fire the sampler, `N`, `B`, `Y` and the backtick key hold strobe, blinders, lasers and blackout, `T` fires the CO2, `Shift+T` the pyro, and Help lists everything. Every key can be moved in Settings → Keyboard shortcuts.
+- **Keyboard**: `Z`/`X`/`C` cue, play and sync the left deck; `M`/`,`/`.` do the same for the right. `1–4 QWER` and `7–0 UIOP` are the pads, `[ ] \` move the crossfader, `↑ ↓` browse, `← →` load, `Shift+1…8` fire the sampler, `N`, `B`, `Y` and the backtick key hold strobe, blinders, lasers and blackout, `T` fires the CO2, `Shift+T` the pyro, Shift + arrows orbit and tilt the camera, `=` and `-` zoom it, Shift+V steps to the next camera angle, and Help lists everything. Every key can be moved in Settings → Keyboard shortcuts.
 
 ## Project layout
 

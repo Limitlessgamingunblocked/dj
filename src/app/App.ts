@@ -24,6 +24,7 @@ import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
 import { Hype, type Callout } from './Hype';
+import { registerCameraControls } from './cameraControls';
 import { registerLightControls } from './lightControls';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
@@ -44,6 +45,7 @@ import { toast } from '../ui/toast';
 import { TopBar } from '../ui/TopBar';
 import { VisualsPanel } from '../ui/VisualsPanel';
 import { WaveStrip } from '../ui/WaveStrip';
+import { hwButton, type Widget } from '../ui/widgets';
 import type { AppContext, AppEvents } from './context';
 import { registerControls } from './controlDefs';
 import { bindKeyboard } from './keyboard';
@@ -232,6 +234,7 @@ export class App implements AppContext {
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
+    registerCameraControls(this.reg, this.stage.rig, { next: () => this.nextAngle(), reset: () => this.resetAngle() });
     this.hype = new Hype(this.engine);
     this.hype.onCallout((c) => this.callout(c));
     this.lyrics = new LyricsEngine(this.engine, (id) => {
@@ -467,7 +470,7 @@ export class App implements AppContext {
     ]);
   }
 
-  private hud!: { camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement; fullBtn: HTMLElement; framing: HTMLElement };
+  private hud!: { camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement; fullBtn: HTMLElement; framing: HTMLElement; pad: HTMLElement; padWidgets: Widget[] };
   /** board full screen: the 3D board fills the whole screen */
   private boardMode = false;
   /** what to put back when leaving it */
@@ -492,20 +495,98 @@ export class App implements AppContext {
     for (const [v, label] of [
       ['top', 'Top-down'],
       ['perf', 'Angled'],
-    ] as [ViewId, string][]) {
+    ] as ['top' | 'perf', string][]) {
       const b = h('button', { class: 'btn', type: 'button', 'data-view': v }, label);
       b.addEventListener('click', () => this.frameBoard(v));
       framing.append(b);
     }
-    this.hud = { camBtn, zoomChip, expandBtn, fullBtn, framing };
+    const pad = this.buildCameraPad();
+    this.hud = { camBtn, zoomChip, expandBtn, fullBtn, framing, pad: pad.el, padWidgets: pad.widgets };
     this.callouts = h('div', { class: 'callouts', 'aria-live': 'polite' });
     this.lyricHud = h('div', { class: 'lyric-hud', 'aria-hidden': 'true' });
-    this.stage.el.append(this.callouts, this.lyricHud);
+    this.stage.el.append(this.callouts, this.lyricHud, pad.el);
     return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, framing, camBtn, expandBtn, fullBtn));
+  }
+
+  /**
+   * Board full screen's camera pad: hold the arrows to orbit round the board and
+   * tilt, + / − to zoom, the middle button to go back to the main angle. The
+   * same moves are on the keyboard (Shift + arrows, = and −) and MIDI-learnable.
+   */
+  private buildCameraPad(): { el: HTMLElement; widgets: Widget[] } {
+    const widgets: Widget[] = [];
+    const b = (id: string, icon: string, label: string, cls: string) => {
+      const w = hwButton(this.reg, id, icon, { cls: `btn cam-pad-btn ${cls}` });
+      w.el.setAttribute('aria-label', label);
+      widgets.push(w);
+      return w.el;
+    };
+    const fold = h('button', { class: 'btn cam-pad-fold', type: 'button', title: 'Hide the camera pad', 'aria-label': 'Hide the camera pad' }, '–');
+    const open = h('button', { class: 'btn cam-pad-open', type: 'button', title: 'Camera pad: change the camera angle', 'aria-label': 'Show the camera pad' }, '🎥');
+    const group = (...kids: HTMLElement[]) => h('span', { class: 'cam-pad-group' }, ...kids);
+    const el = h(
+      'div',
+      { class: `cam-pad${this.settings.camPad ? '' : ' folded'}`, role: 'group', 'aria-label': 'Camera' },
+      open,
+      h(
+        'div',
+        { class: 'cam-pad-body' },
+        h('span', { class: 'label' }, 'Camera'),
+        group(b('cam.left', '↶', 'Orbit left (hold)', ''), b('cam.right', '↷', 'Orbit right (hold)', '')),
+        group(b('cam.raise', '▲', 'Look more from above (hold)', ''), b('cam.lower', '▼', 'Look from lower down (hold)', '')),
+        group(b('cam.out', '−', 'Zoom out (hold)', ''), b('cam.in', '+', 'Zoom in (hold)', '')),
+        group(b('cam.reset', '⌂', 'Back to the board view', ''), b('cam.next', '⇢', 'Next camera angle', '')),
+        fold,
+      ),
+    );
+    const setOpen = (v: boolean) => {
+      this.settings.camPad = v;
+      el.classList.toggle('folded', !v);
+      this.save();
+      this.fitUnderPad();
+    };
+    fold.addEventListener('click', () => setOpen(false));
+    open.addEventListener('click', () => setOpen(true));
+    return { el, widgets };
+  }
+
+  /** In board full screen the camera frames the board above the open camera bar. */
+  private fitUnderPad(resize = true): void {
+    const body = this.hud.pad.querySelector('.cam-pad-body') as HTMLElement;
+    const open = this.boardMode && this.settings.camPad;
+    const r = open ? body.getBoundingClientRect() : null;
+    const inset = r && r.height ? Math.round(this.stage.el.getBoundingClientRect().bottom - r.top + 6) : 0;
+    if (inset === this.stage.bottomInset) return;
+    this.stage.bottomInset = inset;
+    if (resize) this.stage.resize();
+  }
+
+  /** the angles the camera steps through ("next angle"), in menu order */
+  private nextAngle(): void {
+    const order = Object.keys(VIEW_LABELS) as ViewId[];
+    const cur = this.stage.rig.view;
+    const v = order[(order.indexOf(cur as ViewId) + 1) % order.length];
+    this.pickAngle(v);
+    toast(`Camera: ${this.stage.rig.label(v)}`);
+  }
+
+  /** ⌂: in board full screen back to the board (Top-down or Angled); otherwise to the chosen camera view */
+  private resetAngle(): void {
+    if (this.boardMode) this.frameBoard(this.settings.boardHome ?? 'top');
+    else this.stage.goTo(this.settings.camera);
+  }
+
+  /** go to a camera angle and remember it (for board full screen separately from the normal layout) */
+  private pickAngle(v: ViewId): void {
+    this.stage.goTo(v);
+    if (this.boardMode) this.settings.boardFraming = v;
+    else this.settings.camera = v;
+    this.save();
   }
 
   private updateHud(): void {
     const { camBtn, zoomChip, framing } = this.hud;
+    if (this.boardMode && !this.hud.pad.classList.contains('folded')) for (const w of this.hud.padWidgets) w.update();
     const v = this.stage.rig.view;
     setText(camBtn, `${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
     if (this.boardMode) for (const b of framing.children) setClass(b as HTMLElement, 'active', (b as HTMLElement).dataset.view === v);
@@ -647,16 +728,17 @@ export class App implements AppContext {
     // frame the board once the layout has settled at its new size
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
+        this.fitUnderPad(false);
         this.stage.resize();
-        if (on) this.frameBoard(this.settings.boardFraming ?? 'top');
+        if (on) this.pickAngle(this.settings.boardFraming ?? this.settings.boardHome ?? 'top');
       }),
     );
   }
 
-  private frameBoard(v: ViewId): void {
-    this.stage.goTo(v);
-    this.settings.boardFraming = v === 'perf' ? 'perf' : 'top';
-    this.save();
+  /** the Top-down / Angled buttons in board full screen */
+  private frameBoard(v: 'top' | 'perf'): void {
+    this.settings.boardHome = v;
+    this.pickAngle(v);
   }
 
   private fullscreen(): void {
@@ -672,11 +754,7 @@ export class App implements AppContext {
     const rig = this.stage.rig;
     const items: ({ label: string; action: () => void } | 'sep')[] = (Object.keys(VIEW_LABELS) as ViewId[]).map((v) => ({
       label: `${rig.view === v ? '● ' : ''}${rig.label(v)}`,
-      action: () => {
-        this.stage.goTo(v);
-        this.settings.camera = v;
-        this.save();
-      },
+      action: () => this.pickAngle(v),
     }));
     items.push('sep');
     for (const a of rig.anchors()) items.push({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) });

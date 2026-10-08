@@ -105,6 +105,11 @@ export class Stage {
   private hoverDirty = false;
   /** hover-to-zoom */
   autoZoom = true;
+  /**
+   * Pixels at the bottom of the stage covered by an overlay (the camera bar in
+   * board full screen): the camera frames the board in the space above it.
+   */
+  bottomInset = 0;
   private zones: Zone[] = [];
   private boardTop = TABLE_Y;
   private pointerInside = false;
@@ -488,7 +493,11 @@ export class Stage {
     this.composer.setSize(w, h);
     const bloomScale = this.quality === 'high' ? 1 : 0.5;
     this.bloom.resolution.set(w * bloomScale, h * bloomScale);
-    this.camera.aspect = w / h;
+    // with a bottom inset the lens is centred on the area above it (the picture still fills the stage)
+    const inset = Math.min(Math.max(0, this.bottomInset), h * 0.35);
+    this.camera.aspect = w / (h - inset);
+    if (inset > 0) this.camera.setViewOffset(w, h - inset, 0, 0, w, h);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
     this.lens.uniforms.uRes.value.set(w * dpr, h * dpr);
     Pyro.pixelScale = h * dpr * 1.25;

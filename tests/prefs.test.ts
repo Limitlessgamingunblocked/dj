@@ -54,6 +54,12 @@ describe('keyboard shortcuts', () => {
     expect(effectiveKeys({}).size).toBe(KEY_DEFS.length);
     expect(effectiveKeys({}).get('Space')?.id).toBe('deck.L.play');
     expect(effectiveKeys({}).get('Shift+KeyB')?.action).toBe('board-full');
+    // the camera: Shift + arrows orbit and tilt, = and - zoom, Shift+V the next angle; plain arrows still browse and load
+    expect(effectiveKeys({}).get('Shift+ArrowLeft')?.id).toBe('cam.left');
+    expect(effectiveKeys({}).get('Shift+ArrowUp')?.id).toBe('cam.raise');
+    expect(effectiveKeys({}).get('Equal')?.id).toBe('cam.in');
+    expect(effectiveKeys({}).get('Shift+KeyV')?.id).toBe('cam.next');
+    expect(effectiveKeys({}).get('ArrowLeft')?.id).toBe('deck.L.load');
   });
 
   it('move a binding to a free key', () => {
@@ -169,6 +175,17 @@ describe('settings files', () => {
     expect('unknown' in s).toBe(false);
     expect(cleanSettings(null)).toEqual({ ...DEFAULTS, vis: {}, lights: {} });
     expect(cleanSettings({ lights: { custom: ['#ff0000', '#00ff00', '#0000ff'] } }).lights.custom).toEqual(['#ff0000', '#00ff00', '#0000ff']);
+  });
+
+  it('remember any camera angle for board full screen, and only Top-down or Angled as its home', () => {
+    const s = cleanSettings({ boardFraming: 'crowd', boardHome: 'perf', camPad: false });
+    expect(s.boardFraming).toBe('crowd');
+    expect(s.boardHome).toBe('perf');
+    expect(s.camPad).toBe(false);
+    const bad = cleanSettings({ boardFraming: 'ceiling', boardHome: 'crowd', camPad: 'no' });
+    expect(bad.boardFraming).toBeUndefined();
+    expect(bad.boardHome).toBeUndefined();
+    expect(bad.camPad).toBe(true);
   });
 });
 

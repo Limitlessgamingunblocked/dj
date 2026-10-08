@@ -22,8 +22,12 @@ export interface Settings {
   tab: string;
   vis: Partial<VisSettings>;
   focus: boolean;
-  /** board full screen framing */
-  boardFraming?: 'top' | 'perf';
+  /** the camera angle board full screen opens with (the last one picked there) */
+  boardFraming?: ViewId;
+  /** the board view the camera pad's ⌂ goes back to: Top-down or Angled, whichever was picked last */
+  boardHome?: 'top' | 'perf';
+  /** the camera pad shows in board full screen (it can be folded away) */
+  camPad: boolean;
   reactiveLights: boolean;
   autoZoom: boolean;
   stickers: boolean;
@@ -49,7 +53,10 @@ export const DEFAULTS: Settings = {
   autoZoom: true,
   stickers: true,
   lights: {},
+  camPad: true,
 };
+
+const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'drone'];
 
 /**
  * Saved settings over the defaults, keeping only fields the app knows with the
@@ -65,7 +72,8 @@ export function cleanSettings(raw: unknown): Settings {
     const want = typeof DEFAULTS[k];
     if (want === 'object' ? typeof v === 'object' && !Array.isArray(v) : typeof v === want) (out as unknown as Record<string, unknown>)[k] = v;
   }
-  if (r.boardFraming === 'top' || r.boardFraming === 'perf') out.boardFraming = r.boardFraming;
+  if (VIEW_IDS.includes(r.boardFraming as ViewId)) out.boardFraming = r.boardFraming as ViewId;
+  if (r.boardHome === 'top' || r.boardHome === 'perf') out.boardHome = r.boardHome;
   const custom = out.lights.custom as unknown;
   if (custom !== undefined && !(Array.isArray(custom) && custom.length === 3 && custom.every((c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)))) delete out.lights.custom;
   return out;

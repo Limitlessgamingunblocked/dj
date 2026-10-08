@@ -77,6 +77,14 @@ export class CameraRig {
   private drone: DroneState | null = null;
   /** drone look for the lens pass: amount 0..1 (eases in/out), speed m/s, roll rad */
   readonly droneFx = { amount: 0, speed: 0, roll: 0 };
+  /**
+   * Held camera moves from the on-screen camera pad, the keyboard or MIDI, each
+   * −1..1: yaw orbits round the board (negative = to the left), pitch raises
+   * (positive, more from above) or lowers the camera, zoom moves it in (positive)
+   * or out.
+   */
+  readonly move = { yaw: 0, pitch: 0, zoom: 0 };
+  private sph = new THREE.Spherical();
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
   private booth = new THREE.Vector3(0, 1.45, 0.3);
@@ -181,6 +189,34 @@ export class CameraRig {
     this.focused = false;
     this.base = { pos: p.pos.clone(), target: p.target.clone() };
     this.setGoal(p.pos, p.target, instant);
+  }
+
+  /** Turn a held camera move into a frame's worth of orbit, tilt and zoom round the look-at point. */
+  private applyMove(dt: number): void {
+    if (this.drone) {
+      // take the drone's current shot as the starting point (the lens eases back on its own)
+      this.stopDrone();
+    }
+    const c = this.controls;
+    const m = this.move;
+    const off = this.tmpA.copy(this.camera.position).sub(c.target);
+    this.sph.setFromVector3(off);
+    this.sph.theta += m.yaw * dt * 1.1;
+    this.sph.phi = THREE.MathUtils.clamp(this.sph.phi - m.pitch * dt * 0.8, 0.012, c.maxPolarAngle);
+    this.sph.radius = THREE.MathUtils.clamp(this.sph.radius * Math.exp(-m.zoom * dt * 1.4), c.minDistance, c.maxDistance);
+    this.camera.position.copy(c.target).add(off.setFromSpherical(this.sph));
+    this.camera.lookAt(c.target);
+    this.goalPos = null;
+    this.goalTarget = null;
+    this.focused = false;
+    const now = performance.now();
+    this.lastManual = now;
+    this.lastInteraction = now;
+    this.base = { pos: this.camera.position.clone(), target: c.target.clone() };
+    if (this.view !== 'custom') {
+      this.view = 'custom';
+      this.onManual?.();
+    }
   }
 
   /** Zoom in on a board section, framing `box` from above the DJ's side. */
@@ -350,6 +386,7 @@ export class CameraRig {
       this.camera.updateProjectionMatrix();
     }
     this.droneFx.amount += ((this.drone ? 1 : 0) - this.droneFx.amount) * Math.min(1, dt * 4);
+    if (this.move.yaw || this.move.pitch || this.move.zoom) this.applyMove(dt);
     if (this.drone) {
       this.camera.position.sub(this.shakeOffset);
       this.shakeOffset.set(0, 0, 0);
