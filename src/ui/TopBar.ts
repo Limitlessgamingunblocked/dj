@@ -90,7 +90,7 @@ export class TopBar {
     recMenu.addEventListener('click', () => a.recordMenu());
     this.bufDot = h('span', { class: 'buf-dot', title: 'Replay buffer on: SAVE THAT MIX (Shift+S) keeps the last few minutes', hidden: true });
     this.recGroup = h('div', { class: 'rec-group' }, this.rec, recMenu, this.bufDot);
-    const gig = h('button', { class: 'btn gig-btn', title: 'Play a gig: pick a venue, a slot and a set length', type: 'button' }, 'Play a gig');
+    const gig = h('button', { class: 'btn gig-btn', title: 'Play a gig: your bookings, or a free set', type: 'button' }, 'Play a gig');
     gig.addEventListener('click', () => a.gig());
     this.midiDot = h('span', { class: 'status-dot on' });
     this.midiBtn = h('button', { class: 'btn ghost hide-sm', title: 'MIDI controller connected — open MIDI settings', hidden: true }, this.midiDot, 'MIDI');

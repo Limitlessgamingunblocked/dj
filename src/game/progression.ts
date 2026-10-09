@@ -331,7 +331,14 @@ export interface SetOutcome {
 
 const EMA = 0.4;
 
-export function applySet(p: Progress, s: SetSummary, booking?: { pay: number; met: boolean }): SetOutcome {
+/** the booking a set was played for: its fee, whether the objective was hit, and any special ('boat', 'b2b:<rival>') */
+export interface BookingTerms {
+  pay: number;
+  met: boolean;
+  special?: string | null;
+}
+
+export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): SetOutcome {
   const rewards = rewardsFor(s.grade, s.venue, s.minutes, s.encore, booking);
   const stats = { ...p.stats };
   const add = (k: string, n: number) => (stats[k] = (stats[k] ?? 0) + n);
@@ -354,6 +361,8 @@ export function applySet(p: Progress, s: SetSummary, booking?: { pay: number; me
   const tier = Math.max(p.tier, tierFor(fame));
   const setsPlayed = p.setsPlayed + 1;
   const unlocked = [...p.unlocked];
+  // the boat party booking opens the Boat for good
+  if (booking?.special === 'boat') unlocked.push('venue:boat');
   let cash = p.cash + rewards.cash;
   const titles: NewThing[] = [];
   for (const id of milestones) {

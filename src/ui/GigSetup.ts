@@ -1,8 +1,8 @@
 /*
- * Pre-gig (Section 10.2): pick the venue, the slot, the set length and the
- * assist level, then your look and the crate you're bringing. A set in the
- * Bedroom opens the Basement (Section 5.2).
- * TODO: Stage 6's bookings replace the free choice of venue and slot with offers.
+ * Pre-gig (Section 10.2): for a booking, the venue, slot and length are set
+ * by the offer and you choose the assist level, your look and the crate
+ * you're bringing. A free set (no booking) lets you pick any open venue,
+ * slot and length too. A set in the Bedroom opens the Basement (Section 5.2).
  */
 import { ASSISTS, SET_LENGTHS, type Assist, type GigConfig } from '../game/Gig';
 import { SLOTS, type SlotId } from '../game/vibe';
@@ -28,13 +28,16 @@ export interface SetupHooks {
   currentCrate: string | null;
   progress: Progress;
   assist: Assist;
+  /** playing a booking: its terms are fixed */
+  booking?: { venue: string; venueName: string; slot: SlotId; minutes: number; pay: number; promoter: string; expectation: string; objective: string; extra?: string } | null;
   start(cfg: GigConfig, o: { look: string; crate: string | null }): void;
   dressingRoom(): void;
 }
 
 export function openGigSetup(o: SetupHooks): void {
   const firstOpen = o.venues.find((v) => !v.locked);
-  const cfg: GigConfig = { venue: firstOpen?.id ?? 'bedroom', slot: 'warmup', minutes: 10, assist: o.assist };
+  const bk = o.booking ?? null;
+  const cfg: GigConfig = bk ? { venue: bk.venue, slot: bk.slot, minutes: bk.minutes, assist: o.assist } : { venue: firstOpen?.id ?? 'bedroom', slot: 'warmup', minutes: 10, assist: o.assist };
   let look = o.currentLook;
   let crate = o.currentCrate ?? o.crates.find((c) => c.name === 'First Gigs')?.id ?? null;
 
@@ -98,17 +101,43 @@ export function openGigSetup(o: SetupHooks): void {
   const dress = h('button', { type: 'button', class: 'btn ghost' }, 'Dressing room…');
 
   const go = h('button', { type: 'button', class: 'btn primary gs-go' }, 'Start the set');
+  const venue = o.venues.find((v) => v.id === cfg.venue);
+  const terms = bk
+    ? (() => {
+        const c = h('canvas', { width: 240, height: 120 }) as HTMLCanvasElement;
+        venue?.draw(c.getContext('2d')!, 240, 120);
+        return h(
+          'section',
+          { class: 'gs-booking' },
+          c,
+          h(
+            'div',
+            {},
+            h('span', { class: 'gs-note' }, `${bk.promoter} presents`),
+            h('h3', {}, bk.venueName),
+            bk.extra ? h('p', { class: 'gs-extra' }, bk.extra) : null,
+            h('p', {}, h('b', {}, `${SLOTS[bk.slot].label} · ${bk.minutes} min · $${bk.pay.toLocaleString()}`)),
+            h('p', { class: 'gs-brief' }, h('b', {}, 'The promoter says: '), bk.expectation),
+            h('p', { class: 'gs-brief' }, h('b', {}, 'Bonus objective: '), bk.objective),
+          ),
+        );
+      })()
+    : null;
   const content = h(
     'div',
     { class: 'gig-setup' },
-    h('section', {}, h('h3', {}, 'Where'), venueCards),
-    h('section', {}, h('h3', {}, 'Slot'), slot.row, brief),
-    h('div', { class: 'gs-two' }, h('section', {}, h('h3', {}, 'Set length'), len.row), h('section', {}, h('h3', {}, 'Assist'), assist.row, assistNote)),
+    ...(terms
+      ? [terms, h('section', {}, h('h3', {}, 'Assist'), assist.row, assistNote)]
+      : [
+          h('section', {}, h('h3', {}, 'Where'), venueCards),
+          h('section', {}, h('h3', {}, 'Slot'), slot.row, brief),
+          h('div', { class: 'gs-two' }, h('section', {}, h('h3', {}, 'Set length'), len.row), h('section', {}, h('h3', {}, 'Assist'), assist.row, assistNote)),
+        ]),
     h('div', { class: 'gs-two' }, h('section', {}, h('h3', {}, 'Look'), h('div', { class: 'gs-row' }, o.looks.length ? lookSel : h('span', { class: 'gs-note' }, 'Your starter look'), dress)), h('section', {}, h('h3', {}, 'Crate'), crateSel)),
     h('div', { class: 'gs-actions' }, go),
   );
   updateBrief();
-  const m = openModal('Play a gig', content, { wide: true });
+  const m = openModal(bk ? 'Play the booking' : 'Free set', content, { wide: true });
   go.addEventListener('click', () => {
     m.close();
     o.start(cfg, { look, crate });

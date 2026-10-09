@@ -70,7 +70,7 @@ import { cleanSettings, type Settings } from './settingsModel';
 
 const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
 /** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
-const GIG_VENUES = ['bedroom', 'basement'];
+const GIG_VENUES = ['bedroom', 'basement', 'warehouse'];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
 const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, dressing: 0, naming: 0 };
 
@@ -407,6 +407,7 @@ export class App implements AppContext {
       signature: (what) => (this.stage.venue as { signature?(w: string): void } | null)?.signature?.(what),
       crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
       boardId: () => this.boardDef.id,
+      venueThumb: (id, g, w, h) => venueById(id).thumb(g, w, h),
     });
     this.lyrics = new LyricsEngine(this.engine, (id) => {
       const t = this.engine.deck(id).track;

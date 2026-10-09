@@ -1,19 +1,23 @@
 /*
- * Gigs in the app: the vibe meter every frame (a free-play meter in the
- * studio, the gig's own meter in a set), the HUD, the Bedroom's stream chat,
- * the assist levels, what the crew in the booth says, and the
- * results and rewards at the end.
+ * Gigs in the app: the bookings calendar and the pre-gig screen, the vibe
+ * meter every frame (a free-play meter in the studio, the gig's own meter in
+ * a set), the HUD, the Bedroom's stream chat, the assist levels, what the
+ * crew in the booth says, and the results and rewards at the end.
  */
 import type { AudioEngine } from '../audio/AudioEngine';
 import { dressCodeBonus } from '../character/look';
+import type { Booking } from '../core/models';
+import { goalMet, played } from '../game/bookings';
 import { ASSISTS, Gig, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
+import { rivalOf } from '../game/rivals';
 import { Snapshot } from '../game/snapshot';
 import { nextSection } from '../game/tracks';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
 import type { Features } from '../visualizer/AudioFeatures';
+import { openBookings } from '../ui/BookingsPanel';
 import { GigHud } from '../ui/GigHud';
 import { openGigSetup, type GigVenue } from '../ui/GigSetup';
 import { showResults } from '../ui/Results';
@@ -54,6 +58,8 @@ export interface GigHost {
   crowd(what: 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant'): void;
   /** the board on the stage (for "play five boards") */
   boardId(): string;
+  /** a venue's picture, for the bookings */
+  venueThumb(id: string, g: CanvasRenderingContext2D, w: number, h: number): void;
 }
 
 export class GigDirector {
@@ -66,6 +72,8 @@ export class GigDirector {
   private chat: StreamChat | null = null;
   private toolsWatch: ResizeObserver | null = null;
   private lastCfg: GigConfig | null = null;
+  /** the booking the running set is for (null: a free set) */
+  private booking: Booking | null = null;
   private tipAt = -1e9;
   private crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
   private building = false;
@@ -93,8 +101,22 @@ export class GigDirector {
   /* starting and ending                                            */
   /* -------------------------------------------------------------- */
 
+  /** Play a gig: the bookings calendar */
   openSetup(): void {
+    openBookings({
+      career: this.host.career,
+      dj: () => this.host.djName() || 'DJ',
+      venueName: (id) => this.host.venueName(id),
+      thumb: (id, g, w, h) => this.host.venueThumb(id, g, w, h),
+      play: (b) => this.openPreGig(b),
+      free: () => this.openPreGig(null),
+    });
+  }
+
+  /** the pre-gig screen: a booking's terms, or a free choice */
+  openPreGig(b: Booking | null): void {
     const c = this.host.career;
+    const rival = rivalOf(b?.special);
     openGigSetup({
       venues: this.host.gigVenues(),
       looks: c.looks.items.length ? c.looks.items : [c.look],
@@ -103,12 +125,13 @@ export class GigDirector {
       currentCrate: this.host.currentCrate(),
       progress: c.progress,
       assist: this.lastCfg?.assist ?? 'club',
-      start: (cfg, o) => this.start(cfg, o.look, o.crate),
+      booking: b ? { venue: b.venue, venueName: this.host.venueName(b.venue), slot: b.slot, minutes: b.minutes, pay: b.pay, promoter: b.promoter, expectation: b.expectation, objective: b.objective, extra: rival ? `Back to back with ${rival.name}: ${rival.style}` : b.special === 'boat' ? 'The Boat Party: play it and the boat is yours to book again.' : undefined } : null,
+      start: (cfg, o) => this.start(cfg, o.look, o.crate, b),
       dressingRoom: () => this.host.openCreator(),
     });
   }
 
-  start(cfg: GigConfig, look?: string, crate?: string | null): void {
+  start(cfg: GigConfig, look?: string, crate?: string | null, booking: Booking | null = null): void {
     if (this.gig) this.teardown();
     const e = this.host.engine;
     this.host.autoDJOff();
@@ -118,6 +141,7 @@ export class GigDirector {
     this.host.setVenue(cfg.venue);
     if (crate !== undefined) this.host.showCrate(crate);
     this.lastCfg = cfg;
+    this.booking = booking;
     this.gig = new Gig(cfg);
     this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
     this.keyMatched.clear();
@@ -150,7 +174,10 @@ export class GigDirector {
     }
     this.applyAssist();
     const slot = SLOTS[cfg.slot];
-    this.hud.say('Promoter:', `${slot.label}, ${cfg.minutes} minutes. ${slot.brief}`);
+    if (booking) {
+      this.hud.say(`${booking.promoter}:`, `${booking.expectation}. ${cfg.minutes} minutes.`);
+      setTimeout(() => this.gig && this.booking === booking && this.hud?.say('Bonus:', booking.objective), 3200);
+    } else this.hud.say('Promoter:', `${slot.label}, ${cfg.minutes} minutes. ${slot.brief}`);
     // dressed for the room: the crowd starts a little warmer (Section 4.9)
     const dc = dressCodeBonus(this.host.career.look, cfg.venue);
     if (dc.bonus > 0) {
@@ -180,20 +207,28 @@ export class GigDirector {
     const gig = this.gig;
     if (!gig) return;
     const c = this.host.career;
-    const r = gig.results(c.progress, { board: this.host.boardId() });
+    const b = this.booking;
+    const board = this.host.boardId();
+    const met = b ? goalMet(b.goal, gig.summary(board)) : false;
+    const r = gig.results(c.progress, { board, booking: b ? { pay: b.pay, met, special: b.special } : undefined });
     c.setProgress(r.outcome.patch);
+    // the calendar moves on a night; the booking keeps how it went
+    c.setBookings(played(c.bookings, b?.id ?? null, b ? { grade: r.grade, met } : null));
     this.teardown();
     this.gig = null;
+    this.booking = null;
     this.free.vibe = gig.meter.vibe;
     this.host.finished(r.grade);
     const rp = this.host.replay();
     showResults(r, this.host.venueName(gig.config.venue), {
       dj: this.host.djName() || 'DJ',
       next: nextGoal(c.progress),
+      objective: b ? { text: b.objective, met } : null,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
       closed: () => rp?.clear(),
-      again: () => this.lastCfg && this.start(this.lastCfg),
+      // after a booking, "play again" goes back to the calendar for the next one
+      again: () => (b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
   }

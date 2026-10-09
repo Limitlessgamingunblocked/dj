@@ -10,7 +10,7 @@
  * and draws what it says.
  */
 import { PROGRESS, type Progress } from '../core/models';
-import { applySet, MILESTONES, summarize, type Rewards, type SetOutcome, type SetSummary } from './progression';
+import { applySet, MILESTONES, summarize, type BookingTerms, type Rewards, type SetOutcome, type SetSummary } from './progression';
 import { SLOTS, VibeMeter, type DeckSnap, type Grade, type SlotId, type VibeEvent } from './vibe';
 
 export type Assist = 'chill' | 'club' | 'pro';
@@ -181,7 +181,7 @@ export class Gig {
   }
 
   /** the results screen's numbers, and what the set does to the career */
-  results(p: Partial<Progress>, o: { board?: string; booking?: { pay: number; met: boolean } } = {}): GigResults {
+  results(p: Partial<Progress>, o: { board?: string; booking?: BookingTerms } = {}): GigResults {
     const m = this.meter;
     const summary = this.summary(o.board);
     const outcome = applySet({ ...PROGRESS.defaults(), ...p }, summary, o.booking);

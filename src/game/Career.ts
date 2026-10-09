@@ -7,25 +7,30 @@
  */
 import { defaultLook } from '../character/look';
 import { Emitter } from '../core/emitter';
-import { ALL_SPECS, LOOKS, PROFILE, PROGRESS, type Look, type Profile, type Progress } from '../core/models';
+import { ALL_SPECS, BOOKINGS, LOOKS, PROFILE, PROGRESS, type BookingsSave, type Look, type Profile, type Progress } from '../core/models';
 import { SaveSystem } from '../core/SaveSystem';
+import { refreshOffers, seeded } from './bookings';
 
 export class Career {
   profile: Profile;
   progress: Progress;
   looks: { items: Look[]; current: string | null };
+  /** the calendar: offers, accepted bookings, the night counter */
+  bookings: BookingsSave;
   /** what went wrong loading the saves (shown once to the player) */
   readonly problems: string[] = [];
-  readonly changed = new Emitter<{ profile: Profile; progress: Progress; look: Look }>();
+  readonly changed = new Emitter<{ profile: Profile; progress: Progress; look: Look; bookings: BookingsSave }>();
 
   constructor(readonly saves = new SaveSystem()) {
     const p = saves.load(PROFILE);
     const g = saves.load(PROGRESS);
     const l = saves.load(LOOKS);
-    for (const r of [p, g, l]) if (r.problem) this.problems.push(r.problem);
+    const b = saves.load(BOOKINGS);
+    for (const r of [p, g, l, b]) if (r.problem) this.problems.push(r.problem);
     this.profile = p.data;
     this.progress = g.data;
     this.looks = l.data;
+    this.bookings = b.data;
   }
 
   /** the look you're wearing (the starter look until you save one) */
@@ -76,14 +81,29 @@ export class Career {
     this.changed.emit('progress', this.progress);
   }
 
+  setBookings(next: BookingsSave): void {
+    this.bookings = BOOKINGS.validate(next);
+    this.saves.autosave(BOOKINGS, () => this.bookings);
+    this.changed.emit('bookings', this.bookings);
+  }
+
+  /** the calendar brought up to tonight: passed offers go, new ones come (the same ones for the same night) */
+  refreshBookings(): BookingsSave {
+    const next = refreshOffers(this.bookings, this.progress, seeded(this.bookings.night * 7919 + this.progress.setsPlayed));
+    if (JSON.stringify(next) !== JSON.stringify(this.bookings)) this.setBookings(next);
+    return this.bookings;
+  }
+
   /** a new career: every career save and its backup gone */
   erase(): void {
     for (const s of ALL_SPECS) this.saves.erase(s.kind);
     this.profile = PROFILE.defaults();
     this.progress = PROGRESS.defaults();
     this.looks = LOOKS.defaults();
+    this.bookings = BOOKINGS.defaults();
     this.changed.emit('profile', this.profile);
     this.changed.emit('progress', this.progress);
     this.changed.emit('look', this.look);
+    this.changed.emit('bookings', this.bookings);
   }
 }
