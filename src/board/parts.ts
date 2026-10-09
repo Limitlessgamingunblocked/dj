@@ -17,6 +17,25 @@ import { Part, planeHit, type PartCtx, type PointerInfo } from '../three/parts';
 import type { BoardComponent, CommonProps } from './format';
 import { applyCurve, detent, invertCurve, touchSound } from './feel';
 import { boardMaterial, type MatSpec } from './materials';
+import { decal, faderCapGeometry, faderScaleTexture, glassSheen, grooveTexture, knobScaleTexture, knurlBumpTexture, knurledKnob, meterLegendTexture, screw, turnedMetalTexture } from '../three/realism';
+
+/** the silk-screen print colour on a panel of this colour (light on dark, dark on light) */
+function printOn(hex: string): string {
+  const c = new THREE.Color(hex);
+  return c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.5 ? '#2a2d33' : '#c9ced6';
+}
+
+/** turned-aluminium inserts (knob caps, jog plates), one per tint */
+const turnedMats = new Map<string, THREE.MeshStandardMaterial>();
+function turnedMat(tint: string): THREE.MeshStandardMaterial {
+  let m = turnedMats.get(tint);
+  if (!m) {
+    m = new THREE.MeshStandardMaterial({ color: tint, map: turnedMetalTexture(), metalness: 0.85, roughness: 0.32 });
+    m.userData.boardShared = true;
+    turnedMats.set(tint, m);
+  }
+  return m;
+}
 
 import type { BoardHooks } from './hooks';
 
@@ -28,6 +47,7 @@ export interface BoardEnv {
 }
 
 const tmp = new THREE.Vector3();
+const tmpC = new THREE.Color();
 
 /** material for one of the component's colour zones */
 export function zoneMat(p: CommonProps, zone: 0 | 1 | 2, glow = false, idOverride?: MatSpec['id']): THREE.MeshStandardMaterial {
@@ -156,19 +176,29 @@ export class BKnob extends BPart {
     super(comp, env);
     this.cursor = 'ns-resize';
     const p = this.p;
-    const r = (p.size as number) || 0.011;
-    const h = r * 1.4;
-    const body = new THREE.Mesh(knobBody(p.shape ?? 'round', r, h), zoneMat(p, 0, true));
+    const shape = p.shape ?? 'round';
+    // a club mixer's EQ knob is about 17 mm across and 15 mm tall
+    const r = (p.size as number) || 0.0085;
+    const h = shape === 'cap' ? r * 1.25 : r * 1.75;
+    const geo = shape === 'round' ? knurledKnob(r, h, 36, 0.045) : shape === 'cap' ? knurledKnob(r, h, 64, 0.022) : knobBody(shape, r, h);
+    const body = new THREE.Mesh(geo, zoneMat(p, 0, true));
     body.castShadow = true;
     this.spin.add(body);
-    if (p.shape !== 'chicken') {
-      const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.78, r * 0.78, 0.0006, 32), zoneMat(p, 1));
-      cap.position.y = h + 0.0003;
+    if (shape !== 'chicken' && shape !== 'hex') {
+      // the cap: a contrasting insert (turned aluminium on a metal knob)
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.78, r * 0.8, 0.0008, 40), shape === 'cap' ? turnedMat(p.colors[1]) : zoneMat(p, 1));
+      cap.position.y = h + 0.0001;
       this.spin.add(cap);
     }
-    const ind = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.0008, r * 0.14), 0.0009, r * 0.6), zoneMat(p, 2, true));
-    ind.position.set(0, h + 0.0007, -r * 0.5);
+    // the pointer: a line from the centre to the edge, and down the side so it reads from low angles
+    const ind = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.0008, r * 0.13), 0.0006, r * 0.62), zoneMat(p, 2, true));
+    ind.position.set(0, h + 0.0007, -r * 0.48);
     this.spin.add(ind);
+    if (shape === 'round' || shape === 'cap') {
+      const notch = new THREE.Mesh(new THREE.BoxGeometry(r * 0.12, h * 0.55, 0.0006), zoneMat(p, 2, true));
+      notch.position.set(0, h * 0.52, -r * 1.06);
+      this.spin.add(notch);
+    }
     this.animGroup.add(this.spin);
     this.addHit(body);
     if (p.ring) {
@@ -178,11 +208,16 @@ export class BKnob extends BPart {
       const m = new THREE.Matrix4();
       for (let i = 0; i < n; i++) {
         const a = ((-150 + (i / (n - 1)) * 300) * Math.PI) / 180;
-        m.makeTranslation(Math.sin(a) * r * 1.5, 0.0004, -Math.cos(a) * r * 1.5);
+        m.makeTranslation(Math.sin(a) * r * 1.6, 0.0004, -Math.cos(a) * r * 1.6);
         this.ring.setMatrixAt(i, m);
         this.ring.setColorAt(i, new THREE.Color(0x111111));
       }
       this.object.add(this.ring);
+    } else {
+      // the printed scale round it, as on a faceplate
+      const sc = decal(knobScaleTexture('#c9ced6', /\.(hi|mid|low|filter|eq|pan)/.test(p.fn)), r * 3.6, r * 3.6, 0.75);
+      sc.position.y = 0.0003;
+      this.object.add(sc);
     }
     this.addLabel(r * 3.2, -r * 2.1, r * 2.1, 0);
   }
@@ -256,30 +291,43 @@ export class BFader extends BPart {
   constructor(comp: BoardComponent, env: BoardEnv) {
     super(comp, env);
     const p = this.p;
-    this.len = (p.length as number) || 0.06;
+    // channel faders are 45 mm (60 on long-throw mixers); the crossfader 45
+    this.len = (p.length as number) || 0.045;
     this.horiz = p.orient === 'horizontal';
     this.cursor = this.horiz ? 'ew-resize' : 'ns-resize';
-    const track = new THREE.Mesh(new THREE.BoxGeometry(this.horiz ? this.len + 0.01 : 0.004, 0.002, this.horiz ? 0.004 : this.len + 0.01), zoneMat(p, 0));
-    track.position.y = 0.001;
-    this.object.add(track);
-    const slot = new THREE.Mesh(new THREE.BoxGeometry(this.horiz ? this.len : 0.0015, 0.0006, this.horiz ? 0.0015 : this.len), boardMaterial({ id: 'matte', color: '#050506' }));
-    slot.position.y = 0.0021;
-    this.object.add(slot);
     const shape = p.shape ?? 'square';
-    const cw = shape === 'tall' ? 0.012 : shape === 'tbar' ? 0.02 : 0.014;
-    const cd = shape === 'tbar' ? 0.006 : shape === 'round' ? 0.012 : 0.009;
-    const ch = shape === 'tall' ? 0.014 : 0.009;
-    const geo = shape === 'round' ? new THREE.CylinderGeometry(cd / 2, cd / 2, ch, 24) : new RoundedBoxGeometry(this.horiz ? cd : cw, ch, this.horiz ? cw : cd, 2, 0.0015);
+    // a pro cap: ~20 mm across the slot, ~11 along it, ~11 tall, ridged on top
+    const across = shape === 'tall' ? 0.014 : shape === 'tbar' ? 0.024 : 0.019;
+    const along = shape === 'tbar' ? 0.008 : shape === 'round' ? 0.012 : 0.011;
+    const ch = shape === 'tall' ? 0.016 : 0.011;
+    const plateT = 0.0016;
+    // the escutcheon: a thin plate the slot is cut through, with the scale printed on it
+    const pw = across * 1.9;
+    const pl = this.len + along + 0.014;
+    const plate = new THREE.Mesh(new RoundedBoxGeometry(this.horiz ? pl : pw, plateT, this.horiz ? pw : pl, 2, 0.0012), zoneMat(p, 0));
+    plate.position.y = plateT / 2;
+    plate.receiveShadow = true;
+    this.object.add(plate);
+    const slotLen = this.len + along * 0.35;
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(this.horiz ? slotLen : 0.0022, 0.0004, this.horiz ? 0.0022 : slotLen), new THREE.MeshBasicMaterial({ color: 0x030304 }));
+    slot.position.y = plateT + 0.0001;
+    this.object.add(slot);
+    const sc = decal(faderScaleTexture(printOn(p.colors[0]), !this.horiz, this.horiz), pw, this.len + 0.006, 0.85);
+    if (this.horiz) sc.rotation.z = Math.PI / 2;
+    sc.position.y = plateT + 0.0002;
+    this.object.add(sc);
+    const geo = shape === 'round' ? new THREE.CylinderGeometry(along / 2, along / 2, ch, 24).translate(0, ch / 2, 0) : faderCapGeometry(across, ch, along, shape === 'tbar' ? 2 : 3);
     this.cap = new THREE.Mesh(geo, zoneMat(p, 1, true));
-    this.cap.position.y = ch / 2 + 0.002;
+    if (this.horiz && shape !== 'round') this.cap.rotation.y = Math.PI / 2;
+    this.cap.position.y = plateT;
     this.cap.castShadow = true;
-    const line = new THREE.Mesh(new THREE.BoxGeometry(this.horiz ? 0.0008 : cw * 0.9, 0.0005, this.horiz ? cw * 0.9 : 0.0008), zoneMat(p, 2, true));
-    line.position.y = ch / 2 + 0.0003;
+    const line = new THREE.Mesh(new THREE.BoxGeometry(across * 0.86, 0.0004, 0.0009), zoneMat(p, 2, true));
+    line.position.y = ch * 1.11 + 0.0002;
     this.cap.add(line);
     this.animGroup.add(this.cap);
     this.addHit(this.cap);
-    this.addHit(track);
-    this.addLabel(0.04, -this.len / 2 - 0.012, this.len / 2 + 0.012, 0);
+    this.addHit(plate);
+    this.addLabel(0.04, -this.len / 2 - 0.014, this.len / 2 + 0.014, plateT);
   }
 
   private place(pos: number): void {
@@ -340,14 +388,48 @@ export class BFader extends BPart {
 /* ------------------------------ button ------------------------------ */
 
 function buttonGeo(shape: string, w: number, d: number, h: number): THREE.BufferGeometry {
-  if (shape === 'round' || shape === 'big') return new THREE.CylinderGeometry(w / 2, w / 2, h, 32).translate(0, h / 2, 0);
+  if (shape === 'round' || shape === 'big') return new THREE.CylinderGeometry(w / 2, w / 2 * 1.03, h, 40).translate(0, h / 2, 0);
   if (shape === 'pill') return new RoundedBoxGeometry(w, h, d, 3, Math.min(w, d) / 2.2).translate(0, h / 2, 0);
-  return new RoundedBoxGeometry(w, h, d, 2, Math.min(w, d) * 0.15).translate(0, h / 2, 0);
+  // rubber keys are soft-cornered
+  return new RoundedBoxGeometry(w, h, d, 3, Math.min(w, d) * 0.24).translate(0, h / 2, 0);
 }
+
+/** the print on a button top: ▶❚❚ for play, otherwise its label */
+const glyphCache = new Map<string, THREE.CanvasTexture>();
+function glyphTexture(text: string, color: string): THREE.CanvasTexture {
+  const k = `${text}|${color}`;
+  let t = glyphCache.get(k);
+  if (t) return t;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = color;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  if (/^(play|▶|play\/pause|▶❚❚)$/i.test(text.trim())) {
+    g.beginPath();
+    g.moveTo(30, 40);
+    g.lineTo(30, 88);
+    g.lineTo(64, 64);
+    g.fill();
+    g.fillRect(74, 40, 9, 48);
+    g.fillRect(89, 40, 9, 48);
+  } else {
+    g.font = `700 ${text.length > 4 ? 30 : 44}px "Barlow Condensed", sans-serif`;
+    g.fillText(text.toUpperCase(), 64, 66, 120);
+  }
+  t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  glyphCache.set(k, t);
+  return t;
+}
+
+const chromeBezel = (): THREE.MeshStandardMaterial => boardMaterial({ id: 'chrome', color: '#c9ced6' });
 
 export class BButton extends BPart {
   private led: THREE.MeshStandardMaterial;
   private top: THREE.Mesh;
+  private ringLed: THREE.MeshStandardMaterial | null = null;
   private held = false;
   private h: number;
 
@@ -355,19 +437,45 @@ export class BButton extends BPart {
     super(comp, env);
     const p = this.p;
     const shape = p.shape ?? 'square';
-    const w = (p.w as number) || (shape === 'big' ? 0.05 : 0.016);
+    // CUE / PLAY on a media player are about 30 mm across
+    const w = (p.w as number) || (shape === 'big' ? 0.03 : 0.016);
     const d = shape === 'round' || shape === 'big' ? w : (p.d as number) || (shape === 'pill' ? w * 0.5 : w * (shape === 'rect' ? 0.55 : 1));
-    this.h = shape === 'big' ? 0.02 : 0.006;
-    const base = new THREE.Mesh(buttonGeo(shape, w * 1.12, d * 1.12, 0.002), zoneMat(p, 0));
-    this.object.add(base);
+    this.h = shape === 'big' ? 0.0075 : 0.0045;
     this.led = ledMat();
-    this.led.color.set(p.colors[1]);
-    this.top = new THREE.Mesh(buttonGeo(shape, w, d, this.h), [this.led, this.led, this.led]);
-    this.top.position.y = 0.0015;
+    if (shape === 'big') {
+      // a big transport button: rubber top in a chrome bezel, the light in a ring round it
+      const bezel = new THREE.Mesh(new THREE.TorusGeometry(w / 2 + 0.0019, 0.0013, 12, 56), chromeBezel());
+      bezel.rotation.x = Math.PI / 2;
+      bezel.position.y = 0.0013;
+      this.object.add(bezel);
+      this.ringLed = ledMat();
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(w / 2 + 0.0003, 0.0008, 8, 56), this.ringLed);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.0016;
+      this.object.add(ring);
+      this.led.color.set(p.colors[0]);
+      this.led.roughness = 0.75;
+    } else {
+      const base = new THREE.Mesh(buttonGeo(shape, w * 1.14, d * 1.14, 0.0012), new THREE.MeshStandardMaterial({ color: '#0a0b0d', roughness: 0.6 }));
+      this.object.add(base);
+      // translucent rubber: its colour shows faintly even when it's off
+      this.led.color.set(p.colors[1]);
+      this.led.roughness = 0.55;
+    }
+    this.top = new THREE.Mesh(buttonGeo(shape, w, d, this.h), this.led);
+    this.top.position.y = 0.0012;
     this.top.castShadow = true;
     this.animGroup.add(this.top);
     this.addHit(this.top);
-    this.addLabel(Math.max(0.03, w * 1.6), -d / 2 - 0.008, d / 2 + 0.008, this.h);
+    // the print on top: the label when it's set to go on it, CUE / ▶❚❚ on a big transport button by its function
+    const onTop = p.label.place === 'on' && p.label.text ? p.label.text : shape === 'big' ? (/\.play$/.test(p.fn) ? 'PLAY' : /\.cue$/.test(p.fn) ? 'CUE' : '') : '';
+    if (onTop) {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.82, Math.min(w, d) * 0.82), new THREE.MeshBasicMaterial({ map: glyphTexture(onTop, '#e8ebf0'), transparent: true, depthWrite: false }));
+      s.rotation.x = -Math.PI / 2;
+      s.position.y = this.h + 0.0002;
+      this.top.add(s);
+    }
+    if (p.label.place !== 'on') this.addLabel(Math.max(0.03, w * 1.6), -d / 2 - 0.008, d / 2 + 0.008, this.h);
   }
 
   update(c: PartCtx): void {
@@ -376,9 +484,15 @@ export class BButton extends BPart {
     let lit = ledColor(c.reg.lit(this.target), this.p.colors[2]);
     if (ctl?.kind === 'continuous') lit = { on: ctl.get() > 0.5, color: this.p.colors[2], level: 1 };
     const glow = this.p.glow.intensity;
-    this.led.emissive.set(lit.on ? lit.color : this.p.glow.color);
-    this.led.emissiveIntensity = lit.on ? lit.level * 2.2 : glow * 0.8;
-    this.top.position.y = 0.0015 - (this.held ? this.h * 0.35 : 0);
+    const target = this.ringLed ?? this.led;
+    target.emissive.set(lit.on ? lit.color : glow > 0 ? this.p.glow.color : this.p.colors[2]);
+    // off, an LED still shows a hint of its colour behind the rubber
+    target.emissiveIntensity = lit.on ? lit.level * (this.ringLed ? 1.6 : 2.2) : Math.max(glow * 0.8, 0.06);
+    if (this.ringLed) {
+      this.led.emissive.set(lit.on ? lit.color : '#000000');
+      this.led.emissiveIntensity = lit.on ? lit.level * 0.07 : 0;
+    }
+    this.top.position.y = 0.0012 - (this.held ? this.h * 0.3 : 0);
   }
 
   down(_p: PointerInfo, c: PartCtx): void {
@@ -431,19 +545,25 @@ export class BPads extends BPart {
     const p = this.p;
     const rows = Math.max(1, Math.min(16, (p.rows as number) || 2));
     const cols = Math.max(1, Math.min(16, (p.cols as number) || 4));
-    const s = (p.size as number) || 0.018;
-    const gap = s * 0.18;
+    const s = (p.size as number) || 0.02;
+    const gap = s * 0.2;
     const base = (p.base as string) || 'deck.L.pad.{n}';
     const W = cols * s + (cols - 1) * gap;
     const D = rows * s + (rows - 1) * gap;
-    const plate = new THREE.Mesh(new RoundedBoxGeometry(W + gap * 2, 0.003, D + gap * 2, 2, 0.002), zoneMat(p, 0));
+    // the pads sit in a recessed well in a raised frame
+    const plate = new THREE.Mesh(new RoundedBoxGeometry(W + gap * 3, 0.003, D + gap * 3, 2, 0.002), zoneMat(p, 0));
     plate.position.y = 0.0015;
     this.object.add(plate);
+    const well = new THREE.Mesh(new RoundedBoxGeometry(W + gap * 1.2, 0.0008, D + gap * 1.2, 2, 0.0015), new THREE.MeshStandardMaterial({ color: '#060708', roughness: 0.8 }));
+    well.position.y = 0.003;
+    this.object.add(well);
     for (let r = 0; r < rows; r++)
       for (let c = 0; c < cols; c++) {
         const n = r * cols + c + 1;
-        const m = new THREE.Mesh(new RoundedBoxGeometry(s, 0.004, s, 2, s * 0.12).translate(0, 0.005, 0), ledMat());
+        // soft silicone with a light under it: rounded on top, a little proud of the well
+        const m = new THREE.Mesh(new RoundedBoxGeometry(s, 0.0045, s, 3, s * 0.16).translate(0, 0.0052, 0), ledMat());
         (m.material as THREE.MeshStandardMaterial).color.set(p.colors[1]);
+        (m.material as THREE.MeshStandardMaterial).roughness = 0.7;
         m.castShadow = true;
         const pad = new GridPad(base.replace('{n}', String(n)), `Pad ${n}`, m);
         pad.object.position.set(-W / 2 + s / 2 + c * (s + gap), 0, -D / 2 + s / 2 + r * (s + gap));
@@ -458,8 +578,9 @@ export class BPads extends BPart {
     super.update(c);
     for (const pad of this.pads) {
       const lit = ledColor(c.reg.lit(pad.id!), this.p.colors[2]);
-      pad.led.emissive.set(lit.on ? lit.color : this.p.glow.color);
-      pad.led.emissiveIntensity = lit.on ? lit.level * 1.8 : this.p.glow.intensity * 0.6 + (pad.held ? 0.8 : 0);
+      pad.led.emissive.set(lit.on ? lit.color : this.p.glow.intensity > 0 ? this.p.glow.color : this.p.colors[2]);
+      // backlit pads idle with a faint glow of their colour
+      pad.led.emissiveIntensity = lit.on ? lit.level * 1.8 : Math.max(this.p.glow.intensity * 0.6, 0.05) + (pad.held ? 0.8 : 0);
       pad.object.position.y = pad.held ? -0.001 : 0;
     }
   }
@@ -489,30 +610,36 @@ export class BJog extends BPart {
     this.label = `Deck ${this.deck} jog`;
     const r = this.r;
     const ringH = 0.014;
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.01, ringH, 96), zoneMat(p, 0));
+    // the outer ring: knurled round the side so a thumb can nudge it
+    const ringSide = zoneMat(p, 0).clone();
+    ringSide.bumpMap = knurlBumpTexture();
+    ringSide.bumpMap.repeat.set(Math.max(1, Math.round((r * Math.PI * 2) / 0.12)), 1);
+    ringSide.bumpScale = 1.2;
+    ringSide.userData.boardShared = false;
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.012, ringH, 128, 1, false), [ringSide, zoneMat(p, 0), zoneMat(p, 0)]);
     ring.position.y = ringH / 2;
     ring.castShadow = true;
     ring.userData.zone = 'ring';
     this.object.add(ring);
     this.addHit(ring);
+    // the light pipe round the platter's edge
     this.ringLed = ledMat();
-    const led = new THREE.Mesh(new THREE.TorusGeometry(r * 0.82, Math.max(0.0012, r * 0.02), 8, 96), this.ringLed);
+    const led = new THREE.Mesh(new THREE.TorusGeometry(r * 0.835, Math.max(0.0009, r * 0.012), 8, 128), this.ringLed);
     led.rotation.x = Math.PI / 2;
-    led.position.y = ringH + 0.001;
+    led.position.y = ringH + 0.0006;
     this.object.add(led);
-    const style = (p.platter as string) || 'vinyl';
+    const style = (p.platter as string) || 'metal';
     const topR = r * 0.8;
-    const plate = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR, 0.004, 96), boardMaterial({ id: PLATTERS[style] ?? 'gloss', color: style === 'vinyl' ? '#0c0c0e' : p.colors[1], glow: style === 'led' ? { color: p.colors[2], intensity: 0.6, beat: true } : p.glow }));
+    const topMat =
+      style === 'vinyl'
+        ? new THREE.MeshStandardMaterial({ map: grooveTexture(), roughness: 0.3, metalness: 0.2 })
+        : style === 'metal'
+          ? turnedMat(p.colors[1])
+          : boardMaterial({ id: PLATTERS[style] ?? 'gloss', color: p.colors[1], glow: style === 'led' ? { color: p.colors[2], intensity: 0.6, beat: true } : p.glow });
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR, 0.004, 128), [zoneMat(p, 0), topMat, zoneMat(p, 0)]);
     plate.position.y = ringH + 0.002;
     plate.userData.zone = 'top';
     this.spin.add(plate);
-    if (style === 'vinyl') {
-      // grooves and a label
-      const grooves = new THREE.Mesh(new THREE.RingGeometry(topR * 0.38, topR * 0.97, 96, 6), new THREE.MeshStandardMaterial({ color: '#16161a', roughness: 0.25, metalness: 0.3 }));
-      grooves.rotation.x = -Math.PI / 2;
-      grooves.position.y = ringH + 0.0041;
-      this.spin.add(grooves);
-    }
     const display = (p.display as string) || 'art';
     if (display !== 'none') {
       const canvas = document.createElement('canvas');
@@ -524,6 +651,14 @@ export class BJog extends BPart {
       disc.rotation.x = -Math.PI / 2;
       disc.position.y = ringH + 0.0046;
       this.object.add(disc);
+      // the on-jog display sits under glass in a dark bezel
+      const bez = new THREE.Mesh(new THREE.RingGeometry(topR * 0.36, topR * 0.41, 48), new THREE.MeshStandardMaterial({ color: '#08090b', roughness: 0.3, metalness: 0.4 }));
+      bez.rotation.x = -Math.PI / 2;
+      bez.position.y = ringH + 0.0046;
+      this.object.add(bez);
+      const sheen = glassSheen(topR * 0.72, topR * 0.72, true);
+      sheen.position.y = ringH + 0.0048;
+      this.object.add(sheen);
     }
     const marker = new THREE.Mesh(new THREE.BoxGeometry(r * 0.04, 0.0008, topR * 0.3), zoneMat(p, 2, true));
     marker.position.set(0, ringH + 0.0044, -topR * 0.8);
@@ -651,10 +786,18 @@ export class BScreen extends BPart {
     bezel.position.z = -d / 2;
     tilt.add(bezel);
     this.glass = new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false });
+    // the panel's black border round the picture, then the picture, then the glass over both
+    const border = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.005, d + 0.005), new THREE.MeshStandardMaterial({ color: '#050608', roughness: 0.2, metalness: 0.3 }));
+    border.rotation.x = -Math.PI / 2;
+    border.position.set(0, 0.00605, -d / 2);
+    tilt.add(border);
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(w, d), this.glass);
     scr.rotation.x = -Math.PI / 2;
     scr.position.set(0, 0.0062, -d / 2);
     tilt.add(scr);
+    const sheen = glassSheen(w + 0.005, d + 0.005);
+    sheen.position.set(0, 0.0064, -d / 2);
+    tilt.add(sheen);
     this.animGroup.add(tilt);
     this.addHit(bezel);
     this.cursor = 'default';
@@ -723,6 +866,8 @@ export class BMeter extends BPart {
   private canvas: HTMLCanvasElement | null = null;
   private tex: THREE.CanvasTexture | null = null;
   private level = 0;
+  private peakL = 0;
+  private peakR = 0;
 
   constructor(comp: BoardComponent, env: BoardEnv) {
     super(comp, env);
@@ -730,20 +875,28 @@ export class BMeter extends BPart {
     const kind = (p.kind as string) || 'led';
     const len = (p.length as number) || 0.06;
     this.cursor = 'default';
-    const base = new THREE.Mesh(new RoundedBoxGeometry(kind === 'led' ? 0.012 : len, 0.004, kind === 'led' ? len : len * 0.6, 2, 0.0015), zoneMat(p, 0));
+    const base = new THREE.Mesh(new RoundedBoxGeometry(kind === 'led' ? 0.016 : len, 0.004, kind === 'led' ? len + 0.008 : len * 0.6, 2, 0.0015), zoneMat(p, 0));
     base.position.y = 0.002;
     this.object.add(base);
     this.addHit(base);
     if (kind === 'led') {
-      const n = 16;
-      this.segs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.007, 0.001, (len / n) * 0.7), new THREE.MeshBasicMaterial({ toneMapped: false }), n);
+      // a club meter: two columns of 15 LEDs (green, then amber, then red) behind a smoked window, with the dB marks printed beside
+      const n = 15;
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.0085, 0.0006, len + 0.003), new THREE.MeshStandardMaterial({ color: '#07080a', roughness: 0.15, metalness: 0.2 }));
+      win.position.set(-0.002, 0.0042, 0);
+      this.object.add(win);
+      this.segs = new THREE.InstancedMesh(new THREE.BoxGeometry(0.0028, 0.0006, (len / n) * 0.7), new THREE.MeshBasicMaterial({ toneMapped: false }), n * 2);
       const m = new THREE.Matrix4();
-      for (let i = 0; i < n; i++) {
-        m.makeTranslation(0, 0.0045, len / 2 - (i + 0.5) * (len / n));
-        this.segs.setMatrixAt(i, m);
-        this.segs.setColorAt(i, new THREE.Color(0x111111));
-      }
+      for (let col = 0; col < 2; col++)
+        for (let i = 0; i < n; i++) {
+          m.makeTranslation(-0.002 + (col ? 0.0019 : -0.0019), 0.0046, len / 2 - (i + 0.5) * (len / n));
+          this.segs.setMatrixAt(col * n + i, m);
+          this.segs.setColorAt(col * n + i, new THREE.Color(0x111111));
+        }
       this.object.add(this.segs);
+      const leg = decal(meterLegendTexture(printOn(p.colors[0]), n), 0.0045, len, 0.85);
+      leg.position.set(0.0052, 0.0042, 0);
+      this.object.add(leg);
     } else if (kind === 'needle') {
       const face = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.9, len * 0.5), boardMaterial({ id: 'matte', color: '#f1e6c8', glow: { color: '#ffcf7a', intensity: 0.3, beat: false } }));
       face.rotation.x = -Math.PI / 2;
@@ -771,12 +924,24 @@ export class BMeter extends BPart {
     const lv = Math.max(l, r);
     this.level = Math.max(lv, this.level - c.dt * 1.5);
     if (this.segs) {
-      const n = this.segs.count;
-      const lit = Math.round(this.level * n);
-      const a = new THREE.Color(this.p.colors[2]);
-      const red = new THREE.Color('#ff2e2e');
-      const off = new THREE.Color(0x111216);
-      for (let i = 0; i < n; i++) this.segs.setColorAt(i, i < lit ? (i > n * 0.82 ? red : a) : off);
+      const n = this.segs.count / 2;
+      const low = new THREE.Color(this.p.colors[2]);
+      const amber = new THREE.Color('#ffc53a');
+      const red = new THREE.Color('#ff2b45');
+      const lv2 = [l, r];
+      for (let col = 0; col < 2; col++) {
+        const db = 20 * Math.log10(Math.max(1e-6, lv2[col]));
+        const f = Math.min(1, Math.max(0, (db + 36) / 39));
+        const lit = Math.round(Math.max(f, col ? this.peakR : this.peakL) * n);
+        if (col) this.peakR = Math.max(f, this.peakR - c.dt * 1.8);
+        else this.peakL = Math.max(f, this.peakL - c.dt * 1.8);
+        for (let i = 0; i < n; i++) {
+          const k = i / (n - 1);
+          const base = k > 0.86 ? red : k > 0.68 ? amber : low;
+          // an unlit LED still shows a ghost of its colour through the smoked window
+          this.segs.setColorAt(col * n + i, i < lit ? tmpC.copy(base).multiplyScalar(1.6) : tmpC.copy(base).multiplyScalar(0.07));
+        }
+      }
       this.segs.instanceColor!.needsUpdate = true;
     } else if (this.needle) this.needle.rotation.y = 0.8 - this.level * 1.6;
     else if (this.canvas && this.tex && c.frame % 2 === 0) {
@@ -843,7 +1008,7 @@ export function panelGeometry(shape: string, w: number, d: number, h: number): T
     const g1 = new RoundedBoxGeometry(w, h, d, 2, Math.min(0.006, h / 3)).translate(0, h / 2, 0);
     const g2 = new RoundedBoxGeometry(w * 0.8, h, d * 0.45, 2, Math.min(0.006, h / 3)).translate(0, h * 1.5, -d * 0.2);
     const merged = new THREE.BufferGeometry();
-    const parts = [g1, g2].map((g) => g.toNonIndexed());
+    const parts = [g1, g2].map((g) => (g.index ? g.toNonIndexed() : g));
     const pos = parts.flatMap((g) => [...(g.getAttribute('position').array as Float32Array)]);
     const nor = parts.flatMap((g) => [...(g.getAttribute('normal').array as Float32Array)]);
     const uv = parts.flatMap((g) => [...(g.getAttribute('uv').array as Float32Array)]);
@@ -867,6 +1032,18 @@ export class BPanel extends BPart {
     this.cursor = 'default';
     // an engraving or print on top: the label
     const h = (p.h as number) || 0.03;
+    // screws in the corners of a plate, as it would be held together
+    const pw = (p.w as number) || 0.4;
+    const pd = (p.d as number) || 0.25;
+    if (p.screws !== false && (p.shape ?? 'rect') === 'rect' && pw > 0.08 && pd > 0.08) {
+      const inset = Math.min(0.012, Math.min(pw, pd) * 0.08);
+      for (const sx of [-1, 1])
+        for (const sz of [-1, 1]) {
+          const sc = screw(0.0022);
+          sc.position.set(sx * (pw / 2 - inset), h, sz * (pd / 2 - inset));
+          this.animGroup.add(sc);
+        }
+    }
     const l = p.label;
     if (l.text && l.place !== 'none') {
       const tex = labelTexture(l.text, l.font, p.colors[1]);

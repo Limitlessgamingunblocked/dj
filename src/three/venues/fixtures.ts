@@ -1025,6 +1025,8 @@ export function booth(o: { w?: number; d?: number; front?: THREE.Material; top?:
   const w = o.w ?? 2.9;
   const d = o.d ?? 1.0;
   const g = new THREE.Group();
+  // a board you built with its own table hides this one (Stage.hideVenueBooth)
+  g.userData.venueBooth = true;
   const bodyMat = o.front ?? new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.6, metalness: 0.3 });
   const body = new THREE.Mesh(new THREE.BoxGeometry(w, TABLE_Y - 0.04, d), bodyMat);
   body.position.set(0, (TABLE_Y - 0.04) / 2, o.z ?? 0);

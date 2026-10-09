@@ -12,7 +12,7 @@ import type { BoardComponent, CommonProps, TypeInfo } from './format';
 import { commonDefaults } from './format';
 import { BButton, BFader, BJog, BKnob, BMeter, BPads, BPanel, BScreen, type BoardEnv, type BPart } from './parts';
 
-export type Category = 'structure' | 'decks' | 'mixer' | 'controls' | 'display' | 'fx' | 'addons' | 'show' | 'decor';
+export type Category = 'structure' | 'decks' | 'mixer' | 'controls' | 'display' | 'fx' | 'addons' | 'show' | 'gear' | 'decor';
 
 export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'structure', label: 'Panels & shapes' },
@@ -23,6 +23,7 @@ export const CATEGORIES: { id: Category; label: string }[] = [
   { id: 'fx', label: 'FX' },
   { id: 'addons', label: 'Wild add-ons' },
   { id: 'show', label: 'Show controls' },
+  { id: 'gear', label: 'Booth gear' },
   { id: 'decor', label: 'Decorations' },
 ];
 
@@ -31,6 +32,7 @@ export interface OptionSpec {
   label: string;
   kind: 'number' | 'select' | 'bool' | 'text' | 'control' | 'color';
   min?: number;
+  /** the largest number, or a text's longest length */
   max?: number;
   step?: number;
   choices?: { id: string | number; label: string }[];
@@ -234,7 +236,7 @@ const STANDARD: CompDef[] = [
     label: 'Jog wheel',
     blurb: 'Any size, any platter: vinyl, metal, LED ring, glass, liquid or holographic, with art, the waveform or your name in the middle.',
     icon: '◎',
-    defaults: () => ({ deck: 1, size: 0.07, platter: 'vinyl', display: 'art', colors: ['#202227', '#3a3d45', '#2ec4f1'], feel: { ...commonDefaults().feel, sensitivity: 1 } }),
+    defaults: () => ({ deck: 1, size: 0.075, platter: 'metal', display: 'art', colors: ['#1b1d22', '#c9ced6', '#2ec4f1'], feel: { ...commonDefaults().feel, sensitivity: 1 } }),
     options: [
       { key: 'deck', label: 'Deck', kind: 'select', choices: DECKS },
       { key: 'size', label: 'Radius (m)', kind: 'number', min: 0.02, max: 0.4, step: 0.005 },
@@ -290,7 +292,7 @@ const STANDARD: CompDef[] = [
     blurb: 'Any length, any cap, up and down or side to side.',
     icon: '┃',
     shapes: ['square', 'round', 'tall', 'tbar'],
-    defaults: () => ({ fn: 'ch.1.fader', length: 0.06, orient: 'vertical', shape: 'square' }),
+    defaults: () => ({ fn: 'ch.1.fader', length: 0.045, orient: 'vertical', shape: 'square', colors: ['#1d2025', '#2b2e34', '#ffffff'] }),
     options: [CONTROL, { key: 'length', label: 'Length (m)', kind: 'number', min: 0.02, max: 0.5, step: 0.005 }, { key: 'orient', label: 'Direction', kind: 'select', choices: [{ id: 'vertical', label: 'Up and down' }, { id: 'horizontal', label: 'Side to side' }] }],
     cost: 3,
     build: single(BFader),
@@ -302,7 +304,7 @@ const STANDARD: CompDef[] = [
     blurb: 'Any size and cap: round, hex, pointer, chicken-head or flat, with an LED ring if you like.',
     icon: '◉',
     shapes: ['round', 'hex', 'pointer', 'chicken', 'cap'],
-    defaults: () => ({ fn: 'ch.1.filter', size: 0.011, shape: 'round', ring: false }),
+    defaults: () => ({ fn: 'ch.1.filter', size: 0.0085, shape: 'round', ring: false, colors: ['#1b1d22', '#2a2d33', '#ffffff'] }),
     options: [CONTROL, { key: 'size', label: 'Radius (m)', kind: 'number', min: 0.004, max: 0.15, step: 0.001 }, { key: 'ring', label: 'LED ring', kind: 'bool' }],
     cost: 3,
     build: single(BKnob),
@@ -314,7 +316,7 @@ const STANDARD: CompDef[] = [
     blurb: 'Any shape, colour, glow, label and function.',
     icon: '⏺',
     shapes: ['square', 'round', 'big', 'pill', 'rect'],
-    defaults: () => ({ fn: 'deck.1.play', w: 0.016, shape: 'square' }),
+    defaults: () => ({ fn: 'deck.1.play', w: 0.016, shape: 'square', colors: ['#1b1d22', '#2a2d33', '#3ddc97'] }),
     options: [CONTROL, { key: 'w', label: 'Size (m)', kind: 'number', min: 0.004, max: 0.3, step: 0.001 }],
     cost: 2,
     build: single(BButton),
@@ -325,7 +327,7 @@ const STANDARD: CompDef[] = [
     label: 'Pad grid',
     blurb: 'From 2×2 to 16×16: hot cues, sampler slots or performance pads.',
     icon: '▦',
-    defaults: () => ({ rows: 2, cols: 4, size: 0.018, base: 'deck.1.pad.{n}' }),
+    defaults: () => ({ rows: 2, cols: 4, size: 0.02, base: 'deck.1.pad.{n}', colors: ['#1b1d22', '#22252b', '#ff2e88'] }),
     options: [
       { key: 'rows', label: 'Rows', kind: 'number', min: 1, max: 16, step: 1 },
       { key: 'cols', label: 'Columns', kind: 'number', min: 1, max: 16, step: 1 },
@@ -365,7 +367,7 @@ const STANDARD: CompDef[] = [
     label: 'Meter',
     blurb: 'A needle VU, LED bars, a spectrum analyser or an oscilloscope.',
     icon: '📶',
-    defaults: () => ({ kind: 'led', source: 0, length: 0.06, colors: ['#15171b', '#e8ebf0', '#3ddc97'] }),
+    defaults: () => ({ kind: 'led', source: 0, length: 0.06, colors: ['#15171b', '#e8ebf0', '#27e07d'] }),
     options: [
       { key: 'kind', label: 'Kind', kind: 'select', choices: [{ id: 'needle', label: 'Needle VU' }, { id: 'led', label: 'LED bars' }, { id: 'spectrum', label: 'Spectrum' }, { id: 'scope', label: 'Oscilloscope' }] },
       { key: 'source', label: 'Listens to', kind: 'select', choices: [{ id: 0, label: 'Master' }, ...[1, 2, 3, 4].map((n) => ({ id: n, label: `Channel ${n}` }))] },
@@ -427,6 +429,8 @@ export function buildComponent(c: BoardComponent, env: BoardEnv, parts: Part[], 
   o.rotation.set(...c.rot);
   o.scale.set(...c.scale);
   o.userData.componentId = c.id;
+  // the component's own object (its hit meshes carry the id too)
+  o.userData.compRoot = true;
   for (const p of built.parts) {
     parts.push(p);
     for (const h of p.hit) h.userData.componentId = c.id;

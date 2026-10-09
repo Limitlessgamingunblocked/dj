@@ -180,7 +180,7 @@ const pro: BoardDef = {
 /* 3. Club standard: two media players + 4-channel mixer               */
 /* ------------------------------------------------------------------ */
 
-function player(b: BoardBuild, side: DeckRef, x: number): void {
+export function player(b: BoardBuild, side: DeckRef, x: number): void {
   const u = b.unit(x, 0, 0.32, 0.43, 0.1, { radius: 0.012 });
   const D = `deck.${side}`;
   const fixed = typeof side === 'number';
@@ -218,7 +218,7 @@ function player(b: BoardBuild, side: DeckRef, x: number): void {
   u.face.text(-0.03, 0.2, fixed ? `MEDIA PLAYER · DECK ${side}` : side === 'L' ? 'MEDIA PLAYER · DECK 1 / 3' : 'MEDIA PLAYER · DECK 2 / 4', { size: 0.0036, color: u.finish.face.accent, spacing: 0.2 });
 }
 
-function clubMixer(b: BoardBuild): void {
+export function clubMixer(b: BoardBuild): void {
   const u = b.unit(0, 0, 0.33, 0.43, 0.1, { radius: 0.01 });
   const xs = [-0.125, -0.075, -0.025, 0.025];
   xs.forEach((x, i) => channelStrip(u, i + 1, x, -0.18, 0.029, { faderZ: 0.083, faderLen: 0.085, vuX: x + 0.021, knobR: 0.0088 }));
@@ -264,7 +264,7 @@ const club: BoardDef = {
 /* 4. Vinyl turntable rig                                               */
 /* ------------------------------------------------------------------ */
 
-function turntable(b: BoardBuild, side: DeckRef, x: number): void {
+export function turntable(b: BoardBuild, side: DeckRef, x: number): void {
   const f = b.finish;
   const D = `deck.${side}`;
   const u = b.unit(x, 0, 0.453, 0.353, 0.075, { radius: 0.01 });
@@ -400,7 +400,7 @@ const hybrid: BoardDef = {
 /* 7. Rotary house: two turntables + rotary mixer                       */
 /* ------------------------------------------------------------------ */
 
-function rotaryMixer(b: BoardBuild): void {
+export function rotaryMixer(b: BoardBuild): void {
   const u = b.unit(0, 0, 0.3, 0.353, 0.09, { radius: 0.006 });
   const chX = [-0.085, 0.085];
   chX.forEach((x, i) => {

@@ -120,8 +120,8 @@ scripts/               build-single (one-file HTML), build-wasm
 | **10.5** | Input | Partial | Mouse, keyboard (remappable), touch on the software UI, MIDI | Gamepad; touch on the 3D board |
 | **11** | Recording studio | Exists (Stage 4) | `media/Studio.ts`, `media/Compositor.ts`, `media/MediaWriter.ts` (WebCodecs → own WebM / MP4 muxers), `audio/capture/` (lossless tap, WAV, MP3), `media/cover.ts`, `ui/RecordPanel.ts`, `ui/SetView.ts`, `ui/MySetsPanel.ts` | H.264 MP4 untested in this container; room sound on recordings not offered |
 | **12** | Replay buffer, Save That Mix, trim editor | Exists (Stage 4) | `media/Replay.ts` (24-bit ring, 720p video ring, stills), `media/reencode.ts`, `media/demux.ts`, `ui/TrimEditor.ts`, smart markers in `app/recording.ts` | — |
-| **13** | Board Builder | Partial | 7 presets built from modular parts (`three/builder.ts`, `parts.ts`), finishes, stickers; every control works | The editor, inspector, add-ons, node wiring, sharing and the board file format are all missing (Stage 5) |
-| **13.10** | Hardware mapping | Partial | MIDI learn with saved mappings, keyboard remap | Gamepad; per-board profiles |
+| **13** | Board Builder | Exists (Stage 5) | `board/` (format, catalog, parts, units, gear, add-ons, show controls, decor, logic, library, perf), `board/editor/` (Editor, ops, history, BuilderUI, panels, logicui, gallery), `three/venues/workshop.ts`, `app/boardHooks.ts` | Online gallery (needs Stage 6 social); Blender models for parts |
+| **13.10** | Hardware mapping | Partial | MIDI learn with saved mappings, keyboard remap, per-board MIDI mappings (Stage 5) | Gamepad |
 | **14** | Blender pipeline and models | Missing | No Blender, no connector, no model files | Folders, export scripts and loader added in Stage 1; **modelling is blocked on Blender access** (see the questions at the end) |
 | **15** | Audio engine quality | Partial | Worklet engine, limiter, WASM key lock, tempo-synced FX, split cue, output latency shown in Settings; venue acoustics and the crowd layer (Stage 3) | No latency calibration tool; no bitcrusher or roll FX |
 | **16.1** | Module structure | Partial | AudioEngine, Venue/Lighting (`venues/`), Crowd, Input (`core/controls`, `midi`, `keyboard`) exist | BeatClock and SaveSystem added in Stage 1; the rest map to later stages (see "Module map" below) |
@@ -145,7 +145,7 @@ scripts/               build-single (one-file HTML), build-wasm
 | `CrowdSystem` | `crowd.ts`, `farcrowd.ts`, `app/Hype.ts` | Stage 3: crowd states in `crowd.ts`, crowd sound in `audio/crowd.ts`; `Hype.ts` removed |
 | `VibeMeter` | `app/Hype.ts` (partial) | Stage 3: `src/game/vibe.ts`, run by `src/game/Gig.ts` and `src/app/gigs.ts` |
 | `RecordingSystem` / `ReplayBuffer` | `audio/Recorder.ts` (partial) | Stage 4: `media/Studio.ts`, `media/Replay.ts`, `audio/capture/`, `app/recording.ts` |
-| `BoardBuilder` | `three/boards.ts`, `builder.ts`, `parts.ts` (presets only) | Stage 5 |
+| `BoardBuilder` | `three/boards.ts`, `builder.ts`, `parts.ts` (presets only) | Stage 5: `src/board/` (file format, catalogue, parts, logic, library) and `src/board/editor/` (editor, UI), the workshop venue, `app/boardHooks.ts` |
 | `InputMapping` | `core/controls.ts`, `app/keyboard.ts`, `midi/MidiManager.ts` | Stage 5 / 7 (gamepad) |
 | `ProgressionSystem` | — | Data model in Stage 1; system in Stage 6 |
 | `SaveSystem` | `core/settings.ts`, `prefs.ts`, `backup.ts`, `library/db.ts` (unversioned) | `src/core/SaveSystem.ts` + `src/core/models.ts` (versioned, migrations, backup) |

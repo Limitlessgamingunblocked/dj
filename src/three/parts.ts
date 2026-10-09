@@ -6,6 +6,7 @@
  * Board space: metres, +X right, +Y up, +Z towards the DJ.
  */
 import * as THREE from 'three';
+import { faderCapGeometry, knurledKnob } from './realism';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { ControlRegistry } from '../core/controls';
 import { ledColor } from '../core/controls';
@@ -140,7 +141,8 @@ export class KnobPart extends Part {
     this.label = label;
     this.cursor = 'ns-resize';
     const M = mats();
-    const body = new THREE.Mesh(knobGeometry(r, h), style === 'chrome' ? M.chrome : M.rubber);
+    // knurled for grip: fine metal knurling on chrome knobs, rubber ridges on the rest
+    const body = new THREE.Mesh(style === 'chrome' ? knurledKnob(r, h, 60, 0.02) : style === 'mini' ? knobGeometry(r, h) : knurledKnob(r, h, 32, 0.045), style === 'chrome' ? M.chrome : M.rubber);
     body.castShadow = true;
     this.spin.add(body);
     if (style !== 'chrome') {
@@ -280,15 +282,19 @@ export class FaderPart extends Part {
     this.label = label;
     this.cursor = axis === 'x' ? 'ew-resize' : 'ns-resize';
     const M = mats();
-    const dims = { channel: [0.013, 0.009, 0.0085], cross: [0.0085, 0.009, 0.014], tempo: [0.016, 0.009, 0.01], mini: [0.009, 0.007, 0.007] }[size];
-    const [w, h, d] = axis === 'x' && size !== 'cross' ? [dims[2], dims[1], dims[0]] : dims;
-    const geo = new RoundedBoxGeometry(w, h, d, 2, 0.0015);
+    // [across the slot, height, along it]: pro caps are about 20 × 11 × 11 mm, ridged on top
+    const dims = { channel: [0.016, 0.0105, 0.0095], cross: [0.015, 0.0105, 0.009], tempo: [0.018, 0.0095, 0.011], mini: [0.0095, 0.0075, 0.007] }[size];
+    const [across, h, alongD] = dims;
+    const [w, d] = axis === 'x' ? [alongD, across] : [across, alongD];
+    const geo = faderCapGeometry(across, h, alongD, size === 'mini' ? 2 : 3).clone();
+    if (axis === 'x') geo.rotateY(Math.PI / 2);
+    geo.translate(0, -h / 2, 0);
     const mat = capColor ? new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.45, metalness: 0.3 }) : M.faderCap;
     this.cap = new THREE.Mesh(geo, mat);
     this.cap.position.y = h / 2;
     this.cap.castShadow = true;
     const line = new THREE.Mesh(new THREE.BoxGeometry(axis === 'x' ? 0.0012 : w * 0.85, 0.0004, axis === 'x' ? d * 0.85 : 0.0012), M.white);
-    line.position.y = h / 2 + 0.0002;
+    line.position.y = h / 2 + h * 0.08 + 0.0002;
     this.cap.add(line);
     this.capTop = h;
     this.object.add(this.cap);
@@ -1055,6 +1061,7 @@ export class VuPart extends Part {
   private cols: number;
   private colors: THREE.Color[];
   private off = new THREE.Color(0x14171c);
+  private dim: THREE.Color[] = [];
 
   constructor(
     private source: number | 'master',
@@ -1083,6 +1090,8 @@ export class VuPart extends Part {
     for (let i = 0; i < n; i++) {
       const f = i / (n - 1);
       this.colors.push(new THREE.Color(f > 0.86 ? '#ff2b45' : f > 0.68 ? '#ffc53a' : '#27e07d').multiplyScalar(1.6));
+      // an unlit LED still shows a ghost of its colour through the window
+      this.dim.push(this.colors[i].clone().multiplyScalar(0.045));
     }
     this.object.add(this.mesh);
   }
@@ -1095,7 +1104,7 @@ export class VuPart extends Part {
       const f = clamp((db + 36) / 39, 0, 1);
       this.peak[ch] = Math.max(f, this.peak[ch] - c.dt * 1.8);
       const lit = Math.round(this.peak[ch] * this.n);
-      for (let i = 0; i < this.n; i++) this.mesh.setColorAt(ch * this.n + i, i < lit ? this.colors[i] : this.off);
+      for (let i = 0; i < this.n; i++) this.mesh.setColorAt(ch * this.n + i, i < lit ? this.colors[i] : this.dim[i]);
     }
     this.mesh.instanceColor!.needsUpdate = true;
   }

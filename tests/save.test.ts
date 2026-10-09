@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { memoryStore, SAVE_PREFIX, SaveSystem, type SaveSpec } from '../src/core/SaveSystem';
-import { BOARDS, checkBoard, cleanName, cleanTagline, PROFILE, PROGRESS, RECORDINGS } from '../src/core/models';
+import { BOARDS, cleanName, cleanTagline, PROFILE, PROGRESS, RECORDINGS } from '../src/core/models';
 
 /** a made-up kind at version 3, to exercise migrations */
 interface Thing {
@@ -137,25 +137,32 @@ describe('save models', () => {
     expect(p.sandbox).toBe(false);
   });
 
-  it('loads a board from a newer build without the parts it does not know', () => {
-    const known = new Set(['fader', 'knob', 'jog']);
-    const b = checkBoard(
-      {
-        id: 'b1',
-        name: 'Chaos',
-        components: [
-          { id: 'c1', type: 'fader', pos: [0, 1, 2], rot: [0, 0, 0], scale: [1, 1, 1], props: { color: '#ff2e88' } },
-          { id: 'c2', type: 'quantum_lamp', pos: [0, 0, 0] },
-          { id: 'c3', type: 'knob', pos: ['x', 0, Number.NaN], children: [{ id: 'c4', type: 'jog' }, { id: 'c5', type: 'hologram' }] },
-          { type: 'knob' },
-        ],
-      },
-      known,
-    )!;
-    expect(b.components.map((c) => c.id)).toEqual(['c1', 'c3']);
-    expect(b.components[1].pos).toEqual([0, 0, 0]);
-    expect(b.components[1].children.map((c) => c.id)).toEqual(['c4']);
-    expect(BOARDS.validate({ items: [b], current: 'gone' }).current).toBeNull();
+  it('moves v1 boards into the v2 list, their files waiting for the media store', () => {
+    const v1 = { items: [{ id: 'b1', name: 'Chaos', components: [{ id: 'c1', type: 'fader', pos: [0, 0, 0] }] }, { id: 'bad id!' }], current: 'b1' };
+    const v2 = BOARDS.validate(BOARDS.migrations[1](v1));
+    expect(v2.items.map((b) => b.id)).toEqual(['b1']);
+    expect(v2.items[0]).toMatchObject({ name: 'Chaos', parts: 1, source: 'mine', rating: 0 });
+    expect(v2.current).toBe('b1');
+    expect(v2.pending.b1).toMatchObject({ format: 'deckhouse-board', id: 'b1', name: 'Chaos' });
+  });
+
+  it('checks the board list: duplicates, bad ratings and a current board that is gone', () => {
+    const b = BOARDS.validate({
+      items: [{ id: 'b1', name: 'One', rating: 9, source: 'alien' }, { id: 'b1', name: 'Dupe' }, { id: 'b2' }],
+      current: 'gone',
+      currentFile: { id: 'gone' },
+      favParts: ['knob', 'knob', 'Not A Type', 'lava_lamp'],
+      ratings: { showcase_club: 4, showcase_x: 11 },
+    });
+    expect(b.items.map((x) => x.name)).toEqual(['One', 'My board']);
+    expect(b.items[0].rating).toBe(5);
+    expect(b.items[0].source).toBe('mine');
+    expect(b.current).toBeNull();
+    expect(b.currentFile).toBeNull();
+    expect(b.favParts).toEqual(['knob', 'lava_lamp']);
+    expect(b.ratings).toEqual({ showcase_club: 4 });
+    // the current board's file is kept only when it is that board
+    expect(BOARDS.validate({ items: [{ id: 'b1' }], current: 'b1', currentFile: { id: 'b1', components: [] } }).currentFile).toEqual({ id: 'b1', components: [] });
   });
 
   it('skips broken recordings and keeps good ones', () => {

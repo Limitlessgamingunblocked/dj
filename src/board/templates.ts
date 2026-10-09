@@ -58,6 +58,29 @@ function pro4(): BoardComponent[] {
   ];
 }
 
+/** life size, like a club booth: two media players either side of a 4-channel mixer, headphones, a USB stick */
+function clubReal(): BoardComponent[] {
+  return [
+    make('media_player', [-0.37, 0, 0], { deck: 1 }),
+    make('club_mixer', [0, 0, 0]),
+    make('media_player', [0.37, 0, 0], { deck: 2 }),
+    make('usb_stick', [-0.49, 0.106, -0.205], {}, [0, 0.2, 0]),
+    make('headphones', [-0.66, 0, 0.12], {}, [0, 0.5, 0]),
+    make('gaffer_tape', [0, 0.106, 0.205], { w: 0.16 }),
+  ];
+}
+
+/** life size, a vinyl booth: two direct-drive turntables either side of a rotary mixer */
+function vinylReal(): BoardComponent[] {
+  return [
+    make('dd_turntable', [-0.42, 0, 0], { deck: 1 }),
+    make('rotary_mixer', [0, 0, 0]),
+    make('dd_turntable', [0.42, 0, 0], { deck: 2 }),
+    make('headphones', [0.76, 0, 0.1], {}, [0, -0.5, 0]),
+    make('setlist', [-0.76, 0, 0.05], {}, [0, 0.15, 0]),
+  ];
+}
+
 function battle(): BoardComponent[] {
   return [
     make('turntable', [-0.4, 0, 0], { deck: 1 }, [0, Math.PI / 2, 0]),
@@ -119,6 +142,8 @@ function chaos(): BoardComponent[] {
 }
 
 export const TEMPLATES: { id: string; name: string; blurb: string; build(): BoardComponent[] }[] = [
+  { id: 'club_real', name: 'Club booth (life size)', blurb: 'Two media players and a 4-channel club mixer, as in any club booth.', build: clubReal },
+  { id: 'vinyl_real', name: 'Vinyl booth (life size)', blurb: 'Two direct-drive turntables and a rotary mixer.', build: vinylReal },
   { id: 'club2', name: '2-deck Club', blurb: 'Two decks either side of a 2-channel mixer.', build: club2 },
   { id: 'pro4', name: '4-deck Pro', blurb: 'Four decks, a 4-channel mixer with kills, an FX unit.', build: pro4 },
   { id: 'battle', name: 'Battle / Scratch', blurb: 'Turntables turned sideways, a 2-channel battle mixer and a scratch tower.', build: battle },
@@ -132,6 +157,7 @@ export function fromTemplate(templateId: string, id: string, name?: string): Boa
   const b = emptyBoard(id, name ?? t.name);
   b.components = t.build();
   if (templateId === 'festival' || templateId === 'chaos') b.booth = { ...b.booth, width: 2.6, front: 'led', monitors: 'stack', glassFloor: templateId === 'chaos', sideScreens: true };
+  if (templateId === 'club_real' || templateId === 'vinyl_real') b.booth = { ...b.booth, width: templateId === 'vinyl_real' ? 1.9 : 1.75, depth: 0.8 };
   if (templateId === 'minimal') b.booth = { ...b.booth, material: 'oak', color: '#ffffff', front: 'wood', monitors: 'small' };
   return b;
 }

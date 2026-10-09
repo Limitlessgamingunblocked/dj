@@ -118,6 +118,8 @@ export class CameraRig {
   private punchShake = false;
   /** the breakdown orbit: 0..1, how strongly a still shot drifts round the booth */
   orbit = 0;
+  /** where the camera may go, when it's in a room it shouldn't leave (null: anywhere) */
+  room: THREE.Box3 | null = null;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -580,6 +582,8 @@ export class CameraRig {
     }
     this.controls.update();
     if (this.camera.position.y < -1.2) this.camera.position.y = -1.2;
+    // a small room (the workshop) keeps the camera inside its walls and under its ceiling
+    if (this.room) this.room.clampPoint(this.camera.position, this.camera.position);
     // the dolly zoom: the lens follows the camera's real distance so the DJ stays the same size
     if (liveFov !== undefined && this.lensFov === null) {
       const dNow = this.camera.position.distanceTo(this.controls.target);

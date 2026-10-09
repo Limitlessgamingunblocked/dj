@@ -148,3 +148,49 @@ Blender still wasn't reachable, so the character is built in code, made to be sw
 54. **The old MediaRecorder recorder (`audio/Recorder.ts`) is replaced** by the studio. It recorded compressed WebM audio only, and everything it did is covered by the new one.
 55. **The trim editor saves an audio clip instantly** (the lossless audio of the selection) and makes a video clip only when asked ("Save video clip": your aspect, size and overlays, from the set's video, or from its stills when it has none). Rendering video in software can take minutes on a slow machine, so the quick path doesn't wait for it.
 56. **Every file the game saves goes through one helper** (`src/core/download.ts`). In a normal tab it's a plain download. Inside the claude.ai artifact viewer, which blocks plain downloads, it uses the viewer's save prompt. That prompt takes video, pictures, text and JSON but not WAV or MP3, so audio exports there explain that the downloaded copy of the game can export them.
+
+## Stage 5: Board Builder (2026-10-09)
+
+57. **Your boards live in IndexedDB, not in the career save.**
+    - The files and their pictures are under `board:<id>` and `board-thumb:<id>` in the media store.
+    - The career save keeps only the list (`boards` v2: names, ratings, plays, favourites, the board in use) plus a compact copy of the board in use, so the game starts on it without waiting for IndexedDB.
+    - Boards a v1 save held inline move to a `pending` list and are written to IndexedDB the first time the library opens.
+58. **The board format is a documented, versioned JSON file** ([docs/board-format.md](docs/board-format.md)), checked every time it loads.
+    - Unknown part types are skipped, numbers are clamped, and only plain data is kept, so a board from a newer game or a hand-edited file can't break the game.
+    - Share codes carry the same JSON, deflated, after `DH1.`.
+    - There's no server: you share a code or a file. "Board of the Week" is picked on your device from the showcase boards by ISO week, so everyone sees the same one that week. An online gallery needs the Stage 6 social backend.
+59. **You build at real size, on a workbench in the game's own 3D scene.**
+    - The builder opens a workshop (a hidden venue: bench, cutting mat, pegboard, lamp, parts bins), and the board sits where a booth top would be, in metres.
+    - The same stage that plays gigs draws it, so "Try it" plays the board right there with every part live, with nothing to convert. "Try it" can also send it to any venue.
+60. **Editing is simple first, precise when you ask** (rebuilt after your "it's very confusing" feedback):
+    - **Direct editing:** drag a part across the bench, with grid snap and guides that line it up with its neighbours and the centre line. R / [ / ] turn it, and a floating bar by the selection holds Turn, Copy, Mirror, Group and Delete.
+    - **Precise tools:** the move/rotate/scale gizmo appears only with "Precise tools" in the More menu.
+    - **Parts list:** shows twelve essentials, with the rest folded by category and locked parts in a fold of their own.
+    - **More menu:** holds the advanced features (wiring, booth, mirror mode, box select, share).
+    - **Phones:** the panels become bottom sheets, one at a time.
+    - **First time:** a short coach card shows once.
+61. **The life-size pro units are the preset rigs' own builders** (`src/board/units.ts` calls `player`, `clubMixer`, `turntable` and `rotaryMixer` from `src/three/boards.ts`). One code path makes a preset board and a custom one, so a custom media player is as detailed as the preset's and every control works. Proportions follow published specs; the realism notes and sources are in the Stage 5 report and in `src/board/units.ts`.
+62. **Parts are modelled on the real hardware in code**, as stand-ins for Blender models (`TODO:` in `src/three/realism.ts`, `src/board/parts.ts` and `src/board/gear.ts`):
+    - **Knobs:** knurled, with printed scales.
+    - **Fader caps:** about 22 × 12 mm with grip ridges, in slots with printed scales.
+    - **Meters:** 15-segment, with dB legends and ghost-lit off segments.
+    - **Transport buttons:** rubber, in chrome bezels with LED rings.
+    - **Jogs:** knurled rims, with a light-pipe ring and an on-jog display.
+    - **Panels:** screwed down.
+    - **Booth gear** (headphones, laptop, USB stick, booth mic, monitor, setlist, gaffer tape, water bottle, record crate) is decoration only. It shows no brands, and the sleeve art and track names are made up.
+63. **The wild add-ons keep the safety rules:**
+    - **Laser aim** can only raise the beams, never lower them below the rig's height above the crowd.
+    - **Strobe and blinder** go through the show, so "reduce flashing" still caps them under 3 Hz.
+    - **Pyro** fires only if pyro is on in the lights settings.
+    - **Weather** works only at outdoor venues.
+    - **The drop button** blacks out and silences the master bus for two beats, then fires the drop.
+64. **A board's own MIDI mappings are applied after the global ones** in Settings, so the controller you've set up keeps working, and only messages nothing else uses reach the board. MIDI learn listens to every incoming message.
+65. **Macros become button controls** (`board.macro.<id>`), so a part, a trigger, a wiring cable or a MIDI key can play one. Triggers run on the beat clock's events (drop, bar, phrase, build, breakdown, peak) and the vibe meter.
+66. **A performance guard instead of a hard limit:**
+    - Every part has a cost, shown on the meter as "runs smoothly", "getting busy" or "heavy", with friendly suggestions.
+    - Decorations simplify with distance.
+    - The file checker's limits (20,000 parts) are only there to stop broken files.
+67. **The camera stays inside the workshop.**
+    - Small venues can give the camera a room to stay in (`cameraRoom`), and framing a wide board comes in lower and further back instead of rising through the ceiling.
+    - While you build, the lens ghosts and heavy bloom are off: mirrored copies of the part you're placing were confusing. The full look comes back when you press "Try it".
+68. **Career unlocks:** some parts unlock with fame (the old-style turntable, tape stop lever, and others as listed in the board format doc). Sandbox opens everything. Templates and the "life size" booths are available from the start.

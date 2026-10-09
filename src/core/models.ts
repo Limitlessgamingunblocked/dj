@@ -226,79 +226,122 @@ export const LOOKS: SaveSpec<{ items: Look[]; current: string | null }> = {
 };
 
 /* ------------------------------------------------------------------ */
-/* boards (Stage 5 documents the full board format)                     */
+/* boards (Section 13)                                                  */
 /* ------------------------------------------------------------------ */
 
-// TODO: provisional shape: Stage 5 documents the board file format (docs) and the component types; share codes build on it
+/*
+ * The boards you've built or collected. Each board's file (the documented
+ * format in docs/board-format.md, checked against the component catalogue
+ * when it opens) lives in the media store, since a big board is too much for
+ * this save; the list here says what there is. The board on the stage keeps a
+ * compact copy here too, so it's there the moment the game starts.
+ */
 
-export type Vec3 = [number, number, number];
+export const BOARD_SOURCES = ['mine', 'remix', 'code', 'file'] as const;
 
-export interface BoardComponent {
-  id: string;
-  /** the component type ('fader', 'knob', 'jog', 'lava_lamp'…) */
-  type: string;
-  pos: Vec3;
-  rot: Vec3;
-  scale: Vec3;
-  /** everything the inspector edits (shape, material, colours, glow, label, function, feel, sound, animation) */
-  props: Record<string, unknown>;
-  children: BoardComponent[];
-}
-
-export interface BoardDoc {
+export interface BoardEntry {
   id: string;
   name: string;
-  components: BoardComponent[];
+  created: string;
+  /** when it was last saved */
+  updated: string;
+  /** how many parts it has (for the list) */
+  parts: number;
+  /** your rating: 0 for none, 1–5 stars */
+  rating: number;
+  /** the board it was remixed from */
+  remixOf: string | null;
+  source: (typeof BOARD_SOURCES)[number];
+  /** gigs played on it */
+  plays: number;
+  favorite: boolean;
 }
 
-const vec = (v: unknown, fb: Vec3, lo = -1e4, hi = 1e4): Vec3 => (Array.isArray(v) && v.length === 3 ? (v.map((x, i) => num(x, lo, hi, fb[i])) as Vec3) : fb);
+export interface BoardsSave {
+  items: BoardEntry[];
+  /** the board on the stage (an entry's id), if it's one of yours */
+  current: string | null;
+  /** that board's file, compact, so it builds before the media store has opened */
+  currentFile: Record<string, unknown> | null;
+  /** the parts you've starred in the builder's palette */
+  favParts: string[];
+  /** your ratings of the showcase boards (they aren't in `items`) */
+  ratings: Record<string, number>;
+  /** board files from an older save waiting to move into the media store */
+  pending: Record<string, Record<string, unknown>>;
+}
 
-/**
- * Check one component. Unknown types are skipped (not an error) when a list
- * of known types is given: a board from a newer build loads without them.
- */
-export function checkComponent(raw: unknown, known?: ReadonlySet<string>, depth = 0): BoardComponent | null {
-  const r = obj(raw);
-  const cid = id(r.id);
-  const type = typeof r.type === 'string' && KEYNAME.test(r.type) ? r.type : null;
-  if (!cid || !type || depth > 16) return null;
-  if (known && !known.has(type)) return null;
-  let props: Record<string, unknown> = {};
+/** plain JSON, at most `max` characters of it */
+function jsonObject(v: unknown, max: number): Record<string, unknown> | null {
+  if (!isObj(v)) return null;
   try {
-    // plain JSON only, and not huge
-    const text = JSON.stringify(obj(r.props));
-    if (text.length <= 20_000) props = JSON.parse(text) as Record<string, unknown>;
+    const text = JSON.stringify(v);
+    return text.length <= max ? (JSON.parse(text) as Record<string, unknown>) : null;
   } catch {
-    props = {};
+    return null;
   }
+}
+
+function boardEntry(x: unknown): BoardEntry | null {
+  const r = obj(x);
+  const bid = id(r.id);
+  if (!bid) return null;
+  const created = date(r.created) ?? new Date(0).toISOString();
   return {
-    id: cid,
-    type,
-    pos: vec(r.pos, [0, 0, 0]),
-    rot: vec(r.rot, [0, 0, 0], -100, 100),
-    scale: vec(r.scale, [1, 1, 1], 0.001, 1000),
-    props,
-    children: list(r.children, (c) => checkComponent(c, known, depth + 1), 5000),
+    id: bid,
+    name: str(r.name, 60, 'My board') || 'My board',
+    created,
+    updated: date(r.updated) ?? created,
+    parts: int(r.parts, 0, 1e6, 0),
+    rating: int(r.rating, 0, 5, 0),
+    remixOf: typeof r.remixOf === 'string' && r.remixOf.length <= 80 ? r.remixOf : null,
+    source: oneOf(r.source, BOARD_SOURCES, 'mine'),
+    plays: int(r.plays, 0, 1e9, 0),
+    favorite: bool(r.favorite, false),
   };
 }
 
-export function checkBoard(raw: unknown, known?: ReadonlySet<string>): BoardDoc | null {
-  const r = obj(raw);
-  const bid = id(r.id);
-  if (!bid) return null;
-  return { id: bid, name: str(r.name, 60, 'My board'), components: list(r.components, (c) => checkComponent(c, known), 20_000) };
-}
-
-export const BOARDS: SaveSpec<{ items: BoardDoc[]; current: string | null }> = {
+export const BOARDS: SaveSpec<BoardsSave> = {
   kind: 'boards',
-  version: 1,
-  migrations: {},
-  defaults: () => ({ items: [], current: null }),
+  version: 2,
+  migrations: {
+    // v1 (provisional, never written by a released build) kept whole boards in the save; their files move to the media store
+    1: (d) => {
+      const o = obj(d);
+      const old = Array.isArray(o.items) ? o.items : [];
+      const items: unknown[] = [];
+      const pending: Record<string, unknown> = {};
+      for (const b of old) {
+        const r = obj(b);
+        if (!id(r.id)) continue;
+        items.push({ id: r.id, name: r.name, source: 'mine', parts: Array.isArray(r.components) ? r.components.length : 0 });
+        pending[r.id as string] = { format: 'deckhouse-board', version: 1, ...r };
+      }
+      return { items, current: o.current ?? null, currentFile: null, favParts: [], ratings: {}, pending };
+    },
+  },
+  defaults: () => ({ items: [], current: null, currentFile: null, favParts: [], ratings: {}, pending: {} }),
   validate(raw) {
     const r = obj(raw);
-    const items = list(r.items, (b) => checkBoard(b), 500);
+    const items = list(r.items, boardEntry, 500);
+    const seen = new Set<string>();
+    const unique = items.filter((b) => !seen.has(b.id) && !!seen.add(b.id));
     const cur = id(r.current);
-    return { items, current: cur && items.some((b) => b.id === cur) ? cur : null };
+    const current = cur && unique.some((b) => b.id === cur) ? cur : null;
+    const file = current ? jsonObject(r.currentFile, 600_000) : null;
+    const pending: Record<string, Record<string, unknown>> = {};
+    for (const [k, v] of Object.entries(obj(r.pending)).slice(0, 500)) {
+      const f = jsonObject(v, 600_000);
+      if (id(k) && f) pending[k] = f;
+    }
+    return {
+      items: unique,
+      current,
+      currentFile: file && file.id === current ? file : null,
+      favParts: dedupe(strings(r.favParts, 200)).filter((t) => KEYNAME.test(t)),
+      ratings: record(r.ratings, (x) => (typeof x === 'number' && x >= 1 && x <= 5 ? Math.round(x) : undefined), 200),
+      pending,
+    };
   },
 };
 

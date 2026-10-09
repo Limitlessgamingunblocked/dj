@@ -217,6 +217,8 @@ export function checkProps(raw: unknown, typeDefaults: Record<string, unknown> =
     hidden: bool(r.hidden, false),
     locked: bool(r.locked, false),
   };
+  // the picture for the 'image' material: a small data URL the editor made
+  if (typeof r.image === 'string' && /^data:image\/(png|jpeg|webp);base64,/.test(r.image) && r.image.length <= 300_000) out.image = r.image;
   if (out.name === undefined) delete out.name;
   if (out.shape === undefined) delete out.shape;
   return out;

@@ -94,9 +94,14 @@ export class BoardRuntime {
     this.compile();
   }
 
-  /** controls for parts with no function, mixer kills and FX slots */
+  /** controls for parts with no function, mixer kills, FX slots and macros */
   private registerControls(): void {
     const reg = this.reg;
+    for (const m of this.doc.macros) {
+      const id = `board.macro.${m.id}`;
+      reg.register({ id, label: `Macro: ${m.name}`, kind: 'button', press: () => this.play(m), lit: () => false });
+      this.registered.push(id);
+    }
     walkComponents(this.doc.components, (c) => {
       if (c.type === 'mixer' && c.props.kills) {
         for (let ch = 1; ch <= 4; ch++)

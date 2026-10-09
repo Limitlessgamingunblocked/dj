@@ -282,6 +282,21 @@ export function twinOf(doc: BoardFile, id: string, tol = 0.004): string | null {
 
 /* ------------------------------ snapping ------------------------------ */
 
+/**
+ * Where to frame from, `dist` away from `target` along `dir`, without going above `top` (a low ceiling):
+ * too high, and the camera comes in lower and further back at the same distance; the 'top' view just stops at the ceiling.
+ */
+export function underCeiling(target: THREE.Vector3, dir: THREE.Vector3, dist: number, top: number, topView = false): THREE.Vector3 {
+  const pos = target.clone().addScaledVector(dir.clone().normalize(), dist);
+  if (pos.y <= top) return pos;
+  if (topView) return pos.setY(top);
+  const dy = Math.max(0.1, top - target.y);
+  const flat = new THREE.Vector2(dir.x, dir.z);
+  if (flat.lengthSq() < 1e-8) flat.set(0, 1);
+  flat.normalize().multiplyScalar(Math.sqrt(Math.max(0, dist * dist - dy * dy)));
+  return new THREE.Vector3(target.x + flat.x, target.y + dy, target.z + flat.y);
+}
+
 export const GRID_STEPS = [0, 0.005, 0.01, 0.025] as const;
 
 export const snap = (v: number, step: number) => (step > 0 ? Math.round(v / step) * step : v);

@@ -26,6 +26,8 @@ interface MidiEvents extends Record<string, unknown> {
   message: { device: string; text: string };
   learn: { control: string | null; waiting: boolean };
   mapped: MidiMapping;
+  /** every message, as a board mapping key ('cc:1:7', 'note:1:36', 'pb:1:0') */
+  raw: { key: string };
 }
 
 export class MidiManager extends Emitter<MidiEvents> {
@@ -35,6 +37,11 @@ export class MidiManager extends Emitter<MidiEvents> {
   learning = false;
   learnTarget: string | null = null;
   lastMessage = '';
+  /**
+   * A board you built maps its own parts (Section 13.11): a message key to the
+   * control the part drives. Checked after the global mappings.
+   */
+  boardMidi: ((key: string) => string | null) | null = null;
   private ledState = new Map<string, number>();
   private jogTouched = new Map<string, number>();
 
@@ -133,6 +140,8 @@ export class MidiManager extends Emitter<MidiEvents> {
     const isOn = status === 0x90 && d2 > 0;
     this.lastMessage = `${device} · ${type.toUpperCase()} ch${channel + 1} #${d1} = ${d2}`;
     this.emit('message', { device, text: this.lastMessage });
+    const key = `${type === 'pitch' ? 'pb' : type}:${channel + 1}:${type === 'pitch' ? 0 : d1}`;
+    if (type !== 'note' || isOn) this.emit('raw', { key });
 
     if (this.learning && this.learnTarget) {
       if (type === 'note' && !isOn) return; // learn on note-on only
@@ -157,6 +166,12 @@ export class MidiManager extends Emitter<MidiEvents> {
       if ((m.device !== device && m.device !== '*') || m.type !== type || m.channel !== channel) continue;
       if (type !== 'pitch' && m.number !== d1) continue;
       this.apply(m, type, d1, d2, isOn, status);
+    }
+    const bc = this.boardMidi?.(key);
+    const ctl = bc ? this.reg.get(bc) : undefined;
+    if (bc && ctl) {
+      const mode: MidiMapping['mode'] = ctl.kind === 'button' || type === 'note' ? 'button' : ctl.kind === 'jog' ? 'jog' : ctl.kind === 'encoder' ? 'relative' : 'absolute';
+      this.apply({ device: '*', type, channel, number: d1, control: bc, mode }, type, d1, d2, isOn, status);
     }
   }
 

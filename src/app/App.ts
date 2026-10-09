@@ -35,6 +35,14 @@ import { GigDirector, type Callout } from './gigs';
 import { roomFor } from '../audio/room';
 import { Director, sectionOf } from '../three/director';
 import { RecordingDesk } from './recording';
+import { BoardLibrary } from '../board/library';
+import { customDef } from '../board/build';
+import type { BoardFile } from '../board/format';
+import { fromTemplate } from '../board/templates';
+import { find as findComponent } from '../board/editor/ops';
+import { openBuilder, type BuilderHandle } from '../board/editor/BuilderUI';
+import { workshop } from '../three/venues/workshop';
+import { BoardBoost, makeBoardHooks } from './boardHooks';
 import { MySetsPanel } from '../ui/MySetsPanel';
 import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
@@ -139,6 +147,14 @@ export class App implements AppContext {
   private nowCard!: { el: HTMLElement; title: HTMLElement; artist: HTMLElement; meta: HTMLElement; announced: string; timer: number };
   /** frame-rate meter: frames and seconds since its last update */
   private fps = { el: null as HTMLElement | null, n: 0, t: 0 };
+  /** the boards you've built (Section 13) */
+  private boards!: BoardLibrary;
+  private boardBoost = new BoardBoost();
+  /** the board file on the stage, when it's one you built */
+  private customDoc: BoardFile | null = null;
+  /** the Board Builder, while it's open, and what to put back afterwards */
+  private builder: BuilderHandle | null = null;
+  private beforeBuild: { board: string; finish: string; venue: string; director: boolean } | null = null;
 
   constructor(private root: HTMLElement) {}
 
@@ -315,6 +331,27 @@ export class App implements AppContext {
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
+    this.boards = new BoardLibrary(this.career.saves);
+    this.stage.boardHooks = makeBoardHooks(
+      {
+        engine: this.engine,
+        stage: this.stage,
+        clock: this.clock,
+        kick: () => this.kick,
+        vibe: () => this.gigs?.meter.vibe ?? this.stage.hype,
+        fireDrop: () => (this.debugDrop = true),
+        camera: (v) => this.stage.cutTo(v),
+        venue: () => this.stage.venueDef?.id ?? this.settings.venue,
+      },
+      this.boardBoost,
+    );
+    // a board you built brings its own MIDI mapping
+    this.midi.boardMidi = (key) => {
+      const d = this.customDoc;
+      const id = d?.midi[key];
+      const c = id ? findComponent(d!, id)?.c : null;
+      return c ? c.props.fn || `board.${c.id}` : null;
+    };
     registerCameraControls(this.reg, this.stage.rig, {
       next: () => this.nextAngle(),
       reset: () => this.resetAngle(),
@@ -364,7 +401,10 @@ export class App implements AppContext {
       openCreator: () => this.creator?.show(),
       recording: () => this.desk.recording.on,
       mark: (kind, label) => this.desk.mark(kind, label),
-      finished: (grade) => this.desk.gigFinished(grade),
+      finished: (grade) => {
+        this.desk.gigFinished(grade);
+        if (this.customDoc) this.boards.played(this.customDoc.id);
+      },
       replay: () => (this.desk.replay.on ? { save: async () => !!(await this.desk.saveMix()), moment: (label) => void this.desk.replayMoment(label), clear: () => this.desk.replay.clear() } : null),
       djName: () => nameService.text,
       autoDJOff: () => this.setAutoDJ(false),
@@ -695,6 +735,7 @@ export class App implements AppContext {
       { label: document.fullscreenElement && !this.boardMode ? 'Exit full screen' : 'Full screen', action: () => this.fullscreen() },
       { label: this.settings.uiMode === 'simple' ? 'Switch to Pro layout' : 'Switch to Simple layout', action: () => this.setUiMode(this.settings.uiMode === 'simple' ? 'pro' : 'simple') },
       'sep',
+      { label: 'Board Builder: build your own board…', action: () => void this.openBuilder() },
       { label: 'MIDI controllers…', action: () => this.showTab('settings') },
       { label: 'Help & keyboard shortcuts', action: () => openHelp() },
     ]);
@@ -928,12 +969,49 @@ export class App implements AppContext {
   }
 
   private pickBoard(): void {
-    openBoardPicker({ board: this.boardDef.id, finish: this.settings.finish }, (b, f) => this.applyBoard(b, f));
+    openBoardPicker(
+      { board: this.boardDef.id, finish: this.settings.finish },
+      (b, f) => {
+        if (!b.startsWith('custom:')) return this.applyBoard(b, f);
+        void this.boards.load(b.slice(7)).then((d) => (d ? this.playBoard(d) : toast('That board couldn’t be opened.', 'error')));
+      },
+      {
+        items: () => this.boards.items.map((e) => ({ id: e.id, name: e.name, parts: e.parts, favorite: e.favorite })),
+        thumb: (id) => this.boards.thumb(id),
+        build: () => void this.openBuilder(),
+        edit: (id) => void this.boards.load(id).then((d) => d && this.openBuilder(d)),
+      },
+    );
   }
 
-  private applyBoard(boardId: string, finishId: string, initial = false): void {
-    const def = boardById(boardId);
-    const changed = def.id !== this.boardDef.id || initial;
+  /** a board you built goes on the stage (`persist`: remembered for next time) */
+  private playBoard(doc: BoardFile, persist = true): void {
+    this.customDoc = doc;
+    if (persist && this.boards.get(doc.id)) this.boards.setCurrent(doc);
+    this.applyBoard(`custom:${doc.id}`, 'custom', false, doc, persist);
+  }
+
+  private applyBoard(boardId: string, finishId: string, initial = false, doc?: BoardFile, persist = true): void {
+    let def: BoardDef;
+    if (boardId.startsWith('custom:')) {
+      const d = doc ?? (this.customDoc?.id === boardId.slice(7) ? this.customDoc : this.boards.currentFile());
+      if (!d || d.id !== boardId.slice(7)) {
+        // not to hand yet: a preset until it's loaded from the store
+        void this.boards.load(boardId.slice(7)).then((x) => (x ? this.playBoard(x) : toast('Your board couldn’t be loaded, so a standard one is on instead.', 'error')));
+        boardId = 'club4';
+        def = boardById(boardId);
+      } else {
+        this.customDoc = d;
+        def = customDef(d, () => ({ reg: this.reg, hooks: this.stage.boardHooks }));
+      }
+    } else {
+      def = boardById(boardId);
+      if (this.customDoc && persist) {
+        this.customDoc = null;
+        this.boards.setCurrent(null);
+      }
+    }
+    const changed = def.id !== this.boardDef.id || initial || boardId.startsWith('custom:');
     this.boardDef = def;
     this.settings.board = def.id;
     this.settings.finish = def.finishes.some((f) => f.id === finishId) ? finishId : def.finishes[0].id;
@@ -953,7 +1031,60 @@ export class App implements AppContext {
     this.stage.stickers = this.settings.stickers;
     this.stage.setBoard(def, this.settings.finish);
     this.events.emit('board', def.id);
-    this.save();
+    if (persist) this.save();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* the Board Builder (Section 13)                                       */
+  /* ------------------------------------------------------------------ */
+
+  /** open the builder on a board: the one given, the one you're playing, your latest, or a starter */
+  private async openBuilder(doc?: BoardFile): Promise<void> {
+    if (this.builder) return;
+    if (this.boardMode) this.boardFull(false);
+    let d = doc ?? (this.customDoc ? structuredClone(this.customDoc) : null);
+    if (!d && this.boards.items[0]) d = await this.boards.load(this.boards.items[0].id);
+    d ??= fromTemplate('club_real', this.boards.newId(), 'My first board');
+    this.beforeBuild = { board: this.settings.board, finish: this.settings.finish, venue: this.settings.venue, director: this.settings.director };
+    if (this.settings.director) this.setDirector(false, true);
+    this.stage.setVenue(workshop);
+    this.engine.crowd.size = 0;
+    this.builder = openBuilder(
+      {
+        stage: this.stage,
+        reg: this.reg,
+        library: this.boards,
+        progress: () => this.career.progress,
+        shell: this.shell,
+        play: (x) => this.playBoard(x, false),
+        setVenue: (id) => this.stage.setVenue(id === 'workshop' ? workshop : venueById(id)),
+        venue: () => this.stage.venueDef?.id ?? '',
+        venues: () => VENUES.map((v) => ({ id: v.id, name: v.name })),
+        kick: () => this.kick,
+        midi: {
+          ready: () => !!this.midi.access && this.midi.devices().length > 0,
+          next: (fn) => {
+            const off = this.midi.on('raw', ({ key }) => {
+              off();
+              fn(key);
+            });
+            return off;
+          },
+        },
+        closed: (kept) => this.builderClosed(kept),
+      },
+      d,
+    );
+  }
+
+  private builderClosed(kept: BoardFile | null): void {
+    this.builder = null;
+    const b = this.beforeBuild;
+    this.beforeBuild = null;
+    if (kept) this.playBoard(kept);
+    else if (b) this.applyBoard(b.board, b.finish);
+    this.setVenue(b?.venue ?? this.settings.venue, true);
+    if (b?.director) this.setDirector(true, true);
   }
 
   private setView(v: StageView): void {
@@ -1322,8 +1453,11 @@ export class App implements AppContext {
       this.kick = f.kickPulse;
       this.creator?.update(dt);
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
-      this.stage.hype = this.gigs.update(dt, f);
-      this.desk.update(dt, this.stage.hype);
+      const vibe = this.gigs.update(dt, f);
+      // a board's crowd fader or hype dial lifts the room (never the score)
+      this.stage.hype = Math.max(vibe, this.boardBoost.update(dt, t / 1000));
+      this.desk.update(dt, vibe);
+      this.builder?.update(dt);
       this.engine.crowd.update(dt, this.stage.hype, this.clock.playing);
       this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);

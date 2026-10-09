@@ -20,8 +20,10 @@ import type { BoardHooks } from './hooks';
 import { BoardRuntime, walkComponents } from './logic';
 import { updateBoardUniforms } from './materials';
 import { SHOW_CONTROLS } from './showctl';
+import { PRO_UNITS } from './units';
+import { GEAR } from './gear';
 
-registerDefs([...ADDONS, ...SHOW_CONTROLS, ...DECOR]);
+registerDefs([...PRO_UNITS, ...ADDONS, ...SHOW_CONTROLS, ...GEAR, ...DECOR]);
 
 export const CUSTOM_FINISH: Finish = finish({ id: 'custom', name: 'As built', swatch: '#ff2e88', body: '#16181c', face: { base: '#1d2025', print: '#e8ebf0', sub: '#6b7382', accent: '#ff2e88', texture: 'matte' }, accent: '#ff2e88' });
 
@@ -30,6 +32,9 @@ export interface CustomBuild {
   booth: BuiltBooth;
   runtime: BoardRuntime;
   ticks: ((c: PartCtx) => void)[];
+  /** decorations, simplified away when the camera is far from them (Section 13.13) */
+  lod: { o: THREE.Object3D; r: number }[];
+  frame: number;
 }
 
 /** the highest deck any component uses (the engine shows that many decks) */
@@ -79,9 +84,15 @@ export function buildInto(b: BoardBuild, doc: BoardFile, reg: ControlRegistry, h
   const parts: Part[] = [];
   const ticks: ((c: PartCtx) => void)[] = [];
   const runtime = new BoardRuntime(doc, reg, hooks);
+  const lod: CustomBuild['lod'] = [];
   for (const c of doc.components) {
     const o = buildComponent(c, env, parts, ticks);
-    if (o) b.root.add(o);
+    if (!o) continue;
+    b.root.add(o);
+    if (defOf(c.type)?.category === 'decor') {
+      const s = new THREE.Box3().setFromObject(o).getSize(new THREE.Vector3());
+      lod.push({ o, r: Math.max(0.01, s.length() / 2) });
+    }
   }
   for (const p of parts) b.register(p);
   // the booth hangs below the board's origin, which sits on the table top
@@ -89,16 +100,21 @@ export function buildInto(b: BoardBuild, doc: BoardFile, reg: ControlRegistry, h
   booth.group.position.y = -booth.top;
   booth.group.userData.booth = true;
   b.root.add(booth.group);
-  const extra: CustomBuild = { booth, runtime, ticks };
+  const extra: CustomBuild = { booth, runtime, ticks, lod, frame: 0 };
   (b as BoardBuild & { custom?: CustomBuild }).custom = extra;
   (b as BoardBuild & { rootY?: number }).rootY = doc.booth.table === 'none' ? undefined : booth.top;
   return extra;
 }
 
-/** per frame, from the stage: shared uniforms, the booth, add-on ticks, the runtime */
-export function updateCustom(b: BoardBuild, c: PartCtx, hooks: BoardHooks): void {
+const tmpV = new THREE.Vector3();
+
+/** per frame, from the stage: shared uniforms, the booth, add-on ticks, the runtime, far decorations */
+export function updateCustom(b: BoardBuild, c: PartCtx, hooks: BoardHooks, camera?: THREE.Camera): void {
   const x = (b as BoardBuild & { custom?: CustomBuild }).custom;
   if (!x) return;
+  // a few times a second: decorations too small to see from here are skipped
+  if (camera && x.lod.length && x.frame++ % 15 === 0)
+    for (const l of x.lod) l.o.visible = camera.position.distanceTo(l.o.getWorldPosition(tmpV)) < Math.max(4, l.r * 140);
   const kick = hooks.kick();
   updateBoardUniforms(c.dt, kick, hooks.beat().phase);
   x.booth.update(c.dt, kick, hooks.vibe());

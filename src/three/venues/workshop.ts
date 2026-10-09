@@ -152,6 +152,8 @@ class Workshop extends VenueBase {
     drone: [V(1.6, 1.9, 2.4), V(-1.6, 1.9, 2.2), V(-1.8, 1.6, 0.6), V(0, 1.8, 0.9), V(1.8, 1.6, 0.6)],
     extra: { cctv: { pos: V(-2.4, 2.5, 3.0), target: V(0, 1, 0) }, crane: { radius: 1.5, low: 1.2, high: 2.2 }, vertigo: { near: 1.0, far: 2.4, height: 1.5 } },
   };
+  // inside the walls and under the ceiling strip light, wherever you orbit to
+  readonly cameraRoom = new THREE.Box3(V(WORKSHOP.x0 + 0.15, 0.25, WORKSHOP.z0 + 0.15), V(WORKSHOP.x1 - 0.15, WORKSHOP.h - 0.2, WORKSHOP.z1 - 0.15));
   private lampLight: THREE.SpotLight;
   private lampBulb: THREE.MeshBasicMaterial;
   private radioDial: THREE.MeshBasicMaterial;

@@ -74,6 +74,8 @@ export interface VenueScene {
    * almost none.
    */
   readonly ambient?: number;
+  /** a small room: the camera stays inside this box (default: anywhere) */
+  readonly cameraRoom?: THREE.Box3;
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
   prerender?(renderer: THREE.WebGLRenderer, dt: number): void;
