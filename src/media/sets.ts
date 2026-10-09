@@ -5,6 +5,7 @@
  * Exports are made on demand: WAV and MP3 from the lossless audio, the video
  * as recorded, the cover as PNG, the tracklist as text.
  */
+import { saveFile } from '../core/download';
 import { mp3From, wavFrom } from '../audio/capture/export';
 import { Emitter } from '../core/emitter';
 import { RECORDINGS, type Recording } from '../core/models';
@@ -191,13 +192,5 @@ export class SetLibrary {
 
 /** save a file the browser way (a link with `download`) */
 export function downloadBlob(blob: Blob, name: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.rel = 'noopener';
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  void saveFile(blob, name);
 }

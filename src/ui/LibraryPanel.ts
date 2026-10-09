@@ -4,6 +4,7 @@
  * highlighting against a deck, sortable columns, drag to decks, crates,
  * JSON export/import of crates and cues.
  */
+import { saveFile } from '../core/download';
 import type { AppContext } from '../app/context';
 import { camelotColor, compatibility, formatKey } from '../analysis/keys';
 import type { LibraryTrack } from '../core/types';
@@ -550,16 +551,7 @@ export class LibraryPanel {
   private exportJson(): void {
     const json = this.app.library.exportJSON();
     const name = `deckhouse-library-${new Date().toISOString().slice(0, 10)}.json`;
-    try {
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-      const a = h('a', { href: url, download: name });
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch {
-      /* downloads may be blocked; the dialog below still has the data */
-    }
+    void saveFile(json, name, 'application/json');
     const ta = h('textarea', { class: 'json', readonly: true }) as HTMLTextAreaElement;
     ta.value = json;
     const copy = h('button', { class: 'btn primary' }, 'Copy JSON');

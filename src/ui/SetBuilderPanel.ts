@@ -5,6 +5,7 @@
  * swap, move, remove, re-roll), loaded onto the decks track by track, saved as
  * a crate, written back as hot cues, and exported for other DJ software.
  */
+import { saveFile } from '../core/download';
 import type { AppContext } from '../app/context';
 import { camelotColor, formatKey } from '../analysis/keys';
 import { loadSetting, saveSetting } from '../core/settings';
@@ -64,16 +65,7 @@ const MIX_IN = 6;
 const MIX_OUT = 7;
 
 function download(name: string, text: string, mime: string): void {
-  try {
-    const url = URL.createObjectURL(new Blob([text], { type: mime }));
-    const a = h('a', { href: url, download: name });
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-  } catch {
-    toast('Downloads are blocked here. Use Copy instead.', 'error');
-  }
+  void saveFile(text, name, mime);
 }
 
 function copy(text: string, what: string): void {

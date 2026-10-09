@@ -3,6 +3,7 @@
  * look it up on LRCLIB (opt-in), align plain text to the vocals, tap-sync
  * each line while the track plays, nudge the offset, preview, save.
  */
+import { saveFile } from '../core/download';
 import type { AppContext } from '../app/context';
 import type { Deck } from '../audio/Deck';
 import type { LibraryTrack } from '../core/types';
@@ -265,16 +266,7 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
   });
   exportBtn.addEventListener('click', () => {
     if (!draft) return;
-    try {
-      const url = URL.createObjectURL(new Blob([toLrc(draft)], { type: 'text/plain' }));
-      const a = h('a', { href: url, download: `${(t.meta.artist ? `${t.meta.artist} - ` : '') + t.meta.title}.lrc`.replace(/[\\/:*?"<>|]/g, '_') });
-      document.body.append(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch {
-      toast('Downloads are blocked here.', 'error');
-    }
+    void saveFile(toLrc(draft), `${(t.meta.artist ? `${t.meta.artist} - ` : '') + t.meta.title}.lrc`.replace(/[\\/:*?"<>|]/g, '_'), 'text/plain');
   });
   removeBtn.addEventListener('click', () => {
     if (!confirm('Remove the lyrics from this track?')) return;

@@ -3,6 +3,7 @@
  * Appearance, decks, audio, board & camera, show, performance, keyboard and
  * your settings file (export / import / reset). MIDI follows in its own pane.
  */
+import { saveFile } from '../core/download';
 import type { Career } from '../game/Career';
 import { cleanName, cleanTagline, NAME_MAX, TAGLINE_MAX } from '../core/models';
 import { isBlocked } from '../name/filter';
@@ -509,9 +510,9 @@ export class SetupPanel {
 
   private exportSettings(): void {
     const text = JSON.stringify(makeBackup(readAllSettings()), null, 2);
-    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     const name = `deckhouse-settings-${new Date().toISOString().slice(0, 10)}.json`;
-    const link = h('a', { class: 'btn primary', href: url, download: name }, 'Save settings file');
+    const link = h('button', { class: 'btn primary', type: 'button' }, 'Save settings file');
+    link.addEventListener('click', () => void saveFile(text, name, 'application/json'));
     const copy = h('button', { class: 'btn', type: 'button' }, 'Copy as text');
     copy.addEventListener('click', () =>
       navigator.clipboard?.writeText(text).then(

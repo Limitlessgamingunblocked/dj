@@ -2,6 +2,7 @@
  * Application shell: creates the audio engine, library, control registry,
  * 3D stage + visual player and the software UI, and runs the frame loop.
  */
+import { saveFile } from '../core/download';
 import { AudioEngine } from '../audio/AudioEngine';
 import { SAMPLE_NAMES } from '../audio/synth';
 import { AnalysisPool } from '../analysis/AnalysisPool';
@@ -836,7 +837,8 @@ export class App implements AppContext {
     const url = URL.createObjectURL(blob);
     const venue = venueById(this.settings.venue);
     const name = `deckhouse-${venue.id}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
-    const link = h('a', { class: 'btn primary', href: url, download: name }, 'Save photo');
+    const link = h('button', { class: 'btn primary', type: 'button' }, 'Save photo');
+    link.addEventListener('click', () => void saveFile(blob, name));
     openModal(
       'Photo',
       h('div', { style: { display: 'grid', gap: '10px' } }, h('img', { src: url, alt: `The stage at ${venue.name}`, style: { width: '100%', borderRadius: '6px', display: 'block' } }), h('div', { class: 'toggle-row' }, link), h('p', { class: 'note' }, 'If the save button does nothing (some embedded viewers block downloads), right-click or long-press the picture to save it, or open the page on its own.')),
