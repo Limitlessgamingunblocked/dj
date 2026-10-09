@@ -1,8 +1,8 @@
 /*
  * The Bedroom (Section 5.2): where it starts. A small room, posters on the
  * wall, fairy lights, a desk lamp and a colour-changing LED strip, the
- * controller on a desk, a webcam on the monitor. The crowd is the stream:
- * 3 to 50 viewers in the chat (ui/StreamChat.ts). The tutorial happens here.
+ * controller on a desk. The crowd is the stream: 3 to 50 viewers in the chat
+ * (ui/StreamChat.ts).
  *
  * Signature moment: a raid. The viewer count spikes, chat floods with your
  * name, and the LED strip goes full rainbow (signature('raid')).
@@ -81,9 +81,9 @@ function poster(seed: number): THREE.CanvasTexture {
 
 class Bedroom extends VenueBase {
   readonly views: VenueViews = {
-    // the webcam on the monitor: what the stream sees
+    // the stream camera, from the wall behind the desk
     wide: { pos: V(0, 1.46, -0.6), target: V(0, 1.38, 1.4) },
-    wideLabel: 'Webcam',
+    wideLabel: 'Stream cam',
     crowd: { pos: V(1.65, 1.85, 2.75), target: V(-0.1, 1.05, 0.1) },
     drone: [V(1.4, 1.9, 2.6), V(-1.5, 1.9, 2.4), V(-1.6, 1.7, 0.6), V(0, 1.9, -0.4), V(1.6, 1.7, 0.6)],
     extra: { cctv: { pos: V(-1.95, 2.35, 2.95), target: V(0, 1, 0) }, crane: { radius: 1.6, low: 1.2, high: 2.1 }, vertigo: { near: 1.1, far: 2.6, height: 1.4 } },
@@ -92,7 +92,6 @@ class Bedroom extends VenueBase {
   private stripLight: THREE.PointLight;
   private backLight: THREE.PointLight;
   private lamp: THREE.SpotLight;
-  private tally: THREE.MeshBasicMaterial;
   private hue = 0;
   private rainbow = 0;
   private raidT = -1e9;
@@ -126,29 +125,10 @@ class Bedroom extends VenueBase {
     rug.position.set(0.2, 0.004, 1.5);
     this.group.add(rug);
 
-    // the desk against the front wall, the controller on it (the board), a monitor with a webcam
+    // the desk against the front wall, the controller on it (the board); no computer
     const desk = booth({ w: 1.6, d: 0.72, front: new THREE.MeshStandardMaterial({ color: 0xd9d4c7, roughness: 0.6 }), top: 0xe9e4d8, strip: null, z: -0.12 });
     this.group.add(desk.group);
-    boothClutter(this.group, 1.6, TABLE_Y, -0.45, 33);
-    const monitor = new THREE.Group();
-    const bezel = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.42, 0.04), new THREE.MeshStandardMaterial({ color: 0x111215, roughness: 0.4 }));
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.36));
-    screen.position.z = 0.021;
-    const stand = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.05), bezel.material);
-    stand.position.y = -0.28;
-    monitor.add(bezel, screen, stand);
-    monitor.position.set(0, TABLE_Y + 0.4, -0.66);
-    this.group.add(monitor);
-    // the monitor shows the visual player
-    this.screen(screen);
-    screen.removeFromParent();
-    monitor.add(screen);
-    const cam = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.035, 0.04), new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.3 }));
-    cam.position.set(0, TABLE_Y + 0.63, -0.64);
-    this.tally = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 0.1, 0.1), toneMapped: false });
-    const tally = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 6), this.tally);
-    tally.position.set(0.03, TABLE_Y + 0.635, -0.618);
-    this.group.add(cam, tally);
+    boothClutter(this.group, 1.6, TABLE_Y, -0.45, 33, { laptop: false });
     // little monitor speakers either side
     for (const x of [-0.62, 0.62]) {
       const spk = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.18), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5 }));
@@ -312,8 +292,6 @@ class Bedroom extends VenueBase {
     this.backLight.color.copy(c);
     this.stripLight.intensity = 1.6 * lv;
     this.backLight.intensity = 0.9 * lv;
-    // the lamp stays put; the webcam's tally light is on while the music plays
-    this.tally.color.setRGB(s.playing ? 2.5 : 0.3, 0.08, 0.08);
   }
 }
 
@@ -323,7 +301,7 @@ export const bedroom: VenueDef = {
   short: 'Bedroom',
   place: 'Home',
   kind: 'Livestream',
-  blurb: 'A controller on the desk, a webcam on the monitor, fairy lights. Where every DJ starts.',
+  blurb: 'A controller on the desk, posters, fairy lights. Where every DJ starts.',
   palette: ['#ff2e88', '#ffb547', '#3ad7ff'],
   ui: '#ff2e88',
   capacity: '3–50 viewers',
@@ -339,7 +317,5 @@ export const bedroom: VenueDef = {
     for (let i = 0; i < 16; i++) g.fillRect(w * (0.05 + i * 0.06), h * 0.2 + Math.abs(Math.sin(i * 0.8)) * 8, 3, 3);
     g.fillStyle = '#e9e4d8';
     g.fillRect(w * 0.3, h * 0.6, w * 0.4, h * 0.08);
-    g.fillStyle = '#111215';
-    g.fillRect(w * 0.42, h * 0.38, w * 0.16, h * 0.18);
   },
 };

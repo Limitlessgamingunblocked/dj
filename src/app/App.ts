@@ -68,7 +68,7 @@ import { bindKeyboard } from './keyboard';
 import { cleanSettings, type Settings } from './settingsModel';
 
 const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
-/** the venues a gig can be booked into (Stage 3: the bedroom tutorial and the basement; Stage 6 adds the rest) */
+/** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
 const GIG_VENUES = ['bedroom', 'basement'];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
 const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, dressing: 0, naming: 0 };
@@ -390,7 +390,7 @@ export class App implements AppContext {
         const p = this.career.progress;
         return GIG_VENUES.map((id) => {
           const v = venueById(id);
-          return { id, name: v.name, blurb: v.blurb, capacity: v.capacity, locked: id === 'basement' && !p.tutorialDone && !p.sandbox ? 'Finish the bedroom tutorial' : null, draw: (g, w, h) => v.thumb(g, w, h) };
+          return { id, name: v.name, blurb: v.blurb, capacity: v.capacity, locked: id === 'basement' && p.setsPlayed < 1 && !p.sandbox ? 'Play a set in the bedroom first' : null, draw: (g, w, h) => v.thumb(g, w, h) };
         });
       },
       showCrate: (id) => this.libPanel.showCrate(id),

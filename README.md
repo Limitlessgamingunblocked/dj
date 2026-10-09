@@ -2,7 +2,7 @@
 
 A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks, Alexandra Palace (an arena show, or in the round under 43,000 hanging lights) or the house warehouse — each with its own room, a dancing crowd (sign holders, VIP guests by the booth) and a light show of lasers, moving heads, strobes, blinders, CO2 and pyro that follows the beat. Fly an FPV drone camera through the room. Load your own music, mix it, add effects and watch an audio-reactive visual player, with the lyrics of whatever is playing as kinetic type on the LED walls.
 
-It opens ready to play, in the Bedroom: two original tracks are already loaded on decks 1 and 2. Press **Play a gig** in the top bar for a scored set, starting with the tutorial.
+It opens ready to play, in the Bedroom: two original tracks are already loaded on decks 1 and 2. Press **Play a gig** in the top bar for a scored set.
 
 It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library into an ordered, harmonically mixed set around the artists, labels or genres you pick, shaped to an energy arc, with transition guidance for every mix. It can build sets in four house sounds (Deep & Groovy, Rolling Minimal, Bouncy Tech House, Rave Energy) from whatever your library holds.
 
@@ -43,8 +43,8 @@ Stage 2B added **your character**:
 
 Stage 3 made it **a game you can play a set in**:
 - **Play a gig:** the button in the top bar. Pick a venue, a slot (warm-up, peak time, closing, after-hours), a length (10, 20, 30 or 60 minutes), an assist level and your look, read the promoter's brief, and go.
-- **The Bedroom** is where you start: a desk, a webcam, an LED strip and fairy lights, with a livestream chat for a crowd. Get the chat going long enough and another stream raids you. The first gig here is **the tutorial**, 8 steps from pressing play to your first full mix.
-- **The Basement** unlocks after the tutorial: black brick, sweating pipes, one red light, a mirror ball and about 80 people. Hold the peak and the ceiling starts dripping.
+- **The Bedroom** is where you start: a desk with your controller, posters, an LED strip and fairy lights, with a livestream chat for a crowd. Get the chat going long enough and another stream raids you.
+- **The Basement** unlocks after your first set in the Bedroom: black brick, sweating pipes, one red light, a mirror ball and about 80 people. Hold the peak and the ceiling starts dripping.
 - **The vibe meter** scores everything Section 6 asks for:
   - beatmatching in bands (Perfect under 10 ms, Good, Loose, Trainwreck)
   - named transitions (bass swap, filter fade, echo out, loop roll, quick cut, double drop, long blend)
@@ -287,7 +287,7 @@ src/three/venues/          venues, light show director, fixtures (beams, lasers,
 src/visualizer/            audio features, visual modes, lyrics typography
 src/ui/                    software panels and widgets
 src/app/                   app shell, saved settings, control registry bindings, keyboard map, gigs (gigs.ts)
-src/game/                  career, vibe meter, gigs and rewards, tutorial, track metadata (sections, energy, tags)
+src/game/                  career, vibe meter, gigs and rewards, track metadata (sections, energy, tags)
 src/name/                  NameService: name layout, styles, textures, filter, beat reactions
 src/character/             character catalogue, looks, procedural avatar
 src/core/                  control registry, beat clock, save system, preferences (prefs.ts), settings backup, storage helpers

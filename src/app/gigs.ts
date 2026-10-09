@@ -1,7 +1,7 @@
 /*
  * Gigs in the app: the vibe meter every frame (a free-play meter in the
- * studio, the gig's own meter in a set), the HUD, the Bedroom's stream chat
- * and tutorial, the assist levels, what the crew in the booth says, and the
+ * studio, the gig's own meter in a set), the HUD, the Bedroom's stream chat,
+ * the assist levels, what the crew in the booth says, and the
  * results and rewards at the end.
  */
 import type { AudioEngine } from '../audio/AudioEngine';
@@ -9,17 +9,14 @@ import { dressCodeBonus } from '../character/look';
 import { ASSISTS, Gig, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { Snapshot } from '../game/snapshot';
 import { nextSection } from '../game/tracks';
-import { Tutorial, TUTORIAL } from '../game/tutorial';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
 import type { Features } from '../visualizer/AudioFeatures';
-import { h } from '../ui/dom';
 import { GigHud } from '../ui/GigHud';
 import { openGigSetup, type GigVenue } from '../ui/GigSetup';
 import { showResults } from '../ui/Results';
 import { StreamChat } from '../ui/StreamChat';
-import { toast } from '../ui/toast';
 
 export interface Callout {
   text: string;
@@ -64,9 +61,7 @@ export class GigDirector {
   private snap: Snapshot;
   private hud: GigHud | null = null;
   private chat: StreamChat | null = null;
-  private tutorial: Tutorial | null = null;
   private toolsWatch: ResizeObserver | null = null;
-  private tutEl: HTMLElement | null = null;
   private lastCfg: GigConfig | null = null;
   private tipAt = -1e9;
   private crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
@@ -132,7 +127,6 @@ export class GigDirector {
     });
     this.host.stageEl.append(this.hud.el);
     // the HUD sits left of the camera buttons, whose width changes (the framing chip comes and goes),
-    // and the tutorial card sits under the HUD, whose height changes with the line it's showing
     const tools = this.host.stageEl.querySelector<HTMLElement>('.stage-tools');
     const hudEl = this.hud.el;
     this.toolsWatch = new ResizeObserver(() => {
@@ -151,15 +145,9 @@ export class GigDirector {
       this.chat = new StreamChat(() => this.host.djName() || 'DJ', () => this.host.signature('raid'));
       this.host.stageEl.append(this.chat.el);
     }
-    if (cfg.tutorial) {
-      this.tutorial = new Tutorial();
-      this.tutEl = h('div', { class: 'tutorial-card', role: 'status' });
-      this.host.stageEl.append(this.tutEl);
-      this.drawTutorial();
-    }
     this.applyAssist();
     const slot = SLOTS[cfg.slot];
-    this.hud.say('Promoter:', cfg.tutorial ? 'Your first stream. Take it slow, follow the steps.' : `${slot.label}, ${cfg.minutes} minutes. ${slot.brief}`);
+    this.hud.say('Promoter:', `${slot.label}, ${cfg.minutes} minutes. ${slot.brief}`);
     // dressed for the room: the crowd starts a little warmer (Section 4.9)
     const dc = dressCodeBonus(this.host.career.look, cfg.venue);
     if (dc.bonus > 0) {
@@ -173,11 +161,8 @@ export class GigDirector {
     this.toolsWatch = null;
     this.hud?.el.remove();
     this.chat?.el.remove();
-    this.tutEl?.remove();
     this.hud = null;
     this.chat = null;
-    this.tutorial = null;
-    this.tutEl = null;
     document.body.classList.remove('gig-on', 'gig-clean', 'assist-pro');
   }
 
@@ -201,7 +186,6 @@ export class GigDirector {
       setsPlayed: p.setsPlayed + 1,
       tier: r.tierUp ?? p.tier,
       milestones: [...p.milestones, ...r.milestones],
-      tutorialDone: p.tutorialDone || !!this.tutorial?.done,
     });
     this.teardown();
     this.gig = null;
@@ -213,7 +197,7 @@ export class GigDirector {
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
       closed: () => rp?.clear(),
-      again: () => this.lastCfg && this.start({ ...this.lastCfg, tutorial: this.lastCfg.venue === 'bedroom' && !this.host.career.progress.tutorialDone }),
+      again: () => this.lastCfg && this.start(this.lastCfg),
       studio: () => undefined,
     });
   }
@@ -287,15 +271,6 @@ export class GigDirector {
       const target = SLOTS[gig.config.slot].target(gig.progress);
       this.hud?.update({ vibe: gig.meter.vibe, target, remaining: gig.remaining, phase: gig.phase, recording: this.host.recording(), buffer: !!this.host.replay(), assist: gig.assist, slot: SLOTS[gig.config.slot].label, venue: this.host.venueName(gig.config.venue), redline: e.redline });
       this.chat?.update(dt, gig.meter.vibe, moodFor(gig.meter.vibe));
-      if (this.tutorial && !this.tutorial.done && this.tutorial.update({ decks, sync: e.decks.map((d) => d.sync), pro: gig.assist === 'pro' })) {
-        this.host.crowd('cheer');
-        if (this.tutorial.done) {
-          this.host.career.setProgress({ tutorialDone: true });
-          this.hud?.say('Promoter:', "That's a mix. The Basement Club wants you. Keep going and finish the set.");
-          toast('Tutorial done. The Basement Club is open.');
-        }
-        this.drawTutorial();
-      }
       this.crewTalk(dt, gig);
       // the room sees a build coming: "whoa"
       const loudest = [...decks].filter((d) => d.playing && d.audible > 0.12).sort((a, b) => b.audible - a.audible)[0];
@@ -368,18 +343,5 @@ export class GigDirector {
       const name = this.host.djName() || 'DJ';
       this.hud?.say('Bar:', `sent up a "${name} Sour". On the house.`);
     }
-  }
-
-  private drawTutorial(): void {
-    const t = this.tutorial;
-    const el = this.tutEl;
-    if (!t || !el) return;
-    if (t.done) {
-      el.replaceChildren(h('b', {}, 'Tutorial done'), h('p', {}, 'Finish the set your way. The Basement Club is open.'));
-      setTimeout(() => el.classList.add('out'), 6000);
-      return;
-    }
-    const s = t.current!;
-    el.replaceChildren(h('span', { class: 'tc-step' }, `Step ${t.step + 1} of ${TUTORIAL.length}`), h('b', {}, s.text), h('p', {}, s.hint));
   }
 }

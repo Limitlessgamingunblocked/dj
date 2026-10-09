@@ -104,15 +104,13 @@ export interface Progress {
   reputation: Reputation | null;
   /** everything unlocked (sandbox mode, or the debug menu) */
   sandbox: boolean;
-  /** the bedroom tutorial is done */
-  tutorialDone: boolean;
 }
 
 export const PROGRESS: SaveSpec<Progress> = {
   kind: 'progress',
   version: 1,
   migrations: {},
-  defaults: () => ({ tier: 1, fame: 0, cash: 0, followers: 0, setsPlayed: 0, unlocked: [], milestones: [], reputation: null, sandbox: false, tutorialDone: false }),
+  defaults: () => ({ tier: 1, fame: 0, cash: 0, followers: 0, setsPlayed: 0, unlocked: [], milestones: [], reputation: null, sandbox: false }),
   validate(raw) {
     const r = obj(raw);
     return {
@@ -125,7 +123,6 @@ export const PROGRESS: SaveSpec<Progress> = {
       milestones: dedupe(strings(r.milestones, 500)),
       reputation: r.reputation === null ? null : oneOf<Reputation | null>(r.reputation, REPUTATIONS, null),
       sandbox: bool(r.sandbox, false),
-      tutorialDone: bool(r.tutorialDone, false),
     };
   },
 };

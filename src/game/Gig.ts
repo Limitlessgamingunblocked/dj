@@ -28,8 +28,6 @@ export interface GigConfig {
   /** set length in minutes */
   minutes: number;
   assist: Assist;
-  /** the bedroom tutorial */
-  tutorial?: boolean;
 }
 
 /** what a venue pays and how much it counts (Section 9.1); the brief's venues, plus the real rooms in free play */

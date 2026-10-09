@@ -1,7 +1,7 @@
 /*
  * Pre-gig (Section 10.2): pick the venue, the slot, the set length and the
- * assist level, then your look and the crate you're bringing. The Bedroom is
- * the tutorial and opens the Basement once it's done (Section 5.2).
+ * assist level, then your look and the crate you're bringing. A set in the
+ * Bedroom opens the Basement (Section 5.2).
  * TODO: Stage 6's bookings replace the free choice of venue and slot with offers.
  */
 import { ASSISTS, SET_LENGTHS, type Assist, type GigConfig } from '../game/Gig';
@@ -61,8 +61,7 @@ export function openGigSetup(o: SetupHooks): void {
   const brief = h('p', { class: 'gs-brief' });
   const updateBrief = () => {
     const v = o.venues.find((x) => x.id === cfg.venue);
-    const tut = cfg.venue === 'bedroom' && !o.progress.tutorialDone;
-    brief.replaceChildren(h('b', {}, tut ? 'Tutorial: ' : 'The promoter says: '), tut ? "Your first stream. We'll walk you through your first mix, then it's all yours." : SLOTS[cfg.slot].brief, v ? ` (${v.capacity})` : '');
+    brief.replaceChildren(h('b', {}, 'The promoter says: '), SLOTS[cfg.slot].brief, v ? ` (${v.capacity})` : '');
   };
 
   const venueCards = h('div', { class: 'gs-venues' });
@@ -112,7 +111,7 @@ export function openGigSetup(o: SetupHooks): void {
   const m = openModal('Play a gig', content, { wide: true });
   go.addEventListener('click', () => {
     m.close();
-    o.start({ ...cfg, tutorial: cfg.venue === 'bedroom' && !o.progress.tutorialDone }, { look, crate });
+    o.start(cfg, { look, crate });
   });
   dress.addEventListener('click', () => {
     m.close();

@@ -209,3 +209,9 @@ Blender still wasn't reachable, so the character is built in code, made to be sw
       - The pad modes are the game's (hot cue, roll, slicer, beat jump; shift: pitch, sampler).
       - The sound colour FX are FILTER and CRUSH, the two the mixer channels can do.
     - **Turn but do nothing:** the mic, aux and booth-monitor knobs, because a browser game has no mic input, aux input or second output. Their labels say so.
+
+## Your changes after Stage 5 (2026-10-09)
+
+73. **The tutorial is gone** (you didn't like it). The first Bedroom gig is a normal set, and the Basement opens after your first set in the Bedroom, replacing decision 33's "after the tutorial". Chill assist still tips you before an outro, in the HUD.
+74. **The Bedroom has no computer**: the monitor, its webcam and the laptop are off the desk. The stream camera view is still there, as "Stream cam".
+

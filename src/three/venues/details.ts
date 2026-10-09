@@ -149,15 +149,8 @@ function gafferTexture(): THREE.CanvasTexture {
   return tapeTex;
 }
 
-/**
- * Laptop on a stand, drinks, a cable run and gaffer tape for a booth of width
- * `w` whose top is at `top` and front face at z = `front` (the room side is
- * −Z). Adds to `group`.
- */
-export function boothClutter(group: THREE.Group, w: number, top: number, front: number, seed = 3): void {
-  const r = rng(seed);
-  const side = r() < 0.5 ? -1 : 1;
-  // laptop on a stand at one end, screen facing the DJ (+Z)
+/** a laptop on a stand, screen facing the DJ (+Z), the DJ's name on the lid */
+function laptopOnStand(group: THREE.Group, x: number, top: number, z: number, ry: number): void {
   const metal = new THREE.MeshStandardMaterial({ color: 0x9a9da3, roughness: 0.35, metalness: 0.8 });
   const stand = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.12, 0.22).translate(0, 0.06, 0), new THREE.MeshStandardMaterial({ color: 0x1a1b1e, roughness: 0.5, metalness: 0.4 }));
   const base = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.015, 0.22), metal);
@@ -176,9 +169,20 @@ export function boothClutter(group: THREE.Group, w: number, top: number, front: 
   lid.rotation.x = -0.25;
   const laptop = new THREE.Group();
   laptop.add(stand, base, lid);
-  laptop.position.set(side * (w / 2 - 0.2), top, front + 0.42);
-  laptop.rotation.y = side * 0.35;
+  laptop.position.set(x, top, z);
+  laptop.rotation.y = ry;
   group.add(laptop);
+}
+
+/**
+ * Laptop on a stand (unless `laptop: false`), drinks, a cable run and gaffer
+ * tape for a booth of width `w` whose top is at `top` and front face at
+ * z = `front` (the room side is −Z). Adds to `group`.
+ */
+export function boothClutter(group: THREE.Group, w: number, top: number, front: number, seed = 3, o: { laptop?: boolean } = {}): void {
+  const r = rng(seed);
+  const side = r() < 0.5 ? -1 : 1;
+  if (o.laptop !== false) laptopOnStand(group, side * (w / 2 - 0.2), top, front + 0.42, side * 0.35);
   // drinks at the other end: a plastic cup and a bottle of water
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.032, 0.12, 10), new THREE.MeshStandardMaterial({ color: 0xc41f1f, roughness: 0.4 }));
   cup.position.set(-side * (w / 2 - 0.16), top + 0.06, front + 0.3);

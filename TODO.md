@@ -68,9 +68,9 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 
 ## Stage 3: First playable gig
 
-- [x] Bedroom (tutorial): desk, monitor, webcam, LED strip, fairy lights, window; the stream chat is its crowd; the raid is its signature moment.
+- [x] Bedroom: desk, LED strip, fairy lights, window (the computer was taken out at your request); the stream chat is its crowd; the raid is its signature moment.
 - [x] Basement: black brick, sweating pipes, one red light, a strobe, a mirror ball, about 80 people; the ceiling drips and dust shakes loose at the peak.
-- [x] The 8-step tutorial in the Bedroom; the Basement unlocks when it's done.
+- [x] ~~The 8-step tutorial~~ taken out at your request; the Basement unlocks after your first Bedroom set.
 - [x] Assist levels (Chill, Club, Pro ×1.5), beatmatch bands (10 / 30 / 50 ms), named transitions, slot targets, the vibe meter and its penalties, the comeback, the encore, the results screen.
 - [x] Lighting rules (Section 2.3): kick → washes, hats → string-light flicks, bass → booth underglow, vocals → DJ spotlight, breakdown → warm amber, intensity from the vibe.
 - [x] Crowd states cold → euphoric (phones and chatting when cold, jumping in sync when euphoric) and crowd audio (murmur, cheers, groans, boos, "whoa", chants).
