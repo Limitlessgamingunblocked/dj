@@ -23,6 +23,9 @@ import { boardById, isTurntable, type BoardDef } from '../three/boards';
 import { venueById, VENUES } from '../three/venues';
 import { Career } from '../game/Career';
 import { DebugMenu } from '../ui/DebugMenu';
+import { nameService } from '../name/NameService';
+import { NameChant } from '../ui/NameChant';
+import { NamingScene } from '../ui/NamingScene';
 import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
@@ -81,6 +84,9 @@ export class App implements AppContext {
   /** the career saves (profile, progress…); see game/Career.ts */
   readonly career = new Career();
   private debug: DebugMenu | null = null;
+  private chant: NameChant | null = null;
+  private naming: NamingScene | null = null;
+  private namingBusy = false;
   private debugDrop = false;
   private midi!: MidiManager;
   private settings: Settings = cleanSettings(loadSetting<unknown>('settings', {}));
@@ -257,6 +263,9 @@ export class App implements AppContext {
     this.midi = new MidiManager(this.reg);
     this.features = new AudioFeatures(this.engine.visAnalyser, this.engine);
     this.clock.onDrop(() => (this.clockDrop = true));
+    // the DJ name on every surface follows the profile
+    nameService.set(this.career.profile);
+    this.career.changed.on('profile', (p) => nameService.set(p));
 
     this.stage = new Stage(this.reg, this.engine, {
       levels: (ch) => this.meters.ch[ch - 1] ?? [0, 0],
@@ -321,6 +330,21 @@ export class App implements AppContext {
       redline: () => this.engine.redline,
     });
     document.body.append(this.debug.el);
+    this.chant = new NameChant(this.clock);
+    this.stage.el.append(this.chant.el);
+    this.naming = new NamingScene({
+      stage: this.stage,
+      ctx: this.engine.ctx,
+      career: this.career,
+      venue: () => this.settings.venue,
+      restoreVenue: (id) => this.setVenue(id, true),
+      fireDrop: () => (this.debugDrop = true),
+      later: () => {
+        this.settings.namingLater = true;
+        this.save();
+      },
+      busy: (on) => (this.namingBusy = on),
+    });
     // career saves land before the tab goes away
     addEventListener('pagehide', () => this.career.saves.flush());
     loading.remove();
@@ -330,6 +354,9 @@ export class App implements AppContext {
     this.applyBoard(this.settings.board, this.settings.finish, true);
     this.stage.rig.goTo(this.settings.camera, true);
     this.setView(this.settings.view);
+    // the first real moment: name yourself (until named, unless they chose Later; automated test browsers skip it)
+    const askName = /[?&]naming\b/.test(location.search) || (!this.career.profile.name && !this.settings.namingLater && !navigator.webdriver);
+    if (askName) this.naming?.show({ first: !this.career.profile.name });
 
     bindKeyboard(this.reg, {
       'xfader-left': () => this.reg.nudgeValue('mixer.xfader', -0.05, 'key'),
@@ -479,6 +506,8 @@ export class App implements AppContext {
       },
       saveLights: () => this.saveLights(),
       setFpsMeter: (v) => this.setFpsMeter(v),
+      career: this.career,
+      openNaming: () => this.naming?.show({ first: false }),
       stickers: () => this.settings.stickers,
       setStickers: (v) => {
         this.settings.stickers = v;
@@ -1192,7 +1221,10 @@ export class App implements AppContext {
       }
       this.clock.update(f, dt);
       this.debug?.update(dt);
+      this.naming?.update(dt);
+      nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
       this.stage.hype = this.hype.update(dt, f);
+      this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       this.stage.lyric = this.lyrics.frame();
       // a dialog over the stage: the club only needs a third of the frames
@@ -1201,7 +1233,7 @@ export class App implements AppContext {
       if (!covered || this.frame % 3 === 0) {
         this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
         this.stageDt = 0;
-        if (this.settings.director && this.stage.view !== 'visual') this.direct();
+        if (this.settings.director && this.stage.view !== 'visual' && !this.namingBusy) this.direct();
         // a drop the director didn't take (it's off, or the view is the visual player) doesn't wait for later
         this.clockDrop = false;
       }

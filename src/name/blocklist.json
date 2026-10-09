@@ -1,0 +1,5 @@
+{
+  "note": "Words refused as DJ names and taglines. TODO: fill from a vetted, maintained list. 'anywhere' words are matched inside other letters and through spacing; 'whole' words only on their own (for short words that hide inside innocent ones).",
+  "anywhere": [],
+  "whole": []
+}

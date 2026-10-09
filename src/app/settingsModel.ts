@@ -38,6 +38,8 @@ export interface Settings {
   autoZoom: boolean;
   stickers: boolean;
   lights: Partial<ShowControls>;
+  /** the player chose "Later" at the naming scene: don't open it by itself again */
+  namingLater: boolean;
 }
 
 export const DEFAULTS: Settings = {
@@ -63,6 +65,7 @@ export const DEFAULTS: Settings = {
   director: false,
   fpsMeter: false,
   lastTracks: {},
+  namingLater: false,
 };
 
 const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'];

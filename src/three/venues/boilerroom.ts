@@ -8,6 +8,7 @@
  * and the ring carries no lettering (no branding).
  */
 import * as THREE from 'three';
+import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
@@ -143,7 +144,7 @@ class BoilerRoom extends VenueBase {
     }
 
     // the booth: a long white-fronted table
-    const b = booth({ w: 2.6, d: 0.9, front: new THREE.MeshStandardMaterial({ color: 0xe6e1dc, roughness: 0.7 }), top: 0x19191b, strip: null });
+    const b = booth({ w: 2.6, d: 0.9, front: new THREE.MeshStandardMaterial({ color: 0xe6e1dc, roughness: 0.7 }), top: 0x19191b, strip: null, name: nameStyleFor('boilerroom').booth });
     this.group.add(b.group);
     boothClutter(this.group, 2.6, TABLE_Y, -0.45, 2025);
 

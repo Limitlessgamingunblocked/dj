@@ -1,0 +1,209 @@
+/* the naming scene: the stage takes the whole screen, the form floats over the dark room */
+.naming-open .stage {
+  position: fixed !important;
+  inset: 0;
+  z-index: 70;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* nothing else from the stage's own HUD while naming */
+.naming-open .stage > :not(canvas):not(.naming):not(.name-chant) {
+  display: none !important;
+}
+
+.naming {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: max(24px, 4vh) var(--space-4) max(24px, 5vh);
+  pointer-events: none;
+  z-index: 5;
+  color: #fff;
+}
+
+.naming > * {
+  pointer-events: auto;
+}
+
+.naming-top {
+  text-align: center;
+}
+
+.naming-kicker {
+  font-family: var(--font-label, 'Barlow Condensed', sans-serif);
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 12px;
+  color: #ffb547;
+}
+
+.naming h2 {
+  margin: 6px 0 0;
+  font-family: var(--font-label, 'Barlow Condensed', sans-serif);
+  font-weight: 900;
+  font-size: clamp(26px, 4.4vw, 48px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 18px rgb(0 0 0 / 80%);
+}
+
+.naming-panel,
+.naming-done {
+  width: min(760px, 100%);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-l);
+  background: rgb(8 8 10 / 72%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  backdrop-filter: blur(6px);
+  transition: opacity 0.3s;
+}
+
+.naming.confirming .naming-panel {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+.naming-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-label, 'Barlow Condensed', sans-serif);
+  font-weight: 900;
+  font-size: clamp(28px, 5vw, 52px);
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #fff;
+  background: #050506;
+  border: 1px solid #ff2e88;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  caret-color: #ffb547;
+  box-shadow: 0 0 24px rgb(255 46 136 / 25%);
+}
+
+.naming-input::placeholder {
+  color: rgb(255 255 255 / 22%);
+}
+
+.naming-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.naming-tag {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  padding: 8px 10px;
+  background: #050506;
+  color: #fff;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  letter-spacing: 0.06em;
+}
+
+.naming-caps {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-family: var(--font-label, 'Barlow Condensed', sans-serif);
+  letter-spacing: 0.12em;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.naming-previews {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.naming-previews figure {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.naming-previews canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 360 / 112;
+  border-radius: var(--radius-s);
+  background: #050506;
+  border: 1px solid rgb(255 255 255 / 8%);
+}
+
+.naming-previews figcaption {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.naming-msg {
+  margin: 0;
+  min-height: 1.2em;
+  color: #ffb547;
+  text-align: center;
+  font-size: 14px;
+}
+
+.naming-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.naming-go {
+  min-width: 160px;
+}
+
+.naming-done {
+  text-align: center;
+  animation: naming-in 0.6s 1.2s both;
+}
+
+.naming-done .naming-name {
+  font-size: clamp(30px, 6vw, 64px);
+  background: linear-gradient(180deg, #fff 0%, #c9ced6 45%, #6f7a8c 52%, #e8edf4 64%, #8c96a6 100%);
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  word-break: break-word;
+}
+
+.naming-done p {
+  margin: 0;
+  color: #ffb38a;
+  letter-spacing: 0.06em;
+}
+
+.naming-done .btn {
+  justify-self: center;
+  min-width: 160px;
+}
+
+@keyframes naming-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (max-width: 640px) {
+  .naming-previews {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .naming-row {
+    flex-wrap: wrap;
+  }
+}

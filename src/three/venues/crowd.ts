@@ -19,6 +19,7 @@
  *     share one set of vertex buffers.
  */
 import * as THREE from 'three';
+import { nameService } from '../../name/NameService';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
@@ -129,6 +130,7 @@ function chunkGeometry(base: THREE.BufferGeometry, inst: Record<string, THREE.In
 
 /* LED sign messages (one row each in the atlas) */
 const SIGNS: { text: string; color: string }[] = [
+  // the last row is the superfan's sign (sign row 0: the texture is flipped): the DJ's name once they have one
   { text: 'ONE MORE TUNE', color: '#ff2a3c' },
   { text: 'HI MUM', color: '#2ee6ff' },
   { text: 'I ♥ HOUSE', color: '#ff3df0' },
@@ -144,12 +146,25 @@ function signAtlas(): THREE.Texture {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 1024;
+  signTex = new THREE.CanvasTexture(c);
+  signTex.colorSpace = THREE.SRGBColorSpace;
+  signTex.anisotropy = 4;
+  drawSigns();
+  // a rename shows up on the signs straight away
+  nameService.onChange(drawSigns);
+  return signTex;
+}
+
+function drawSigns(): void {
+  if (!signTex) return;
+  const c = signTex.image as HTMLCanvasElement;
   const g = c.getContext('2d')!;
+  const rows = SIGNS.map((s, i) => (i === SIGNS.length - 1 && nameService.named ? { text: nameService.text, color: '#ff2e88' } : s));
   g.fillStyle = '#000';
   g.fillRect(0, 0, 512, 1024);
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  SIGNS.forEach((s, i) => {
+  rows.forEach((s, i) => {
     const y = i * 128 + 64;
     let size = 104;
     g.font = `900 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`;
@@ -161,10 +176,7 @@ function signAtlas(): THREE.Texture {
     g.fillStyle = s.color;
     g.fillText(s.text, 256, y + 4);
   });
-  signTex = new THREE.CanvasTexture(c);
-  signTex.colorSpace = THREE.SRGBColorSpace;
-  signTex.anisotropy = 4;
-  return signTex;
+  signTex.needsUpdate = true;
 }
 
 const VERT_HEAD = /* glsl */ `
@@ -417,7 +429,8 @@ export class Crowd implements Fixture {
       const front = byDist.slice(0, Math.max(o.signs * 3, Math.ceil(byDist.length * 0.3)));
       while (signIdx.size < Math.min(o.signs, front.length)) signIdx.add(front[Math.floor(r() * front.length)].i);
     }
-    let signRow = Math.floor(r() * SIGNS.length);
+    // the first sign near the front is the superfan's (sign row 0: the DJ's name)
+    let signRow = 0;
     spots.forEach((s, i) => {
       const role: CrowdRole = signIdx.has(i) ? 'sign' : (s.role ?? o.role ?? 'dancer');
       const code = ROLE_CODE[role];

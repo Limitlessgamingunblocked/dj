@@ -9,6 +9,7 @@
  * of the old finca. No club lettering: the promoter's wordmark stays out.
  */
 import * as THREE from 'three';
+import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { MirrorBallSpots } from './mirrorball';
 import { Pyro } from './pyro';
@@ -58,7 +59,7 @@ class DC10 extends VenueBase {
     const riser = new THREE.Mesh(new THREE.BoxGeometry(8.5, STAGE, 3.3), new THREE.MeshStandardMaterial({ color: 0x0d0a0a, roughness: 0.8 }));
     riser.position.set(0, -STAGE / 2, 1.0);
     this.group.add(riser);
-    const b = booth({ w: 3.4, d: 1.0, strip: '#fff1e6' });
+    const b = booth({ w: 3.4, d: 1.0, strip: '#fff1e6', name: nameStyleFor('dc10').booth });
     this.group.add(b.group);
     this.strip(b.strip);
     boothClutter(this.group, 3.4, TABLE_Y, -0.5, 1011);
@@ -140,6 +141,9 @@ class DC10 extends VenueBase {
     });
     // their spots drift round the room through the breakdowns
     this.add(new MirrorBallSpots(balls, { floorY: -STAGE, x0: -8.5, x1: 8.5, z0: -17, z1: 2.6, ceilY: CEIL }, 0.18));
+
+    // the DJ name in red neon on the side wall
+    this.nameSign(nameStyleFor('dc10').sign!, 3.2, 0.9, V(-8.44, 3.0, -9), Math.PI / 2);
 
     // warm bulb strings across the ceiling, zig-zag strips up the columns
     const leds = new LedStrings({ warm: '#ffae66', size: 0.075, spacing: 0.24 });

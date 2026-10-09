@@ -10,15 +10,11 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 | `src/core/models.ts` → `Look` | Provisional shape. The character model (slider names = Blender shape keys, slots, materials) is settled in Stage 2, then `LOOKS` goes to version 2 with a migration. | 2 |
 | `src/core/models.ts` → `BoardDoc` | Provisional shape. The board file format gets documented, with its component types, in Stage 5. | 5 |
 | `scripts/blender/export_glb.py`, `preview.py` | Written against the Blender 4.x API but never run: there's no Blender in the build container. Run both on a test `.blend` once Blender is available. | 1 → 2 |
+| `src/name/filter.ts`, `src/name/blocklist.json` | The name filter's matching works and is tested, but **the word list is empty**: nothing is refused yet. Fill `blocklist.json` from a vetted, maintained list (or wire a moderation service). | 2 |
 
 ## Blocked: needs a decision from you
 
-- [ ] **Blender access** (Section 14). There's no Blender connector in this session and Blender isn't installed. Options:
-  - attach the Blender connector
-  - let me install Blender 4.0 from the Ubuntu packages in the container (large, roughly 400 MB, and reinstalled each session)
-  - keep building assets procedurally in code, and add Blender models later
-
-  Until this is settled, no modelled assets can be made.
+- [ ] **Blender access** (Section 14). You've said the Blender connector is connected, but its tools weren't loaded in the session that built Stages 1 and 2A (connectors are read when a session starts). Check it at claude.ai → Customize → Connectors and start a new session. If the connector drives Blender on your own computer, a cloud session may not reach it. Until then, no modelled assets can be made.
 
 ## Stage 1 follow-ups (foundation)
 
@@ -30,9 +26,25 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 
 ## Stage 2: Identity
 
-- [ ] Naming scene (dark room, LED sign letters with buzz, preview strip in 4 styles, confirm moment).
-- [ ] `NameService` with style IDs, auto-fit, texture cache, live rename. Offensive-word filter.
-- [ ] Name on every surface that exists (booth panel, LED wall, laser outline, neon, flyers…).
+- [x] Naming scene: dark room, LED sign letters strike up with a buzz, tagline, capitals, preview strip in 4 styles, confirm moment (flicker, bass hit, pull back over a cheering crowd). Opens on first launch and from Settings → Profile.
+- [x] `NameService` with style IDs, auto-fit (1–20 characters, never cut), cached textures, live rename (about 20 ms for every surface), beat reactions (kick, build chase, drop strobe + glitch, breakdown breathing).
+- [ ] Name filter word list (see the placeholders table).
+- [x] Name on every surface that exists today:
+  - booth front panel, in every venue's style
+  - neon on the wall (DC-10, the warehouse)
+  - LED walls (warehouse, Printworks, Alexandra Palace) on drops, builds and every 32 bars
+  - the superfan's crowd sign
+  - laptop-lid sticker
+  - board stickers
+  - top bar
+  - crowd chants at the peak
+- [ ] Name surfaces that need later systems:
+  - laser-written name (Stage 3, lasers)
+  - flyers and posters (Stage 6 bookings)
+  - results headline (Stage 3)
+  - recording watermark and cover art (Stage 4)
+  - merch, cocktail menu, wristbands, billboards, drone show, plane banner (Stage 6 venues)
+  - record bag, headphone case (Stage 2 wardrobe models)
 - [ ] Character creator (dressing room, lighting previews, body / face / eyes / hair / makeup / tattoos / piercings, outfit slots and sets, personality).
 - [ ] Wardrobe, saved looks, dress-code bonus.
 - [ ] Base character, rig, hair and outfits in Blender (blocked; see above).

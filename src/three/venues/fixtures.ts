@@ -9,6 +9,7 @@
  * plus scenery helpers (truss, speakers, booth, mirror ball).
  */
 import * as THREE from 'three';
+import { nameService, type NameStyle } from '../../name/NameService';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { fxTier } from '../fx';
 import { HAZE_GLSL } from './atmos';
@@ -1015,7 +1016,7 @@ export function lineArray(n: number, w = 0.9, h = 0.32, d = 0.6): THREE.Group {
 }
 
 /** DJ booth table (top at TABLE_Y), front panel facing the room (−Z). */
-export function booth(o: { w?: number; d?: number; front?: THREE.Material; top?: number; strip?: string | null; z?: number }): { group: THREE.Group; strip: THREE.MeshBasicMaterial | null } {
+export function booth(o: { w?: number; d?: number; front?: THREE.Material; top?: number; strip?: string | null; z?: number; name?: NameStyle }): { group: THREE.Group; strip: THREE.MeshBasicMaterial | null } {
   const w = o.w ?? 2.9;
   const d = o.d ?? 1.0;
   const g = new THREE.Group();
@@ -1034,6 +1035,15 @@ export function booth(o: { w?: number; d?: number; front?: THREE.Material; top?:
     const s = new THREE.Mesh(new THREE.BoxGeometry(w + 0.08, 0.025, 0.012), strip);
     s.position.set(0, TABLE_Y - 0.06, (o.z ?? 0) - d / 2 - 0.045);
     g.add(s);
+  }
+  if (o.name) {
+    // the DJ name on the front of the booth, facing the floor
+    const st = o.name;
+    const panelBg = st === 'chrome_led' || st === 'pixel_led' ? '#060709' : null;
+    const p = nameService.surface(st, w * 0.62, 0.34, { bg: panelBg, gain: st === 'white_install' ? 0.9 : 1.5 });
+    p.position.set(0, TABLE_Y * 0.5, (o.z ?? 0) - d / 2 - 0.006);
+    p.rotation.y = Math.PI;
+    g.add(p);
   }
   return { group: g, strip };
 }

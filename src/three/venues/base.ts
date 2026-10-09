@@ -11,6 +11,7 @@ import type { Features } from '../../visualizer/AudioFeatures';
 import type { Grade } from '../lens';
 import { updateAll, type Fixture } from './fixtures';
 import { ledScreen } from './led';
+import { nameService, type NameStyle } from '../../name/NameService';
 import type { ShowState } from './show';
 
 export interface Pose {
@@ -166,6 +167,22 @@ export abstract class VenueBase implements VenueScene {
     this.visObjects.push(mesh);
     this.group.add(mesh);
     return mesh;
+  }
+
+  /** the DJ name as a sign on a wall: a w × h plane at `pos`, turned `rotY` (0 faces +Z) */
+  protected nameSign(style: NameStyle, w: number, h: number, pos: THREE.Vector3, rotY: number, gain = 2): THREE.Mesh {
+    const m = nameService.surface(style, w, h, { gain });
+    m.position.copy(pos);
+    m.rotation.y = rotY;
+    this.group.add(m);
+    return m;
+  }
+
+  /** the DJ name over an LED wall (w × h metres), shown on drops, builds and every 32 bars */
+  protected nameScreen(screen: THREE.Mesh, w: number, h: number, style: NameStyle): void {
+    const m = nameService.surface(style, w * 0.9, h * 0.6, { screen: true, gain: 1.25 });
+    m.position.z = 0.03;
+    screen.add(m);
   }
 
   update(s: ShowState, _f: Features, dt: number, camera: THREE.Camera): void {

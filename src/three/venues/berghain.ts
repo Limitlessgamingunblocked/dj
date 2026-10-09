@@ -7,6 +7,7 @@
  * mirrors, no VIP area, no phones. The steel balcony is unverified.
  */
 import * as THREE from 'three';
+import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
@@ -95,7 +96,7 @@ class Berghain extends VenueBase {
     wallBlock(NW, 13, -STAGE, 18);
     wallBlock(-NW, NW, NH, 18);
     wallBlock(-NW, NW, -STAGE, 0);
-    const b = booth({ w: 3.2, d: 1.0, front: concS, top: 0x2a2b2e, strip: null });
+    const b = booth({ w: 3.2, d: 1.0, front: concS, top: 0x2a2b2e, strip: null, name: nameStyleFor('berghain').booth });
     this.group.add(b.group);
     boothClutter(this.group, 3.2, TABLE_Y, -0.5, 81);
     this.add(new DustMotes(new THREE.Box3(V(-2.6, TABLE_Y - 0.3, -2.4), V(2.6, TABLE_Y + 2.6, 1.6)), 320, 83));

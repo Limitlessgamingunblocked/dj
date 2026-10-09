@@ -3,6 +3,9 @@
  * Appearance, decks, audio, board & camera, show, performance, keyboard and
  * your settings file (export / import / reset). MIDI follows in its own pane.
  */
+import type { Career } from '../game/Career';
+import { cleanName, cleanTagline, NAME_MAX, TAGLINE_MAX } from '../core/models';
+import { isBlocked } from '../name/filter';
 import type { AppContext } from '../app/context';
 import type { FaderCurve } from '../audio/Channel';
 import { formatKey, makeKey } from '../analysis/keys';
@@ -31,6 +34,10 @@ export interface SetupHooks {
   saveLights(): void;
   setFpsMeter(v: boolean): void;
   clearLibrary(): Promise<void>;
+  /** the career (the DJ name lives in its profile) */
+  career: Career;
+  /** open the naming scene to rename */
+  openNaming(): void;
 }
 
 let uid = 0;
@@ -63,7 +70,7 @@ export class SetupPanel {
       }
     });
 
-    const grid = h('div', { class: 'cards settings-cards' }, this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.performance(), this.data(), this.keyboard());
+    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.performance(), this.data(), this.keyboard());
     this.el = h('div', { class: 'pane settings-pane' }, h('div', { class: 'settings-search' }, this.search), grid);
     onPrefs(() => this.syncs.forEach((f) => f()));
     this.renderAnchors();
@@ -146,6 +153,37 @@ export class SetupPanel {
   /* ------------------------------------------------------------------ */
   /* sections                                                             */
   /* ------------------------------------------------------------------ */
+
+  /** the DJ name and tagline (Section 3): edit here, or redo it in the naming scene */
+  private profile(): HTMLElement {
+    const c = this.hooks.career;
+    const msg = h('span', { class: 'hint', role: 'status' });
+    const field = (key: 'name' | 'tagline', label: string, max: number, clean: (s: string) => string) => {
+      const inp = h('input', { type: 'text', maxlength: max, autocomplete: 'off', spellcheck: 'false', 'aria-label': label }) as HTMLInputElement;
+      inp.addEventListener('change', () => {
+        const v = clean(inp.value);
+        if (key === 'name' && !v) {
+          msg.textContent = 'A name needs at least one letter.';
+          inp.value = c.profile.name;
+          return;
+        }
+        if (isBlocked(v)) {
+          msg.textContent = 'Pick another one.';
+          inp.value = c.profile[key];
+          return;
+        }
+        msg.textContent = '';
+        c.setProfile({ [key]: v, createdAt: c.profile.createdAt ?? new Date().toISOString() });
+      });
+      this.syncs.push(() => document.activeElement !== inp && (inp.value = c.profile[key]));
+      return this.row(label, inp, 'dj name rename tagline profile');
+    };
+    const caps = this.check('Show the name in capitals', () => c.profile.uppercase, (v) => c.setProfile({ uppercase: v }), 'uppercase capitals');
+    const scene = h('button', { class: 'btn', type: 'button' }, 'Rename in the spotlight…');
+    scene.addEventListener('click', () => this.hooks.openNaming());
+    c.changed.on('profile', () => this.syncs.forEach((f) => f()));
+    return this.card('Profile', 'dj name tagline rename identity', field('name', 'DJ name', NAME_MAX, cleanName), field('tagline', 'Tagline', TAGLINE_MAX, cleanTagline), caps, h('div', { class: 'set-row', 'data-k': 'naming scene spotlight' }, scene, msg));
+  }
 
   private appearance(): HTMLElement {
     const s = this.hooks.settings;

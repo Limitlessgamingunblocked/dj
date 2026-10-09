@@ -16,6 +16,7 @@
  * extra lights.
  */
 import * as THREE from 'three';
+import { nameService } from '../../name/NameService';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
@@ -166,7 +167,11 @@ export function boothClutter(group: THREE.Group, w: number, top: number, front: 
   const lidBody = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.21, 0.01), metal);
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.29, 0.18), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.45, 0.7), toneMapped: false }));
   screen.position.z = 0.006;
-  lid.add(lidBody, screen);
+  // the DJ name as a sticker on the back of the lid, facing the floor
+  const nameSticker = nameService.surface('sticker', 0.15, 0.075, { px: 256 });
+  nameSticker.position.set(0.02, 0.01, -0.0065);
+  nameSticker.rotation.set(0, Math.PI, -0.12);
+  lid.add(lidBody, screen, nameSticker);
   lid.position.set(0, 0.24, -0.1);
   lid.rotation.x = -0.25;
   const laptop = new THREE.Group();

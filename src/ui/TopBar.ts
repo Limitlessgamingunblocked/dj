@@ -3,6 +3,7 @@
  * switch and a ⋯ menu (view, full screen, MIDI, help). A MIDI pill appears
  * only while a controller is connected.
  */
+import { nameService } from '../name/NameService';
 import type { AppContext } from '../app/context';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText } from './dom';
@@ -30,6 +31,7 @@ export interface TopBarActions {
 }
 
 export class TopBar {
+  private djName: HTMLElement;
   readonly el: HTMLElement;
   private boardBtn: HTMLElement;
   private venueBtn: HTMLElement;
@@ -86,10 +88,18 @@ export class TopBar {
       const r = more.getBoundingClientRect();
       a.menu((e as MouseEvent).clientX || r.left, r.bottom + 4);
     });
+    this.djName = h('span', { class: 'dj-name', title: 'Your DJ name — change it in Settings → Profile' });
+    const showName = () => {
+      this.djName.hidden = !nameService.named;
+      setText(this.djName, nameService.text);
+    };
+    showName();
+    nameService.onChange(showName);
     this.el = h(
       'header',
       { class: 'topbar' },
       h('div', { class: 'brand' }, h('span', { class: 'mark' }), h('span', { class: 'brand-text' }, 'DECKHOUSE')),
+      this.djName,
       this.boardBtn,
       this.venueBtn,
       h('span', { class: 'spacer' }),

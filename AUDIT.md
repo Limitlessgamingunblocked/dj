@@ -89,7 +89,7 @@ scripts/               build-single (one-file HTML), build-wasm
 | **2.4** | Post-processing | Partial | Bloom, grain, vignette and VHS look all exist | Chromatic aberration only on drops isn't done; there's no per-effect toggle (one quality level only) |
 | **2.5** | Six camera shots | Partial | Over-the-shoulder ("perf"), crowd POV, wide, booth fisheye, crane, drone; auto director | A named "breakdown orbit" and a "drop punch-in" with toggleable shake are missing as named shots |
 | **2.6** | Voice of the game | Partial | Call-outs and toasts are short | Copy needs a pass to the brief's voice |
-| **3** | Naming scene, NameService, name everywhere | Missing | — | Everything: naming scene, `NameService`, name surfaces, flyers, chants (Stage 2) |
+| **3** | Naming scene, NameService, name everywhere | Partial (Stage 2A) | `src/name/`, `ui/NamingScene.ts`, naming room; booth panels, neon, LED walls, crowd sign, stickers, top bar, chants | Filter word list; surfaces that wait on later systems (lasers, flyers, results, recordings, merch, outdoor venues) |
 | **4** | Character creator, wardrobe, outfits | Missing | The avatar is a fixed stylised figure | Everything (Stage 2), and it depends on Section 14 assets |
 | **5.2** | Venues (Bedroom → Sunrise) | Partial | The Warehouse exists (Deckhouse Warehouse), plus 6 real-world rooms that aren't in the brief | Bedroom, Basement, Rooftop, Beach Club, Boat, Festival and Sunrise are missing; no signature moments, unlock conditions or venue acoustics |
 | **5.3** | Set slots | Missing | — | Slot target curves and scoring |

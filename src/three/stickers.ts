@@ -6,6 +6,7 @@
  * on the unit tops (painted into the faceplate) and on the front panels.
  */
 import * as THREE from 'three';
+import { nameService } from '../name/NameService';
 import type { BoardBuild, Unit } from './builder';
 import { hashString, rng } from './venues/tex';
 
@@ -597,6 +598,7 @@ function rotatedBox(s: Spot): THREE.Box2 {
 /** Put stickers on every unit of a board (call after the layout, before finishAll). */
 export function applyStickers(b: BoardBuild, seedKey: string): void {
   b.root.updateMatrixWorld(true);
+  nameStickers(b);
   const r = rng(hashString(seedKey));
   const used = new Set<string>();
   const pick = (tape: boolean): Design => {
@@ -662,5 +664,19 @@ export function applyStickers(b: BoardBuild, seedKey: string): void {
         u.group.add(m);
       }
     }
+  });
+}
+
+/** the DJ name as a sticker on the front edge of the outer units (it follows renames) */
+function nameStickers(b: BoardBuild): void {
+  const units = b.units.length > 1 ? [b.units[0], b.units[b.units.length - 1]] : b.units;
+  units.forEach((u, i) => {
+    if (u.h < 0.03) return;
+    const h = Math.min(u.h * 0.6, 0.032);
+    const w = Math.min(u.w * 0.42, h * 3.6);
+    const m = nameService.surface('sticker', w, h, { px: 384 });
+    m.position.set((i === 0 ? -1 : 1) * u.w * 0.22, u.h * 0.5, u.d / 2 + 0.0012);
+    m.rotation.z = (i === 0 ? 1 : -1) * 0.05;
+    u.group.add(m);
   });
 }

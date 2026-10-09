@@ -23,6 +23,11 @@ Stage 1 added the foundation:
 - the Blender export pipeline (`assets_source/blender/README.md`)
 - a **debug menu**: press **Ctrl+Shift+D**, or open the page with `?debug`, to jump venues, set the fame tier, unlock everything, change the crowd and fire a drop
 
+Stage 2A added **your name**:
+- **The naming scene** opens on first launch: a dark room, one spotlight on a blank LED sign. Letters strike up as you type, with a preview in four styles, then the crowd goes up when you light it.
+- **The NameService** puts the name on the booth front in each venue's style, on neon signs, on the LED walls on drops, on the superfan's sign, as stickers on the board and laptop, and in the top bar. The crowd chants it at the peak.
+- **Renaming:** Settings → Profile. Changes show up everywhere at once.
+
 ## Run it
 
 ```bash

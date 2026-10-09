@@ -8,6 +8,7 @@
  * and the visual player on a screen across the far wall.
  */
 import * as THREE from 'three';
+import { nameStyleFor } from '../../name/venueStyles';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
@@ -126,7 +127,7 @@ class Printworks extends VenueBase {
     const stage = block(18, STAGE, 5.6, new THREE.MeshStandardMaterial({ color: 0x0c0c0f, roughness: 0.7 }), 3);
     stage.position.set(0, -STAGE / 2, 1.4);
     this.group.add(stage);
-    const b = booth({ w: 3.6, d: 1.0, strip: '#27e1ff' });
+    const b = booth({ w: 3.6, d: 1.0, strip: '#27e1ff', name: nameStyleFor('printworks').booth });
     this.group.add(b.group);
     this.strip(b.strip);
     boothClutter(this.group, 3.6, TABLE_Y, -0.5, 95);
@@ -148,7 +149,9 @@ class Printworks extends VenueBase {
     }
 
     // far wall screen for the visual player
-    this.screen(new THREE.Mesh(new THREE.PlaneGeometry(26, 14.6)), { size: [26, 14.6], pitch: 0.0059 }).position.set(0, 9, FAR + 0.3);
+    const pwScreen = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(26, 14.6)), { size: [26, 14.6], pitch: 0.0059 });
+    pwScreen.position.set(0, 9, FAR + 0.3);
+    this.nameScreen(pwScreen, 26, 14.6, nameStyleFor('printworks').screen!);
 
     // the rig: truss grid with light bars, beam fixtures and strobes
     for (const z of RIG_ROWS) this.rig.add(truss(V(-8.6, 0, z), V(8.6, 0, z), 0.4));

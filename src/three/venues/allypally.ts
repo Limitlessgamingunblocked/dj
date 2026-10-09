@@ -23,6 +23,7 @@
  * descriptions; nothing is traced from photos, and nothing carries a logo.
  */
 import * as THREE from 'three';
+import { nameStyleFor } from '../../name/venueStyles';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
@@ -510,7 +511,7 @@ class AllyPally extends VenueBase {
     }
 
     // the booth
-    const b = booth({ w: 3.8, d: 1.1, strip: '#ff3355' });
+    const b = booth({ w: 3.8, d: 1.1, strip: '#ff3355', name: nameStyleFor('allypally').booth });
     this.group.add(b.group);
     this.strip(b.strip);
     boothClutter(this.group, 3.8, TABLE_Y, -0.55, 1873);
@@ -524,6 +525,7 @@ class AllyPally extends VenueBase {
     const wall = this.screen(new THREE.Mesh(wallGeo));
     wall.position.set(0, 4.6, 9.0);
     wall.rotation.y = Math.PI;
+    this.nameScreen(wall, 23, 7, nameStyleFor('allypally').screen!);
     const wallFrame = block(23.4, 7.4, 0.3, black, 2);
     wallFrame.position.set(0, 4.6, 9.2);
     this.group.add(wallFrame);
@@ -801,7 +803,7 @@ class AllyPally extends VenueBase {
       ring.push(seg);
     }
     this.group.add(new THREE.Mesh(mergeGeometries(ring)!, steel));
-    const b = booth({ w: 3.2, d: 1.0, strip: '#ffd2a0' });
+    const b = booth({ w: 3.2, d: 1.0, strip: '#ffd2a0', name: nameStyleFor('allypally-round').booth });
     this.group.add(b.group);
     this.strip(b.strip);
     boothClutter(this.group, 3.2, TABLE_Y, -0.5, 2023);

@@ -5,6 +5,7 @@
  * concrete floor, a bar along one wall and exit signs, so the room has edges.
  */
 import * as THREE from 'three';
+import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { MirrorBallSpots } from './mirrorball';
 import { Pyro } from './pyro';
@@ -56,7 +57,7 @@ class Warehouse extends VenueBase {
     stage.position.set(0, -STAGE / 2, 1.6);
     stage.receiveShadow = true;
     this.group.add(stage);
-    const b = booth({ w: 2.8, d: 0.95, strip: '#2ec4f1' });
+    const b = booth({ w: 2.8, d: 0.95, strip: '#2ec4f1', name: nameStyleFor('warehouse').booth });
     this.group.add(b.group);
     boothClutter(this.group, 2.8, TABLE_Y, -0.475, 22);
     this.add(new DustMotes(new THREE.Box3(V(-2.6, TABLE_Y - 0.3, -2.4), V(2.6, TABLE_Y + 2.6, 1.6)), 320, 23));
@@ -75,7 +76,9 @@ class Warehouse extends VenueBase {
     }
 
     // LED wall + side screens (visual player)
-    this.screen(new THREE.Mesh(new THREE.PlaneGeometry(11.2, 6.3)), { size: [11.2, 6.3], pitch: 0.0039 }).position.set(0, 3.3, -8);
+    const main = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(11.2, 6.3)), { size: [11.2, 6.3], pitch: 0.0039 });
+    main.position.set(0, 3.3, -8);
+    this.nameScreen(main, 11.2, 6.3, nameStyleFor('warehouse').screen!);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(11.6, 6.7, 0.25), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.8 }));
     frame.position.set(0, 3.3, -8.14);
     this.group.add(frame);
@@ -123,6 +126,8 @@ class Warehouse extends VenueBase {
         { height: 2.9 },
       ),
     );
+    // the DJ name in neon over the bar
+    this.nameSign(nameStyleFor('warehouse').sign!, 3.0, 0.85, V(-9.44, 3.25, -5.4), Math.PI / 2);
     const ball = mirrorBall(0.35);
     ball.position.set(0, 5.4, -4.2);
     this.group.add(ball);
