@@ -22,6 +22,86 @@ export interface ControlHooks {
   /** sync can be refused (Pro assist in a gig): returns why, or null when allowed */
   syncBlocked?(): string | null;
   denied?(why: string): void;
+  /** load the track before / after this deck's in the library list (track search ◀◀ ▶▶) */
+  adjacent?(deck: number, delta: number): void;
+  /** the all-in-one's screen buttons: BACK, the browse encoder's push, TAG */
+  screenBack?(): void;
+  browsePress?(): void;
+  tagSelected?(): void;
+}
+
+/* the all-in-one's memory / call buttons, on the hot cues (pure, tested) */
+
+/** where CALL ◀ / ▶ goes: the hot cue before (a little behind the playhead) or after it; null when there's none */
+export function callCue(cues: ({ pos: number } | null)[], pos: number, dir: -1 | 1): number | null {
+  const at = cues.filter((c): c is { pos: number } => !!c).map((c) => c.pos);
+  if (dir > 0) {
+    const next = at.filter((p) => p > pos + 0.05).sort((a, b) => a - b);
+    return next.length ? next[0] : null;
+  }
+  const prev = at.filter((p) => p < pos - 0.5).sort((a, b) => b - a);
+  return prev.length ? prev[0] : null;
+}
+
+/** DELETE: the hot cue at or just behind the playhead (the one you'd have just called) */
+export function cueToDelete(cues: ({ pos: number } | null)[], pos: number): number {
+  let best = -1;
+  let bestPos = -Infinity;
+  cues.forEach((c, i) => {
+    if (c && c.pos <= pos + 0.05 && c.pos > bestPos) {
+      best = i;
+      bestPos = c.pos;
+    }
+  });
+  return best;
+}
+
+interface ColorChannel {
+  state: { filter: number; crush: number; res: number };
+  setFilter(v: number): void;
+  setCrush(v: number): void;
+  setRes(v: number): void;
+}
+
+/**
+ * The sound colour FX: the all-in-one's COLOR knobs play the filter or the
+ * bitcrusher, picked with the FILTER / CRUSH buttons. Switching keeps each
+ * knob where it is: the old effect goes back to neutral, the new one picks up
+ * from the knob. CRUSH grows either way from the centre.
+ */
+export class ColorFx {
+  mode: 'filter' | 'crush' = 'filter';
+  private side: number[];
+
+  constructor(private channels: ColorChannel[]) {
+    this.side = channels.map(() => 1);
+  }
+
+  get(i: number): number {
+    const c = this.channels[i];
+    return this.mode === 'filter' ? c.state.filter : 0.5 + (this.side[i] * c.state.crush) / 2;
+  }
+
+  set(i: number, v: number): void {
+    const c = this.channels[i];
+    if (this.mode === 'filter') c.setFilter(v);
+    else {
+      const off = v - 0.5;
+      this.side[i] = off < 0 ? -1 : 1;
+      c.setCrush(clamp(Math.abs(off) * 2, 0, 1));
+    }
+  }
+
+  setMode(m: 'filter' | 'crush'): void {
+    if (m === this.mode) return;
+    const at = this.channels.map((_, i) => this.get(i));
+    for (const c of this.channels) {
+      if (this.mode === 'filter') c.setFilter(0.5);
+      else c.setCrush(0);
+    }
+    this.mode = m;
+    at.forEach((v, i) => this.set(i, v));
+  }
 }
 
 const fmtDb = (g: number) => {
@@ -105,6 +185,35 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
     btn(p + 'jump.fwd', L('Beat jump forward'), () => d.beatJump(d.jumpBeats), () => false);
     reg.register({ id: p + 'jump.size', label: L('Beat jump size'), kind: 'encoder', step: (dl) => d.resizeJump(dl > 0 ? 1 : -1) });
     btn(p + 'load', L('Load selected track'), () => hooks.loadSelected(d.id), () => false);
+    btn(p + 'track.prev', L('Track search: previous track'), () => hooks.adjacent?.(d.id, -1), () => false);
+    btn(p + 'track.next', L('Track search: next track'), () => hooks.adjacent?.(d.id, 1), () => false);
+    // search: hold to scan through the track, about 8× speed
+    for (const [name, dir] of [['search.back', -1], ['search.fwd', 1]] as const) {
+      let timer: ReturnType<typeof setInterval> | null = null;
+      btn(p + name, L(dir < 0 ? 'Search back (hold)' : 'Search forward (hold)'), () => {
+        if (timer || !d.loaded) return;
+        timer = setInterval(() => d.seek(clamp(d.position() + dir * 0.45, 0, d.duration), d.slip), 60);
+      }, () => timer !== null, () => {
+        if (timer) clearInterval(timer);
+        timer = null;
+      });
+    }
+    btn(p + 'call.prev', L('Cue/loop call ◀ (previous hot cue)'), () => {
+      const to = callCue(d.hotCues, d.position(), -1);
+      if (to !== null) d.jumpTo(to);
+    }, () => false);
+    btn(p + 'call.next', L('Cue/loop call ▶ (next hot cue)'), () => {
+      const to = callCue(d.hotCues, d.position(), 1);
+      if (to !== null) d.jumpTo(to);
+    }, () => false);
+    btn(p + 'memory', L('Memory: store a hot cue here'), () => {
+      const free = d.hotCues.findIndex((c) => !c);
+      if (d.loaded && free >= 0) d.setHotCue(free);
+    }, () => false);
+    btn(p + 'delete', L('Delete the hot cue just called'), () => {
+      const i = cueToDelete(d.hotCues, d.position());
+      if (i >= 0) d.deleteHotCue(i);
+    }, () => false);
     btn(p + 'key.up', L('Key +1'), () => d.setKeyShift(d.keyShift + 1), () => (d.keyShift > 0 ? '#ff5fcf' : false));
     btn(p + 'key.down', L('Key −1'), () => d.setKeyShift(d.keyShift - 1), () => (d.keyShift < 0 ? '#ff5fcf' : false));
     btn(p + 'key.reset', L('Key reset'), () => d.setKeyShift(0), () => false);
@@ -133,6 +242,26 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
       btn(p + `stem.${stem}.mute`, L(`Mute ${stem}`), () => d.setStems({ [stem]: d.stems[stem] > 0.01 ? 0 : 1 }), () => (d.stems[stem] <= 0.01 ? '#ff3b5c' : false));
     }
   }
+
+  // the all-in-one's sound colour FX
+  const color = new ColorFx(engine.channels);
+  engine.channels.forEach((_, i) => {
+    knob(`ch.${i + 1}.color`, `Channel ${i + 1} colour FX`, () => color.get(i), (v) => color.set(i, v), 0.5, true, (v) => (color.mode === 'crush' ? `CRUSH ${Math.round(Math.abs(v - 0.5) * 200)}%` : v < 0.48 ? 'LPF' : v > 0.52 ? 'HPF' : 'OFF'));
+  });
+  btn('colorfx.filter', 'Sound colour FX: filter', () => color.setMode('filter'), () => (color.mode === 'filter' ? '#3ddc97' : false));
+  btn('colorfx.crush', 'Sound colour FX: crush', () => color.setMode('crush'), () => (color.mode === 'crush' ? '#3ddc97' : false));
+  knob('colorfx.param', 'Sound colour FX parameter (filter resonance)', () => engine.channels[0].state.res, (v) => engine.channels.forEach((ch) => ch.setRes(v)), 0.25);
+  // knobs on the hardware with nothing behind them in the game: they turn and remember, honestly labelled
+  const panel = (id: string, label: string, def: number, center = false) => {
+    let v = def;
+    knob(id, label, () => v, (x) => (v = x), def, center);
+  };
+  panel('mic.1.level', 'Mic 1 level (the game has no mic input)', 0);
+  panel('mic.2.level', 'Mic 2 level (the game has no mic input)', 0);
+  panel('mic.hi', 'Mic EQ high (the game has no mic input)', 0.5, true);
+  panel('mic.low', 'Mic EQ low (the game has no mic input)', 0.5, true);
+  panel('aux.trim', 'Aux input trim (nothing is plugged in)', 0.5, true);
+  panel('mixer.booth', 'Booth monitor level (the game has one output)', 0.6);
 
   engine.channels.forEach((ch, i) => {
     const p = `ch.${i + 1}.`;
@@ -202,7 +331,9 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
     btn(`sampler.pad.${i + 1}`, `Sampler slot ${i + 1}`, () => engine.sampler.trigger(i), () => (engine.sampler.isPlaying(i) ? '#ffffff' : engine.sampler.slots[i].buffer ? engine.sampler.slots[i].color : false));
   }
 
-  reg.register({ id: 'browse', label: 'Browse library', kind: 'encoder', step: (dl) => hooks.browse(dl) });
+  reg.register({ id: 'browse', label: 'Browse library', kind: 'encoder', step: (dl) => hooks.browse(dl), press: () => hooks.browsePress?.() });
+  btn('screen.back', 'Screen: back', () => hooks.screenBack?.(), () => false);
+  btn('browse.tag', 'Tag the selected track (favourite)', () => hooks.tagSelected?.(), () => false);
   btn('shift', 'Shift', () => (reg.shift = true), () => reg.shift, () => (reg.shift = false));
   btn('layer.L', 'Left deck layer 1/3', () => {
     reg.setLayer('L', reg.layers.L === 1 ? 3 : 1);

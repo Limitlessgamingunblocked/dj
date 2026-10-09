@@ -121,6 +121,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 | Board | Class | Decks |
 |---|---|---|
 | Starter Two | Entry-level 2-channel all-in-one controller | 2 |
+| All-in-One Two | Flagship 2-channel all-in-one (73 × 47 cm) with a 10.1-inch touch screen that browses your library | 2 |
 | Pro Four | Flagship 4-channel controller with on-jog displays, centre screen, LED filter rings | 4 (layers) |
 | Club Standard | Two media players with waveform screens + 4-channel club mixer | 4 (layers) |
 | Vinyl Battle | Twin direct-drive turntables + 2-channel battle mixer | 2 |
@@ -131,6 +132,13 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - PBR materials with a room environment map, real-time shadows from the booth light, bloom on LEDs and screens, printed faceplates.
 - Each board comes in several finishes, and every board carries old stickers and gaffer tape — drawn procedurally and aged (sun-faded, scratched, torn and peeling corners), placed only in free space so they never cover a control. Switch them off in Settings.
 - On the one-unit-per-deck boards the software deck panels follow whichever player or turntable you touch.
+- **All-in-One Two's touch screen** works like the real one. Tap its tabs:
+  - **DECKS:** both decks' scrolling waveforms, title, BPM, key, tempo and time, beat FX, and an overview per deck. Tap an overview to jump there.
+  - **BROWSE:** your library, the same list as the Library tab. Tap a track to pick it and tap it again to load it, or use LOAD ▶ DECK 1 / 2. Drag or scroll to move through the list, tap a column to sort, and use ★ TAG for favourites. Tracks that suit the master deck's key get a green dot.
+  - **PLAYLISTS:** the collection, demo tracks, favourites, history and your crates.
+  - **SEARCH:** jump to a letter, or change the sort.
+
+  Beside the screen are the browse encoder (turn to move through the list; push to open it, or to load from it), BACK, TAG TRACK and LOAD 1 / 2. Each deck adds CUE/LOOP CALL ◀ ▶ with MEMORY and DELETE (on the hot cues), track search ◀◀ ▶▶ (the previous or next track in the list) and search (hold to scan). The mixer has a sound colour FX (FILTER or CRUSH on the COLOR knobs, with PARAMETER). The mic, aux and booth-monitor knobs turn but have no audio behind them in a browser game.
 - Controls: drag knobs up/down (Shift for fine), drag faders, double-click to reset, scroll wheel over any control. Jogs have a capacitive top (scratch in vinyl mode) and an outer ring (pitch bend). Turntables have platter inertia with adjustable start/brake, slip-mat scratching (the platter keeps spinning under the record), tonearm needle drop, 33/45 and adjustable record wear (crackle, hiss, wow & flutter). Multi-touch works on touch screens.
 - Hover-to-zoom (zones per unit on the multi-unit rigs): rest the mouse over a deck or the mixer and the camera moves in close so the controls are big and easy to grab; move off the board (or click the zoom chip) to pull back. The camera holds still while you're dragging a control. On touch screens, tap part of the board to zoom and tap again to zoom out. Switch it off in the camera menu on the stage.
 - Cameras: top-down, performance (drifts gently with the music when you're hands-off), first-person booth, club views, six moving angles with their own lens looks and the FPV drone (see Venues), orbit/pan/zoom with damping, plus saved camera views.

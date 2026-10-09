@@ -16,7 +16,7 @@ import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 
 type View = { kind: 'all' } | { kind: 'demo' } | { kind: 'favs' } | { kind: 'history' } | { kind: 'crate'; id: string };
-type SortKey = 'title' | 'artist' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
+export type SortKey = 'title' | 'artist' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
 
 export class LibraryPanel {
   readonly el: HTMLElement;
@@ -533,6 +533,55 @@ export class LibraryPanel {
       items.push('sep', { label: 'Remove from library', danger: true, action: () => void lib.deleteTrack(t.id) });
     }
     contextMenu(e.clientX, e.clientY, items);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* the board's touch screen browses the same list                      */
+  /* ------------------------------------------------------------------ */
+
+  /** every source the library has: the collection, demo tracks, favourites, history, then crates and folders */
+  sources(): { id: string; name: string; count: number; depth: number; folder: boolean }[] {
+    const lib = this.app.library;
+    const all = lib.list();
+    const out = [
+      { id: 'all', name: 'Collection', count: all.length, depth: 0, folder: false },
+      { id: 'demo', name: 'Demo tracks', count: all.filter((t) => t.source === 'demo').length, depth: 0, folder: false },
+      { id: 'favs', name: 'Favourites', count: all.filter((t) => t.fav).length, depth: 0, folder: false },
+      { id: 'history', name: 'History', count: lib.history.length, depth: 0, folder: false },
+    ];
+    const walk = (parent: string | null, depth: number) => {
+      for (const c of lib.children(parent)) {
+        out.push({ id: `crate:${c.id}`, name: c.name, count: c.trackIds.length, depth, folder: c.kind === 'folder' });
+        if (c.kind === 'folder') walk(c.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return out;
+  }
+
+  /** the source on show ('all', 'demo', 'favs', 'history' or 'crate:<id>') */
+  sourceId(): string {
+    return this.view.kind === 'crate' ? `crate:${this.view.id}` : this.view.kind;
+  }
+
+  setSource(id: string): void {
+    if (id.startsWith('crate:')) this.showCrate(id.slice(6));
+    else if (id === 'all' || id === 'demo' || id === 'favs' || id === 'history') this.setView({ kind: id });
+  }
+
+  /** the tracks on show, in the order shown */
+  visible(): LibraryTrack[] {
+    return this.rows;
+  }
+
+  sorting(): { key: SortKey; dir: 1 | -1 } {
+    return this.sort;
+  }
+
+  /** sort by a column; again on the same one reverses it */
+  sortBy(key: SortKey): void {
+    this.sort = { key, dir: this.sort.key === key ? ((-this.sort.dir) as 1 | -1) : key === 'added' ? -1 : 1 };
+    this.render();
   }
 
   moveSelection(delta: number): void {

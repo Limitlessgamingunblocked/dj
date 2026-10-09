@@ -7,11 +7,15 @@
  *   quad4    – festival booth: four media players around a 4-channel mixer
  *   hybrid4  – two turntables outside two media players + 4-channel mixer
  *   rotary2  – two turntables + a walnut-cheeked 2-channel rotary mixer
+ *   aio2     – flagship 2-channel all-in-one: 728 × 470 mm, a 10.1-inch
+ *              touch screen that browses the library, 16 cm jogs
  */
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { BoardBuild, channelStrip, crossfader, finish, fxSection, loopRow, masterSection, padGrid, padModes, transport, type Finish, type Unit } from './builder';
 import { PlatterPart, TonearmPart, type DeckRef } from './parts';
 import { drawDualScreen, drawPlayerScreen } from './screens';
+import { TouchScreenPart } from './deviceScreen';
 import type { FaceStyle } from './Faceplate';
 import { applyStickers } from './stickers';
 import { woodTexture } from './materials';
@@ -454,7 +458,246 @@ const rotary: BoardDef = {
   },
 };
 
-export const BOARDS: BoardDef[] = [starter, pro, club, vinyl, quad, hybrid, rotary];
+/* ------------------------------------------------------------------ */
+/* 8. All-in-one with a touch screen                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Laid out from the flagship two-channel all-in-ones (728 × 470 mm, 9.3 kg):
+ * two identical decks (not mirrored) either side of a two-channel mixer, a
+ * 10.1-inch touch screen standing up behind the mixer with the browse
+ * encoder, BACK, TAG and LOAD 1 / 2 beside it, a mic section top left and the
+ * USB slots top right. Positions are measured off the top view.
+ */
+
+/** one deck; `dx` shifts the left deck's layout across to the right one */
+function aioDeck(u: Unit, deck: 1 | 2, dx: number): void {
+  const D = `deck.${deck}`;
+  const f = u.finish;
+  const X = (x: number) => x + dx;
+  const small = { w: 0.017, d: 0.009 };
+  // the top row: loop, cue/loop call, delete, memory
+  u.button(`${D}.loop.in`, X(-0.33), -0.141, { label: 'Loop in (shift: ½)', w: 0.022, d: 0.012, print: 'IN', printAt: 'above', led: '#ff9f1c', alt: `${D}.loop.half` });
+  u.button(`${D}.loop.out`, X(-0.302), -0.141, { label: 'Loop out (shift: ×2)', w: 0.022, d: 0.012, print: 'OUT', printAt: 'above', led: '#ff9f1c', alt: `${D}.loop.double` });
+  u.button(`${D}.loop.exit`, X(-0.272), -0.141, { label: 'Reloop / exit', ...small, print: 'RELOOP/EXIT', printAt: 'above', led: '#ff9f1c' });
+  u.button(`${D}.call.prev`, X(-0.225), -0.141, { label: 'Cue/loop call ◀ (previous hot cue)', w: 0.012, d: 0.009, print: '◀', printAt: 'below', led: '#ffffff' });
+  u.button(`${D}.call.next`, X(-0.209), -0.141, { label: 'Cue/loop call ▶ (next hot cue)', w: 0.012, d: 0.009, print: '▶', printAt: 'below', led: '#ffffff' });
+  u.face.text(X(-0.217), -0.154, 'CUE/LOOP CALL', { size: 0.0025 });
+  u.button(`${D}.delete`, X(-0.18), -0.141, { label: 'Delete (the hot cue just called)', w: 0.014, d: 0.009, print: 'DELETE', printAt: 'above', led: '#ffffff' });
+  u.button(`${D}.memory`, X(-0.155), -0.141, { label: 'Memory (store a hot cue here)', w: 0.014, d: 0.009, print: 'MEMORY', printAt: 'above', led: '#ffffff' });
+  // left column
+  u.button(`${D}.slip`, X(-0.343), -0.094, { label: 'Slip', ...small, print: 'SLIP', printAt: 'above', led: '#b36bff' });
+  u.button(`${D}.quantize`, X(-0.318), -0.094, { label: 'Quantize', ...small, print: 'QUANTIZE', printAt: 'above', led: '#ff3b5c' });
+  u.button(`${D}.reverse`, X(-0.343), -0.06, { label: 'Direction: reverse', ...small, print: 'DIRECTION', printAt: 'above', led: '#ff3b5c', symbol: 'REV' });
+  u.button(`${D}.track.prev`, X(-0.343), -0.018, { label: 'Track search ◀◀ (previous track in the list)', ...small, print: '◀◀', printAt: 'below', led: '#ffffff' });
+  u.button(`${D}.track.next`, X(-0.318), -0.018, { label: 'Track search ▶▶ (next track in the list)', ...small, print: '▶▶', printAt: 'below', led: '#ffffff' });
+  u.face.text(X(-0.33), -0.031, 'TRACK SEARCH', { size: 0.0025 });
+  u.button(`${D}.search.back`, X(-0.343), 0.022, { label: 'Search back (hold)', ...small, print: '◀◀', printAt: 'below', led: '#ffffff' });
+  u.button(`${D}.search.fwd`, X(-0.318), 0.022, { label: 'Search forward (hold)', ...small, print: '▶▶', printAt: 'below', led: '#ffffff' });
+  u.face.text(X(-0.33), 0.009, 'SEARCH', { size: 0.0025 });
+  u.button('shift', X(-0.336), 0.062, { label: 'Shift', ...small, print: 'SHIFT', printAt: 'below', led: '#ffffff' });
+  // transport: the big rubber CUE and PLAY/PAUSE with their light rings
+  u.button(`${D}.cue`, X(-0.336), 0.118, { label: 'Cue', shape: 'big', w: 0.031, led: f.cueColor, symbol: 'CUE' });
+  u.button(`${D}.play`, X(-0.336), 0.18, { label: 'Play / Pause', shape: 'big', w: 0.031, led: f.playColor, symbol: 'PLAY' });
+  // a 16 cm jog with its on-jog display
+  u.jog(`${D}.jog`, X(-0.233), 0.022, 0.078, 'pro', deck);
+  // right column: jog feel, jog mode, sync, tempo
+  u.knob(`${D}.jogscale`, X(-0.168), -0.094, { label: 'Jog adjust (how far a turn moves)', print: 'JOG ADJUST', r: 0.0052, printAbove: true });
+  u.knob(`${D}.motor.brake`, X(-0.131), -0.094, { label: 'Vinyl speed adjust (how fast it stops)', print: 'VINYL SPEED', r: 0.0052 });
+  u.button(`${D}.vinyl`, X(-0.131), -0.06, { label: 'Jog mode: vinyl', ...small, print: 'JOG MODE', printAt: 'above', led: '#2ec4f1', symbol: 'VINYL' });
+  u.button(`${D}.sync`, X(-0.131), -0.024, { label: 'Beat sync (shift: tempo master)', ...small, print: 'BEAT SYNC', printAt: 'above', alt: `${D}.master`, led: '#2ec4f1' });
+  u.button(`${D}.range`, X(-0.131), 0.012, { label: 'Tempo range ±6 / 10 / 16 / wide', ...small, print: 'TEMPO ±', printAt: 'above', led: '#ffffff' });
+  u.button(`${D}.keylock`, X(-0.131), 0.046, { label: 'Master tempo (key lock; shift: key sync)', ...small, print: 'MASTER TEMPO', printAt: 'above', led: '#ff5fcf', alt: `${D}.key.sync` });
+  u.fader(`${D}.tempo`, X(-0.131), 0.133, 'z', 0.1, { label: 'Tempo', maxAtFar: false, size: 'tempo', center: true, labels: ['−', '+'], ticks: 16 });
+  // pad modes and the eight pads
+  const modes: [string, string, string | null, string][] = [
+    ['hotcue', 'HOT CUE', null, '#ffffff'],
+    ['roll', 'ROLL', 'pitch', '#ffffff'],
+    ['slicer', 'SLICER', 'sampler', '#ffffff'],
+    ['jump', 'BEAT JUMP', null, '#ffffff'],
+  ];
+  u.face.text(X(-0.23), 0.107, 'PAD MODE', { size: 0.0026, color: f.face.sub });
+  modes.forEach(([m, label, alt, led], i) => {
+    const x = X(-0.28 + i * 0.0333);
+    u.button(`${D}.padmode.${m}`, x, 0.123, { label: alt ? `Pad mode: ${label.toLowerCase()} (shift: ${alt})` : `Pad mode: ${label.toLowerCase()}`, w: 0.026, d: 0.0075, led, alt: alt ? `${D}.padmode.${alt}` : null });
+    u.face.text(x, 0.131, alt ? `${label}·${alt.toUpperCase()}` : label, { size: 0.0021 });
+  });
+  padGrid(u, deck, X(-0.23), 0.174, 0.028, 0.005);
+}
+
+function aioMixer(u: Unit): void {
+  const f = u.finish;
+  [-0.036, 0.036].forEach((x, i) => {
+    const ch = i + 1;
+    u.knob(`ch.${ch}.trim`, x, -0.102, { label: `Ch ${ch} trim`, print: 'TRIM', r: 0.0075 });
+    u.knob(`ch.${ch}.hi`, x, -0.068, { label: `Ch ${ch} EQ high`, print: 'HI', r: 0.0082, center: true });
+    u.knob(`ch.${ch}.mid`, x, -0.034, { label: `Ch ${ch} EQ mid`, print: 'MID', r: 0.0082, center: true });
+    u.knob(`ch.${ch}.low`, x, 0.0, { label: `Ch ${ch} EQ low`, print: 'LOW', r: 0.0082, center: true });
+    u.knob(`ch.${ch}.color`, x, 0.036, { label: `Ch ${ch} colour FX (filter or crush)`, print: 'COLOR', r: 0.0088, center: true, cap: '#3a6ea5' });
+    u.button(`ch.${ch}.cue`, x, 0.066, { label: `Ch ${ch} headphone cue`, w: 0.016, d: 0.0095, print: 'CUE', printAt: 'below', led: '#ff9f1c' });
+    u.fader(`ch.${ch}.fader`, x, 0.132, 'z', 0.05, { label: `Ch ${ch} fader` });
+    u.face.text(x, 0.172, String(ch), { size: 0.0065, color: f.face.print });
+  });
+  // master level over the two 15-segment channel meters
+  u.knob('mixer.master', 0, -0.102, { label: 'Master level', print: 'MASTER', r: 0.0078, cap: '#5b6270' });
+  u.vu(1, -0.008, -0.032, 0.088, 15, false);
+  u.vu(2, 0.008, -0.032, 0.088, 15, false);
+  u.face.text(-0.008, -0.082, '1', { size: 0.0024, color: f.face.sub });
+  u.face.text(0.008, -0.082, '2', { size: 0.0024, color: f.face.sub });
+  u.knob('mixer.xcurve', 0, 0.132, { label: 'Crossfader curve', print: 'CURVE', r: 0.0052 });
+  crossfader(u, 0, 0.205, 0.045);
+  // left column: aux, sound colour FX, headphones
+  const lx = -0.083;
+  u.knob('aux.trim', lx, -0.07, { label: 'Aux trim (nothing plugged in)', print: 'AUX TRIM', r: 0.0058 });
+  u.face.section(lx, 0.03, 0.054, 0.062, 'COLOR FX');
+  u.button('colorfx.crush', lx - 0.012, 0.022, { label: 'Sound colour FX: crush', w: 0.017, d: 0.009, print: 'CRUSH', printAt: 'below', led: '#3ddc97' });
+  u.button('colorfx.filter', lx + 0.012, 0.022, { label: 'Sound colour FX: filter', w: 0.017, d: 0.009, print: 'FILTER', printAt: 'below', led: '#3ddc97' });
+  u.knob('colorfx.param', lx, 0.05, { label: 'Colour FX parameter (resonance)', print: 'PARAMETER', r: 0.0058, printAbove: false });
+  u.face.section(lx, 0.14, 0.054, 0.084, 'HEADPHONES');
+  u.knob('mixer.cuemix', lx, 0.128, { label: 'Headphone mixing (cue ⇄ master)', print: 'MIXING', r: 0.0062 });
+  u.knob('mixer.phones', lx, 0.166, { label: 'Headphone level', print: 'LEVEL', r: 0.0062 });
+  // right column: booth monitor and beat FX
+  const rx = 0.082;
+  u.knob('mixer.booth', rx, -0.088, { label: 'Booth monitor (the game has one output)', print: 'BOOTH MONITOR', r: 0.0062 });
+  u.face.section(rx, 0.05, 0.058, 0.222, 'BEAT FX');
+  u.button('fx.beat.down', rx - 0.012, -0.044, { label: 'Beat FX beat −', w: 0.013, d: 0.0085, print: '◀', printAt: 'below', led: '#ffffff' });
+  u.button('fx.beat.up', rx + 0.012, -0.044, { label: 'Beat FX beat +', w: 0.013, d: 0.0085, print: '▶', printAt: 'below', led: '#ffffff' });
+  u.face.text(rx, -0.055, 'BEAT', { size: 0.0024 });
+  u.knob('fx.type', rx, -0.01, { label: 'Beat FX select (turn)', print: 'FX SELECT', r: 0.0088, encoder: true, printAbove: false });
+  u.knob('fx.select', rx, 0.03, { label: 'Beat FX channel (1 / 2 / master)', print: 'CH SELECT', r: 0.006, encoder: true, printAbove: false });
+  u.knob('fx.param', rx, 0.066, { label: 'Beat FX time / parameter', print: 'TIME', r: 0.0062, printAbove: false });
+  u.knob('fx.depth', rx, 0.112, { label: 'Beat FX level / depth', print: 'LEVEL/DEPTH', r: 0.0088, cap: '#9c2a3f' });
+  u.button('fx.on', rx, 0.152, { label: 'Beat FX on / off', shape: 'round', w: 0.019, print: 'ON/OFF', printAt: 'below', led: '#2ec4f1' });
+  // the mic section, top left
+  u.face.section(-0.258, -0.207, 0.19, 0.036, 'MIC');
+  u.face.rect(-0.326, -0.205, 0.022, 0.008, { fill: '#050608', radius: 0.002 });
+  u.face.text(-0.326, -0.195, 'OFF·ON·TALK OVER', { size: 0.0019 });
+  u.knob('mic.low', -0.285, -0.205, { label: 'Mic EQ low (the game has no mic input)', print: 'LOW', r: 0.005, center: true, printAbove: false });
+  u.knob('mic.hi', -0.26, -0.205, { label: 'Mic EQ high (the game has no mic input)', print: 'HI', r: 0.005, center: true, printAbove: false });
+  u.knob('mic.1.level', -0.225, -0.205, { label: 'Mic 1 level (the game has no mic input)', print: 'MIC 1', r: 0.0055, printAbove: false });
+  u.knob('mic.2.level', -0.195, -0.205, { label: 'Mic 2 level (the game has no mic input)', print: 'MIC 2', r: 0.0055, printAbove: false });
+  // the USB slots and master record, top right
+  for (const [x, n] of [[0.262, 1], [0.3, 2]] as const) {
+    u.face.rect(x, -0.212, 0.022, 0.009, { fill: '#030405', radius: 0.0015, stroke: f.face.sub, line: 0.0003 });
+    u.face.text(x, -0.224, `USB ${n}`, { size: 0.0024 });
+  }
+  u.button('rec.toggle', 0.34, -0.212, { label: 'Master record', w: 0.016, d: 0.009, print: 'MASTER/REC', printAt: 'below', led: '#ff2e2e' });
+  // tonight's set, plugged in
+  const stick = new THREE.Mesh(new RoundedBoxGeometry(0.0125, 0.032, 0.0052, 2, 0.0015), new THREE.MeshStandardMaterial({ color: '#ff2e88', roughness: 0.35, metalness: 0.2 }));
+  stick.position.set(0.262, u.h + 0.016, -0.212);
+  stick.castShadow = true;
+  u.group.add(stick);
+}
+
+/** a tilted panel standing on the faceplate: its face is local y = 0, running back from its bottom edge (z = 0) to z = −len */
+function tiltedPanel(u: Unit, x: number, z0: number, w: number, len: number, tilt: number, mat: THREE.Material): THREE.Group {
+  const g = new THREE.Group();
+  g.position.set(x, u.h + 0.004, z0);
+  g.rotation.x = tilt;
+  u.group.add(g);
+  const thick = 0.016;
+  const slab = new THREE.Mesh(new RoundedBoxGeometry(w, thick, len, 3, 0.004), mat);
+  slab.position.set(0, -thick / 2, -len / 2);
+  slab.castShadow = true;
+  g.add(slab);
+  // the stand under it: from the faceplate up to the slab's back
+  const c = Math.cos(tilt);
+  const t = Math.tan(tilt);
+  const under = (back: number) => 0.004 + back * t - thick / c;
+  const zb = len * c - 0.018;
+  const shape = new THREE.Shape([new THREE.Vector2(0.012, 0), new THREE.Vector2(zb, 0), new THREE.Vector2(zb, under(zb)), new THREE.Vector2(0.012, Math.max(0.001, under(0.012)))]);
+  const stand = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: w * 0.7, bevelEnabled: false }), mat);
+  stand.rotation.y = Math.PI / 2;
+  stand.position.set(x - w * 0.35, u.h, z0);
+  u.group.add(stand);
+  return g;
+}
+
+function aioScreen(b: BoardBuild, u: Unit): void {
+  const tilt = 1.13; // about 65° up from the faceplate, facing you
+  const z0 = -0.128;
+  const housing = new THREE.MeshStandardMaterial({ color: '#0e0f12', roughness: 0.42, metalness: 0.35 });
+  // the 10.1-inch panel: 217 × 136 mm of 16:10 picture in a black glass front
+  const W = 0.217;
+  const H = 0.136;
+  const bez = 0.011;
+  const len = H + bez * 2 + 0.008;
+  const panel = tiltedPanel(u, 0, z0, W + bez * 2, len, tilt, housing);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(W + bez * 2 - 0.003, len - 0.003), new THREE.MeshStandardMaterial({ color: '#040405', roughness: 0.06, metalness: 0.3 }));
+  front.rotation.x = -Math.PI / 2;
+  front.position.set(0, 0.0004, -len / 2);
+  panel.add(front);
+  const screen = new TouchScreenPart(W, H);
+  screen.object.position.set(0, 0.0009, -(bez + 0.008) - H / 2);
+  panel.add(screen.object);
+  b.register(screen);
+  // beside it: BACK, TAG, the browse encoder and LOAD 1 / 2
+  const sw = 0.066;
+  const slen = 0.12;
+  const side = tiltedPanel(u, (W + bez * 2) / 2 + 0.005 + sw / 2, z0, sw, slen, tilt, housing);
+  const put = (p: { object: THREE.Object3D }, x: number, z: number) => {
+    side.add(p.object);
+    p.object.position.set(x, 0, z);
+  };
+  put(u.button('screen.back', 0, 0, { label: 'Back (screen)', w: 0.018, d: 0.0095, led: '#ffffff' }), -0.016, -0.104);
+  put(u.button('browse.tag', 0, 0, { label: 'Tag track / remove (favourite)', w: 0.018, d: 0.0095, led: '#ffd23f' }), 0.016, -0.104);
+  put(u.knob('browse', 0, 0, { label: 'Browse: turn to move through the list, push to open it / load', r: 0.0135, h: 0.013, encoder: true }), 0, -0.07);
+  put(u.button('deck.1.load', 0, 0, { label: 'Load the selected track to deck 1', w: 0.022, d: 0.011, led: '#ffffff' }), -0.016, -0.026);
+  put(u.button('deck.2.load', 0, 0, { label: 'Load the selected track to deck 2', w: 0.022, d: 0.011, led: '#ffffff' }), 0.016, -0.026);
+  // the side panel's print
+  const c = document.createElement('canvas');
+  c.width = 264;
+  c.height = 480;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#0e0f12';
+  g.fillRect(0, 0, c.width, c.height);
+  const px = (x: number) => (x / sw + 0.5) * c.width;
+  const py = (z: number) => (1 + z / slen) * c.height;
+  g.fillStyle = '#d9dde4';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const label = (s: string, x: number, z: number, size = 17) => {
+    g.font = `700 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    g.fillText(s, px(x), py(z));
+  };
+  label('BACK', -0.016, -0.115);
+  label('TAG TRACK', 0.016, -0.115);
+  label('BROWSE · PUSH', 0, -0.05, 16);
+  label('LOAD', 0, -0.04, 18);
+  label('1', -0.016, -0.015, 20);
+  label('2', 0.016, -0.015, 20);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  const print = new THREE.Mesh(new THREE.PlaneGeometry(sw - 0.003, slen - 0.003), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.2 }));
+  print.rotation.x = -Math.PI / 2;
+  print.position.set(0, 0.0003, -slen / 2);
+  side.add(print);
+}
+
+const aio: BoardDef = {
+  id: 'aio2',
+  name: 'All-in-One Two',
+  category: '2-channel all-in-one with a touch screen',
+  description:
+    'Modelled on the flagship two-channel all-in-ones (73 × 47 cm): a 10.1-inch touch screen that shows both decks and browses your whole library (tap a track, tap again to load), 16 cm jogs with on-jog displays, eight pads a deck, hot cue memory and call, track search, sound colour FX, beat FX and a mic section.',
+  decks: 2,
+  turntable: false,
+  fixedDecks: true,
+  xcurve: 0.35,
+  finishes: [
+    finish({ id: 'black', name: 'Booth black', swatch: '#141518', body: '#101113', bodyMetal: 0.55, bodyRough: 0.42, face: face('#17181b', '#e6e9ee', '#5f6672', '#ffffff', 'brushed'), accent: '#ff5a36', knobCap: '#2a2d33', cueColor: '#ff9f1c', playColor: '#3ddc97' }),
+    finish({ id: 'white', name: 'Limited white', swatch: '#e9eaec', body: '#d6d8db', bodyMetal: 0.2, bodyRough: 0.45, face: face('#eceef0', '#16181c', '#7c838e', '#16181c', 'matte'), accent: '#2ec4f1', knobCap: '#f1f2f4', cueColor: '#ff9f1c', playColor: '#3ddc97' }),
+  ],
+  build(b) {
+    const u = b.unit(0, 0, 0.728, 0.47, 0.07, { radius: 0.014 });
+    aioMixer(u);
+    aioDeck(u, 1, 0);
+    aioDeck(u, 2, 0.468);
+    aioScreen(b, u);
+  },
+};
+
+export const BOARDS: BoardDef[] = [starter, aio, pro, club, vinyl, quad, hybrid, rotary];
 
 export function boardById(id: string): BoardDef {
   return BOARDS.find((b) => b.id === id) ?? BOARDS[0];

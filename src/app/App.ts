@@ -49,6 +49,7 @@ import { DeckPanel } from '../ui/DeckPanel';
 import { h, setClass, setText } from '../ui/dom';
 import { FxPanel } from '../ui/FxPanel';
 import { openHelp } from '../ui/help';
+import { deviceScreen } from '../three/deviceScreen';
 import { LibraryPanel } from '../ui/LibraryPanel';
 import { MidiPanel } from '../ui/MidiPanel';
 import { MixerPanel } from '../ui/MixerPanel';
@@ -172,6 +173,32 @@ export class App implements AppContext {
     this.save();
   }
 
+  /** track search ◀◀ ▶▶: the track before or after this deck's one in the library list */
+  private loadAdjacent(deckId: number, delta: number): void {
+    const list = this.libPanel.visible();
+    if (!list.length) return;
+    const on = this.engine.deck(deckId).track?.id;
+    const cur = on ?? this.selected?.id;
+    const at = cur ? list.findIndex((t) => t.id === cur) : -1;
+    const i = Math.max(0, Math.min(list.length - 1, at < 0 ? (delta > 0 ? 0 : list.length - 1) : at + delta));
+    const t = list[i];
+    if (!t || t.id === on) return;
+    this.select(t);
+    void this.loadTrack(deckId, t.id);
+  }
+
+  /** pushing the browse encoder on the all-in-one: open the track list, and from it load the track picked */
+  private browsePress(): void {
+    if (this.boardDef.id !== 'aio2') return;
+    const s = deviceScreen;
+    if (s.page !== 'browse') return s.open('browse');
+    const t = this.selected;
+    if (!t) return;
+    const one = this.engine.deck(1);
+    const two = this.engine.deck(2);
+    void this.loadTrack(s.target || (one.playing && !two.playing ? 2 : 1), t.id);
+  }
+
   selectedTrack(): LibraryTrack | null {
     return this.selected;
   }
@@ -258,6 +285,13 @@ export class App implements AppContext {
       layerChanged: () => this.events.emit('layout', undefined),
       syncBlocked: () => (this.gigs && !this.gigs.allowSync ? 'No sync in Pro. Beatmatch by ear.' : null),
       denied: (why) => toast(why),
+      adjacent: (deck, delta) => this.loadAdjacent(deck, delta),
+      screenBack: () => deviceScreen.back(),
+      browsePress: () => this.browsePress(),
+      tagSelected: () => {
+        const t = this.selected;
+        if (t) this.library.setFavorite(t, !t.fav);
+      },
     });
     for (const d of this.engine.decks) {
       d.on('cues', (deck) => deck.track && this.library.updateCues(deck.track, deck.track.cues));
@@ -577,6 +611,22 @@ export class App implements AppContext {
     const tabBar = h('div', { class: 'tabs', role: 'tablist' });
     const body = h('div', { class: 'tab-body' });
     this.libPanel = new LibraryPanel(this);
+    // the all-in-one's touch screen browses the same list as the Library panel
+    this.stage.setBrowser({
+      sources: () => this.libPanel.sources(),
+      sourceId: () => this.libPanel.sourceId(),
+      setSource: (id) => this.libPanel.setSource(id),
+      tracks: () => this.libPanel.visible(),
+      selected: () => this.selected,
+      select: (t) => this.select(t),
+      load: (deck, t) => {
+        this.select(t);
+        void this.loadTrack(deck, t.id);
+      },
+      sorting: () => this.libPanel.sorting(),
+      sortBy: (k) => this.libPanel.sortBy(k),
+      toggleFav: (t) => this.library.setFavorite(t, !t.fav),
+    });
     const sets = new SetBuilderPanel(this);
     this.setsPanel = sets;
     const mixer = new MixerPanel(this);

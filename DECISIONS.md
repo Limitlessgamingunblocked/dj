@@ -198,3 +198,14 @@ Blender still wasn't reachable, so the character is built in code, made to be sw
     - the knurled knobs and ridged fader caps on the regular boards (`src/three/realism.ts`)
     - the career save's `boards` section, at v2, so saves made while the builder existed still load (nothing reads it)
     The whole builder is in git history at commit `b2b0a98` (decisions 57–68 describe it).
+
+## All-in-One Two (2026-10-09)
+
+70. **A board modelled on the flagship two-channel all-in-one in your photo**, unbranded like every board here. Size and layout follow the real unit: 728 × 470 mm, identical (not mirrored) decks with 16 cm jogs, and a 10.1-inch 16:10 screen standing about 65° up behind the mixer, with the browse controls beside it. Specs: [AVL Gear](https://avlgear.com/collections/pioneer-dj/products/pioneer-dj-xdj-rx3-2-channel-performance-all-in-one-dj-system), [djcenter.ee](https://djcenter.ee/e-pood/meediam2ngijad/pioneer-xdj-rx3-detail).
+71. **The touch screen browses the same list as the Library panel**: the same source, sort and selection. Turning the encoder, tapping a track or pressing ↑↓ in the panel all move one selection, and LOAD loads it wherever it was picked. Tapping a track again loads it to the deck you last touched, or else to the deck that isn't playing.
+72. **Every control on it does something real, or says it can't.**
+    - **Mapped onto what the game has:**
+      - CUE/LOOP CALL, MEMORY and DELETE work on the hot cues; the game has no separate memory cues.
+      - The pad modes are the game's (hot cue, roll, slicer, beat jump; shift: pitch, sampler).
+      - The sound colour FX are FILTER and CRUSH, the two the mixer channels can do.
+    - **Turn but do nothing:** the mic, aux and booth-monitor knobs, because a browser game has no mic input, aux input or second output. Their labels say so.

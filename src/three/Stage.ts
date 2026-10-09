@@ -7,6 +7,7 @@
  *   split  – booth plus a picture-in-picture of the visual player
  *   visual – the visual player full frame
  */
+import type { LibraryBrowser } from './deviceScreen';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -274,6 +275,7 @@ export class Stage {
       dt: 0,
       frame: 0,
       accent: '#2ec4f1',
+      browser: null,
     };
     this.bindPointer();
     this.rig.onManualMove(() => {
@@ -319,6 +321,11 @@ export class Stage {
 
   set reactiveLights(v: boolean) {
     this.show.controls.auto = v;
+  }
+
+  /** the track library the boards' screens browse */
+  setBrowser(b: LibraryBrowser): void {
+    this.ctx.browser = b;
   }
 
   /* ------------------------------------------------------------------ */

@@ -140,6 +140,11 @@ export class ControlRegistry extends Emitter<RegistryEvents> {
   }
 
   /** true while a control was recently moved from MIDI/keyboard (on-screen feedback) */
+  /** when a control was last moved, from anywhere (performance.now(); 0: never) */
+  lastActive(id: string): number {
+    return this.lastActivity.get(this.resolveId(id)) ?? 0;
+  }
+
   flashing(id: string, ms = 220): boolean {
     const t = this.lastExternal.get(this.resolveId(id));
     return t !== undefined && performance.now() - t < ms;

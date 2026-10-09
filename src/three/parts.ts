@@ -5,6 +5,7 @@
  *
  * Board space: metres, +X right, +Y up, +Z towards the DJ.
  */
+import type { LibraryBrowser } from './deviceScreen';
 import * as THREE from 'three';
 import { faderCapGeometry, knurledKnob } from './realism';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -28,6 +29,8 @@ export interface PartCtx {
   dt: number;
   frame: number;
   accent: string;
+  /** the track library, for a board whose screen browses it (null until the app supplies it) */
+  browser: LibraryBrowser | null;
 }
 
 export interface PointerInfo {
