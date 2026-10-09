@@ -174,10 +174,11 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
       });
     }
     for (const m of PAD_MODES) btn(p + `padmode.${m}`, L(`Pad mode ${m}`), () => d.setPadMode(m as PadMode), () => (d.padMode === m ? '#ffffff' : false));
-    btn(p + 'loop.in', L('Loop in'), () => d.loopInPress(), () => (d.loop.active ? '#3ddc97' : false));
+    btn(p + 'loop.in', L('Loop in'), () => d.loopInPress(), () => (d.loop.active ? '#3ddc97' : d.loopPending ? { color: '#3ddc97', blink: true, level: 1 } : false));
     btn(p + 'loop.out', L('Loop out'), () => d.loopOutPress(), () => (d.loop.active ? '#3ddc97' : false));
     btn(p + 'loop.exit', L('Reloop/Exit'), () => d.reloop(), () => (d.loop.active ? '#3ddc97' : false));
-    btn(p + 'loop.auto', L('Auto loop'), () => d.autoLoop(), () => (d.loop.active && !d.loop.roll ? '#3ddc97' : false));
+    btn(p + 'loop.auto', L('Auto loop (the loop size)'), () => d.autoLoop(), () => (d.loop.active && !d.loop.roll ? '#3ddc97' : false));
+    btn(p + 'loop.4beat', L('4-beat loop'), () => d.fourBeatLoop(), () => (d.loop.active && !d.loop.roll ? '#3ddc97' : false));
     btn(p + 'loop.half', L('Loop ½'), () => d.resizeLoop(-1), () => false);
     btn(p + 'loop.double', L('Loop ×2'), () => d.resizeLoop(1), () => false);
     reg.register({ id: p + 'loop.size', label: L('Loop size'), kind: 'encoder', step: (dl) => d.resizeLoop(dl > 0 ? 1 : -1), press: () => d.autoLoop() });

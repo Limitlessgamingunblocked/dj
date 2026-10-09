@@ -226,7 +226,7 @@ export function loopRow(u: Unit, side: DeckRef, cx: number, z: number, width: nu
     ['loop.in', 'IN', 'loop.half'],
     ['loop.out', 'OUT', 'loop.double'],
     ['loop.exit', 'RELOOP', null],
-    ['loop.auto', '4 BEAT', null],
+    ['loop.4beat', '4 BEAT', null],
   ];
   const n = items.length + (withSize ? 1 : 0);
   const step = width / n;

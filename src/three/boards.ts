@@ -202,7 +202,7 @@ function player(b: BoardBuild, side: DeckRef, x: number): void {
   u.button(`${D}.loop.in`, lx0, -0.02, { label: 'Loop in (shift: ½)', w: 0.02, d: 0.009, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.half` });
   u.button(`${D}.loop.out`, lx1, -0.02, { label: 'Loop out (shift: ×2)', w: 0.02, d: 0.009, print: 'OUT', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.double` });
   u.button(`${D}.loop.exit`, lx0, 0.008, { label: 'Reloop / exit', w: 0.02, d: 0.009, print: 'RELOOP', printAt: 'above', led: '#3ddc97' });
-  u.button(`${D}.loop.auto`, lx1, 0.008, { label: 'Auto loop', w: 0.02, d: 0.009, print: '4 BEAT', printAt: 'above', led: '#3ddc97' });
+  u.button(`${D}.loop.4beat`, lx1, 0.008, { label: '4-beat loop', w: 0.02, d: 0.009, print: '4 BEAT', printAt: 'above', led: '#3ddc97' });
   u.button(`${D}.jump.back`, lx0, 0.036, { label: 'Beat jump back', w: 0.02, d: 0.009, print: '◀ JUMP', printAt: 'above', led: '#ffffff' });
   u.button(`${D}.jump.fwd`, lx1, 0.036, { label: 'Beat jump forward', w: 0.02, d: 0.009, print: 'JUMP ▶', printAt: 'above', led: '#ffffff' });
   u.button(`${D}.slip`, lx0, 0.064, { label: 'Slip', w: 0.02, d: 0.009, print: 'SLIP', printAt: 'above', led: '#b36bff' });

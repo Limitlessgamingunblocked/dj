@@ -5,6 +5,7 @@
  * pitch play, key shift, tempo ranges, pitch bend, jog nudge/scratch, slip,
  * turntable motor inertia and vinyl wear.
  */
+import { closeLoop, loopInPoint, type Grid } from './loops';
 import { Emitter } from '../core/emitter';
 import { clamp } from '../core/util';
 import { HOTCUE_COLORS, type DeckId, type HotCue, type KeyInfo, type LibraryTrack, type PcmData, type TrackAnalysis } from '../core/types';
@@ -466,18 +467,32 @@ export class Deck extends Emitter<DeckEvents> {
     this.sendLoop(false, roll);
   }
 
+  /** auto loop of the size on the loop-size knob (its push), or out of the loop */
   autoLoop(): void {
     if (this.loop.active && !this.loop.roll) this.exitLoop();
     else this.setBeatLoop(this.loopBeats);
+  }
+
+  /** the "4 BEAT" button: always four beats (the size knob doesn't change it), or out of the loop */
+  fourBeatLoop(): void {
+    if (this.loop.active && !this.loop.roll) this.exitLoop();
+    else {
+      const size = this.loopBeats;
+      this.setBeatLoop(4);
+      this.loopBeats = size;
+    }
   }
 
   exitLoop(): void {
     if (!this.loop.active) return;
     this.loop.active = false;
     this.loop.roll = false;
+    // the loop's points stay for RELOOP; a half-made one (IN pressed, no OUT) doesn't
+    this.loopIn = null;
     this.sendLoop(false, false);
   }
 
+  /** RELOOP / EXIT: leave the loop, or go back into the last one (in time, with quantize) */
   reloop(): void {
     if (this.loop.active) {
       this.exitLoop();
@@ -485,42 +500,67 @@ export class Deck extends Emitter<DeckEvents> {
     }
     if (this.loop.end > this.loop.start) {
       this.loop.active = true;
-      this.sendLoop(true, false);
+      this.loopIn = null;
+      if (this.quantize && this.playing && this.analysis) {
+        this.sendLoop(false, false);
+        this.jumpTo(this.loop.start);
+      } else this.sendLoop(true, false);
     }
   }
 
+  /** an IN point is waiting for OUT (the IN button blinks) */
+  get loopPending(): boolean {
+    return this.loopIn !== null && !this.loop.active;
+  }
+
+  private grid(): Grid | null {
+    return this.analysis ? { firstBeat: this.analysis.firstBeat, beatLen: this.beatLen } : null;
+  }
+
+  /** LOOP IN: set where the loop starts; during a loop, move its start here */
   loopInPress(): void {
     if (!this.loaded) return;
-    const p = this.position();
-    this.loopIn = this.quantize && this.analysis ? this.snapToBeat(p, 0.25) : p;
-    if (this.loop.active) {
-      this.loop.start = this.loopIn;
-      if (this.loop.end <= this.loop.start) this.loop.end = this.loop.start + this.beatLen;
-      this.sendLoop(false, false);
+    const at = loopInPoint(this.position(), this.grid(), this.quantize);
+    if (this.loop.active && !this.loop.roll) {
+      // IN adjust: keep a whole number of beats with quantize
+      const close = closeLoop(at, this.loop.end, this.grid(), this.quantize);
+      if (close) {
+        this.loop.start = close.start;
+        this.loop.end = close.end;
+        this.sendLoop(false, false);
+      }
+      return;
     }
+    this.loopIn = at;
     this.emit('change', this);
   }
 
+  /** LOOP OUT: close the loop from IN to here; on its own, a loop of the current size from here; during a loop, leave it */
   loopOutPress(): void {
     if (!this.loaded) return;
     if (this.loop.active && !this.loop.roll) {
       this.exitLoop();
       return;
     }
-    const start = this.loopIn ?? this.floorToGrid(this.position(), this.beatLen);
-    const p = this.position();
-    let end = this.quantize && this.analysis ? this.snapToBeat(p, 0.25) : p;
-    if (end <= start + 0.02) end = start + this.beatLen;
-    this.loop = { active: true, start, end, roll: false };
-    this.loopBeats = Math.max(1 / 64, (end - start) / this.beatLen);
+    const close = closeLoop(this.loopIn, this.position(), this.grid(), this.quantize);
+    this.loopIn = null;
+    if (!close) {
+      this.setBeatLoop(this.loopBeats);
+      return;
+    }
+    // (the auto loop keeps its own size: "4 BEAT" stays four beats after a manual loop)
+    this.loop = { active: true, start: close.start, end: close.end, roll: false };
     this.sendLoop(false, false);
   }
 
   resizeLoop(dir: 1 | -1): void {
-    const i = LOOP_SIZES.findIndex((b) => Math.abs(b - this.loopBeats) < 1e-6);
-    let idx = i >= 0 ? i + dir : LOOP_SIZES.findIndex((b) => b >= this.loopBeats);
+    // halve or double the loop that's playing (a manual one may be any length), or the size the next auto loop gets
+    const manual = this.loop.active && !this.loop.roll;
+    const cur = manual ? (this.loop.end - this.loop.start) / this.beatLen : this.loopBeats;
+    const i = LOOP_SIZES.findIndex((b) => Math.abs(b - cur) < 1e-3);
+    let idx = i >= 0 ? i + dir : LOOP_SIZES.findIndex((b) => b >= cur);
     idx = clamp(idx, 0, LOOP_SIZES.length - 1);
-    const beats = i >= 0 ? LOOP_SIZES[idx] : dir > 0 ? this.loopBeats * 2 : this.loopBeats / 2;
+    const beats = i >= 0 ? LOOP_SIZES[idx] : dir > 0 ? cur * 2 : cur / 2;
     this.loopBeats = clamp(beats, 1 / 64, 64);
     if (this.loop.active && !this.loop.roll) {
       this.loop.end = this.loop.start + this.loopBeats * this.beatLen;
