@@ -9,12 +9,13 @@ import { camelotColor, compatibility, formatKey } from '../analysis/keys';
 import type { LibraryTrack } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { AUDIO_ACCEPT, matchTrack, parseSearch, type Crate } from '../library/Library';
+import { trackInfo } from '../game/tracks';
 import { clear, h } from './dom';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 
-type View = { kind: 'all' } | { kind: 'demo' } | { kind: 'history' } | { kind: 'crate'; id: string };
-type SortKey = 'title' | 'artist' | 'bpm' | 'key' | 'time' | 'bitrate' | 'added' | 'format';
+type View = { kind: 'all' } | { kind: 'demo' } | { kind: 'favs' } | { kind: 'history' } | { kind: 'crate'; id: string };
+type SortKey = 'title' | 'artist' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
 
 export class LibraryPanel {
   readonly el: HTMLElement;
@@ -167,6 +168,7 @@ export class LibraryPanel {
     this.side.append(
       item('Collection', '◉', all.length, this.view.kind === 'all', () => this.setView({ kind: 'all' })),
       item('Demo tracks', '♪', all.filter((t) => t.source === 'demo').length, this.view.kind === 'demo', () => this.setView({ kind: 'demo' })),
+      item('Favourites', '★', all.filter((t) => t.fav).length, this.view.kind === 'favs', () => this.setView({ kind: 'favs' })),
       item('History', '↺', lib.history.length, this.view.kind === 'history', () => this.setView({ kind: 'history' })),
     );
     const walk = (parent: string | null, depth: number) => {
@@ -322,6 +324,9 @@ export class LibraryPanel {
       case 'demo':
         list = lib.list().filter((t) => t.source === 'demo');
         break;
+      case 'favs':
+        list = lib.list().filter((t) => t.fav);
+        break;
       case 'history':
         list = lib.history.map((id) => lib.get(id)).filter((t): t is LibraryTrack => !!t);
         break;
@@ -353,6 +358,10 @@ export class LibraryPanel {
             return t.analysis?.bpm ?? 0;
           case 'key':
             return t.analysis?.key ? parseInt(t.analysis.key.camelot, 10) * 2 + (t.analysis.key.minor ? 0 : 1) : 99;
+          case 'energy':
+            return trackInfo(t).energy;
+          case 'fav':
+            return t.fav ? 0 : 1;
           case 'time':
             return t.analysis?.duration ?? 0;
           case 'bitrate':
@@ -374,11 +383,14 @@ export class LibraryPanel {
 
   private render(): void {
     const cols: [SortKey | null, string][] = [
+      ['fav', '★'],
       [null, ''],
       ['title', 'Title'],
       ['artist', 'Artist'],
       ['bpm', 'BPM'],
       ['key', 'Key'],
+      ['energy', 'Energy'],
+      [null, 'Tags'],
       ['time', 'Time'],
       ['bitrate', 'kbps'],
       ['format', 'Type'],
@@ -439,12 +451,23 @@ export class LibraryPanel {
         });
         loads.append(b);
       }
+      const info = trackInfo(t);
+      const star = h('button', { class: `fav${t.fav ? ' on' : ''}`, type: 'button', title: t.fav ? 'Take the star off' : 'Star it', 'aria-label': t.fav ? `Unstar ${t.meta.title}` : `Star ${t.meta.title}`, 'aria-pressed': String(!!t.fav) }, t.fav ? '★' : '☆');
+      star.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.app.library.setFavorite(t, !t.fav);
+      });
+      const energy = h('span', { class: 'energy', title: `Energy ${info.energy} of 10`, style: { '--e': String(info.energy / 10) } as Partial<CSSStyleDeclaration> }, String(info.energy));
+      const tags = h('span', { class: 'tags' }, ...info.tags.slice(0, 3).map((x) => h('span', { class: 'tag' }, x)));
       row.append(
+        h('td', {}, star),
         h('td', {}, art),
-        h('td', { class: 'title', title: t.meta.title }, t.meta.title),
+        h('td', { class: 'title', title: t.meta.title }, t.meta.title, info.imported ? h('span', { class: 'mine', title: 'Your own file: stays on this device' }, 'imported') : null),
         h('td', { title: t.meta.artist }, t.meta.artist || '—'),
         h('td', { class: 'num' }, a ? formatBpm(a.bpm) : status ?? '—'),
         h('td', {}, keyCell),
+        h('td', { class: 'num' }, energy),
+        h('td', {}, tags),
         h('td', { class: 'num' }, a ? formatTime(a.duration) : '—'),
         h('td', { class: 'num' }, t.meta.bitrate ? String(t.meta.bitrate) : '—'),
         h('td', { class: 'num' }, t.meta.format),

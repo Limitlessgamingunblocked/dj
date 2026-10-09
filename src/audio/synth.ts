@@ -821,7 +821,18 @@ export function renderSample(name: SampleName, sampleRate = 44100): Rendered {
 /* The first four open on the decks; the rest give the set builder a crate of fictional artists and labels to work with,
  * including four groups synthesised in the sounds its artist style profiles describe (deep minimal, percussive
  * rolling minimal, bouncy tech house, rave house). All artists, labels and titles are made up. */
-export const DEMO_TRACKS: { title: string; artist: string; label?: string; genre?: string; spec: DemoSpec }[] = [
+export interface DemoTrack {
+  title: string;
+  artist: string;
+  label?: string;
+  genre?: string;
+  spec: DemoSpec;
+  /** the game's own library (Section 7): energy 1–10 and tags (src/game/tracks.ts reads them) */
+  energy?: number;
+  tags?: string[];
+}
+
+export const DEMO_TRACKS: DemoTrack[] = [
   { title: 'Midnight Circuit', artist: 'Deckhouse Demo', spec: { seed: 11, bpm: 124, root: 9, minor: true, style: 'house', bars: 64 } },
   { title: 'Concrete Pulse', artist: 'Deckhouse Demo', spec: { seed: 27, bpm: 130, root: 2, minor: true, style: 'techno', bars: 64 } },
   { title: 'Sunset Garage', artist: 'Deckhouse Demo', spec: { seed: 42, bpm: 128, root: 5, minor: false, style: 'garage', bars: 64 } },
@@ -854,4 +865,19 @@ export const DEMO_TRACKS: { title: string; artist: string; label?: string; genre
   { title: 'Piano Rush', artist: 'Hollis & Grey', label: 'Big Room Revival', genre: 'Rave House / Breaks', spec: { seed: 214, bpm: 130, root: 7, minor: false, style: 'rave', bars: 64 } },
   { title: 'Euphoria Line', artist: 'Northern Ravers Club', label: 'Big Room Revival', genre: 'Rave House / Breaks', spec: { seed: 215, bpm: 129, root: 2, minor: false, style: 'rave', bars: 64 } },
   { title: 'Strobe Hymn', artist: 'Northern Ravers Club', label: 'Big Room Revival', genre: 'Rave House / Breaks', spec: { seed: 216, bpm: 131, root: 9, minor: false, style: 'rave', bars: 64 } },
+  /* The game's first batch (Section 7): club-length (128 bars, about four minutes) with 16-bar drum intros and
+   * outros so they blend, in the brief's three lanes plus UK garage and piano house, 122–128 BPM. Made-up artists. */
+  { title: 'Low Ceiling Theory', artist: 'Cold Tap', label: 'Deckhouse Originals', genre: 'Deep House', energy: 4, tags: ['deep', 'groovy'], spec: { seed: 301, bpm: 123, root: 9, minor: true, style: 'minimal', bars: 128 } },
+  { title: 'Third Floor Tape', artist: 'Night Clerk', label: 'Deckhouse Originals', genre: 'Deep House', energy: 4, tags: ['deep', 'groovy', 'afterhours'], spec: { seed: 302, bpm: 124, root: 4, minor: true, style: 'minimal', bars: 128 } },
+  { title: 'Five AM Hum', artist: 'Night Clerk', label: 'Deckhouse Originals', genre: 'Minimal', energy: 3, tags: ['deep', 'afterhours'], spec: { seed: 303, bpm: 122, root: 2, minor: true, style: 'minimal', bars: 128 } },
+  { title: 'Condensation', artist: 'Cold Tap', label: 'Deckhouse Originals', genre: 'Minimal Tech House', energy: 5, tags: ['rolling', 'deep', 'afterhours'], spec: { seed: 304, bpm: 125, root: 9, minor: true, style: 'rolling', bars: 128 } },
+  { title: 'Bassline Pressure', artist: 'Saffron Lane', label: 'Deckhouse Originals', genre: 'Minimal Tech House', energy: 6, tags: ['rolling', 'groovy'], spec: { seed: 305, bpm: 126, root: 4, minor: true, style: 'rolling', bars: 128 } },
+  { title: 'Two Step Telephone', artist: 'Paper Lanterns', label: 'Deckhouse Originals', genre: 'UK Garage', energy: 6, tags: ['garage', 'groovy'], spec: { seed: 306, bpm: 126, root: 0, minor: false, style: 'garage', bars: 128 } },
+  { title: 'Last Bus Home', artist: 'Paper Lanterns', label: 'Deckhouse Originals', genre: 'UK Garage', energy: 6, tags: ['garage', 'closer'], spec: { seed: 307, bpm: 127, root: 7, minor: false, style: 'garage', bars: 128 } },
+  { title: 'Hands On The Ceiling', artist: 'Mono Nadia', label: 'Deckhouse Originals', genre: 'Tech House', energy: 7, tags: ['groovy', 'vocal', 'peak'], spec: { seed: 308, bpm: 126, root: 11, minor: true, style: 'techhouse', bars: 128 } },
+  { title: 'Shake The Booth', artist: 'Wet Paint', label: 'Deckhouse Originals', genre: 'Tech House', energy: 8, tags: ['vocal', 'peak'], spec: { seed: 309, bpm: 127, root: 4, minor: true, style: 'techhouse', bars: 128 } },
+  { title: 'Sticky Floor', artist: 'Wet Paint', label: 'Deckhouse Originals', genre: 'Tech House', energy: 8, tags: ['vocal', 'peak', 'groovy'], spec: { seed: 310, bpm: 128, root: 6, minor: true, style: 'techhouse', bars: 128 } },
+  { title: 'Piano In The Rain', artist: 'Gold Leaf Club', label: 'Deckhouse Originals', genre: 'Piano House', energy: 7, tags: ['piano', 'rave', 'closer'], spec: { seed: 311, bpm: 125, root: 0, minor: false, style: 'rave', bars: 128 } },
+  { title: 'Strobe Church', artist: 'Kite Factory', label: 'Deckhouse Originals', genre: 'Rave House', energy: 9, tags: ['rave', 'piano', 'peak'], spec: { seed: 312, bpm: 128, root: 7, minor: false, style: 'rave', bars: 128 } },
+  { title: 'Sunrise Ring Road', artist: 'Gold Leaf Club', label: 'Deckhouse Originals', genre: 'Piano House', energy: 7, tags: ['piano', 'closer', 'rave'], spec: { seed: 313, bpm: 124, root: 5, minor: false, style: 'rave', bars: 128 } },
 ];

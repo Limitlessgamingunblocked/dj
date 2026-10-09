@@ -60,6 +60,8 @@ export interface LibraryTrack {
   source: 'file' | 'demo';
   demo?: DemoSpec;
   plays: number;
+  /** starred in the crate (Section 6.8) */
+  fav?: boolean;
   status: 'new' | 'analyzing' | 'ready' | 'error';
   error?: string;
   /** lyrics with timings (embedded, .lrc, pasted, looked up or tapped) */

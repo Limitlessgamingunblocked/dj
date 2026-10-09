@@ -452,7 +452,7 @@ export class App implements AppContext {
     const last = this.settings.lastTracks;
     const plan: [number, string][] = [];
     for (let d = 1; d <= this.deckCount(); d++) {
-      const id = last[d] && this.library.get(last[d]) ? last[d] : d === 1 ? 'demo-11' : d === 2 ? 'demo-73' : '';
+      const id = last[d] && this.library.get(last[d]) ? last[d] : d === 1 ? 'demo-301' : d === 2 ? 'demo-302' : '';
       if (id) plan.push([d, id]);
     }
     await Promise.all(plan.map(([deck, id]) => (!this.engine.deck(deck).loaded && this.library.get(id) ? this.loadTrack(deck, id) : Promise.resolve())));

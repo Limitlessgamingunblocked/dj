@@ -15,6 +15,7 @@ import { dbAll, dbDelete, dbGet, dbPut } from './db';
 import { readTags } from './tags';
 import { lyricsFromSynced, lyricsFromText, type Lyrics } from '../lyrics/lyrics';
 import { demoLyrics } from '../lyrics/demo';
+import { ORIGINAL_IDS, trackInfo } from '../game/tracks';
 
 export interface Crate {
   id: string;
@@ -84,6 +85,13 @@ export class Library extends Emitter<LibraryEvents> {
       this.createCrate('Warm Up', 'crate', folder.id, false);
       this.saveCrates();
     }
+    // the game's own tracks, ready for the first gigs
+    if (!this.crates.some((c) => c.name === 'First Gigs' && c.kind === 'crate')) {
+      const folder = this.crates.find((c) => c.kind === 'folder' && c.name === 'Sets') ?? null;
+      const first = this.createCrate('First Gigs', 'crate', folder?.id ?? null, false);
+      first.trackIds = [...ORIGINAL_IDS];
+      this.saveCrates();
+    }
     this.emit('changed', undefined);
   }
 
@@ -114,7 +122,7 @@ export class Library extends Emitter<LibraryEvents> {
         fileName: `${d.title}.demo`,
         size: 0,
         addedAt: Date.now(),
-        meta: { title: d.title, artist: d.artist, album: 'Deckhouse Demo Tracks', genre: d.genre ?? d.spec.style, label: d.label, year: '2026', format: 'SYNTH', sampleRate: 44100, bitrate: 1411 },
+        meta: { title: d.title, artist: d.artist, album: d.energy !== undefined ? 'Deckhouse Originals' : 'Deckhouse Demo Tracks', genre: d.genre ?? d.spec.style, label: d.label, year: '2026', format: 'SYNTH', sampleRate: 44100, bitrate: 1411 },
         cues: { cue: null, hot: [] },
         source: 'demo',
         demo: d.spec,
@@ -125,6 +133,13 @@ export class Library extends Emitter<LibraryEvents> {
       this.tracks.set(id, t);
       this.saveTrack(t, 0);
     }
+  }
+
+  /** Star a track in the crate, or take the star off. */
+  setFavorite(t: LibraryTrack, on: boolean): void {
+    t.fav = on || undefined;
+    this.saveTrack(t, 0);
+    this.emit('changed', undefined);
   }
 
   /** Store (or clear) a track's lyrics. */
@@ -562,11 +577,23 @@ export function parseSearch(q: string): SearchQuery & { fields: Record<string, s
 
 export function matchTrack(t: LibraryTrack, q: ReturnType<typeof parseSearch>): boolean {
   const m = t.meta;
+  const info = q.text || q.fields.tag || q.fields.energy ? trackInfo(t) : null;
   if (q.text) {
-    const hay = `${m.title} ${m.artist} ${m.album} ${m.genre} ${t.fileName}`.toLowerCase();
+    // tags count as words: "rave" finds rave-tagged tracks
+    const hay = `${m.title} ${m.artist} ${m.album} ${m.genre} ${t.fileName} ${info!.tags.join(' ')}`.toLowerCase();
     for (const w of q.text.split(' ')) if (!hay.includes(w)) return false;
   }
   for (const [k, v] of Object.entries(q.fields)) {
+    if (k === 'tag') {
+      if (!info!.tags.some((x) => x.startsWith(v))) return false;
+      continue;
+    }
+    if (k === 'energy') {
+      // energy:7 or energy:5-8
+      const r = /^(\d+)(?:-(\d+))?$/.exec(v);
+      if (r && (info!.energy < +r[1] || info!.energy > +(r[2] ?? r[1]))) return false;
+      continue;
+    }
     const val = (k === 'title' ? m.title : k === 'artist' ? m.artist : k === 'album' ? m.album : k === 'genre' ? m.genre : '').toLowerCase();
     if (!val.includes(v)) return false;
   }

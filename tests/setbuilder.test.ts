@@ -353,6 +353,8 @@ describe('artist sound profiles', () => {
     const plan = generateSet(demos, { ...base, anchors: ['Rave Energy', 'Deep & Groovy'], arc: 'journey', journeyOrder: 'typed', target: { kind: 'tracks', count: 8 } });
     expect(plan.journey).toEqual(['Rave Energy', 'Deep & Groovy']);
     expect(plan.entries.slice(0, 2).every((e) => styleOf(e.profile.id) === 'rave')).toBe(true);
-    expect(plan.entries.slice(-2).every((e) => styleOf(e.profile.id) === 'minimal')).toBe(true);
+    // it ends in the deep family (the lane takes rolling minimal as well as deep minimal, garage and house)
+    expect(plan.entries.slice(-2).every((e) => ['minimal', 'rolling', 'garage', 'house'].includes(styleOf(e.profile.id)))).toBe(true);
+    expect(plan.entries.slice(-2).some((e) => styleOf(e.profile.id) === 'minimal')).toBe(true);
   });
 });
