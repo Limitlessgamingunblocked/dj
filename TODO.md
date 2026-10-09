@@ -7,14 +7,16 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 | Where | What's missing | Stage |
 |---|---|---|
 | `src/core/BeatClock.ts` | Sections come from the audio features (breakdown depth, drop detector). Read the tracks' section markers when the game library has them, and fall back to features for imported music. | 3 |
-| `src/core/models.ts` → `Look` | Provisional shape. The character model (slider names = Blender shape keys, slots, materials) is settled in Stage 2, then `LOOKS` goes to version 2 with a migration. | 2 |
 | `src/core/models.ts` → `BoardDoc` | Provisional shape. The board file format gets documented, with its component types, in Stage 5. | 5 |
 | `scripts/blender/export_glb.py`, `preview.py` | Written against the Blender 4.x API but never run: there's no Blender in the build container. Run both on a test `.blend` once Blender is available. | 1 → 2 |
 | `src/name/filter.ts`, `src/name/blocklist.json` | The name filter's matching works and is tested, but **the word list is empty**: nothing is refused yet. Fill `blocklist.json` from a vetted, maintained list (or wire a moderation service). | 2 |
+| `src/character/Avatar.ts` | **The character is built in code**, a stand-in for the Blender character, hair and outfits (Section 14.2). Bones are named like a humanoid rig and sliders like the shape keys, so a GLB can replace the meshes. Until then: 66 meshes and about 25k triangles (one skinned mesh would draw far cheaper); some items share their slot's base shape in their own colours (e.g. most headphones, jeans vs track pants); no per-move animation clips (turning knobs, pushing faders, scratching, cueing); a little clipping with big hair under hoods or long hair through jackets. | 2 (art) |
+| `src/three/venues/dressingroom.ts` | The dressing room is built in code. The mirror is a dark glossy pane, not a real reflection. | 2 (art) |
+| `src/character/look.ts` → `dressCodeBonus` | Computed and shown in the wardrobe, but nothing applies it yet: Stage 3's vibe meter adds it when a set starts. | 3 |
 
 ## Blocked: needs a decision from you
 
-- [ ] **Blender access** (Section 14). You've said the Blender connector is connected, but its tools weren't loaded in the session that built Stages 1 and 2A (connectors are read when a session starts). Check it at claude.ai → Customize → Connectors and start a new session. If the connector drives Blender on your own computer, a cloud session may not reach it. Until then, no modelled assets can be made.
+- [ ] **Blender access** (Section 14). You've said the Blender connector is connected, but its tools weren't loaded in the sessions that built Stages 1 and 2 (connectors are read when a session starts). Check it at claude.ai → Customize → Connectors and start a new session. If the connector drives Blender on your own computer, a cloud session may not reach it. Until then, no modelled assets can be made.
 
 ## Stage 1 follow-ups (foundation)
 
@@ -45,9 +47,17 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
   - recording watermark and cover art (Stage 4)
   - merch, cocktail menu, wristbands, billboards, drone show, plane banner (Stage 6 venues)
   - record bag, headphone case (Stage 2 wardrobe models)
-- [ ] Character creator (dressing room, lighting previews, body / face / eyes / hair / makeup / tattoos / piercings, outfit slots and sets, personality).
-- [ ] Wardrobe, saved looks, dress-code bonus.
-- [ ] Base character, rig, hair and outfits in Blender (blocked; see above).
+- [x] Character creator in a backstage dressing room:
+  - bulb-ringed mirror, clothes rail, flyers and stickers, the club thumping through the wall
+  - lighting previews: dressing room, club strobe, daylight terrace, UV blacklight
+  - camera: full body, face, turn, auto-turn, zoom
+  - tabs: body, face, eyes, skin, hair, makeup and art (tattoos, piercings), outfit (11 slots, 3 colour zones, 9 materials, 8 patterns, 12 sets), moves (personality)
+  - tools: randomise all or one tab, undo / redo, reset a tab, autosave, save as a new look
+- [x] Wardrobe: saved looks (wear, delete), every item with slot and vibe filters, locks that say how they unlock, the dress code for your venue.
+- [x] Your look at the decks in every venue: the booth figure is your character, mixing, grooving in your style, doing your drop move and your between-mix habit. Sweat builds through a set and resets between venues.
+- [ ] Dress-code bonus applied at the start of a set (Stage 3, see the placeholders table).
+- [ ] Your look in recordings (Stage 4).
+- [ ] Base character, rig, hair and outfits in Blender (blocked; see above). The code-built character stands in until then.
 
 ## Stage 3: First playable gig
 

@@ -6,4 +6,4 @@ Every 3D asset in the game (Section 14.8). **Generated** by `node scripts/assets
 |---|---|---:|---|---|---|---|---|---|
 | _none yet_ | | | | | | | | |
 
-**No modelled assets yet.** Everything the player sees is still procedural (built in code). Modelling needs Blender access; see TODO.md.
+**No modelled assets yet.** Everything the player sees is still procedural (built in code), including the character, its hair and outfits (`src/character/Avatar.ts`) and the dressing room. Modelling needs Blender access; see TODO.md.

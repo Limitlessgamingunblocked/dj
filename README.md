@@ -28,6 +28,19 @@ Stage 2A added **your name**:
 - **The NameService** puts the name on the booth front in each venue's style, on neon signs, on the LED walls on drops, on the superfan's sign, as stickers on the board and laptop, and in the top bar. The crowd chants it at the peak.
 - **Renaming:** Settings → Profile. Changes show up everywhere at once.
 
+Stage 2B added **your character**:
+- **The dressing room** comes straight after naming, and later from Settings → Profile → Dressing room (or open the page with `?dressing`). It's a backstage room with a bulb-ringed mirror, a clothes rail and the club thumping through the wall.
+- **Preview your look** under the dressing-room bulbs, a club strobe, daylight on a terrace or UV blacklight.
+- **Shape everything:**
+  - body, face, eyes and skin (24 tones)
+  - 43 hair styles with colour modes and finishes
+  - makeup, face paint, 54 tattoos (one of them your DJ name) and piercings
+  - 11 outfit slots, each with 3 colours, 9 materials and 8 patterns, plus the 12 signature sets
+  - your groove, drop move and habits
+- **Tools:** randomise, undo / redo, reset a tab. Every change saves; keep as many looks as you like.
+- **That's you at the decks:** in every venue the DJ is your character, grooving your way.
+- The character is built in code until the Blender models exist (see TODO.md).
+
 ## Run it
 
 ```bash

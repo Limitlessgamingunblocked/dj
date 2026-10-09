@@ -68,6 +68,12 @@ export interface VenueScene {
    * sensor and keeps shadow detail; ACES keeps deeper blacks (default)
    */
   readonly toneMapping?: 'aces' | 'agx';
+  /**
+   * How much of the stage's own soft light (the studio reflections and the
+   * blue fill) reaches the room, 0..1 (default 1). A blacklight room wants
+   * almost none.
+   */
+  readonly ambient?: number;
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
   prerender?(renderer: THREE.WebGLRenderer, dt: number): void;

@@ -90,7 +90,7 @@ scripts/               build-single (one-file HTML), build-wasm
 | **2.5** | Six camera shots | Partial | Over-the-shoulder ("perf"), crowd POV, wide, booth fisheye, crane, drone; auto director | A named "breakdown orbit" and a "drop punch-in" with toggleable shake are missing as named shots |
 | **2.6** | Voice of the game | Partial | Call-outs and toasts are short | Copy needs a pass to the brief's voice |
 | **3** | Naming scene, NameService, name everywhere | Partial (Stage 2A) | `src/name/`, `ui/NamingScene.ts`, naming room; booth panels, neon, LED walls, crowd sign, stickers, top bar, chants | Filter word list; surfaces that wait on later systems (lasers, flyers, results, recordings, merch, outdoor venues) |
-| **4** | Character creator, wardrobe, outfits | Missing | The avatar is a fixed stylised figure | Everything (Stage 2), and it depends on Section 14 assets |
+| **4** | Character creator, wardrobe, outfits | Built in code (Stage 2B) | `src/character/` (catalogue, looks, procedural avatar), `ui/CharacterCreator.ts`, dressing room venue; your character at the decks in every venue | Modelled character, hair and outfits (Blender, Section 14); dress-code bonus applied by the vibe meter (Stage 3); looks in recordings (Stage 4) |
 | **5.2** | Venues (Bedroom → Sunrise) | Partial | The Warehouse exists (Deckhouse Warehouse), plus 6 real-world rooms that aren't in the brief | Bedroom, Basement, Rooftop, Beach Club, Boat, Festival and Sunrise are missing; no signature moments, unlock conditions or venue acoustics |
 | **5.3** | Set slots | Missing | — | Slot target curves and scoring |
 | **6.1** | Assist levels | Missing | Sync exists | Chill / Club / Pro modes and the Pro multiplier |

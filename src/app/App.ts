@@ -24,6 +24,7 @@ import { venueById, VENUES } from '../three/venues';
 import { Career } from '../game/Career';
 import { DebugMenu } from '../ui/DebugMenu';
 import { nameService } from '../name/NameService';
+import { CharacterCreator } from '../ui/CharacterCreator';
 import { NameChant } from '../ui/NameChant';
 import { NamingScene } from '../ui/NamingScene';
 import type { ShowControls } from '../three/venues/show';
@@ -87,6 +88,9 @@ export class App implements AppContext {
   private chant: NameChant | null = null;
   private naming: NamingScene | null = null;
   private namingBusy = false;
+  private creator: CharacterCreator | null = null;
+  /** the kick envelope this frame (the dressing room grooves to it when the decks play) */
+  private kick = 0;
   private debugDrop = false;
   private midi!: MidiManager;
   private settings: Settings = cleanSettings(loadSetting<unknown>('settings', {}));
@@ -344,6 +348,28 @@ export class App implements AppContext {
         this.save();
       },
       busy: (on) => (this.namingBusy = on),
+      // a first name: straight on to the dressing room
+      named: (first) => {
+        if (first) this.creator?.show();
+      },
+    });
+    this.creator = new CharacterCreator({
+      stage: this.stage,
+      ctx: this.engine.ctx,
+      career: this.career,
+      venue: () => this.settings.venue,
+      restoreVenue: (id) => this.setVenue(id, true),
+      busy: (on) => (this.namingBusy = on),
+      music: () => ({ playing: this.clock.playing, beat: this.clock.position, kick: this.kick }),
+    });
+    // you, as you look (the creator shows its own changes while it's open)
+    this.stage.setLook(this.career.look, nameService.text);
+    this.career.changed.on('look', (l) => {
+      if (!this.creator?.open) this.stage.setLook(l, nameService.text);
+    });
+    nameService.onChange(() => {
+      const l = this.career.look;
+      if (l.tattoos.some((t) => t.design === 'script_name')) this.stage.setLook(l, nameService.text);
     });
     // career saves land before the tab goes away
     addEventListener('pagehide', () => this.career.saves.flush());
@@ -357,6 +383,7 @@ export class App implements AppContext {
     // the first real moment: name yourself (until named, unless they chose Later; automated test browsers skip it)
     const askName = /[?&]naming\b/.test(location.search) || (!this.career.profile.name && !this.settings.namingLater && !navigator.webdriver);
     if (askName) this.naming?.show({ first: !this.career.profile.name });
+    else if (/[?&]dressing\b/.test(location.search)) this.creator.show();
 
     bindKeyboard(this.reg, {
       'xfader-left': () => this.reg.nudgeValue('mixer.xfader', -0.05, 'key'),
@@ -508,6 +535,7 @@ export class App implements AppContext {
       setFpsMeter: (v) => this.setFpsMeter(v),
       career: this.career,
       openNaming: () => this.naming?.show({ first: false }),
+      openCreator: () => this.creator?.show(),
       stickers: () => this.settings.stickers,
       setStickers: (v) => {
         this.settings.stickers = v;
@@ -1222,6 +1250,8 @@ export class App implements AppContext {
       this.clock.update(f, dt);
       this.debug?.update(dt);
       this.naming?.update(dt);
+      this.kick = f.kickPulse;
+      this.creator?.update(dt);
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
       this.stage.hype = this.hype.update(dt, f);
       this.chant?.update(dt, this.stage.hype, this.clock.playing);

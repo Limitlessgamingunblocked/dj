@@ -65,3 +65,25 @@ Started before the character work, because Blender's tools weren't reachable in 
 16. **The name filter ships without a word list.** I won't author a list of slurs or profanity myself. `src/name/blocklist.json` takes one from a vetted, maintained source. The matching (spacing, letter swaps, accents, whole-word-only entries) is built and tested with placeholder words.
 17. **Display fonts added** (Google Fonts, like the existing ones): Pacifico for neon script, and Permanent Marker for marker and hand-painted.
 
+
+## Stage 2B: Your character (2026-10-09)
+
+Blender still wasn't reachable, so the character is built in code, made to be swapped for modelled assets later.
+
+18. **The character is procedural, shaped like the asset it stands in for.**
+    - Bones carry humanoid-rig names (`hips`, `spine`, `chest`, `neck`, `head`, `upper_arm_l`…).
+    - Every slider id is the shape-key name it will drive (`jaw_width`, `nose_bridge`…).
+    - Outfit slots, 3 colour zones, materials and patterns are data in `src/character/catalog.ts`, which the Blender pipeline's `zone1`–`zone3` materials already match.
+    - A GLB can replace the meshes without touching the creator, the saves or the moves.
+    - The default figure is about 25k triangles, inside the 25–35k player budget.
+19. **Looks are save format v2** (options, tattoos, piercings), migrated from v1. No saved looks existed before this stage, so the change risked nothing.
+20. **Every creator change saves at once into the look you're wearing** (Section 16.4). "Save as new look" copies it into the wardrobe; looks are unlimited. Sliders preview live while dragged and enter the undo history when released.
+21. **The dressing room borrows the stage**, like the naming room: a hidden venue.
+    - The stage stands your avatar there (`stage.avatarSpot`) and hides the booth.
+    - It plays the set next door through the wall (a muffled kick and bassline).
+    - If your decks are already playing, it grooves to them instead and stays quiet.
+22. **Lighting previews light the room for real.** Venues can now turn down the stage's own soft light (`VenueScene.ambient`), so the blacklight and club previews go properly dark. The club strobe preview flashes on the beat (about 2 a second at 124 BPM), or with reduced flashing a soft pulse every other beat (about 1 a second). Both stay under 3 a second.
+23. **Locked items show how they unlock** ("Play the Warehouse", "Milestone: acid"). Sandbox and the debug menu own everything. Fame tier 1 opens the Bedroom and the Basement, so Selector and Tracksuit Royalty are available from the start.
+24. **The booth figure is now your character** in every venue. It's visible in the venue, crowd, drone and live-feed shots as before, faces the room, keeps its hands on the decks, grooves in your style and does your drop move on drops. Sweat resets when the venue changes.
+25. **First launch goes name → dressing room.** Later visits: Settings → Profile → Dressing room. `?dressing` opens it directly.
+26. **Nothing real on the clothes.** Trainer stripes are plain lines with no maker's marks. Prints and flyers are made-up nights ("Late Licence", "Basement 004").

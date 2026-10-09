@@ -33,6 +33,8 @@ export interface NamingHost {
   later(): void;
   /** the scene is open (the app holds its auto camera) */
   busy(on: boolean): void;
+  /** closed after naming (`first`: the very first name) */
+  named?(first: boolean): void;
 }
 
 type Phase = 'typing' | 'flicker' | 'reveal' | 'closed';
@@ -62,6 +64,7 @@ export class NamingScene {
   private message!: HTMLElement;
   private previews: HTMLCanvasElement[] = [];
   private buzzAt = -1;
+  private first = false;
 
   constructor(private host: NamingHost) {}
 
@@ -71,6 +74,7 @@ export class NamingScene {
 
   show(o: { first: boolean }): void {
     if (this.open) return;
+    this.first = o.first;
     const st = this.host.stage;
     this.prevVenue = this.host.venue();
     const v = st.rig.view;
@@ -206,6 +210,7 @@ export class NamingScene {
 
   close(): void {
     if (!this.open) return;
+    const named = this.phase === 'reveal';
     this.phase = 'closed';
     this.el?.remove();
     this.el = null;
@@ -215,6 +220,7 @@ export class NamingScene {
     this.host.stage.rig.goTo(this.prevView, true);
     this.host.busy(false);
     requestAnimationFrame(() => this.host.stage.resize());
+    if (named) this.host.named?.(this.first);
   }
 
   /** every frame while open */

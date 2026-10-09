@@ -4,6 +4,8 @@
  *   buzz   a neon letter striking up: a crackle and a short mains hum
  *   bass   a sub hit for a big reveal
  *   cheer  a small crowd going up, with a whistle or two
+ *   wallThump  the club through the dressing-room wall: a muffled kick and
+ *              bassline on a loop, until stopped
  */
 
 function out(ctx: AudioContext, level: number): GainNode {
@@ -122,4 +124,68 @@ export function cheer(ctx: AudioContext, level = 0.35, secs = 3.2): void {
     w.start(s);
     w.stop(s + 0.6);
   }
+}
+
+/** the dressing room: the set next door, heard through the wall */
+export interface WallThump {
+  /** the next door set's beat position now (for the room's lights and the avatar's groove) */
+  beat(): number;
+  stop(): void;
+}
+
+export function wallThump(ctx: AudioContext, bpm = 124, level = 0.22): WallThump {
+  const o = out(ctx, 0);
+  o.gain.setTargetAtTime(level, ctx.currentTime, 0.4);
+  // the wall takes everything but the low end
+  const wall = ctx.createBiquadFilter();
+  wall.type = 'lowpass';
+  wall.frequency.value = 190;
+  wall.Q.value = 0.4;
+  wall.connect(o);
+  const spb = 60 / bpm;
+  const t0 = ctx.currentTime + 0.1;
+  // a bassline a bar long (semitones above A1), on the off-beats
+  const line = [0, 0, 3, 0, 5, 0, 3, 7];
+  let next = 0;
+  const schedule = () => {
+    const until = ctx.currentTime + 0.4;
+    while (t0 + next * spb * 0.5 < until) {
+      const t = t0 + next * spb * 0.5;
+      const half = next % 2;
+      if (!half) {
+        const k = ctx.createOscillator();
+        k.frequency.setValueAtTime(110, t);
+        k.frequency.exponentialRampToValueAtTime(44, t + 0.12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(1, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+        k.connect(g).connect(wall);
+        k.start(t);
+        k.stop(t + 0.35);
+      } else {
+        const b = ctx.createOscillator();
+        b.type = 'sawtooth';
+        b.frequency.value = 55 * Math.pow(2, line[(next >> 1) % line.length] / 12);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.35, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + spb * 0.45);
+        b.connect(g).connect(wall);
+        b.start(t);
+        b.stop(t + spb * 0.5);
+      }
+      next++;
+    }
+  };
+  schedule();
+  const timer = setInterval(schedule, 100);
+  return {
+    beat: () => Math.max(0, (ctx.currentTime - t0) / spb),
+    stop() {
+      clearInterval(timer);
+      o.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
+      setTimeout(() => o.disconnect(), 1200);
+    },
+  };
 }

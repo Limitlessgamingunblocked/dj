@@ -13,6 +13,9 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { AudioEngine } from '../audio/AudioEngine';
+import { Avatar, type AvatarInput } from '../character/Avatar';
+import { defaultLook } from '../character/look';
+import type { Look } from '../core/models';
 import type { ControlRegistry } from '../core/controls';
 import type { LyricFrame } from '../lyrics/LyricsEngine';
 import type { Features } from '../visualizer/AudioFeatures';
@@ -84,7 +87,15 @@ export class Stage {
   view: StageView = 'booth';
   quality: Quality = 'medium';
   readonly keyLight: THREE.SpotLight;
-  private avatar: Crowd;
+  private fill: THREE.DirectionalLight;
+  /** you: at the decks, seen from the crowd and venue cameras (and in the dressing room) */
+  readonly avatar: Avatar;
+  /**
+   * A scene that stands you somewhere other than the decks (the dressing
+   * room): where, which way you face, and what you're moving to. The booth
+   * hides while it's set.
+   */
+  avatarSpot: { pos: THREE.Vector3; face: number; input: () => AvatarInput } | null = null;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
   private lens: LensOutputPass;
@@ -206,9 +217,10 @@ export class Stage {
     this.keyLight.shadow.camera.far = 5;
     const fill = new THREE.DirectionalLight(0x9fb4ff, 0.3);
     fill.position.set(-2, 3, 3);
+    this.fill = fill;
     this.scene.add(this.keyLight, this.keyLight.target, fill);
     // you, as seen from the crowd and venue cameras
-    this.avatar = new Crowd([{ x: 0, z: 0.7, face: Math.PI, scale: 1.02, role: 'dj' }], { clothes: ['#e9e6df'], seed: 3 });
+    this.avatar = new Avatar(defaultLook());
     this.scene.add(this.avatar.object);
     this.rig = new CameraRig(this.camera, this.canvas);
 
@@ -256,6 +268,34 @@ export class Stage {
     new ResizeObserver(() => this.resize()).observe(this.el);
   }
 
+  /** what you look like (rebuilds the avatar) */
+  setLook(look: Look, djName?: string): void {
+    this.avatar.setLook(look, djName);
+  }
+
+  /** you at the decks, facing the room, or where a scene has put you */
+  private placeAvatar(show: AvatarInput, dt: number): void {
+    const av = this.avatar;
+    const spot = this.avatarSpot;
+    if (this.board) this.board.root.visible = !spot;
+    if (spot) {
+      av.mode = 'idle';
+      av.object.position.copy(spot.pos);
+      av.object.rotation.y = spot.face;
+      av.object.visible = true;
+      av.update(spot.input(), dt);
+      return;
+    }
+    av.mode = 'dj';
+    av.object.position.set(0, 0, 0.68);
+    av.object.rotation.y = Math.PI;
+    // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
+    const v = this.rig.view;
+    av.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || this.rig.isLive || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
+    // the live feeds (stream monitor, IMAG) show you even when the main camera doesn't
+    if (av.object.visible || this.venue?.feed) av.update(show, dt);
+  }
+
   /** lights follow the music */
   get reactiveLights(): boolean {
     return this.show.controls.auto;
@@ -275,6 +315,8 @@ export class Stage {
       this.venue.dispose();
     }
     this.venueDef = def;
+    // a new gig: you start it fresh
+    this.avatar.sweat = 0;
     const v = def.build();
     this.venue = v;
     // the studio environment map is for the hardware; keep big venue surfaces from mirroring it
@@ -848,10 +890,10 @@ export class Stage {
       this.rig.update(dt, f, visSettings.shake);
       if (this.board) for (const p of this.board.parts) p.update(this.ctx);
       venue?.update(show, f, dt, this.camera);
-      this.avatar.update(show, dt);
-      // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
-      const v = this.rig.view;
-      this.avatar.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || this.rig.isLive || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
+      const amb = venue?.ambient ?? 1;
+      this.scene.environmentIntensity = 0.45 * amb;
+      this.fill.intensity = 0.3 * amb;
+      this.placeAvatar(show, dt);
     }
 
     // on the venue screens the visual player can run at half rate when the load is high

@@ -38,6 +38,8 @@ export interface SetupHooks {
   career: Career;
   /** open the naming scene to rename */
   openNaming(): void;
+  /** open the dressing room (character creator and wardrobe) */
+  openCreator(): void;
 }
 
 let uid = 0;
@@ -181,8 +183,18 @@ export class SetupPanel {
     const caps = this.check('Show the name in capitals', () => c.profile.uppercase, (v) => c.setProfile({ uppercase: v }), 'uppercase capitals');
     const scene = h('button', { class: 'btn', type: 'button' }, 'Rename in the spotlight…');
     scene.addEventListener('click', () => this.hooks.openNaming());
+    const dress = h('button', { class: 'btn', type: 'button' }, 'Dressing room…');
+    dress.addEventListener('click', () => this.hooks.openCreator());
     c.changed.on('profile', () => this.syncs.forEach((f) => f()));
-    return this.card('Profile', 'dj name tagline rename identity', field('name', 'DJ name', NAME_MAX, cleanName), field('tagline', 'Tagline', TAGLINE_MAX, cleanTagline), caps, h('div', { class: 'set-row', 'data-k': 'naming scene spotlight' }, scene, msg));
+    return this.card(
+      'Profile',
+      'dj name tagline rename identity character look outfit wardrobe dressing room',
+      field('name', 'DJ name', NAME_MAX, cleanName),
+      field('tagline', 'Tagline', TAGLINE_MAX, cleanTagline),
+      caps,
+      h('div', { class: 'set-row', 'data-k': 'naming scene spotlight' }, scene, msg),
+      h('div', { class: 'set-row', 'data-k': 'character creator look outfit wardrobe dressing room' }, dress, h('span', { class: 'hint' }, 'Your character, outfits and saved looks')),
+    );
   }
 
   private appearance(): HTMLElement {

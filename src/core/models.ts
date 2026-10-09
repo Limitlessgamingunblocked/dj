@@ -131,20 +131,35 @@ export const PROGRESS: SaveSpec<Progress> = {
 };
 
 /* ------------------------------------------------------------------ */
-/* looks (Stage 2 fills in the character model)                         */
+/* looks (the character and outfit, Section 4)                         */
 /* ------------------------------------------------------------------ */
 
-// TODO: provisional shape: Stage 2 settles the character model (slider names = Blender shape keys) and bumps LOOKS to version 2 with a migration
+// Version 2 (Stage 2B): options, tattoos and piercings were added; the sliders are named like the
+// Blender shape keys they'll drive (src/character/catalog.ts)
+
+export interface Tattoo {
+  design: string;
+  place: string;
+  /** 0.3..1.5 */
+  size: number;
+  /** radians */
+  rot: number;
+  color: string;
+}
 
 export interface Look {
   id: string;
   name: string;
-  /** body / face sliders by shape-key name (e.g. jaw_width), -1..1 or 0..1 */
+  /** body / face / eye / skin sliders by shape-key name (e.g. jaw_width), -1..1 (amounts 0..1) */
   sliders: Record<string, number>;
-  /** colours by zone (skin, hair_primary, top_zone1…), #rrggbb */
+  /** colours by zone (skin, hair, hair2, iris_l, top_1…), #rrggbb */
   colors: Record<string, string>;
-  /** the item in each slot (head, top, shoes…), or null */
+  /** the item in each outfit slot, and the hair style; null for nothing */
   items: Record<string, string | null>;
+  /** enumerated choices (face shape, brows, groove style, materials and patterns per slot…) */
+  options: Record<string, string>;
+  tattoos: Tattoo[];
+  piercings: string[];
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -164,6 +179,8 @@ function record<T>(v: unknown, each: (x: unknown) => T | undefined, max = 400): 
   return out;
 }
 
+const colour = (x: unknown): string | undefined => (typeof x === 'string' && HEX.test(x) ? x.toLowerCase() : undefined);
+
 export function checkLook(raw: unknown): Look | null {
   const r = obj(raw);
   const lid = id(r.id);
@@ -172,15 +189,33 @@ export function checkLook(raw: unknown): Look | null {
     id: lid,
     name: str(r.name, 40, 'Look'),
     sliders: record(r.sliders, (x) => (typeof x === 'number' && Number.isFinite(x) ? Math.min(1, Math.max(-1, x)) : undefined)),
-    colors: record(r.colors, (x) => (typeof x === 'string' && HEX.test(x) ? x.toLowerCase() : undefined)),
+    colors: record(r.colors, colour),
     items: record(r.items, (x) => (x === null ? null : (id(x) ?? undefined))),
+    options: record(r.options, (x) => (typeof x === 'string' && ID.test(x) ? x : undefined)),
+    tattoos: list(
+      r.tattoos,
+      (x) => {
+        const o = obj(x);
+        const design = id(o.design);
+        const place = id(o.place);
+        return design && place ? { design, place, size: num(o.size, 0.3, 1.5, 1), rot: num(o.rot, -Math.PI, Math.PI, 0), color: colour(o.color) ?? '#1a1a1a' } : null;
+      },
+      12,
+    ),
+    piercings: dedupe(list(r.piercings, (x) => id(x), 12)),
   };
 }
 
 export const LOOKS: SaveSpec<{ items: Look[]; current: string | null }> = {
   kind: 'looks',
-  version: 1,
-  migrations: {},
+  version: 2,
+  migrations: {
+    // v1 had no options, tattoos or piercings
+    1: (d) => {
+      const o = obj(d);
+      return { ...o, items: (Array.isArray(o.items) ? o.items : []).map((l: unknown) => ({ options: {}, tattoos: [], piercings: [], ...obj(l) })) };
+    },
+  },
   defaults: () => ({ items: [], current: null }),
   validate(raw) {
     const r = obj(raw);
