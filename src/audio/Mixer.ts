@@ -8,6 +8,7 @@
  *     for a single output with a splitter cable
  *   - a second output device (setSinkId) where the browser supports it
  */
+import { Room } from './room';
 import { clamp, dbToGain } from '../core/util';
 import type { Channel } from './Channel';
 
@@ -26,6 +27,8 @@ export class Mixer {
   readonly masterGain: GainNode;
   readonly limiter: DynamicsCompressorNode;
   readonly masterOut: GainNode;
+  /** the venue's acoustics, on the speakers only (the recorder taps masterOut, before it) */
+  readonly room: Room;
   readonly cueBus: GainNode;
   readonly analyserL: AnalyserNode;
   readonly analyserR: AnalyserNode;
@@ -80,7 +83,8 @@ export class Mixer {
 
     // --- normal stereo output ---
     this.normalOut = c.createGain();
-    this.masterOut.connect(this.normalOut).connect(c.destination);
+    this.room = new Room(c, c.destination);
+    this.masterOut.connect(this.normalOut).connect(this.room.input);
 
     // --- headphones ---
     this.cueBus = c.createGain();

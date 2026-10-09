@@ -20,6 +20,8 @@ export interface TopBarActions {
   /** livestream viewer count, or null when not streaming */
   live(): string | null;
   record(): void;
+  /** open the pre-gig screen */
+  gig(): void;
   midi(): void;
   /** open the ⋯ menu at a screen position */
   menu(x: number, y: number): void;
@@ -60,7 +62,7 @@ export class TopBar {
     this.venueBtn = h('button', { class: 'btn venue-btn', title: 'Choose where you play' }, h('span', { 'aria-hidden': 'true' }, '📍'), this.venueLabel, this.venueShort, h('span', { 'aria-hidden': 'true' }, '▾'));
     this.venueBtn.addEventListener('click', () => a.pickVenue());
     this.hypeCells = Array.from({ length: 12 }, () => h('i'));
-    this.hypeEl = h('div', { class: 'hype-meter', title: 'Crowd energy: rises with the music, clean blends and drops; trainwrecks and key clashes cost you' }, h('span', { class: 'label' }, 'Crowd'), h('span', { class: 'cells' }, ...this.hypeCells));
+    this.hypeEl = h('div', { class: 'hype-meter', title: 'The vibe: rises with clean mixes, the right energy and well-built drops; trainwrecks, clashes and dead air cost you' }, h('span', { class: 'label' }, 'Vibe'), h('span', { class: 'cells' }, ...this.hypeCells));
     this.beatLed = h('span', { class: 'beat-led' });
     this.liveCount = h('span', { class: 'mono' });
     this.liveEl = h('span', { class: 'live-badge', title: 'Streaming live' }, h('span', { class: 'dot' }), 'LIVE', this.liveCount);
@@ -80,6 +82,8 @@ export class TopBar {
     this.recTime = h('span', { class: 'mono', style: { fontSize: '12px' } });
     this.rec.append(this.recTime);
     this.rec.addEventListener('click', () => a.record());
+    const gig = h('button', { class: 'btn gig-btn', title: 'Play a gig: pick a venue, a slot and a set length', type: 'button' }, 'Play a gig');
+    gig.addEventListener('click', () => a.gig());
     this.midiDot = h('span', { class: 'status-dot on' });
     this.midiBtn = h('button', { class: 'btn ghost hide-sm', title: 'MIDI controller connected — open MIDI settings', hidden: true }, this.midiDot, 'MIDI');
     this.midiBtn.addEventListener('click', () => a.midi());
@@ -106,6 +110,7 @@ export class TopBar {
       this.liveEl,
       this.hypeEl,
       h('div', { class: 'master-readout', title: 'Tempo of the sync master deck' }, this.beatLed, this.masterDeck, this.master),
+      gig,
       this.rec,
       this.midiBtn,
       mode,

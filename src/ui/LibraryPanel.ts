@@ -129,7 +129,7 @@ export class LibraryPanel {
     this.render();
   }
 
-  private currentCrate(): string | null {
+  currentCrate(): string | null {
     return this.view.kind === 'crate' ? this.view.id : null;
   }
 
@@ -298,6 +298,11 @@ export class LibraryPanel {
     if (parent) this.openFolders.add(parent);
     this.renaming = c.id;
     this.renderSide();
+  }
+
+  /** show a crate (or the whole collection) */
+  showCrate(id: string | null): void {
+    this.setView(id && this.app.library.crate(id) ? { kind: 'crate', id } : { kind: 'all' });
   }
 
   private setView(v: View): void {

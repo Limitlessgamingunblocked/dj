@@ -184,7 +184,7 @@ const VERT_HEAD = /* glsl */ `
   attribute float aMat;
   attribute vec4 iSeed;
   attribute vec4 iInfo;
-  uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick;
+  uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick, uCold, uSync;
   varying float vMat;
   varying vec4 vSeed;
   varying vec2 vUv2;
@@ -225,7 +225,10 @@ const VERT_HEAD = /* glsl */ `
     float wCheer = uCheer * step(0.12, iSeed.y) * (dancer + vip * 0.7);
     aL = mix(aL, vec3(2.25 + wave * 0.3, 0.45, 0.25), wCheer);
     aR = mix(aR, vec3(2.25 - wave * 0.3, 0.45, 0.25), wCheer);
+    // phones: the filmers, plus (cold) people scrolling at chest height
     float wFilm = iInfo.y * smoothstep(0.3, 0.4, vnoise(uTime * 0.05 + iSeed.w * 11.0) + uCheer * 0.3) * (1.0 - wClap);
+    float wScroll = uCold * step(0.55, fract(iSeed.y * 7.3)) * (1.0 - iInfo.y) * dancer;
+    aR = mix(aR, vec3(0.1, 0.25, 1.35), wScroll);
     aR = mix(aR, vec3(0.12, 1.95, 0.6), wFilm);
     float wDrink = iInfo.w * (1.0 - wClap) * (1.0 - wUp) * (1.0 - wCheer);
     aL = mix(aL, vec3(0.12, 0.45 + 0.08 * hit, 1.75), wDrink);
@@ -243,8 +246,10 @@ const VERT_HEAD = /* glsl */ `
     float twist = sin(uBeat * 0.7854 + iSeed.w * 6.283) * (0.12 + 0.1 * vip) * (1.0 - dj * 0.7);
     float shiftX = sin(uBeat * 1.5708 + iSeed.x * 6.283) * 0.035 * (1.0 - dj);
     float nod = hit * uBob * 3.0 + dj * 0.18 * hit;
-    float turn = (vnoise(uTime * 0.25 + iSeed.w * 23.0) - 0.5) * (0.5 + vip * 1.4) * (1.0 - dj * 0.8);
-    float jump = uJump * max(0.0, sin(fract(uBeat * 0.5 + iSeed.x) * 6.283)) * (0.4 + iSeed.z * 0.6) * 0.32 * (dancer + sign * 0.5);
+    // cold: chatting, turning to friends; euphoric: everyone moving as one
+    float turn = (vnoise(uTime * 0.25 + iSeed.w * 23.0) - 0.5) * (0.5 + vip * 1.4 + uCold * 1.8) * (1.0 - dj * 0.8);
+    float jumpPh = mix(iSeed.x, 0.0, uSync);
+    float jump = uJump * max(0.0, sin(fract(uBeat * 0.5 + jumpPh) * 6.283)) * (0.4 + iSeed.z * 0.6) * 0.32 * (dancer + sign * 0.5);
     jump += wCheer * max(0.0, sin(fract(uBeat + iSeed.x * 0.2) * 6.283)) * 0.12 * dancer;
     vec3 P = vec3(0.0, 0.95, 0.0);
     mat3 Ru = rotY(twist) * rotZ(sway);
@@ -397,6 +402,8 @@ export class Crowd implements Fixture {
     uClap: { value: 0 },
     uCheer: { value: 0 },
     uKick: { value: 0 },
+    uCold: { value: 0 },
+    uSync: { value: 0 },
     uSigns: { value: null as THREE.Texture | null },
     uSignGlow: { value: 1 },
     uPhotos: { value: 0 },
@@ -577,6 +584,9 @@ export class Crowd implements Fixture {
     this.cheer = Math.max(this.cheer * Math.exp(-dt * 0.35), s.accent * 0.75 * (0.4 + hype * 0.6));
     u.uCheer.value = s.playing ? this.cheer : 0;
     u.uKick.value = s.kick;
+    // the crowd's state (Section 8.1): cold below a quarter, as one when euphoric
+    u.uCold.value += (Math.max(0, Math.min(1, (0.3 - hype) / 0.15)) - u.uCold.value) * Math.min(1, dt * 0.8);
+    u.uSync.value += ((s.playing ? Math.max(0, Math.min(1, (hype - 0.85) / 0.1)) : 0) - u.uSync.value) * Math.min(1, dt * 0.8);
     u.uSignGlow.value = (0.8 + 0.35 * Math.pow(1 - (((s.beat % 1) + 1) % 1), 2)) * (0.6 + 0.4 * s.master);
     u.uPhotos.value = s.photos;
     // the rim: the show's colours, harder with the wash and the kick, white in the strobes

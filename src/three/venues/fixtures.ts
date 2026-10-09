@@ -383,6 +383,7 @@ export class LedStrings implements Fixture {
     uA: { value: new THREE.Color() },
     uB: { value: new THREE.Color() },
     uWarm: { value: 0 },
+    uHat: { value: 0 },
   };
   private pos: number[] = [];
   private at: number[] = [];
@@ -399,14 +400,16 @@ export class LedStrings implements Fixture {
         vertexShader: /* glsl */ `
           attribute float aT;
           attribute float aS;
-          uniform float uBeat, uTime, uLevel, uMaster, uSize, uWarm;
+          uniform float uBeat, uTime, uLevel, uMaster, uSize, uWarm, uHat;
           uniform vec3 uA, uB;
           varying vec3 vC;
           void main() {
             vec4 mv = modelViewMatrix * vec4(position, 1.0);
             float chase = pow(0.5 + 0.5 * sin((aT * 14.0 - uBeat * 2.0 + aS * 0.7) * 3.14159), 6.0);
             float twinkle = 0.5 + 0.5 * sin(uTime * 3.0 + aS * 13.0 + aT * 97.0);
-            float b = 0.3 + 0.2 * twinkle + uLevel * chase * 1.8;
+            // the hats: a scattered third of the lamps flick on each one
+            float pick = step(0.66, fract(sin(aT * 311.7 + aS * 74.7 + floor(uBeat * 4.0) * 17.3) * 43758.5));
+            float b = 0.3 + 0.2 * twinkle + uLevel * chase * 1.8 + uHat * pick * 1.4;
             vec3 col = mix(uA, uB, step(0.5, fract(aS * 0.5)));
             vC = col * b * uMaster;
             gl_PointSize = uSize * 700.0 / max(0.5, -mv.z);
@@ -466,6 +469,8 @@ export class LedStrings implements Fixture {
   update(s: ShowState, dt: number): void {
     this.u.uBeat.value = s.beat;
     this.u.uTime.value += dt;
+    // no fast flicker with reduce flashing
+    this.u.uHat.value = s.reduceFlash ? 0 : s.hat;
     this.u.uLevel.value = s.playing ? 0.4 + s.energy * 0.6 + s.peak * 0.6 : 0.15;
     this.u.uMaster.value = s.master * Math.min(1.3, s.intensity);
     if (this.o.warm) {

@@ -1,0 +1,765 @@
+/* gigs: the in-gig HUD, the tutorial card, the stream chat, the pre-gig screen and the results */
+
+.gig-btn {
+  border-color: #ff2e88;
+  color: #fff;
+  background: rgb(255 46 136 / 18%);
+}
+
+.gig-btn:hover {
+  background: rgb(255 46 136 / 30%);
+}
+
+body.gig-on .gig-btn {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- HUD */
+
+.gig-hud {
+  /* top left, clear of the camera buttons on the right */
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  /* --tools-w: the camera buttons' width, measured while a gig runs */
+  width: min(480px, calc(100% - var(--tools-w, 200px) - 34px));
+  display: grid;
+  /* never wider than the box: rows wrap instead */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  pointer-events: none;
+  color: #fff;
+  font-family: var(--font-label);
+  --t: 0.5;
+}
+
+.gig-hud > * {
+  pointer-events: auto;
+}
+
+.gh-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  padding: 8px 12px 9px;
+  border-radius: var(--radius-l);
+  background: rgb(8 8 10 / 74%);
+  border: 1px solid rgb(255 255 255 / 9%);
+  backdrop-filter: blur(6px);
+}
+
+.gh-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gh-where {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.gh-mood {
+  font-weight: 800;
+  color: #ffb547;
+}
+
+.gh-mood[data-mood='cold'] {
+  color: #8ab4ff;
+}
+
+.gh-mood[data-mood='grooving'] {
+  color: #ff2e88;
+}
+
+.gh-mood[data-mood='peak'],
+.gh-mood[data-mood='euphoric'] {
+  color: #b6ff3b;
+}
+
+.gh-time {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  min-width: 4.2em;
+  text-align: right;
+}
+
+.gh-time.low {
+  color: #ff5b6e;
+}
+
+.gh-rec {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: rgb(255 255 255 / 30%);
+  border: 1px solid rgb(255 255 255 / 15%);
+}
+
+.gh-rec.on {
+  color: #fff;
+  background: #e0243c;
+  border-color: #e0243c;
+  animation: gh-blink 1s steps(2, start) infinite;
+}
+
+@keyframes gh-blink {
+  to {
+    opacity: 0.55;
+  }
+}
+
+.gh-meter {
+  position: relative;
+  height: 14px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 8%);
+  overflow: hidden;
+}
+
+.gh-fill {
+  --v: 0.3;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--v) * 100%);
+  background: linear-gradient(90deg, #7a3cff, #ff2e88 55%, #ffb547 80%, #b6ff3b);
+  background-size: 560px 100%;
+  border-radius: 7px;
+  transition: width 0.25s ease-out;
+  box-shadow: 0 0 14px rgb(255 46 136 / 45%);
+}
+
+.gh-target {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: calc(var(--t) * 100%);
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+  transition: left 1s;
+}
+
+.gh-tools {
+  flex-wrap: wrap;
+  row-gap: 5px;
+  justify-content: flex-end;
+}
+
+.gh-assist {
+  display: flex;
+  gap: 2px;
+  margin-right: auto;
+  padding: 2px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 6%);
+}
+
+.gh-assist button,
+.gh-btn,
+.gh-show {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 11px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-label);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gh-assist button.active {
+  background: #ff2e88;
+  color: #fff;
+}
+
+.gh-btn {
+  border: 1px solid rgb(255 255 255 / 14%);
+}
+
+.gh-btn:hover,
+.gh-assist button:hover {
+  color: #fff;
+}
+
+.gh-msg {
+  justify-self: start;
+  max-width: 100%;
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: rgb(8 8 10 / 78%);
+  font-family: var(--font-body);
+  font-size: 13px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.gh-msg.on {
+  opacity: 1;
+  transform: none;
+}
+
+.gh-msg b {
+  color: #ffb547;
+  font-weight: 700;
+}
+
+.gh-show {
+  display: none;
+  justify-self: end;
+  background: rgb(8 8 10 / 60%);
+}
+
+/* redlining: the meter flashes red */
+.gig-hud.red .gh-main {
+  border-color: #ff2e2e;
+  animation: gh-red 0.5s steps(2, start) infinite;
+}
+
+@keyframes gh-red {
+  to {
+    border-color: rgb(255 46 46 / 20%);
+  }
+}
+
+/* Pro: no key hints in the crate */
+body.assist-pro table.tracks tr.compat td.title {
+  text-shadow: none;
+}
+
+body.assist-pro table.tracks tr.compat td:first-child {
+  box-shadow: none;
+}
+
+/* clean view: nothing but the club (and a small way back) */
+.gig-hud.clean .gh-main,
+.gig-hud.clean .gh-msg {
+  display: none;
+}
+
+.gig-hud.clean .gh-show {
+  display: block;
+  opacity: 0.4;
+}
+
+body.gig-clean .callouts,
+body.gig-clean .stream-chat,
+body.gig-clean .tutorial-card,
+body.gig-clean .lyric-hud {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------- tutorial */
+
+.tutorial-card {
+  position: absolute;
+  left: 10px;
+  /* --hud-b: the HUD's bottom edge, measured while a gig runs */
+  top: calc(var(--hud-b, 136px) + 8px);
+  z-index: 6;
+  width: min(300px, calc(100% - 24px));
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: rgb(8 8 10 / 82%);
+  border: 1px solid #ff2e88;
+  box-shadow: 0 0 24px rgb(255 46 136 / 25%);
+  color: #fff;
+  transition: opacity 0.6s;
+  animation: tc-in 0.35s ease-out;
+}
+
+.tutorial-card.out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tutorial-card b {
+  font-family: var(--font-label);
+  font-size: 17px;
+  letter-spacing: 0.03em;
+}
+
+.tutorial-card p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tc-step {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ffb547;
+}
+
+@keyframes tc-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* ---------------------------------------------------------------- stream chat */
+
+.stream-chat {
+  position: absolute;
+  right: 10px;
+  top: 56px;
+  bottom: 12px;
+  z-index: 5;
+  width: min(250px, 30%);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-l);
+  background: rgb(14 12 20 / 80%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  overflow: hidden;
+  color: #e9e6f3;
+  font-size: 12.5px;
+  pointer-events: none;
+}
+
+.sc-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 8%);
+  font-family: var(--font-label);
+  letter-spacing: 0.06em;
+}
+
+.sc-live {
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #e0243c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sc-head b {
+  font-family: var(--font-mono);
+}
+
+.sc-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 8px 10px;
+  overflow: hidden;
+}
+
+.sc-msg {
+  line-height: 1.3;
+  animation: sc-in 0.25s ease-out;
+  overflow-wrap: anywhere;
+}
+
+@keyframes sc-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* ---------------------------------------------------------------- pre-gig */
+
+.gig-setup {
+  display: grid;
+  gap: 14px;
+}
+
+.gig-setup h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.gs-venues {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.gs-venue {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  text-align: left;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.gs-venue canvas {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.gs-venue b {
+  font-family: var(--font-label);
+  font-size: 17px;
+}
+
+.gs-venue span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gs-venue.active {
+  border-color: #ff2e88;
+  box-shadow: 0 0 0 1px #ff2e88;
+}
+
+.gs-venue:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gs-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: var(--font-label);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+}
+
+.gs-chip.active {
+  border-color: #ff2e88;
+  background: rgb(255 46 136 / 20%);
+  color: #fff;
+}
+
+.gs-brief,
+.gs-note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.gs-brief b {
+  color: #ffb547;
+}
+
+.gs-two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.gs-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.gig-setup select {
+  height: 32px;
+  min-width: 0;
+  flex: 1;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: #08090c;
+  color: var(--text);
+}
+
+.gs-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gs-go {
+  min-width: 180px;
+  height: 38px;
+  font-size: 15px;
+  background: #ff2e88;
+  border-color: #ff2e88;
+}
+
+/* ---------------------------------------------------------------- results */
+
+.results {
+  display: grid;
+  gap: 14px;
+}
+
+.res-top {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+
+.res-grade {
+  flex: none;
+  width: 104px;
+  height: 104px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  font-family: var(--font-label);
+  font-size: 76px;
+  font-weight: 900;
+  line-height: 1;
+  color: #0a0a0c;
+  background: linear-gradient(180deg, #fff 0%, #c9ced6 45%, #6f7a8c 52%, #e8edf4 64%, #8c96a6 100%);
+  box-shadow: 0 0 40px rgb(255 255 255 / 15%);
+  animation: res-pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.res-grade.g-S {
+  background: linear-gradient(135deg, #b6ff3b, #ff2e88 60%, #7a3cff);
+  color: #fff;
+  box-shadow: 0 0 50px rgb(255 46 136 / 55%);
+}
+
+.res-grade.g-A {
+  background: linear-gradient(135deg, #ffb547, #ff2e88);
+  color: #fff;
+}
+
+@keyframes res-pop {
+  from {
+    transform: scale(0.4) rotate(-8deg);
+    opacity: 0;
+  }
+}
+
+.res-head {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.res-kicker {
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ffb547;
+}
+
+.res-dj {
+  margin: 0;
+  font-family: var(--font-label);
+  font-weight: 700;
+  font-size: clamp(20px, 4vw, 30px);
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.res-promoter {
+  margin: 0;
+  font-size: 15px;
+}
+
+.res-promoter b {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.res-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.res-stat {
+  display: grid;
+}
+
+.res-stat span,
+.res-card > span {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.res-stat b {
+  font-family: var(--font-label);
+  font-size: 24px;
+}
+
+.res-stat small,
+.res-card small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.res-graph {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 640 / 150;
+  border-radius: var(--radius);
+  background: #07080b;
+  border: 1px solid var(--line);
+}
+
+.res-legend {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.res-legend i {
+  display: inline-block;
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  margin-left: 8px;
+}
+
+.l-vibe {
+  background: linear-gradient(90deg, #7a3cff, #ff2e88, #b6ff3b);
+}
+
+.l-energy {
+  background: repeating-linear-gradient(90deg, #ffb547 0 3px, transparent 3px 6px);
+}
+
+.l-target {
+  height: 8px !important;
+  background: rgb(255 181 71 / 30%);
+}
+
+.res-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.res-card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.res-card b {
+  font-family: var(--font-label);
+  font-size: 18px;
+}
+
+.res-card .btn {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.res-earn {
+  display: flex;
+  gap: 16px;
+}
+
+.res-earn > div {
+  display: grid;
+}
+
+.res-earn b {
+  font-size: 22px;
+  color: #b6ff3b;
+}
+
+.res-tier {
+  color: #ffb547 !important;
+}
+
+.res-miles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.res-mile {
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgb(255 181 71 / 15%);
+  border: 1px solid #ffb547;
+  color: #ffd79a;
+  font-family: var(--font-label);
+  letter-spacing: 0.05em;
+}
+
+.res-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .gs-two,
+  .res-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .res-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stream-chat {
+    width: 44%;
+    top: auto;
+    height: 40%;
+  }
+
+  /* full width, under the camera buttons (--tools-h: their bottom edge) */
+  .gig-hud {
+    top: calc(var(--tools-h, 40px) + 6px);
+    width: calc(100% - 20px);
+  }
+
+  /* beside the chat, not under it */
+  .tutorial-card {
+    top: auto;
+    bottom: 10px;
+    width: calc(56% - 24px);
+  }
+
+  .gh-row {
+    font-size: 11px;
+  }
+}

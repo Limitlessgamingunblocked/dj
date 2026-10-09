@@ -172,3 +172,36 @@ describe('phone flashes', () => {
     expect(calm.update(frame(1, 120, { drop: 1, dropHit: true }), 1 / 60, 0.8).photos).toBe(0);
   });
 });
+
+describe('lighting rules (Section 2.3)', () => {
+  it('a cold crowd gets a dimmer, calmer rig', () => {
+    const cold = new LightShow();
+    const hot = new LightShow();
+    const c = cold.update(frame(1, 124), 1 / 60, 0.15);
+    const h = hot.update(frame(1, 124), 1 / 60, 0.95);
+    expect(c.intensity).toBeLessThan(h.intensity);
+    expect(c.intensity).toBeGreaterThan(0.6);
+  });
+
+  it('breakdowns go warm; hats flick fast; bass and vocals follow the music', () => {
+    const show = new LightShow();
+    show.controls.palette = 'ice';
+    let s = show.update(frame(0, 124, { breakdown: 0 }), 1 / 60, 0.6);
+    const cool = s.colors[0].clone();
+    s = show.update(frame(0.1, 124, { breakdown: 1 }), 1 / 60, 0.6);
+    // pulled towards amber: redder and less blue
+    expect(s.colors[0].r).toBeGreaterThan(cool.r);
+    expect(s.colors[0].b).toBeLessThan(cool.b);
+    // a lift in the highs gives a hat flick that's gone within a tenth of a second
+    s = show.update(frame(1, 124, { high: 0.1 }), 1 / 60, 0.6);
+    s = show.update(frame(1.02, 124, { high: 0.5 }), 1 / 60, 0.6);
+    expect(s.hat).toBeGreaterThan(0.5);
+    for (let i = 0; i < 8; i++) s = show.update(frame(1.04 + i / 60, 124, { high: 0.5 }), 1 / 60, 0.6);
+    expect(s.hat).toBeLessThan(0.2);
+    // low end and a vocal over quiet drums
+    for (let i = 0; i < 120; i++) s = show.update(frame(2 + i / 60, 124, { sub: 0.9, kick: 0.9, vocal: 0.1 }), 1 / 60, 0.6);
+    expect(s.bass).toBeGreaterThan(0.8);
+    for (let i = 0; i < 120; i++) s = show.update(frame(4 + i / 60, 124, { sub: 0.2, kick: 0.2, vocal: 0.9 }), 1 / 60, 0.6);
+    expect(s.vocal).toBeGreaterThan(0.5);
+  });
+});

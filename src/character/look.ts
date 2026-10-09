@@ -290,7 +290,6 @@ export class LookHistory {
 /**
  * Matching a venue's vibe gives the crowd a small lift at the start of a set:
  * 0.02 per worn piece that fits, up to 0.1.
- * TODO: computed and shown in the wardrobe; Stage 3's vibe meter applies it when a set starts.
  */
 export function dressCodeBonus(l: Look, venue: string): { bonus: number; matched: string[] } {
   const vibes = VENUE_VIBES[venue] ?? [];

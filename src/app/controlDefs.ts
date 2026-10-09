@@ -19,6 +19,9 @@ export interface ControlHooks {
   loadSelected(deck: number): void;
   browse(delta: number): void;
   layerChanged(): void;
+  /** sync can be refused (Pro assist in a gig): returns why, or null when allowed */
+  syncBlocked?(): string | null;
+  denied?(why: string): void;
 }
 
 const fmtDb = (g: number) => {
@@ -39,7 +42,11 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
     btn(p + 'play', L('Play/Pause'), () => d.togglePlay(), () => (d.playing ? true : d.loaded ? { color: '#3ddc97', blink: true, level: 0.8 } : false));
     btn(p + 'cue', L('Cue'), () => d.cueDown(), () => (d.cueLit ? '#ff9f1c' : false), () => d.cueUp());
     btn(p + 'start', L('Start/Stop'), () => (d.playing ? d.pause() : d.play()), () => (d.playing ? '#ff3b5c' : false));
-    btn(p + 'sync', L('Sync'), () => d.setSync(!d.sync), () => (d.sync ? '#2ec4f1' : false));
+    btn(p + 'sync', L('Sync'), () => {
+      const why = !d.sync ? (hooks.syncBlocked?.() ?? null) : null;
+      if (why) hooks.denied?.(why);
+      else d.setSync(!d.sync);
+    }, () => (d.sync ? '#2ec4f1' : false));
     btn(p + 'master', L('Master'), () => engine.setMaster(d), () => (d.isMaster ? '#ff9f1c' : false));
     btn(p + 'keylock', L('Key Lock'), () => d.setKeylock(!d.keylock), () => (d.keylock ? '#ff5fcf' : false));
     btn(p + 'slip', L('Slip'), () => d.setSlip(!d.slip), () => (d.slip ? '#b36bff' : false));

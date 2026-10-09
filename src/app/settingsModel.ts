@@ -45,7 +45,7 @@ export interface Settings {
 export const DEFAULTS: Settings = {
   board: 'club4',
   finish: 'booth',
-  venue: 'dc10',
+  venue: 'bedroom',
   view: 'booth',
   camera: 'perf',
   quality: 'medium',

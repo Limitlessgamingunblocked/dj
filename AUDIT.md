@@ -83,39 +83,39 @@ scripts/               build-single (one-file HTML), build-wasm
 
 | § | Item | Status | Where / what's there | Gap |
 |---|---|---|---|---|
-| **2.1** | Musical identity | Partial | `audio/synth.ts`: deep minimal, rolling minimal, bouncy tech house and rave house styles at 118–134 BPM | Tag lanes to the brief; drop or re-skin techno and breaks; no stems as files |
+| **2.1** | Musical identity | Partial (Stage 3) | `audio/synth.ts`: 13 new originals in the brief's lanes (minimal, rolling, garage, tech house, rave) at 122–128 BPM, plus the older demos | Older techno and breaks demos still in the library; no stems as files |
 | **2.2** | Palette and visual identity | Partial | Design tokens in `ui/styles`, per-venue palettes in `show.ts` | The brief's 7-colour palette isn't adopted; no flyer, VHS or disposable-camera art direction in the UI |
-| **2.3** | Beat-locked lighting rules | Partial | Kick drives the washes; builds and drops are choreographed; breakdowns go soft; haze in every indoor venue | No hi-hat → pin-spot mapping; vocals → DJ spotlight missing; lighting doesn't scale with a vibe meter (it uses hype) |
+| **2.3** | Beat-locked lighting rules | Exists (Stage 3) | `show.ts`: kick → washes, hats → string-light flicks, bass → booth underglow, vocals → DJ spotlight, breakdown → amber, intensity from the vibe meter; builds and drops choreographed; haze | Pin spots on hats only where a venue has string lights or pin spots |
 | **2.4** | Post-processing | Partial | Bloom, grain, vignette and VHS look all exist | Chromatic aberration only on drops isn't done; there's no per-effect toggle (one quality level only) |
-| **2.5** | Six camera shots | Partial | Over-the-shoulder ("perf"), crowd POV, wide, booth fisheye, crane, drone; auto director | A named "breakdown orbit" and a "drop punch-in" with toggleable shake are missing as named shots |
+| **2.5** | Six camera shots | Partial | Over-the-shoulder ("perf"), crowd POV, wide, booth fisheye, crane, drone; auto director; Bedroom webcam and Basement CCTV | A named "breakdown orbit" and a "drop punch-in" with toggleable shake are missing; camera energy doesn't scale with the vibe yet |
 | **2.6** | Voice of the game | Partial | Call-outs and toasts are short | Copy needs a pass to the brief's voice |
 | **3** | Naming scene, NameService, name everywhere | Partial (Stage 2A) | `src/name/`, `ui/NamingScene.ts`, naming room; booth panels, neon, LED walls, crowd sign, stickers, top bar, chants | Filter word list; surfaces that wait on later systems (lasers, flyers, results, recordings, merch, outdoor venues) |
 | **4** | Character creator, wardrobe, outfits | Built in code (Stage 2B) | `src/character/` (catalogue, looks, procedural avatar), `ui/CharacterCreator.ts`, dressing room venue; your character at the decks in every venue | Modelled character, hair and outfits (Blender, Section 14); dress-code bonus applied by the vibe meter (Stage 3); looks in recordings (Stage 4) |
-| **5.2** | Venues (Bedroom → Sunrise) | Partial | The Warehouse exists (Deckhouse Warehouse), plus 6 real-world rooms that aren't in the brief | Bedroom, Basement, Rooftop, Beach Club, Boat, Festival and Sunrise are missing; no signature moments, unlock conditions or venue acoustics |
-| **5.3** | Set slots | Missing | — | Slot target curves and scoring |
-| **6.1** | Assist levels | Missing | Sync exists | Chill / Club / Pro modes and the Pro multiplier |
+| **5.2** | Venues (Bedroom → Sunrise) | Partial (Stage 3) | Bedroom (tutorial, stream chat, raid) and Basement (red light, mirror ball, drips at the peak) built; the Warehouse exists; 6 real-world rooms for free play; venue acoustics (`audio/room.ts`) | Rooftop, Beach Club, Boat, Festival and Sunrise; booking-based unlocks (Stage 6) |
+| **5.3** | Set slots | Exists (Stage 3) | `game/vibe.ts` `SLOTS`: warm-up, peak time, closing, after-hours, each with a target curve and a promoter brief | — |
+| **6.1** | Assist levels | Exists (Stage 3) | `game/Gig.ts`, `app/gigs.ts`: Chill (auto sync and key), Club, Pro (no sync, no key hints, ×1.5) | — |
 | **6.2** | Deck anatomy | Exists | `audio/Deck.ts`, `ui/DeckPanel.ts`, `ui/waveform.ts` (RGB frequency waveform) | Default range is ±8 % with a ±16 % option; matches |
 | **6.3** | Mixer | Exists | `audio/Channel.ts`, `audio/Mixer.ts` | — |
-| **6.4** | Beatmatching and phase meter | Partial | Phase lock in `AudioEngine`; phase display in `WaveStrip` | No 10 / 30 / 50 ms scoring bands; no audible flam feedback |
-| **6.5** | Harmonic mixing | Partial | Camelot keys; compatibility used by the library, deck panel, Hype and Auto DJ | No "glow in crate" in Club mode; no bonus or penalty in a score |
-| **6.6** | Transition recognition | Partial | `Hype` detects clean blends and wrecks | No named techniques (bass swap, filter fade, echo out, loop roll, quick cut, double drop) or scores |
-| **6.7** | Vibe meter | Partial | `app/Hype.ts` | Slot match, fatigue, variety, drop spacing, dead air and redline are missing; it doesn't drive camera energy or signature moments |
-| **6.8** | Crate digging | Exists | `ui/LibraryPanel.ts`, crates, search, sort, pre-listen | Energy 1–10 and the brief's tag set; favourites |
-| **6.9** | Set lengths, results screen, encore | Missing | — | — |
+| **6.4** | Beatmatching and phase meter | Partial (Stage 3) | Phase lock in `AudioEngine`; phase display in `WaveStrip`; 10 / 30 / 50 ms scoring bands in the vibe meter | No audible flam feedback beyond the music itself |
+| **6.5** | Harmonic mixing | Exists (Stage 3) | Camelot keys; compatible keys glow in the crate in Club mode; key bonus or penalty on every transition | — |
+| **6.6** | Transition recognition | Exists (Stage 3) | `game/vibe.ts`: long blend, bass swap, filter fade, echo out, loop roll, quick cut, double drop, clean mix, with points | — |
+| **6.7** | Vibe meter | Exists (Stage 3) | `game/vibe.ts`: slot match, drift, fatigue, drop spacing, dead air, redline, repeats, too hard in a warm-up, comeback; drives lights, crowd, chat and the Bedroom's raid / Basement's peak | Camera energy |
+| **6.8** | Crate digging | Exists (Stage 3) | `ui/LibraryPanel.ts`: energy 1–10, the brief's tags, favourites, `tag:` and `energy:` search, an "imported" badge, the First Gigs crate | — |
+| **6.9** | Set lengths, results screen, encore | Exists (Stage 3) | 10 / 20 / 30 / 60 min; `ui/Results.ts` (grade, graph, best transition, crowd peak, rewards, milestones); encore at 75 % vibe | Replay and highlights wait on the replay buffer (Stage 4) |
 | **6.10** | B2B rivals | Missing | Auto DJ is the base | Personalities, turn-taking, chemistry |
-| **6.11** | Mistakes and recovery | Partial | Trainwreck call-outs; crowd groans | Dead-air detection, sound-engineer NPC, comeback bonus |
-| **7.1–7.2** | 40+ original tracks with metadata and markers | Partial | 32 synthesised tracks, fictional artists | 8+ more; section markers, energy and tags; brief-lane balance |
-| **7.3** | Import your own music | Exists | `library/` (BPM, grid, key detection, kept local in IndexedDB) | Mark imported tracks clearly in game mode |
+| **6.11** | Mistakes and recovery | Exists (Stage 3) | Trainwrecks, dead air, redline, drop spam, fatigue; the sound engineer and promoter react; comeback bonus | — |
+| **7.1–7.2** | 40+ original tracks with metadata and markers | Partial (Stage 3) | 45 synthesised tracks (13 new originals), all with section markers, energy and tags (`game/tracks.ts`) | Lane balance: some older demos are techno and breaks |
+| **7.3** | Import your own music | Exists | `library/` (BPM, grid, key detection, kept local in IndexedDB); imported tracks are badged and get an energy estimate | No section markers on imported tracks |
 | **7.4** | Sample packs | Partial | Air horn, siren, laser, impact, riser one-shots | Vocal chops, claps, stabs, crowd cheers |
-| **8.1** | Crowd simulation, LOD, states | Partial | `venues/crowd.ts` (LOD), `farcrowd.ts` (instanced cut-outs); arms up, jumps, claps, phones; beat-synced | Explicit cold → euphoric states from a vibe meter; groans, "whoa"; 40,000 is untested (8,000 today) |
+| **8.1** | Crowd simulation, LOD, states | Exists (Stage 3) | `venues/crowd.ts` (LOD), `farcrowd.ts`; cold rooms scroll phones and chat, euphoric rooms jump in sync; beat-synced | 40,000 is untested (8,000 today) |
 | **8.2** | Recurring crowd characters | Missing | Sign holders and VIPs are generic | — |
-| **8.3** | Crowd sound | Missing | — | No crowd audio at all |
+| **8.3** | Crowd sound | Exists (Stage 3) | `audio/crowd.ts`: murmur that follows the vibe, cheers and whistles, groans, boos, "whoa" on builds, chants | Synthesised, not recorded |
 | **8.4** | VIP crew | Partial | VIP guests by the booth (drinks, filming) | Doesn't grow with fame; no handing drinks, no celebration |
-| **8.5** | NPCs (promoter, lighting tech, sound engineer…) | Missing | — | — |
+| **8.5** | NPCs (promoter, lighting tech, sound engineer…) | Partial (Stage 3) | HUD lines from the promoter, sound engineer, security, the bar and the door | No NPC bodies in the venues; no lighting tech (Stage 6) |
 | **9** | Currencies, tiers, bookings, reputation, milestones, feed, hub | Missing | — | Everything (Stage 6). Stage 1 adds the save model for it |
 | **10.1** | Design system | Partial | Tokens, shared widgets, beat-pulsing meters | Brief palette and type; chrome treatment |
-| **10.2** | Screens | Partial | Studio screens (decks, mixer, library, show, settings, set builder) | Title, name entry, creator, hub, pre-gig, results, My Sets, trim, board builder, wardrobe, bookings, feed |
-| **10.3** | In-gig HUD with clean view | Partial | Stage-focus layout; full-screen camera bar | Vibe meter, set timer, REC/buffer dot, clean-view toggle |
+| **10.2** | Screens | Partial | Studio screens (decks, mixer, library, show, settings, set builder); name entry, creator, wardrobe (Stage 2); pre-gig and results (Stage 3) | Title, hub, My Sets, trim, board builder, bookings, feed |
+| **10.3** | In-gig HUD with clean view | Exists (Stage 3) | `ui/GigHud.ts`: vibe meter with the slot target, mood, set timer, REC dot, assist chips, clean view, End set | The replay buffer dot (Stage 4) |
 | **10.4** | Juice | Partial | Pads, knobs and faders animate; toasts | UI sounds |
 | **10.5** | Input | Partial | Mouse, keyboard (remappable), touch on the software UI, MIDI | Gamepad; touch on the 3D board |
 | **11** | Recording studio | Partial | `audio/Recorder.ts`: audio only, WebM/Opus | WAV / MP3 export, video, booth cam, quality, overlays, cover art, tracklist, My Sets, storage (Stage 4) |
@@ -123,7 +123,7 @@ scripts/               build-single (one-file HTML), build-wasm
 | **13** | Board Builder | Partial | 7 presets built from modular parts (`three/builder.ts`, `parts.ts`), finishes, stickers; every control works | The editor, inspector, add-ons, node wiring, sharing and the board file format are all missing (Stage 5) |
 | **13.10** | Hardware mapping | Partial | MIDI learn with saved mappings, keyboard remap | Gamepad; per-board profiles |
 | **14** | Blender pipeline and models | Missing | No Blender, no connector, no model files | Folders, export scripts and loader added in Stage 1; **modelling is blocked on Blender access** (see the questions at the end) |
-| **15** | Audio engine quality | Partial | Worklet engine, limiter, WASM key lock, tempo-synced FX, split cue, output latency shown in Settings | No latency calibration tool; no bitcrusher or roll FX; no venue acoustics or crowd layer; redline signal added in Stage 1 |
+| **15** | Audio engine quality | Partial | Worklet engine, limiter, WASM key lock, tempo-synced FX, split cue, output latency shown in Settings; venue acoustics and the crowd layer (Stage 3) | No latency calibration tool; no bitcrusher or roll FX |
 | **16.1** | Module structure | Partial | AudioEngine, Venue/Lighting (`venues/`), Crowd, Input (`core/controls`, `midi`, `keyboard`) exist | BeatClock and SaveSystem added in Stage 1; the rest map to later stages (see "Module map" below) |
 | **16.2** | BeatClock and events | Missing → **Stage 1** | — | — |
 | **16.3–16.4** | Versioned data models, saving, migration, backup | Missing → **Stage 1** | — | — |
@@ -142,8 +142,8 @@ scripts/               build-single (one-file HTML), build-wasm
 | `CharacterSystem` / `WardrobeSystem` | — | Stage 2 |
 | `VenueSystem` | `src/three/venues/` (base, index, 7 venues) | Stage 3 / 6 add the brief's venues |
 | `LightingSystem` | `src/three/venues/show.ts` + fixtures | Stage 3 moves it onto BeatClock events |
-| `CrowdSystem` | `crowd.ts`, `farcrowd.ts`, `app/Hype.ts` | Stage 3 |
-| `VibeMeter` | `app/Hype.ts` (partial) | Stage 3 |
+| `CrowdSystem` | `crowd.ts`, `farcrowd.ts`, `app/Hype.ts` | Stage 3: crowd states in `crowd.ts`, crowd sound in `audio/crowd.ts`; `Hype.ts` removed |
+| `VibeMeter` | `app/Hype.ts` (partial) | Stage 3: `src/game/vibe.ts`, run by `src/game/Gig.ts` and `src/app/gigs.ts` |
 | `RecordingSystem` / `ReplayBuffer` | `audio/Recorder.ts` (partial) | Stage 4 |
 | `BoardBuilder` | `three/boards.ts`, `builder.ts`, `parts.ts` (presets only) | Stage 5 |
 | `InputMapping` | `core/controls.ts`, `app/keyboard.ts`, `midi/MidiManager.ts` | Stage 5 / 7 (gamepad) |

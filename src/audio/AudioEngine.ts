@@ -10,6 +10,7 @@
  */
 import { clamp, dbToGain } from '../core/util';
 import { nextRedline } from './redline';
+import { CrowdAudio } from './crowd';
 import { Channel, gainToTrimKnob } from './Channel';
 import { Deck, type DeckHost } from './Deck';
 import { Mixer } from './Mixer';
@@ -28,6 +29,8 @@ export class AudioEngine {
   readonly fx: BeatFX;
   readonly sampler: Sampler;
   readonly recorder: MixRecorder;
+  /** the crowd you hear, in the room */
+  readonly crowd: CrowdAudio;
   /** analyser on the master output for the visual player */
   readonly visAnalyser: AnalyserNode;
   readonly wasmAvailable: boolean;
@@ -84,6 +87,7 @@ export class AudioEngine {
     this.sampler = new Sampler(ctx, () => this.nextBeatTime(this.masterDeck));
     this.sampler.out.connect(this.mixer.masterBus);
     this.recorder = new MixRecorder(ctx, this.mixer.masterOut);
+    this.crowd = new CrowdAudio(ctx, this.mixer.room.input);
     this.visAnalyser = ctx.createAnalyser();
     this.visAnalyser.fftSize = 4096;
     this.visAnalyser.smoothingTimeConstant = 0;

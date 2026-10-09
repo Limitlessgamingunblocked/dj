@@ -88,6 +88,9 @@ export class Stage {
   quality: Quality = 'medium';
   readonly keyLight: THREE.SpotLight;
   private fill: THREE.DirectionalLight;
+  /** the lighting rules every room shares (Section 2.3): a spotlight on you when a vocal carries the track, the low end glowing on the floor under the booth */
+  private djSpot: THREE.SpotLight;
+  private underGlow: THREE.PointLight;
   /** you: at the decks, seen from the crowd and venue cameras (and in the dressing room) */
   readonly avatar: Avatar;
   /**
@@ -219,6 +222,12 @@ export class Stage {
     fill.position.set(-2, 3, 3);
     this.fill = fill;
     this.scene.add(this.keyLight, this.keyLight.target, fill);
+    this.djSpot = new THREE.SpotLight(0xfff1e2, 0, 7, 0.22, 0.55, 1.3);
+    this.djSpot.position.set(0, 3.6, -1.6);
+    this.djSpot.target.position.set(0, 1.35, 0.68);
+    this.underGlow = new THREE.PointLight(0xff2e88, 0, 3.2, 1.6);
+    this.underGlow.position.set(0, 0.12, -0.75);
+    this.scene.add(this.djSpot, this.djSpot.target, this.underGlow);
     // you, as seen from the crowd and venue cameras
     this.avatar = new Avatar(defaultLook());
     this.scene.add(this.avatar.object);
@@ -890,6 +899,11 @@ export class Stage {
       this.rig.update(dt, f, visSettings.shake);
       if (this.board) for (const p of this.board.parts) p.update(this.ctx);
       venue?.update(show, f, dt, this.camera);
+      // vocals → a spotlight on the DJ; bass → a glow on the floor under the booth
+      const atBooth = !this.avatarSpot;
+      this.djSpot.intensity = atBooth ? 14 * show.vocal * show.master * Math.min(1.2, show.intensity) : 0;
+      this.underGlow.color.copy(show.colors[1]);
+      this.underGlow.intensity = atBooth ? 3.2 * show.bass * show.master * Math.min(1.2, show.intensity) : 0;
       const amb = venue?.ambient ?? 1;
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;

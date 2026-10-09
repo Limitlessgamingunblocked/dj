@@ -6,13 +6,17 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 
 | Where | What's missing | Stage |
 |---|---|---|
-| `src/core/BeatClock.ts` | Sections come from the audio features (breakdown depth, drop detector). Read the tracks' section markers when the game library has them, and fall back to features for imported music. | 3 |
+| `src/core/BeatClock.ts` | Sections still come from the audio features (breakdown depth, drop detector). The original tracks now carry section markers (`src/game/tracks.ts`) and the vibe meter reads them; the clock should read them too for originals, keeping the features for imported music. | 4 |
+| `src/game/tracks.ts` | Imported music has no section markers: its energy is estimated from tempo and loudness. Let players mark sections (or detect them). | 4 |
+| `src/three/venues/bedroom.ts`, `basement.ts` | **Both venues are built in code**, stand-ins for the Blender sets (Section 14). The Bedroom's monitor shows the visual player; there's no modelled furniture, and the Basement's crowd is the shared procedural crowd. | 3 (art) |
+| `src/game/Gig.ts` → `TIER_FAME` | Fame needed per tier is a placeholder table. Stage 6's ProgressionSystem owns tiers, unlocks and bookings. | 6 |
+| `src/ui/Results.ts` | "Replay the best transition" and "Save highlights" are shown but disabled: they need the replay buffer. | 4 |
+| `src/ui/GigSetup.ts` | You pick venue, slot and length freely. Stage 6's booking offers replace that choice. | 6 |
 | `src/core/models.ts` → `BoardDoc` | Provisional shape. The board file format gets documented, with its component types, in Stage 5. | 5 |
 | `scripts/blender/export_glb.py`, `preview.py` | Written against the Blender 4.x API but never run: there's no Blender in the build container. Run both on a test `.blend` once Blender is available. | 1 → 2 |
 | `src/name/filter.ts`, `src/name/blocklist.json` | The name filter's matching works and is tested, but **the word list is empty**: nothing is refused yet. Fill `blocklist.json` from a vetted, maintained list (or wire a moderation service). | 2 |
 | `src/character/Avatar.ts` | **The character is built in code**, a stand-in for the Blender character, hair and outfits (Section 14.2). Bones are named like a humanoid rig and sliders like the shape keys, so a GLB can replace the meshes. Until then: 66 meshes and about 25k triangles (one skinned mesh would draw far cheaper); some items share their slot's base shape in their own colours (e.g. most headphones, jeans vs track pants); no per-move animation clips (turning knobs, pushing faders, scratching, cueing); a little clipping with big hair under hoods or long hair through jackets. | 2 (art) |
 | `src/three/venues/dressingroom.ts` | The dressing room is built in code. The mirror is a dark glossy pane, not a real reflection. | 2 (art) |
-| `src/character/look.ts` → `dressCodeBonus` | Computed and shown in the wardrobe, but nothing applies it yet: Stage 3's vibe meter adds it when a set starts. | 3 |
 
 ## Blocked: needs a decision from you
 
@@ -41,9 +45,10 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
   - top bar
   - crowd chants at the peak
 - [ ] Name surfaces that need later systems:
-  - laser-written name (Stage 3, lasers)
+  - laser-written name (Stage 6: the Basement and Bedroom have no lasers; the Warehouse Rave gets them)
   - flyers and posters (Stage 6 bookings)
-  - results headline (Stage 3)
+  - [x] results headline (Stage 3)
+  - [x] the Bedroom's marker sign and the Basement's red neon (Stage 3)
   - recording watermark and cover art (Stage 4)
   - merch, cocktail menu, wristbands, billboards, drone show, plane banner (Stage 6 venues)
   - record bag, headphone case (Stage 2 wardrobe models)
@@ -55,17 +60,25 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
   - tools: randomise all or one tab, undo / redo, reset a tab, autosave, save as a new look
 - [x] Wardrobe: saved looks (wear, delete), every item with slot and vibe filters, locks that say how they unlock, the dress code for your venue.
 - [x] Your look at the decks in every venue: the booth figure is your character, mixing, grooving in your style, doing your drop move and your between-mix habit. Sweat builds through a set and resets between venues.
-- [ ] Dress-code bonus applied at the start of a set (Stage 3, see the placeholders table).
+- [x] Dress-code bonus applied at the start of a set (Stage 3).
 - [ ] Your look in recordings (Stage 4).
 - [ ] Base character, rig, hair and outfits in Blender (blocked; see above). The code-built character stands in until then.
 
 ## Stage 3: First playable gig
 
-- [ ] Bedroom (tutorial) and Basement venues.
-- [ ] Assist levels, beatmatch scoring bands, named transitions, slot targets, vibe meter, results screen, encore.
-- [ ] Lighting rules mapped per Section 2.3: hats → pin spots, vocals → DJ spotlight, intensity from vibe.
-- [ ] Crowd states cold → euphoric, crowd audio.
-- [ ] Track library: section markers, energy 1–10, tags. Re-skin or replace the techno and breaks demos for the brief's lanes; reach 10+ tracks for this stage (40+ by Stage 6).
+- [x] Bedroom (tutorial): desk, monitor, webcam, LED strip, fairy lights, window; the stream chat is its crowd; the raid is its signature moment.
+- [x] Basement: black brick, sweating pipes, one red light, a strobe, a mirror ball, about 80 people; the ceiling drips and dust shakes loose at the peak.
+- [x] The 8-step tutorial in the Bedroom; the Basement unlocks when it's done.
+- [x] Assist levels (Chill, Club, Pro ×1.5), beatmatch bands (10 / 30 / 50 ms), named transitions, slot targets, the vibe meter and its penalties, the comeback, the encore, the results screen.
+- [x] Lighting rules (Section 2.3): kick → washes, hats → string-light flicks, bass → booth underglow, vocals → DJ spotlight, breakdown → warm amber, intensity from the vibe.
+- [x] Crowd states cold → euphoric (phones and chatting when cold, jumping in sync when euphoric) and crowd audio (murmur, cheers, groans, boos, "whoa", chants).
+- [x] NPC lines: promoter, sound engineer, security, the bar, the door.
+- [x] Venue acoustics on the speakers (not on recordings).
+- [x] 13 original tracks with section markers, energy 1–10 and tags (45 tracks in all with the earlier demos).
+- [ ] More recurring crowd characters (Section 8.2): only the superfan with the name sign exists. → Stage 6
+- [ ] VIP crew that grows with fame (Section 8.4). → Stage 6
+- [ ] Camera energy scaled by the vibe, and the breakdown orbit and drop punch-in as named shots (Section 2.5). → Stage 4 (with the replay camera)
+- [ ] Re-skin or retire the older techno and breaks demos so the library sits in the brief's lanes. → Stage 6 (full library)
 
 ## Stage 4: Recording & replay
 

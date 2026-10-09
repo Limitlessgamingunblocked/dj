@@ -12,8 +12,9 @@
  * instead of keeping their own time.
  *
  * Sections come from the audio features today (how long the low end has
- * been gone, the drop detector). TODO: read the tracks' section markers
- * (Section 7.1) when the game library carries them, and fall back to this.
+ * been gone, the drop detector). TODO: the original tracks now carry
+ * section markers (game/tracks.ts, Section 7.1) and the vibe meter reads
+ * them; read them here too for originals, and keep this for imported music.
  */
 
 export type Section = 'idle' | 'groove' | 'breakdown' | 'build' | 'drop';

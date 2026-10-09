@@ -547,3 +547,11 @@ export class VibeMeter {
     this.emit(out, { kind: 'drop', built, points: pts, t });
   }
 }
+
+/** the crowd's state for a vibe (Section 8.1): what they're doing and what the HUD calls it */
+export type Mood = 'cold' | 'warming' | 'grooving' | 'peak' | 'euphoric';
+export const MOOD_LABEL: Record<Mood, string> = { cold: 'Cold', warming: 'Warming up', grooving: 'Grooving', peak: 'Peak', euphoric: 'Euphoric' };
+
+export function moodFor(vibe: number): Mood {
+  return vibe < 0.25 ? 'cold' : vibe < 0.45 ? 'warming' : vibe < 0.65 ? 'grooving' : vibe < 0.85 ? 'peak' : 'euphoric';
+}

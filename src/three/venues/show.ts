@@ -73,6 +73,12 @@ export interface ShowState {
   kick: number;
   snare: number;
   high: number;
+  /** hi-hat flicker: a fast envelope on each lift in the highs (pin spots, string lights) */
+  hat: number;
+  /** low end, smoothed: floor glow and under-booth light */
+  bass: number;
+  /** how much a vocal is carrying the track: the DJ's spotlight */
+  vocal: number;
   level: number;
   energy: number;
   playing: boolean;
@@ -115,6 +121,9 @@ export interface ShowState {
   /** flashing is capped at 3 a second: fixtures that blink should slow down too */
   reduceFlash: boolean;
 }
+
+/** the warm the rig shifts to in a breakdown (Amber Warmth, Section 2.2) */
+const AMBER = new THREE.Color('#ffb547');
 
 const hash = (n: number) => {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -168,6 +177,9 @@ export class LightShow {
       kick: 0,
       snare: 0,
       high: 0,
+      hat: 0,
+      bass: 0,
+      vocal: 0,
       level: 0,
       energy: 0,
       playing: false,
@@ -223,11 +235,15 @@ export class LightShow {
     this.accentQueued = Math.max(this.accentQueued, strength);
   }
 
+  private prevHigh = 0;
+  private vocalAvg = 0;
+
   update(f: Features, dt: number, hype: number): ShowState {
     const s = this.state;
     const c = this.controls;
     s.t += dt;
-    s.intensity = c.intensity;
+    // the vibe sets how hard the rig goes (Section 2.3): a cold room gets a dimmer, calmer rig
+    s.intensity = c.intensity * (0.62 + 0.5 * Math.max(0, Math.min(1, hype)));
     s.bpm = f.bpm;
     s.beatPhase = f.beatPhase;
     s.beatInBar = f.beatInBar;
@@ -238,6 +254,15 @@ export class LightShow {
     s.kick = react ? f.kickPulse : 0;
     s.snare = react ? f.snarePulse : 0;
     s.high = react ? f.high : 0.2;
+    // hats: each lift in the highs flicks the pin spots, then dies away fast
+    const lift = Math.max(0, f.high - this.prevHigh);
+    this.prevHigh = f.high;
+    s.hat = react ? Math.max(s.hat * Math.exp(-dt * 18), Math.min(1, lift * 6)) : 0;
+    s.bass += ((react ? (f.sub + f.kick) / 2 : 0) - s.bass) * Math.min(1, dt * 6);
+    // a vocal stands out from its own average (and from the drums under it)
+    this.vocalAvg += (f.vocal - this.vocalAvg) * Math.min(1, dt * 0.2);
+    const vTarget = react ? Math.max(0, Math.min(1, (f.vocal - this.vocalAvg * 0.85) * 4 + (f.vocal - f.kick * 0.6) * 0.8)) : 0;
+    s.vocal += (vTarget - s.vocal) * Math.min(1, dt * 2.5);
     s.level = f.level;
     s.energy = f.energy;
     s.drop = react ? f.drop : 0;
@@ -254,9 +279,10 @@ export class LightShow {
     const peakTarget = this.peakBars > 0 ? Math.min(1, this.peakBars / 4) : 0;
     s.peak += (peakTarget - s.peak) * Math.min(1, dt * (peakTarget > s.peak ? 12 : 0.6));
 
-    // colours
+    // colours: in a breakdown the rig goes warm and soft
     this.palette(f, s);
     s.venueLook = c.palette === 'venue';
+    if (s.build > 0.05) for (const col of s.colors) col.lerp(AMBER, Math.min(0.5, s.build * 0.5) * (1 - s.peak));
 
     // moving heads
     if (!react) s.moverPattern = 0;
