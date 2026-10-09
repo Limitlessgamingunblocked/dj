@@ -347,9 +347,6 @@ const PARTS: Partial<Record<LaserPattern, Tier[]>> = {
 };
 const UP = new THREE.Vector3(0, 1, 0);
 
-/** where a board's laser controller is pushing the beams, −1..1 each way (Board Builder, Section 13.6) */
-export const laserAim = { x: 0, y: 0 };
-
 export class Lasers implements Fixture {
   readonly object = new THREE.Group();
   private geo: THREE.InstancedBufferGeometry;
@@ -512,9 +509,6 @@ export class Lasers implements Fixture {
 
   private aim(p: number, yaw: number, pitch: number, out: THREE.Vector3): THREE.Vector3 {
     const { F, R, U } = this.frames[p];
-    // a laser controller on a board you built swings the looks round and lifts them; it never lowers them towards the crowd
-    yaw += laserAim.x * 0.45;
-    pitch += Math.max(0, laserAim.y) * 0.22;
     const cp = Math.cos(pitch);
     return out
       .copy(F)

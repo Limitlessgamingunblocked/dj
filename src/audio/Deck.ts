@@ -313,28 +313,6 @@ export class Deck extends Emitter<DeckEvents> {
     this.emit('change', this);
   }
 
-  /** slow to a halt like a tape machine losing power (the Board Builder's tape-stop lever) */
-  tapeStop(seconds = 1.1): void {
-    if (!this.playing) return;
-    this.post({ type: 'motor', start: this.turntable ? this.motorStart : 0, brake: seconds });
-    this.playing = false;
-    this.post({ type: 'pause', instant: false });
-    this.emit('change', this);
-    setTimeout(() => this.applyMotor(), seconds * 1000 + 150);
-  }
-
-  /** a pull-up: the record spun back for half a second, then it drops in again 8 beats earlier */
-  rewind(): void {
-    if (!this.loaded) return;
-    const wasReverse = this.reverse;
-    this.setReverse(true);
-    setTimeout(() => {
-      this.setReverse(wasReverse);
-      this.beatJump(-8);
-      if (!this.playing) this.play();
-    }, 500);
-  }
-
   togglePlay(): void {
     if (this.cuePreview) {
       this.playLatched = true;

@@ -71,30 +71,7 @@ Stage 4 added **recording and instant replay**:
 - **My Sets** (a new tab) lists every recording, saved mix and clip with its date, venue, length, grade, tracklist, cover art and thumbnail. You can sort, filter, rename, favourite, delete, export (video, WAV, MP3, cover art, tracklist) and clean up old sets.
 - **The trim editor** shows a saved set as a waveform with stills above it, the moments it caught (drops, transitions, peaks, chants) and the bar lines. Drag the handles (they snap to bars), zoom in, preview, add fades, and export a clip in any aspect.
 
-Stage 5 added **the Board Builder**:
-- **Open it** from More → "Board Builder: build your own board…", or from the "Build your own" card in the board picker.
-- **Where you build:** a workbench in a workshop, at real size. The life-size **Club booth** template is already on the bench.
-- **Editing:**
-  - Add parts from the list (or drag them on), then drag them around the bench. They snap to a grid and line up with their neighbours.
-  - Click a part to change what it does, its material, colours, glow, label and feel.
-  - The bar by the selection turns, copies, mirrors, groups and deletes. Undo and redo are always there.
-  - More → "Precise tools" gives you move, rotate and scale handles.
-- **Parts:**
-  - the basics: panels, jogs, faders, knobs, buttons, pads, screens, meters
-  - **life-size pro gear** modelled on the real thing: a club media player, a 4-channel club mixer, a direct-drive turntable and a rotary mixer, every control live
-  - **booth gear**: headphones, a laptop running DJ software, a USB stick, a booth mic, a monitor whose woofer moves with the kick, a setlist, gaffer tape with your name on it, a water bottle and a crate of records
-  - **wild add-ons:** a big red drop button, a theremin, a tape stop lever, a rewind wheel, a step sequencer and more
-  - **show controls:** lasers, lighting desk, pyro, camera switcher, weather
-  - **decorations**
-- **Make it yours:**
-  - **Booth:** table shape and size, front, monitors and cables.
-  - **Logic:** wire parts to the lights, the crowd, the camera or any control; record macros; set triggers for drops, phrases or the vibe meter; map your MIDI controller to the board.
-- **▶ Try it** plays the board on the bench, or at any venue.
-- **Saving and sharing:**
-  - Your boards are kept in **My boards**: rate, favourite, remix.
-  - Share a board as a code or a file.
-  - Start from a template, a showcase board or Board of the Week, or randomize one.
-  - The file format is documented in [docs/board-format.md](docs/board-format.md).
+Stage 5 built a **Board Builder**, which has since been **taken out** at your request. It's kept in the git history (commit `b2b0a98`) if you ever want it back. The more realistic knobs and fader caps it brought stayed on every board.
 
 ## Run it
 

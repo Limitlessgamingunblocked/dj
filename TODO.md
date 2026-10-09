@@ -14,7 +14,7 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 | `src/audio/room.ts` | "Record room sound" (the venue's acoustics on the recording) isn't offered: recordings are always the clean master. | 7 |
 | `src/media/Studio.ts` | Video recordings keep their encoded audio only (AAC or Opus), not a lossless copy, so they don't export to WAV or MP3. | 7 |
 | `src/ui/GigSetup.ts` | You pick venue, slot and length freely. Stage 6's booking offers replace that choice. | 6 |
-| `src/three/realism.ts`, `src/board/parts.ts`, `src/board/units.ts`, `src/board/gear.ts`, `src/board/decor.ts` | **Board Builder parts are modelled in code**, stand-ins for Blender models (Section 14): knurled knobs, ridged fader caps, printed scales, 15-segment meters, the pro units, and the booth gear. Shapes and sizes follow the real hardware; a GLB per part can replace each builder. | 5 (art) |
+| `src/three/realism.ts` | **Knobs and fader caps are modelled in code** (knurled bodies, ridged caps), stand-ins for Blender models (Section 14). | 5 (art) |
 | `scripts/blender/export_glb.py`, `preview.py` | Written against the Blender 4.x API but never run: there's no Blender in the build container. Run both on a test `.blend` once Blender is available. | 1 → 2 |
 | `src/name/filter.ts`, `src/name/blocklist.json` | The name filter's matching works and is tested, but **the word list is empty**: nothing is refused yet. Fill `blocklist.json` from a vetted, maintained list (or wire a moderation service). | 2 |
 | `src/character/Avatar.ts` | **The character is built in code**, a stand-in for the Blender character, hair and outfits (Section 14.2). Bones are named like a humanoid rig and sliders like the shape keys, so a GLB can replace the meshes. Until then: 66 meshes and about 25k triangles (one skinned mesh would draw far cheaper); some items share their slot's base shape in their own colours (e.g. most headphones, jeans vs track pants); no per-move animation clips (turning knobs, pushing faders, scratching, cueing); a little clipping with big hair under hoods or long hair through jackets. | 2 (art) |
@@ -96,39 +96,12 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 - [x] Trim editor: waveform with stills above, markers, bar lines, snapping handles, zoom, preview, fades, export (new set, WAV, MP3).
 - [x] Results screen: Save highlights and Replay (the best transition) before the buffer is cleared.
 - [x] My Sets: date, venue, length, grade, tracklist and thumbnail; sort, filter, rename, delete, favourite; storage manager with clean-up.
-- [x] Board buttons for REC, SAVE THAT MIX, CLIP IT and the camera switcher: in the Board Builder, set any button's "What it does" to `rec.toggle`, `replay.save`, `replay.clip` or `cam.next`.
+- [ ] Board buttons for REC, SAVE THAT MIX, CLIP IT and the camera switcher. The controls exist for MIDI and keys; the Board Builder that could place them was taken out.
 - [ ] Your look in recordings is whatever's on stage; a dedicated "recording look" toggle isn't planned unless you want one.
 
 ## Stage 5: Board Builder
 
-- [x] A workshop to build in: the bench in the game's own 3D scene, at real size. "Try it" plays the board there or at any venue.
-- [x] Editor:
-  - select, box select, drag with snap and alignment guides
-  - turn, copy, mirror (and mirror mode), array, group and ungroup
-  - undo and redo, layers, hide and lock
-  - precise move/rotate/scale tools
-  - keyboard shortcuts
-- [x] Simpler editing after feedback: essentials first, a floating selection bar, a More menu, a coach card, and phone bottom sheets.
-- [x] Inspector:
-  - what it does, type options, material and colour chips, glow
-  - label, feel (curve, sensitivity, detents, resistance), touch sounds and animation
-  - a picture material from your own image
-- [x] Components:
-  - panels and groups; jog, transport and turntable; mixers
-  - faders, knobs, buttons and pads; screens and meters; FX
-  - wild add-ons, show controls and decorations
-- [x] Life-size pro units (club media player, 4-channel club mixer, direct-drive turntable, rotary mixer) and booth gear (headphones, laptop, USB stick, mic, monitor, setlist, gaffer tape, water bottle, record crate), with "Club booth" and "Vinyl booth" templates.
-- [x] Booth editor: table shape and size, front, material, monitors, cables, riser, glass floor, side screens.
-- [x] Wiring node editor with SVG cables, macros (record and play), triggers on beat-clock events, and per-board MIDI learn.
-- [x] Saving and sharing:
-  - My boards: rate, favourite, remix, delete
-  - share codes, and save and import files
-  - templates, randomize, showcase and Board of the Week
-  - the board format documented in [docs/board-format.md](docs/board-format.md)
-- [x] Performance meter with suggestions; decorations simplify with distance.
-- [ ] An online gallery (sharing beyond codes and files) needs the Stage 6 social backend.
-- [ ] Blender models for the parts (see the placeholders table).
-- [ ] The editor's text is English only, like the rest of the game.
+- [x] Built, then **taken out** at your request (see DECISIONS 69). It's in git history at commit `b2b0a98`.
 
 ## Stage 6: The world
 

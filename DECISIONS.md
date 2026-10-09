@@ -194,3 +194,7 @@ Blender still wasn't reachable, so the character is built in code, made to be sw
     - Small venues can give the camera a room to stay in (`cameraRoom`), and framing a wide board comes in lower and further back instead of rising through the ceiling.
     - While you build, the lens ghosts and heavy bloom are off: mirrored copies of the part you're placing were confusing. The full look comes back when you press "Try it".
 68. **Career unlocks:** some parts unlock with fame (the old-style turntable, tape stop lever, and others as listed in the board format doc). Sandbox opens everything. Templates and the "life size" booths are available from the start.
+69. **The Board Builder is taken out** (your call, after trying it). Gone: the builder and its workshop, "My boards" and "Build your own" in the board picker, and the menu entry. Kept:
+    - the knurled knobs and ridged fader caps on the regular boards (`src/three/realism.ts`)
+    - the career save's `boards` section, at v2, so saves made while the builder existed still load (nothing reads it)
+    The whole builder is in git history at commit `b2b0a98` (decisions 57–68 describe it).

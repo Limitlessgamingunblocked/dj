@@ -31,8 +31,6 @@ import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
 import type { VenueDef, VenueScene } from './venues/base';
 import { Crowd, TABLE_Y } from './venues/fixtures';
-import { disposeCustom, updateCustom } from '../board/build';
-import { NO_HOOKS, type BoardHooks } from '../board/hooks';
 import { Pyro } from './venues/pyro';
 import { LightShow } from './venues/show';
 
@@ -65,21 +63,6 @@ interface Zone {
   side: 'L' | 'R' | null;
   deck: number | null;
   mixer: boolean;
-}
-
-const isInside = (o: THREE.Object3D, root: THREE.Object3D): boolean => {
-  for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === root) return true;
-  return false;
-};
-
-/** the Board Builder's hold on the pointer (see Stage.editor) */
-export interface EditHook {
-  /** a press on the stage; true when the editor takes it (the camera then ignores it) */
-  down(e: PointerEvent, ray: THREE.Ray): boolean;
-  move(e: PointerEvent, ray: THREE.Ray): void;
-  up(e: PointerEvent, ray: THREE.Ray): void;
-  /** the mouse moving with no button held */
-  hover?(e: PointerEvent, ray: THREE.Ray): void;
 }
 
 export class Stage {
@@ -174,21 +157,6 @@ export class Stage {
   private lensText: { el: HTMLElement; tl: HTMLElement; tr: HTMLElement; bl: HTMLElement; br: HTMLElement; shown: string; at: number; since: number };
   private zones: Zone[] = [];
   private boardTop = TABLE_Y;
-  /** what a board you built asks of the game (the app supplies them) */
-  boardHooks: BoardHooks = NO_HOOKS;
-  /** a board you built brings its own booth table: the venue's own booth hides */
-  private ownBooth = false;
-  /** how far a built booth (its riser) lifts you above the floor */
-  private rise = 0;
-  /**
-   * The Board Builder takes the pointer while it's open: clicks select and
-   * drag parts instead of playing them, and the board's own hit areas,
-   * tooltips and section zoom are off.
-   */
-  editor: EditHook | null = null;
-  private editDrag: number | null = null;
-  /** the board on the stage is hidden (the builder shows its own copy while you edit) */
-  hideBoard = false;
   private pointerInside = false;
   private zoneCandidate: string | null = null;
   private zoneSince = 0;
@@ -325,12 +293,7 @@ export class Stage {
   private placeAvatar(show: AvatarInput, dt: number): void {
     const av = this.avatar;
     const spot = this.avatarSpot;
-    if (this.board) this.board.root.visible = !spot && !this.hideBoard;
-    // building: you're the one at the bench, not in the picture
-    if (this.editor) {
-      av.object.visible = false;
-      return;
-    }
+    if (this.board) this.board.root.visible = !spot;
     if (spot) {
       av.mode = 'idle';
       av.object.position.copy(spot.pos);
@@ -340,7 +303,7 @@ export class Stage {
       return;
     }
     av.mode = 'dj';
-    av.object.position.set(0, this.rise, 0.68);
+    av.object.position.set(0, 0, 0.68);
     av.object.rotation.y = Math.PI;
     // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
     const v = this.rig.view;
@@ -378,7 +341,6 @@ export class Stage {
       for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
     });
     this.scene.add(v.group);
-    this.hideVenueBooth();
     this.scene.background = v.background;
     this.scene.fog = v.fog;
     this.keyLight.color.set(v.keyLight.color);
@@ -388,29 +350,7 @@ export class Stage {
     // only the output pass tone-maps (scene programs render to a float target), so this recompiles one shader
     this.renderer.toneMapping = v.toneMapping === 'agx' ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping;
     this.rig.setViews(v.views);
-    this.rig.room = v.cameraRoom ?? null;
     this.precompile();
-  }
-
-  /** the frame's part context (the builder animates its parts with it) */
-  get partContext(): PartCtx {
-    return this.ctx;
-  }
-
-  /** the builder previewing a booth table: the venue's own booth hides (null: back to what the board says) */
-  previewBooth(on: boolean | null): void {
-    if (on === null) {
-      const rootY = (this.board as (BoardBuild & { rootY?: number }) | null)?.rootY;
-      this.ownBooth = rootY !== undefined;
-    } else this.ownBooth = on;
-    this.hideVenueBooth();
-  }
-
-  /** the venue's booth table goes when a board you built brings its own */
-  private hideVenueBooth(): void {
-    this.venue?.group.traverse((o) => {
-      if (o.userData.venueBooth) o.visible = !this.ownBooth;
-    });
   }
 
   /**
@@ -437,7 +377,6 @@ export class Stage {
   /* ------------------------------------------------------------------ */
 
   setBoard(def: BoardDef, finishId: string): void {
-    disposeCustom(this.board);
     if (this.board) {
       this.scene.remove(this.board.root);
       this.board.root.traverse((o) => {
@@ -454,20 +393,12 @@ export class Stage {
     }
     this.boardDef = def;
     this.board = buildBoard(def, finishId, { stickers: this.stickers });
-    // a board you built with its own table stands on the floor; anything else sits on the venue's booth
-    const rootY = (this.board as BoardBuild & { rootY?: number }).rootY;
-    this.board.root.position.y = rootY ?? TABLE_Y;
-    this.ownBooth = rootY !== undefined;
-    this.rise = this.ownBooth ? Math.max(0, (rootY ?? TABLE_Y) - TABLE_Y - 0.05) : 0;
-    this.hideVenueBooth();
+    this.board.root.position.y = TABLE_Y;
     this.scene.add(this.board.root);
     this.hits = this.board.parts.flatMap((p) => p.hit);
     this.ctx.accent = this.board.finish.accent;
     this.board.root.updateMatrixWorld(true);
-    // the camera frames the controls, not the booth table around them
-    const box = new THREE.Box3();
-    for (const o of this.board.root.children) if (!o.userData.booth) box.expandByObject(o);
-    if (box.isEmpty()) box.setFromObject(this.board.root);
+    const box = new THREE.Box3().setFromObject(this.board.root);
     this.rig.setBounds(box, def.id);
     this.boardTop = box.max.y;
     this.computeZones();
@@ -478,28 +409,12 @@ export class Stage {
     this.precompile();
   }
 
-  /** a board you built: each sizeable part on it (a deck, the mixer, a panel of pads) is a section */
-  private customZones(b: BoardBuild): void {
-    const v = new THREE.Vector3();
-    b.root.children.forEach((o, i) => {
-      if (o.userData.booth || !o.userData.compRoot) return;
-      const box = new THREE.Box3().setFromObject(o);
-      const size = box.getSize(v);
-      if (box.isEmpty() || Math.max(size.x, size.z) < 0.1) return;
-      const ids = b.parts.filter((p) => p.id && p.object.parent && (p.object === o || isInside(p.object, o))).map((p) => p.id!);
-      const mixer = ids.some((id) => id.startsWith('ch.') || id.startsWith('mixer.'));
-      const m = ids.map((id) => /^deck\.(\d)\./.exec(id)).find(Boolean);
-      this.zones.push({ id: `c${i}`, box, mixer, side: null, deck: m ? Number(m[1]) : null });
-    });
-  }
-
   /** Sections of the board the camera can zoom to: one per hardware unit, or
    * left deck / mixer / right deck slabs of a single-chassis controller. */
   private computeZones(): void {
     this.zones = [];
     const b = this.board;
     if (!b) return;
-    if (!b.units.length) return this.customZones(b);
     const boxes = b.units.map((u) => new THREE.Box3().setFromObject(u.group));
     if (boxes.length >= 3) {
       const units = b.units.map((u, i) => ({ u, box: boxes[i] })).sort((a, c) => a.box.getCenter(new THREE.Vector3()).x - c.box.getCenter(new THREE.Vector3()).x);
@@ -603,7 +518,7 @@ export class Stage {
   private updateAutoZoom(): void {
     const now = performance.now();
     // the angles that move on their own are for watching: hovering over the board doesn't zoom them in
-    if (!this.autoZoom || this.editor || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone' || this.rig.isLive || this.directing) return;
+    if (!this.autoZoom || this.view === 'visual' || !this.hoverMode || this.rig.view === 'drone' || this.rig.isLive || this.directing) return;
     if (this.drags.size || this.rig.interacting || this.rig.moving || now - this.lastDragEnd < 450 || now - this.rig.lastManual < 1200) {
       this.zoneSince = now;
       return;
@@ -854,19 +769,6 @@ export class Stage {
         if (e.target !== this.canvas) return;
         this.canvas.focus({ preventScroll: true });
         this.hoverMode = e.pointerType === 'mouse';
-        if (this.editor) {
-          if (this.editDrag === null && this.editor.down(e, this.rayFrom(e.clientX, e.clientY))) {
-            e.preventDefault();
-            e.stopPropagation();
-            this.editDrag = e.pointerId;
-            try {
-              this.canvas.setPointerCapture(e.pointerId);
-            } catch {
-              /* ignore */
-            }
-          }
-          return;
-        }
         const hit = this.pick(e.clientX, e.clientY);
         if (!hit) {
           this.tap = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
@@ -906,14 +808,6 @@ export class Stage {
     el.addEventListener(
       'pointermove',
       (e) => {
-        if (this.editor) {
-          if (this.editDrag === e.pointerId) {
-            e.preventDefault();
-            e.stopPropagation();
-            this.editor.move(e, this.rayFrom(e.clientX, e.clientY));
-          } else if (e.buttons === 0 && e.target === this.canvas) this.editor.hover?.(e, this.rayFrom(e.clientX, e.clientY));
-          return;
-        }
         const d = this.drags.get(e.pointerId);
         if (d) {
           e.preventDefault();
@@ -932,11 +826,6 @@ export class Stage {
       { capture: true },
     );
     const end = (e: PointerEvent) => {
-      if (this.editDrag === e.pointerId) {
-        this.editDrag = null;
-        this.editor?.up(e, this.rayFrom(e.clientX, e.clientY));
-        return;
-      }
       const t = this.tap;
       if (t && t.id === e.pointerId) {
         this.tap = null;
@@ -966,7 +855,6 @@ export class Stage {
     el.addEventListener(
       'wheel',
       (e) => {
-        if (this.editor) return;
         const hit = this.pick(e.clientX, e.clientY);
         if (!hit || !hit.part.wheel) return;
         e.preventDefault();
@@ -996,7 +884,7 @@ export class Stage {
   }
 
   private updateHover(): void {
-    if (!this.hoverDirty || this.drags.size || this.editor) return;
+    if (!this.hoverDirty || this.drags.size) return;
     this.hoverDirty = false;
     const hit = this.pick(this.hoverXY.x, this.hoverXY.y);
     const part = hit?.part ?? null;
@@ -1033,10 +921,7 @@ export class Stage {
     const venue = this.venue;
     if (this.view !== 'visual') {
       this.rig.update(dt, f, visSettings.shake);
-      if (this.board) {
-        for (const p of this.board.parts) p.update(this.ctx);
-        updateCustom(this.board, this.ctx, this.boardHooks, this.camera);
-      }
+      if (this.board) for (const p of this.board.parts) p.update(this.ctx);
       venue?.update(show, f, dt, this.camera);
       // vocals → a spotlight on the DJ; bass → a glow on the floor under the booth
       const atBooth = !this.avatarSpot;
@@ -1080,22 +965,19 @@ export class Stage {
     }
     this.bloom.enabled = this.quality !== 'low';
     // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky
-    // building on the bench: a working light, not a show (no mirrored ghosts of the parts you're placing)
-    const editing = this.editor !== null;
-    this.bloom.strength = editing ? 0.22 : 0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1;
+    this.bloom.strength = 0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1;
     // cinematic lens: streaks and ghosts off the brightest fixtures, the drone's wide lens and speed blur
     const drone = this.rig.droneFx;
     const a = drone.amount;
     const lu = this.lens.uniforms;
     const lensFx = this.quality !== 'low' && this.adaptive.step.lensFx;
-    const calm = this.rig.focused || editing;
     lu.uTime.value = this.ctx.now;
     lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
-    lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (calm ? 0.3 : 1);
-    lu.uGhost.value = !lensFx || calm ? 0 : 0.2;
+    lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
+    lu.uGhost.value = !lensFx || this.rig.focused ? 0 : 0.2;
     // dirt on the front element lights up when a wall of light hits it; stars on the brightest points
-    lu.uDirt.value = lensFx && this.bloom.enabled ? 0.5 * (calm ? 0.2 : 1) : 0;
-    lu.uStarDirs.value = lensFx && !calm ? (this.quality === 'high' ? 3 : 2) : 0;
+    lu.uDirt.value = lensFx && this.bloom.enabled ? 0.5 * (this.rig.focused ? 0.2 : 1) : 0;
+    lu.uStarDirs.value = lensFx && !this.rig.focused ? (this.quality === 'high' ? 3 : 2) : 0;
     lu.uStar.value = 0.018;
     // the grade moves with the track: softer through a breakdown, harder at the peak
     this.lens.followShow(show.build, show.peak);

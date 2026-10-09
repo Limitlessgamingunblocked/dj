@@ -120,58 +120,10 @@ export function boardThumbnail(def: BoardDef, finishId: string): string {
   return url;
 }
 
-/** the boards you've built, for the picker's "My boards" row */
-export interface CustomBoards {
-  items(): { id: string; name: string; parts: number; favorite: boolean }[];
-  thumb(id: string): Promise<Blob | null>;
-  /** open the Board Builder */
-  build(): void;
-  edit(id: string): void;
-}
-
-export function openBoardPicker(current: { board: string; finish: string }, choose: (board: string, finish: string) => void, custom?: CustomBoards): void {
+export function openBoardPicker(current: { board: string; finish: string }, choose: (board: string, finish: string) => void): void {
   const body = h('div', { style: { display: 'grid', gap: '12px' } });
-  const urls: string[] = [];
-  let modal: ReturnType<typeof openModal> | null = null;
-  const mine = () => {
-    if (!custom) return null;
-    const grid = h('div', { class: 'board-cards' });
-    const build = h('button', { class: 'board-card build-own', type: 'button' }, h('div', { class: 'thumb build-thumb', 'aria-hidden': 'true' }, '＋'), h('div', { class: 'info' }, h('span', { class: 'cls' }, 'Board Builder'), h('b', {}, 'Build your own'), h('p', {}, 'Every knob, fader and jog where you want it, in any material, with wild add-ons. Then play it in every venue.')));
-    build.addEventListener('click', () => {
-      modal?.close();
-      custom.build();
-    });
-    grid.append(build);
-    for (const b of [...custom.items()].sort((x, y) => Number(y.favorite) - Number(x.favorite))) {
-      const id = `custom:${b.id}`;
-      const img = h('img', { class: 'thumb', alt: `${b.name}`, width: 480, height: 270 }) as HTMLImageElement;
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="480" height="270"><rect width="100%" height="100%" fill="#0b0f15"/></svg>');
-      void custom.thumb(b.id).then((blob) => {
-        if (!blob) return;
-        const u = URL.createObjectURL(blob);
-        urls.push(u);
-        img.src = u;
-      });
-      const edit = h('button', { class: 'btn small', type: 'button', 'aria-label': `Edit ${b.name}` }, 'Edit');
-      edit.addEventListener('click', (e) => {
-        e.stopPropagation();
-        modal?.close();
-        custom.edit(b.id);
-      });
-      const card = h('button', { class: `board-card${id === current.board ? ' active' : ''}`, type: 'button' }, img, h('div', { class: 'info' }, h('span', { class: 'cls' }, `My board · ${b.parts} parts${b.favorite ? ' · ♥' : ''}`), h('b', {}, b.name), h('div', { class: 'finishes' }, edit)));
-      card.addEventListener('click', () => {
-        current = { board: id, finish: 'custom' };
-        choose(id, 'custom');
-        render();
-      });
-      grid.append(card);
-    }
-    return h('section', { class: 'my-boards' }, h('h3', { class: 'pick-head' }, 'My boards'), grid);
-  };
   const render = () => {
     clear(body);
-    const m = mine();
-    if (m) body.append(m);
     body.append(h('p', { class: 'note' }, 'Every board is fully playable: all knobs, faders, jogs, pads and buttons are live. Pick a finish to recolour the hardware.'));
     const grid = h('div', { class: 'board-cards' });
     for (const def of BOARDS) {
@@ -204,10 +156,5 @@ export function openBoardPicker(current: { board: string; finish: string }, choo
     body.append(grid);
   };
   render();
-  modal = openModal('Choose your board', body, { wide: true });
-  const close = modal.close;
-  modal.close = () => {
-    close();
-    for (const u of urls) URL.revokeObjectURL(u);
-  };
+  openModal('Choose your board', body, { wide: true });
 }

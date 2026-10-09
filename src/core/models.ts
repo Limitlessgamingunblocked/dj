@@ -230,11 +230,9 @@ export const LOOKS: SaveSpec<{ items: Look[]; current: string | null }> = {
 /* ------------------------------------------------------------------ */
 
 /*
- * The boards you've built or collected. Each board's file (the documented
- * format in docs/board-format.md, checked against the component catalogue
- * when it opens) lives in the media store, since a big board is too much for
- * this save; the list here says what there is. The board on the stage keeps a
- * compact copy here too, so it's there the moment the game starts.
+ * The boards you built in the Board Builder. The builder has been taken out;
+ * this section keeps its shape so saves made while it existed still load
+ * (nothing reads it now).
  */
 
 export const BOARD_SOURCES = ['mine', 'remix', 'code', 'file'] as const;
