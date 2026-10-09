@@ -5,7 +5,7 @@ import { LOOKS, checkLook } from '../src/core/models';
 import { memoryStore, SAVE_PREFIX, SaveSystem } from '../src/core/SaveSystem';
 
 const rng = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-const fresh = { tier: 1, unlocked: [] as string[], sandbox: false };
+const fresh = { tier: 1, unlocked: [] as string[], sandbox: false, setsPlayed: 0 };
 
 describe('character catalogue', () => {
   it('has what the brief asks for', () => {
@@ -140,7 +140,8 @@ describe('the career keeps your looks', () => {
     expect(unlockText('warehouse')).toBe('Play the Warehouse');
     expect(unlockText('beach')).toBe('Play the Beach Club');
     expect(unlockText('milestone:acid')).toBe('Milestone: acid');
-    expect(unlockText('rival:night_owl')).toBe('Beat night owl in a B2B');
+    expect(unlockText('rival:kiki_volt')).toBe('Great chemistry with KIKI VOLT in a B2B');
+    expect(unlockText('set:6')).toBe('Play 6 sets');
   });
 });
 

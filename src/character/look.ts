@@ -76,8 +76,10 @@ export function wearSet(l: Look, set: OutfitSet): Look {
 const TIER_VENUES: string[][] = [[], ['bedroom', 'basement'], ['rooftop'], ['warehouse'], ['beach'], ['boat'], ['festival'], ['sunrise']];
 
 /** Has the player unlocked this? Sandbox (or the debug menu) owns everything. */
-export function owned(unlock: Unlock, p: Pick<Progress, 'tier' | 'unlocked' | 'sandbox'>): boolean {
+export function owned(unlock: Unlock, p: Pick<Progress, 'tier' | 'unlocked' | 'sandbox' | 'setsPlayed'>): boolean {
   if (unlock === 'start' || p.sandbox || p.unlocked.includes(unlock)) return true;
+  // something new every set or two (Section 9.8)
+  if (unlock.startsWith('set:')) return p.setsPlayed >= Number(unlock.slice(4));
   for (let t = 1; t <= p.tier && t < TIER_VENUES.length; t++) if (TIER_VENUES[t].includes(unlock)) return true;
   return false;
 }
@@ -96,7 +98,8 @@ const VENUE_UNLOCK: Record<string, string> = {
 export function unlockText(u: Unlock): string {
   if (u === 'start') return 'Starter';
   if (u.startsWith('milestone:')) return `Milestone: ${u.slice(10).replace(/_/g, ' ')}`;
-  if (u.startsWith('rival:')) return `Beat ${u.slice(6).replace(/_/g, ' ')} in a B2B`;
+  if (u.startsWith('rival:')) return `Great chemistry with ${u.slice(6).replace(/_/g, ' ').toUpperCase()} in a B2B`;
+  if (u.startsWith('set:')) return `Play ${u.slice(4)} sets`;
   return `Play the ${VENUE_UNLOCK[u] ?? u}`;
 }
 
@@ -125,7 +128,7 @@ const gauss = (r: Rand, spread: number) => Math.max(-1, Math.min(1, ((r() + r() 
 const hex = (r: Rand) => `#${Math.floor(r() * 0xffffff).toString(16).padStart(6, '0')}`;
 
 /** Randomise one category, or the whole character, with only what the player owns. */
-export function randomize(l: Look, cat: Category, r: Rand, p: Pick<Progress, 'tier' | 'unlocked' | 'sandbox'>): Look {
+export function randomize(l: Look, cat: Category, r: Rand, p: Pick<Progress, 'tier' | 'unlocked' | 'sandbox' | 'setsPlayed'>): Look {
   const out = cloneLook(l);
   const doing = (c: Category) => cat === 'all' || cat === c;
   const sl = (group: string, spread: number) => {

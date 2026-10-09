@@ -22,7 +22,13 @@ export interface ResultsHooks {
   replay?(label: string): void;
   /** the screen closed (the buffer is cleared after this) */
   closed?(): void;
+  /** what's next on the career path ("Rooftop Bar at fame 150: 40 to go") */
+  next?: string;
+  /** the booking's bonus objective, and whether you hit it */
+  objective?: { text: string; met: boolean } | null;
 }
+
+const NEW_ICON: Record<string, string> = { venue: '📍', item: '👕', set: '🧥', hair: '💇', title: '🏷', reputation: '⭐', story: '📰' };
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -122,6 +128,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
   const fol = h('b', {}, '0');
   const replay = h('button', { class: 'btn', type: 'button', disabled: !hooks.replay || !best, title: hooks.replay ? 'Watch it again in the trim editor (saves the replay buffer to My Sets)' : 'The replay buffer is off' }, 'Replay') as HTMLButtonElement;
   const save = h('button', { class: 'btn', type: 'button', disabled: !hooks.saveHighlights, title: hooks.saveHighlights ? 'Save the replay buffer (the last few minutes of the set) to My Sets' : 'The replay buffer is off: turn it on in the recording settings' }, 'Save highlights') as HTMLButtonElement;
+  const news = r.outcome.unlocked.filter((n) => n.kind !== 'tier');
   const again = h('button', { class: 'btn', type: 'button' }, 'Play again');
   const studio = h('button', { class: 'btn primary', type: 'button' }, 'Back to the decks');
   const content = h(
@@ -149,7 +156,10 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
       h('div', { class: 'res-card' }, h('span', {}, 'Crowd peak'), h('b', {}, `${Math.round(r.peak.vibe * 100)}% at ${mmss(r.peak.t)}`), h('small', {}, r.peak.why || 'They were with you')),
       h('div', { class: 'res-card res-earned' }, h('span', {}, 'You earned'), h('div', { class: 'res-earn' }, h('div', {}, fame, h('small', {}, 'fame')), h('div', {}, cash, h('small', {}, 'cash')), h('div', {}, fol, h('small', {}, 'followers'))), r.tierUp ? h('small', { class: 'res-tier' }, `Fame tier ${r.tierUp} reached. New gear in the wardrobe.`) : null),
     ),
+    hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? '✓ Objective hit: ' : '✗ Objective missed: '), hooks.objective.text, hooks.objective.met ? ' (+25% pay and fame)' : '') : null,
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
+    news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_ICON[n.kind] ?? '•', ' ', n.label.replace(/\{name\}/g, hooks.dj)))) : null,
+    hooks.next ? h('p', { class: 'res-next' }, 'Next: ', hooks.next) : null,
     h('div', { class: 'res-actions' }, save, again, studio),
   );
   const modal = openModal('Set complete', content, { wide: true });

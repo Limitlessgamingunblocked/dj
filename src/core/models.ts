@@ -104,13 +104,31 @@ export interface Progress {
   reputation: Reputation | null;
   /** everything unlocked (sandbox mode, or the debug menu) */
   sandbox: boolean;
+  /** running totals and averages: bass swaps, long blends, clips saved, the reputation scores… (Stage 6) */
+  stats: Record<string, number>;
+  /** career venues a set has been played in */
+  venuesPlayed: string[];
+  /** boards a set has been played on */
+  boardsPlayed: string[];
+  /** best B2B chemistry with each rival, 0..1 */
+  chemistry: Record<string, number>;
+  /** the title you show (a milestone reward), or none */
+  title: string | null;
+}
+
+/** a small map of numbers, names up to 40 characters */
+function numbers(v: unknown, lo: number, hi: number, max = 200): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [k, x] of Object.entries(obj(v)).slice(0, max)) if (/^[\w:.-]{1,40}$/.test(k) && typeof x === 'number' && Number.isFinite(x)) out[k] = Math.min(hi, Math.max(lo, x));
+  return out;
 }
 
 export const PROGRESS: SaveSpec<Progress> = {
   kind: 'progress',
-  version: 1,
-  migrations: {},
-  defaults: () => ({ tier: 1, fame: 0, cash: 0, followers: 0, setsPlayed: 0, unlocked: [], milestones: [], reputation: null, sandbox: false }),
+  version: 2,
+  // v1 had no stats, venues or boards played, chemistry or title: the validator fills them in
+  migrations: { 1: (d) => d },
+  defaults: () => ({ tier: 1, fame: 0, cash: 0, followers: 0, setsPlayed: 0, unlocked: [], milestones: [], reputation: null, sandbox: false, stats: {}, venuesPlayed: [], boardsPlayed: [], chemistry: {}, title: null }),
   validate(raw) {
     const r = obj(raw);
     return {
@@ -123,6 +141,11 @@ export const PROGRESS: SaveSpec<Progress> = {
       milestones: dedupe(strings(r.milestones, 500)),
       reputation: r.reputation === null ? null : oneOf<Reputation | null>(r.reputation, REPUTATIONS, null),
       sandbox: bool(r.sandbox, false),
+      stats: numbers(r.stats, 0, 1e9),
+      venuesPlayed: dedupe(strings(r.venuesPlayed, 50)),
+      boardsPlayed: dedupe(strings(r.boardsPlayed, 50)),
+      chemistry: numbers(r.chemistry, 0, 1, 20),
+      title: typeof r.title === 'string' && r.title ? r.title.slice(0, 40) : null,
     };
   },
 };
@@ -494,6 +517,9 @@ export const SLOTS = ['warmup', 'peak', 'closing', 'afterhours'] as const;
 export const SET_LENGTHS = [10, 20, 30, 60] as const;
 export const BOOKING_STATUS = ['offered', 'accepted', 'played', 'declined'] as const;
 
+export const GOALS = ['bass_swap', 'long_blend', 'filter_fade', 'echo_out', 'perfect', 'key_mix', 'drop', 'encore', 'grade_a', 'no_mistakes', 'slot_match', 'vibe_peak'] as const;
+export type GoalKind = (typeof GOALS)[number];
+
 export interface Booking {
   id: string;
   venue: string;
@@ -504,17 +530,35 @@ export interface Booking {
   expectation: string;
   /** the bonus objective ("hit 3 bass swaps") */
   objective: string;
+  /** the objective, checkable: what, and how many */
+  goal: { kind: GoalKind; n: number };
+  /** who's booking you */
+  promoter: string;
+  /** the night it's on (the career's night counter) */
+  night: number;
+  /** a special offer: 'boat' (opens the Boat Party), 'b2b:<rival>' (back to back) */
+  special: string | null;
   date: string;
   status: (typeof BOOKING_STATUS)[number];
+  /** how it went, once played */
+  result: { grade: string; met: boolean } | null;
 }
 
-export const BOOKINGS: SaveSpec<{ items: Booking[] }> = {
+export interface BookingsSave {
+  items: Booking[];
+  /** the career's night counter: a set played moves it on */
+  night: number;
+}
+
+export const BOOKINGS: SaveSpec<BookingsSave> = {
   kind: 'bookings',
-  version: 1,
-  migrations: {},
-  defaults: () => ({ items: [] }),
+  version: 2,
+  // v1 was provisional and never written: the new fields take their defaults
+  migrations: { 1: (d) => d },
+  defaults: () => ({ items: [], night: 1 }),
   validate(raw) {
     return {
+      night: int(obj(raw).night, 1, 1e6, 1),
       items: list(obj(raw).items, (x) => {
         const o = obj(x);
         const bid = id(o.id);
@@ -529,8 +573,13 @@ export const BOOKINGS: SaveSpec<{ items: Booking[] }> = {
           pay: int(o.pay, 0, 1e7, 0),
           expectation: str(o.expectation, 120),
           objective: str(o.objective, 120),
+          goal: { kind: oneOf(obj(o.goal).kind, GOALS, 'grade_a'), n: int(obj(o.goal).n, 1, 99, 1) },
+          promoter: str(o.promoter, 40, 'A promoter'),
+          night: int(o.night, 1, 1e6, 1),
+          special: typeof o.special === 'string' && /^(boat|b2b:[a-z_]{1,20})$/.test(o.special) ? o.special : null,
           date: d,
           status: oneOf(o.status, BOOKING_STATUS, 'offered'),
+          result: isObj(o.result) ? { grade: str(o.result.grade, 2, 'D'), met: bool(o.result.met, false) } : null,
         };
       }),
     };

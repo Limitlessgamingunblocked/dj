@@ -669,6 +669,64 @@ body.gig-clean .lyric-hud {
   letter-spacing: 0.05em;
 }
 
+/* what the set opened up: venues, wardrobe, titles, reputation, story moments */
+.res-news {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.res-news-h {
+  font-family: var(--font-label);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.res-new {
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 6%);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.res-new.k-venue,
+.res-new.k-reputation {
+  border-color: #3ad7ff;
+  color: #bdefff;
+}
+
+.res-new.k-story {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.res-objective {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.res-objective.met {
+  background: rgb(61 220 151 / 12%);
+  border: 1px solid #3ddc97;
+}
+
+.res-objective.missed {
+  background: rgb(255 59 92 / 8%);
+  border: 1px solid rgb(255 59 92 / 40%);
+}
+
+.res-next {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .res-actions {
   display: flex;
   justify-content: flex-end;

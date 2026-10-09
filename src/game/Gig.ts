@@ -9,7 +9,8 @@
  * Pure logic (no DOM, no audio): the app feeds it a snapshot every frame
  * and draws what it says.
  */
-import type { Progress } from '../core/models';
+import { PROGRESS, type Progress } from '../core/models';
+import { applySet, MILESTONES, summarize, type Rewards, type SetOutcome, type SetSummary } from './progression';
 import { SLOTS, VibeMeter, type DeckSnap, type Grade, type SlotId, type VibeEvent } from './vibe';
 
 export type Assist = 'chill' | 'club' | 'pro';
@@ -30,41 +31,8 @@ export interface GigConfig {
   assist: Assist;
 }
 
-/** what a venue pays and how much it counts (Section 9.1); the brief's venues, plus the real rooms in free play */
-const VENUE_PAY: Record<string, { fame: number; cash: number; followers: number; label: string }> = {
-  bedroom: { fame: 0.5, cash: 0.2, followers: 1.4, label: 'Bedroom stream' },
-  basement: { fame: 1, cash: 1, followers: 1, label: 'Basement Club' },
-};
-const DEFAULT_PAY = { fame: 1.5, cash: 1.5, followers: 1.5, label: '' };
-
-const GRADE_FAME: Record<Grade, number> = { S: 70, A: 48, B: 30, C: 15, D: 5 };
-
-/** fame needed for each tier (index = tier - 1); TODO: Stage 6's ProgressionSystem owns these */
-export const TIER_FAME = [0, 150, 500, 1200, 2500, 5000, 9000];
-
-export function tierFor(fame: number): number {
-  let t = 1;
-  for (let i = 1; i < TIER_FAME.length; i++) if (fame >= TIER_FAME[i]) t = i + 1;
-  return t;
-}
-
-export interface Rewards {
-  fame: number;
-  cash: number;
-  followers: number;
-}
-
-export function rewardsFor(grade: Grade, venue: string, minutes: number, encore: boolean): Rewards {
-  const p = VENUE_PAY[venue] ?? DEFAULT_PAY;
-  const len = Math.pow(Math.max(1, minutes) / 10, 0.6);
-  const bonus = encore ? 1.25 : 1;
-  const g = GRADE_FAME[grade];
-  return {
-    fame: Math.round(g * p.fame * len * bonus),
-    cash: Math.round((20 + g * 1.5) * p.cash * len * bonus),
-    followers: Math.round(g * 2.4 * p.followers * len * bonus),
-  };
-}
+// rewards and tiers live with the rest of the career (Section 9)
+export { rewardsFor, tierFor, TIER_FAME, type Rewards } from './progression';
 
 export interface GigResults {
   config: GigConfig;
@@ -84,6 +52,10 @@ export interface GigResults {
   milestones: string[];
   /** a new fame tier */
   tierUp: number | null;
+  /** the set summed up (for reputation, bookings' objectives, the feed) */
+  summary: SetSummary;
+  /** everything the set changes in the career, to save */
+  outcome: SetOutcome;
 }
 
 export type GigEvent = VibeEvent | { kind: 'gig'; what: 'start' | 'halfway' | 'last_minute' | 'time' | 'encore' | 'over'; t: number };
@@ -188,47 +160,50 @@ export class Gig {
     return ASSISTS.reduce((m, a) => m + (a.mult * this.assistTime[a.id]) / total, 0);
   }
 
-  results(p: Pick<Progress, 'milestones' | 'fame' | 'tier'>): GigResults {
+  /** the set summed up, for the career */
+  summary(board = ''): SetSummary {
     const m = this.meter;
     const minutes = Math.max(1, this.t / 60);
-    const grade = m.grade(minutes);
-    const rewards = rewardsFor(grade, this.config.venue, Math.min(minutes, this.config.minutes + 4), this.encore);
-    const transitions = m.log.filter((e) => e.kind === 'transition').length;
-    const mistakes = m.log.filter((e) => e.kind === 'mistake').length;
-    // milestones (Section 9.5) this set can reach
-    const got = new Set(p.milestones);
-    const ms: string[] = [];
-    const reach = (id: string, ok: boolean) => ok && !got.has(id) && ms.push(id);
-    reach('first_set', this.t >= this.length * 0.95);
-    reach('first_perfect', m.log.some((e) => e.kind === 'transition' && e.band === 'perfect' && e.name !== 'quick_cut'));
-    reach('vibe_full_minute', this.bestFull >= 60);
-    reach('first_encore', this.encore);
-    reach('first_s', grade === 'S');
-    const fame = p.fame + rewards.fame;
-    const newTier = tierFor(fame);
+    return summarize({
+      venue: this.config.venue,
+      slot: this.config.slot,
+      minutes: Math.min(minutes, this.config.minutes + 4),
+      grade: m.grade(minutes),
+      average: m.average,
+      encore: this.encore,
+      full: this.t >= this.length * 0.95,
+      fullMinute: this.bestFull >= 60,
+      peakVibe: m.peak.vibe,
+      board,
+      log: m.log,
+      timeline: m.timeline,
+    });
+  }
+
+  /** the results screen's numbers, and what the set does to the career */
+  results(p: Partial<Progress>, o: { board?: string; booking?: { pay: number; met: boolean } } = {}): GigResults {
+    const m = this.meter;
+    const summary = this.summary(o.board);
+    const outcome = applySet({ ...PROGRESS.defaults(), ...p }, summary, o.booking);
     return {
       config: this.config,
-      grade,
+      grade: summary.grade,
       average: m.average,
       points: m.points,
       score: Math.round(m.points * this.multiplier),
       timeline: m.timeline,
       best: m.best,
       peak: m.peak,
-      transitions,
-      mistakes,
+      transitions: summary.transitions,
+      mistakes: summary.mistakes,
       encore: this.encore,
-      rewards,
-      milestones: ms,
-      tierUp: newTier > p.tier ? newTier : null,
+      rewards: outcome.rewards,
+      milestones: outcome.milestones,
+      tierUp: outcome.tierUp,
+      summary,
+      outcome,
     };
   }
 }
 
-export const MILESTONE_LABEL: Record<string, string> = {
-  first_set: 'First full set',
-  first_perfect: 'First perfect transition',
-  vibe_full_minute: '100% vibe for a full minute',
-  first_encore: 'First encore',
-  first_s: 'First S grade',
-};
+export const MILESTONE_LABEL: Record<string, string> = Object.fromEntries(MILESTONES.map((m) => [m.id, m.label]));

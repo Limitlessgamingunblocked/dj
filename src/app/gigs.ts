@@ -7,6 +7,7 @@
 import type { AudioEngine } from '../audio/AudioEngine';
 import { dressCodeBonus } from '../character/look';
 import { ASSISTS, Gig, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
+import { nextGoal } from '../game/progression';
 import { Snapshot } from '../game/snapshot';
 import { nextSection } from '../game/tracks';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
@@ -51,6 +52,8 @@ export interface GigHost {
   replay(): { save(): Promise<boolean>; moment(label: string): void; clear(): void } | null;
   /** a crowd reaction for the room to play (cheer, groan, boo) */
   crowd(what: 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant'): void;
+  /** the board on the stage (for "play five boards") */
+  boardId(): string;
 }
 
 export class GigDirector {
@@ -177,16 +180,8 @@ export class GigDirector {
     const gig = this.gig;
     if (!gig) return;
     const c = this.host.career;
-    const r = gig.results(c.progress);
-    const p = c.progress;
-    c.setProgress({
-      fame: p.fame + r.rewards.fame,
-      cash: p.cash + r.rewards.cash,
-      followers: p.followers + r.rewards.followers,
-      setsPlayed: p.setsPlayed + 1,
-      tier: r.tierUp ?? p.tier,
-      milestones: [...p.milestones, ...r.milestones],
-    });
+    const r = gig.results(c.progress, { board: this.host.boardId() });
+    c.setProgress(r.outcome.patch);
     this.teardown();
     this.gig = null;
     this.free.vibe = gig.meter.vibe;
@@ -194,6 +189,7 @@ export class GigDirector {
     const rp = this.host.replay();
     showResults(r, this.host.venueName(gig.config.venue), {
       dj: this.host.djName() || 'DJ',
+      next: nextGoal(c.progress),
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
       closed: () => rp?.clear(),

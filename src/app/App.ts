@@ -33,6 +33,7 @@ import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
 import { GigDirector, type Callout } from './gigs';
 import { roomFor } from '../audio/room';
+import { venueLock } from '../game/progression';
 import { Director, sectionOf } from '../three/director';
 import { RecordingDesk } from './recording';
 import { MySetsPanel } from '../ui/MySetsPanel';
@@ -390,7 +391,7 @@ export class App implements AppContext {
         const p = this.career.progress;
         return GIG_VENUES.map((id) => {
           const v = venueById(id);
-          return { id, name: v.name, blurb: v.blurb, capacity: v.capacity, locked: id === 'basement' && p.setsPlayed < 1 && !p.sandbox ? 'Play a set in the bedroom first' : null, draw: (g, w, h) => v.thumb(g, w, h) };
+          return { id, name: v.name, blurb: v.blurb, capacity: v.capacity, locked: venueLock(id, p), draw: (g, w, h) => v.thumb(g, w, h) };
         });
       },
       showCrate: (id) => this.libPanel.showCrate(id),
@@ -405,6 +406,7 @@ export class App implements AppContext {
       press: (id) => this.reg.press(id, 'ui'),
       signature: (what) => (this.stage.venue as { signature?(w: string): void } | null)?.signature?.(what),
       crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
+      boardId: () => this.boardDef.id,
     });
     this.lyrics = new LyricsEngine(this.engine, (id) => {
       const t = this.engine.deck(id).track;

@@ -93,7 +93,7 @@ export const FACE_SHAPE_BASE: Record<FaceShape, Record<string, number>> = {
   long: { forehead_height: 0.4, chin_length: 0.5, cheek_fullness: -0.3, jaw_width: -0.2 },
 };
 
-export type Unlock = 'start' | 'basement' | 'rooftop' | 'warehouse' | 'beach' | 'boat' | 'festival' | 'sunrise' | `milestone:${string}` | `rival:${string}`;
+export type Unlock = 'start' | 'basement' | 'rooftop' | 'warehouse' | 'beach' | 'boat' | 'festival' | 'sunrise' | `milestone:${string}` | `rival:${string}` | `set:${number}`;
 
 export interface HairDef {
   id: string;
@@ -243,7 +243,7 @@ const it = (id: string, slot: Slot, label: string, unlock: Unlock, vibes: Vibe[]
 export const ITEMS: ItemDef[] = [
   // head
   it('cap', 'head', 'Cap', 'start', ['sporty'], ['#1b1d22', '#e9e6df', '#ff2e88']),
-  it('beanie', 'head', 'Beanie', 'start', ['underground', 'cozy'], ['#2a2d33', '#1b1d22', '#ffb547']),
+  it('beanie', 'head', 'Beanie', 'set:20', ['underground', 'cozy'], ['#2a2d33', '#1b1d22', '#ffb547']),
   it('bucket_hat', 'head', 'Bucket hat', 'beach', ['holiday', 'linen'], ['#e9e2cf', '#c9b48a', '#2a2d33']),
   it('bucket_hat_smiley', 'head', 'Smiley bucket hat', 'milestone:acid', ['acid'], ['#ffd400', '#111111', '#ffffff'], 'cotton', 'smiley'),
   it('captain_hat', 'head', "Captain's hat", 'boat', ['nautical'], ['#f4f4f2', '#14213d', '#d4a64a']),
@@ -252,7 +252,7 @@ export const ITEMS: ItemDef[] = [
   it('shades_oval', 'eyewear', 'Small oval shades', 'start', ['underground', 'smart'], ['#111111', '#2a2018', '#c9a24a']),
   it('shades_tinted', 'eyewear', 'Tinted shades', 'sunrise', ['bright', 'holiday'], ['#ffb38a', '#c9ced6', '#ff7aa8']),
   it('visor_reflective', 'eyewear', 'Reflective visor', 'festival', ['future', 'bold'], ['#c9ced6', '#7a3cff', '#3ad7ff'], 'reflective'),
-  it('round_specs', 'eyewear', 'Round specs', 'start', ['smart'], ['#c9a24a', '#111111', '#dddddd']),
+  it('round_specs', 'eyewear', 'Round specs', 'set:10', ['smart'], ['#c9a24a', '#111111', '#dddddd']),
   it('rave_goggles', 'eyewear', 'Rave goggles', 'warehouse', ['bold', 'acid'], ['#b6ff3b', '#111111', '#ff2e88']),
   it('cat_eye', 'eyewear', 'Cat-eye shades', 'rooftop', ['glam'], ['#111111', '#ff2e88', '#ffffff']),
   // headphones (worn on both ears, one ear or round the neck: an option)
@@ -264,14 +264,14 @@ export const ITEMS: ItemDef[] = [
   it('hp_gold', 'headphones', 'Gold chrome', 'festival', ['glam', 'bold'], ['#d4a64a', '#111111', '#ffffff'], 'reflective'),
   it('hp_cat_led', 'headphones', 'LED cat ears', 'warehouse', ['bold', 'acid'], ['#ffffff', '#ff2e88', '#3ad7ff']),
   it('hp_battle', 'headphones', 'Battle rugged', 'basement', ['sporty'], ['#2a2d33', '#ffb547', '#111111']),
-  it('hp_minimal', 'headphones', 'Minimal white', 'start', ['smart'], ['#f4f4f2', '#c9ced6', '#111111']),
+  it('hp_minimal', 'headphones', 'Minimal white', 'set:12', ['smart'], ['#f4f4f2', '#c9ced6', '#111111']),
   it('hp_bass', 'headphones', 'Big bass', 'warehouse', ['dark'], ['#0e0f12', '#ff2e88', '#3a3d44']),
   it('hp_wood', 'headphones', 'Wood and leather', 'beach', ['linen'], ['#8a5a32', '#2a2018', '#c9a24a'], 'leather'),
   // neck
   it('chain_gold', 'neck', 'Gold chain', 'beach', ['holiday', 'glam'], ['#d4a64a', '#d4a64a', '#d4a64a'], 'reflective'),
-  it('chain_silver', 'neck', 'Silver chain', 'start', ['underground'], ['#c9ced6', '#c9ced6', '#c9ced6'], 'reflective'),
+  it('chain_silver', 'neck', 'Silver chain', 'set:14', ['underground'], ['#c9ced6', '#c9ced6', '#c9ced6'], 'reflective'),
   it('lanyard', 'neck', 'Festival lanyard', 'festival', ['bold'], ['#ff2e88', '#ffffff', '#111111']),
-  it('bandana', 'neck', 'Bandana', 'start', ['underground'], ['#b3261e', '#ffffff', '#111111']),
+  it('bandana', 'neck', 'Bandana', 'set:2', ['underground'], ['#b3261e', '#ffffff', '#111111']),
   // tops
   it('tee_vintage', 'top', 'Oversized vintage tee', 'start', ['underground', 'sporty'], ['#d9d4c7', '#2a2d33', '#b3261e']),
   it('tee_band', 'top', 'Faded band-style tee', 'start', ['underground', 'dark'], ['#2a2a2c', '#8a8580', '#c9ced6']),
@@ -284,20 +284,20 @@ export const ITEMS: ItemDef[] = [
   it('techwear_top', 'top', 'Techwear top', 'warehouse', ['dark', 'techwear'], ['#0e0f12', '#1c1e23', '#3a3d44'], 'satin'),
   it('hoodie', 'top', 'Hoodie', 'start', ['cozy', 'underground'], ['#4a4f5a', '#2a2d33', '#ffb547']),
   it('tank_mesh', 'top', 'Mesh tank', 'warehouse', ['dark', 'bold'], ['#111111', '#2a2d33', '#b6ff3b'], 'mesh'),
-  it('longsleeve', 'top', 'Long-sleeve tee', 'start', ['cozy'], ['#2a2d33', '#d9d6cf', '#ff2e88']),
+  it('longsleeve', 'top', 'Long-sleeve tee', 'set:18', ['cozy'], ['#2a2d33', '#d9d6cf', '#ff2e88']),
   // outer
   it('utility_vest', 'outer', 'Utility vest', 'warehouse', ['dark', 'techwear'], ['#1c1e23', '#0e0f12', '#3a3d44']),
   it('jacket_sequin', 'outer', 'Sequin jacket', 'rooftop', ['glam'], ['#c9a24a', '#7a3cff', '#ffffff'], 'sequin'),
   it('shellsuit_top', 'outer', 'Shell suit jacket', 'basement', ['sporty', 'bold'], ['#7a3cff', '#3ad7ff', '#ff2e88'], 'satin', 'stripes'),
   it('puffer_metallic', 'outer', 'Metallic puffer', 'festival', ['future', 'bold'], ['#c9ced6', '#8c96a6', '#3ad7ff'], 'reflective'),
-  it('bomber', 'outer', 'Bomber jacket', 'start', ['underground'], ['#2f3a2c', '#d77a2a', '#111111'], 'satin'),
-  it('denim_jacket', 'outer', 'Denim jacket', 'start', ['cozy'], ['#3a5a86', '#c9a24a', '#e9e6df'], 'denim'),
+  it('bomber', 'outer', 'Bomber jacket', 'set:6', ['underground'], ['#2f3a2c', '#d77a2a', '#111111'], 'satin'),
+  it('denim_jacket', 'outer', 'Denim jacket', 'set:8', ['cozy'], ['#3a5a86', '#c9a24a', '#e9e6df'], 'denim'),
   it('velvet_blazer', 'outer', 'Velvet blazer', 'rooftop', ['smart', 'glam'], ['#5a1e3a', '#111111', '#c9a24a'], 'velvet'),
   // wrists & hands
   it('watch_gold', 'wrists', 'Gold watch', 'beach', ['glam', 'holiday'], ['#d4a64a', '#111111', '#ffffff'], 'reflective'),
-  it('watch_digital', 'wrists', 'Digital watch', 'start', ['sporty'], ['#111111', '#b6ff3b', '#c9ced6']),
+  it('watch_digital', 'wrists', 'Digital watch', 'set:4', ['sporty'], ['#111111', '#b6ff3b', '#c9ced6']),
   it('wristbands', 'wrists', 'Festival wristbands', 'festival', ['bold'], ['#ff2e88', '#3ad7ff', '#b6ff3b']),
-  it('rings', 'wrists', 'Rings', 'start', ['glam'], ['#c9ced6', '#d4a64a', '#c9ced6'], 'reflective'),
+  it('rings', 'wrists', 'Rings', 'set:3', ['glam'], ['#c9ced6', '#d4a64a', '#c9ced6'], 'reflective'),
   // bottoms
   it('cargos_baggy', 'bottom', 'Baggy cargos', 'start', ['underground', 'sporty'], ['#5a5a4a', '#3a3a30', '#111111']),
   it('cargos_black', 'bottom', 'Black cargos', 'milestone:acid', ['dark', 'acid'], ['#111111', '#2a2d33', '#ffd400']),
@@ -323,9 +323,9 @@ export const ITEMS: ItemDef[] = [
   it('deck_shoes', 'shoes', 'Deck shoes', 'boat', ['nautical'], ['#8a5a32', '#f7f7f5', '#14213d'], 'leather'),
   it('sneakers_worn', 'shoes', 'Worn sneakers', 'start', ['underground'], ['#d9d4c7', '#8a8580', '#111111']),
   it('slippers', 'shoes', 'House slippers', 'start', ['cozy'], ['#4a4f5a', '#d9d6cf', '#ffb547'], 'velvet'),
-  it('high_tops', 'shoes', 'High-tops', 'start', ['sporty'], ['#111111', '#ffffff', '#d33a2c']),
+  it('high_tops', 'shoes', 'High-tops', 'set:5', ['sporty'], ['#111111', '#ffffff', '#d33a2c']),
   // bag & extra
-  it('record_bag', 'bag', 'Record bag', 'start', ['underground'], ['#2a2018', '#8a5a32', '#c9a24a'], 'leather'),
+  it('record_bag', 'bag', 'Record bag', 'set:16', ['underground'], ['#2a2018', '#8a5a32', '#c9a24a'], 'leather'),
   it('towel', 'bag', 'Towel over the shoulder', 'start', ['underground', 'sporty'], ['#f4f4f2', '#ff2e88', '#d9d6cf']),
 ];
 
