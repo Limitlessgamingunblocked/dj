@@ -232,7 +232,7 @@ export function loopRow(u: Unit, side: DeckRef, cx: number, z: number, width: nu
   const step = width / n;
   items.forEach(([id, label, alt], i) => {
     u.button(`deck.${side}.${id}`, cx - width / 2 + step * (i + 0.5), z, {
-      label: `Loop ${label}`,
+      label: id === 'loop.in' ? 'Loop in (hold: 4-beat loop)' : `Loop ${label}`,
       w: step * 0.72,
       d: 0.0055,
       print: alt ? `${label} · ${alt === 'loop.half' ? '½X' : '2X'}` : label,

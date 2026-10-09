@@ -5,6 +5,9 @@
  *   - OUT closes the loop from the IN you just set; an IN that's been left
  *     behind (more than 64 beats back, or after a loop was exited) doesn't
  *     count, and OUT on its own makes a loop of the current size from here
+ *   - holding IN makes a 4-beat loop from it (as on club players)
+ *   - an auto loop (4 BEAT, the loop-size push) starts on the beat you're on,
+ *     so the music carries straight on into it instead of jumping back
  */
 
 export interface Grid {
@@ -20,6 +23,32 @@ export const MAX_MANUAL_BEATS = 64;
 export function loopInPoint(pos: number, grid: Grid | null, quantize: boolean): number {
   if (!quantize || !grid) return pos;
   return Math.max(0, grid.firstBeat + Math.round((pos - grid.firstBeat) / grid.beatLen) * grid.beatLen);
+}
+
+/** how long IN has to be held for the 4-beat loop, in seconds */
+export const HOLD_FOR_LOOP = 0.6;
+
+/**
+ * Where an auto loop of `beats` starts. With quantize: loops of a beat or
+ * more on the nearest beat (the playhead is in its first beat, or just short
+ * of it, so it plays on seamlessly); shorter loops (rolls) on the last line of
+ * their own length, so the playhead is inside them. Without: right here.
+ */
+export function autoLoopStart(pos: number, grid: Grid | null, quantize: boolean, beats: number): number {
+  if (!quantize || !grid) return pos;
+  if (beats >= 1) return loopInPoint(pos, grid, true);
+  const len = beats * grid.beatLen;
+  return Math.max(0, grid.firstBeat + Math.floor((pos - grid.firstBeat) / len + 1e-6) * len);
+}
+
+/**
+ * The playhead between audio-thread reports, kept inside a loop it was
+ * playing through (so the screen doesn't overshoot the loop end and snap back).
+ */
+export function wrapInLoop(reported: number, extrapolated: number, loop: { active: boolean; start: number; end: number }, forward: boolean): number {
+  const len = loop.end - loop.start;
+  if (!loop.active || len <= 1e-3 || !forward || reported >= loop.end || extrapolated < loop.end) return extrapolated;
+  return loop.start + ((extrapolated - loop.start) % len);
 }
 
 /**

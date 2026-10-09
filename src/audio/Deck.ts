@@ -5,7 +5,7 @@
  * pitch play, key shift, tempo ranges, pitch bend, jog nudge/scratch, slip,
  * turntable motor inertia and vinyl wear.
  */
-import { closeLoop, loopInPoint, type Grid } from './loops';
+import { autoLoopStart, closeLoop, loopInPoint, wrapInLoop, type Grid } from './loops';
 import { Emitter } from '../core/emitter';
 import { clamp } from '../core/util';
 import { HOTCUE_COLORS, type DeckId, type HotCue, type KeyInfo, type LibraryTrack, type PcmData, type TrackAnalysis } from '../core/types';
@@ -204,7 +204,7 @@ export class Deck extends Emitter<DeckEvents> {
   /** Current playhead in track seconds (interpolated between audio-thread reports). */
   position(): number {
     const dt = Math.max(0, Math.min(0.1, this.ctx.currentTime - this.rT));
-    return clamp(this.rPos + dt * this.rV, 0, this.duration);
+    return clamp(wrapInLoop(this.rPos, this.rPos + dt * this.rV, this.loop, this.rV > 0), 0, this.duration);
   }
 
   /** Position of what is currently audible (compensates processing latency). */
@@ -458,10 +458,8 @@ export class Deck extends Emitter<DeckEvents> {
   setBeatLoop(beats: number, roll = false): void {
     if (!this.loaded) return;
     const len = beats * this.beatLen;
-    const p = this.position();
-    const start = this.quantize && this.analysis ? this.floorToGrid(p, Math.min(len, this.beatLen * 4)) : p;
-    // loops up to a bar snap to a multiple of their own length; longer loops start on the last bar line
-    const s = start;
+    // on the beat you're on (rolls: inside their own length), so the music carries on into the loop
+    const s = autoLoopStart(this.position(), this.grid(), this.quantize, beats);
     this.loop = { active: true, start: Math.max(0, s), end: Math.max(0, s) + len, roll };
     if (!roll) this.loopBeats = beats;
     this.sendLoop(false, roll);
@@ -533,6 +531,15 @@ export class Deck extends Emitter<DeckEvents> {
     }
     this.loopIn = at;
     this.emit('change', this);
+  }
+
+  /** IN held down: a 4-beat loop from the IN point (club players do this) */
+  loopInHold(): void {
+    if (!this.loaded || this.loop.active || this.loopIn === null) return;
+    const start = this.loopIn;
+    this.loopIn = null;
+    this.loop = { active: true, start, end: start + 4 * this.beatLen, roll: false };
+    this.sendLoop(false, false);
   }
 
   /** LOOP OUT: close the loop from IN to here; on its own, a loop of the current size from here; during a loop, leave it */

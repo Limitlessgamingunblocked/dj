@@ -199,7 +199,7 @@ function player(b: BoardBuild, side: DeckRef, x: number): void {
   // loop / utility column
   const lx0 = -0.137;
   const lx1 = -0.112;
-  u.button(`${D}.loop.in`, lx0, -0.02, { label: 'Loop in (shift: ½)', w: 0.02, d: 0.009, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.half` });
+  u.button(`${D}.loop.in`, lx0, -0.02, { label: 'Loop in (hold: 4-beat loop; shift: ½)', w: 0.02, d: 0.009, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.half` });
   u.button(`${D}.loop.out`, lx1, -0.02, { label: 'Loop out (shift: ×2)', w: 0.02, d: 0.009, print: 'OUT', printAt: 'above', led: '#3ddc97', alt: `${D}.loop.double` });
   u.button(`${D}.loop.exit`, lx0, 0.008, { label: 'Reloop / exit', w: 0.02, d: 0.009, print: 'RELOOP', printAt: 'above', led: '#3ddc97' });
   u.button(`${D}.loop.4beat`, lx1, 0.008, { label: '4-beat loop', w: 0.02, d: 0.009, print: '4 BEAT', printAt: 'above', led: '#3ddc97' });
@@ -309,7 +309,7 @@ function battleMixer(b: BoardBuild): void {
     u.button(`deck.${side}.keylock`, ox + 0.012, -0.127, { label: 'Key lock', w: 0.018, d: 0.008, print: 'KEY', printAt: 'above', led: '#ff5fcf' });
     u.button(`deck.${side}.slip`, ox - 0.012, -0.102, { label: 'Slip', w: 0.018, d: 0.008, print: 'SLIP', printAt: 'above', led: '#b36bff' });
     u.button(`deck.${side}.quantize`, ox + 0.012, -0.102, { label: 'Quantize', w: 0.018, d: 0.008, print: 'QUANT', printAt: 'above', led: '#ff3b5c' });
-    u.button(`deck.${side}.loop.in`, ox - 0.012, -0.077, { label: 'Loop in (shift: ½)', w: 0.018, d: 0.008, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `deck.${side}.loop.half` });
+    u.button(`deck.${side}.loop.in`, ox - 0.012, -0.077, { label: 'Loop in (hold: 4-beat loop; shift: ½)', w: 0.018, d: 0.008, print: 'IN', printAt: 'above', led: '#3ddc97', alt: `deck.${side}.loop.half` });
     u.button(`deck.${side}.loop.out`, ox + 0.012, -0.077, { label: 'Loop out (shift: ×2)', w: 0.018, d: 0.008, print: 'OUT', printAt: 'above', led: '#3ddc97', alt: `deck.${side}.loop.double` });
     u.button(`deck.${side}.loop.auto`, ox - 0.012, -0.052, { label: 'Auto loop', w: 0.018, d: 0.008, print: 'LOOP', printAt: 'above', led: '#3ddc97' });
     u.button('shift', ox + 0.012, -0.052, { label: 'Shift', w: 0.018, d: 0.008, print: 'SHIFT', printAt: 'above', led: '#ffffff' });
@@ -477,7 +477,7 @@ function aioDeck(u: Unit, deck: 1 | 2, dx: number): void {
   const X = (x: number) => x + dx;
   const small = { w: 0.017, d: 0.009 };
   // the top row: loop, cue/loop call, delete, memory
-  u.button(`${D}.loop.in`, X(-0.33), -0.141, { label: 'Loop in (shift: ½)', w: 0.022, d: 0.012, print: 'IN', printAt: 'above', led: '#ff9f1c', alt: `${D}.loop.half` });
+  u.button(`${D}.loop.in`, X(-0.33), -0.141, { label: 'Loop in (hold: 4-beat loop; shift: ½)', w: 0.022, d: 0.012, print: 'IN', printAt: 'above', led: '#ff9f1c', alt: `${D}.loop.half` });
   u.button(`${D}.loop.out`, X(-0.302), -0.141, { label: 'Loop out (shift: ×2)', w: 0.022, d: 0.012, print: 'OUT', printAt: 'above', led: '#ff9f1c', alt: `${D}.loop.double` });
   u.button(`${D}.loop.exit`, X(-0.272), -0.141, { label: 'Reloop / exit', ...small, print: 'RELOOP/EXIT', printAt: 'above', led: '#ff9f1c' });
   u.button(`${D}.call.prev`, X(-0.225), -0.141, { label: 'Cue/loop call ◀ (previous hot cue)', w: 0.012, d: 0.009, print: '◀', printAt: 'below', led: '#ffffff' });
