@@ -335,6 +335,9 @@ export const CRATES: SaveSpec<{ items: Crate[] }> = {
 export const RECORD_KINDS = ['audio', 'video', 'booth'] as const;
 export const ASPECTS = ['16:9', '9:16', '1:1'] as const;
 export const GRADES = ['D', 'C', 'B', 'A', 'S'] as const;
+/** where a set came from: the REC button, Save That Mix, Clip It, or the trim editor */
+export const RECORD_SOURCES = ['rec', 'buffer', 'clip', 'trim'] as const;
+export const MARKER_KINDS = ['vibe', 'drop', 'transition', 'signature', 'peak', 'chant'] as const;
 
 export interface TracklistEntry {
   /** seconds from the start */
@@ -343,26 +346,47 @@ export interface TracklistEntry {
   artist: string;
 }
 
+/** a smart marker (Section 12.5), seconds from the start */
+export interface Marker {
+  at: number;
+  kind: (typeof MARKER_KINDS)[number];
+  label: string;
+}
+
+/** files in the media store (media/MediaStore.ts), by id */
+export interface RecordingFiles {
+  /** raw 24-bit stereo PCM (no header): exported as WAV or MP3 on demand */
+  pcm?: string;
+  /** the video, already encoded (WebM or MP4), audio included */
+  video?: string;
+  cover?: string;
+  thumb?: string;
+  /** a film strip of stills, `stripEvery` seconds apart, side by side (the trim editor's thumbnails) */
+  strip?: string;
+}
+
 export interface Recording {
   id: string;
   kind: (typeof RECORD_KINDS)[number];
+  source: (typeof RECORD_SOURCES)[number];
   venue: string;
   date: string;
   seconds: number;
+  /** the PCM's sample rate */
+  rate: number;
   grade: (typeof GRADES)[number] | null;
   tracklist: TracklistEntry[];
+  markers: Marker[];
   favorite: boolean;
   title: string;
-}
-
-export interface Clip {
-  id: string;
-  recordingId: string | null;
-  venue: string;
-  date: string;
-  seconds: number;
   aspect: (typeof ASPECTS)[number];
-  title: string;
+  files: RecordingFiles;
+  /** bytes used by its files */
+  bytes: number;
+  /** bar lines (seconds from the start), for snapping when trimming */
+  bars: number[];
+  /** seconds between the film strip's stills */
+  stripEvery: number;
 }
 
 const entry = (x: unknown): TracklistEntry | null => {
@@ -370,39 +394,57 @@ const entry = (x: unknown): TracklistEntry | null => {
   return typeof r.title === 'string' ? { at: num(r.at, 0, 1e6, 0), title: str(r.title, 120), artist: str(r.artist, 120) } : null;
 };
 
-export const RECORDINGS: SaveSpec<{ items: Recording[]; clips: Clip[] }> = {
+const marker = (x: unknown): Marker | null => {
+  const r = obj(x);
+  return typeof r.at === 'number' ? { at: num(r.at, 0, 1e6, 0), kind: oneOf(r.kind, MARKER_KINDS, 'vibe'), label: str(r.label, 80) } : null;
+};
+
+function recording(x: unknown): Recording | null {
+  const o = obj(x);
+  const rid = id(o.id);
+  const d = date(o.date);
+  if (!rid || !d) return null;
+  const f = obj(o.files);
+  const files: RecordingFiles = {};
+  for (const k of ['pcm', 'video', 'cover', 'thumb', 'strip'] as const) {
+    const v = id(f[k]);
+    if (v) files[k] = v;
+  }
+  return {
+    id: rid,
+    kind: oneOf(o.kind, RECORD_KINDS, 'audio'),
+    source: oneOf(o.source, RECORD_SOURCES, 'rec'),
+    venue: id(o.venue) ?? 'unknown',
+    date: d,
+    seconds: num(o.seconds, 0, 86_400, 0),
+    rate: int(o.rate, 8000, 192_000, 48_000),
+    grade: o.grade === null ? null : oneOf<Recording['grade']>(o.grade, GRADES, null),
+    tracklist: list(o.tracklist, entry, 500),
+    markers: list(o.markers, marker, 2000),
+    favorite: bool(o.favorite, false),
+    title: str(o.title, 80, 'Set'),
+    aspect: oneOf(o.aspect, ASPECTS, '16:9'),
+    files,
+    bytes: num(o.bytes, 0, 1e13, 0),
+    bars: list(o.bars, (x) => (typeof x === 'number' && Number.isFinite(x) && x >= 0 ? Math.round(x * 1000) / 1000 : null), 20_000),
+    stripEvery: num(o.stripEvery, 0.5, 60, 2),
+  };
+}
+
+export const RECORDINGS: SaveSpec<{ items: Recording[] }> = {
   kind: 'recordings',
-  version: 1,
-  migrations: {},
-  defaults: () => ({ items: [], clips: [] }),
+  version: 2,
+  migrations: {
+    // v1 kept clips in a list of their own; nothing ever wrote either list before v2
+    1: (d) => {
+      const r = obj(d);
+      const clips = Array.isArray(r.clips) ? r.clips.map((c) => ({ ...obj(c), source: 'clip', kind: 'video' })) : [];
+      return { items: [...(Array.isArray(r.items) ? r.items : []), ...clips] };
+    },
+  },
+  defaults: () => ({ items: [] }),
   validate(raw) {
-    const r = obj(raw);
-    return {
-      items: list(r.items, (x) => {
-        const o = obj(x);
-        const rid = id(o.id);
-        const d = date(o.date);
-        if (!rid || !d) return null;
-        return {
-          id: rid,
-          kind: oneOf(o.kind, RECORD_KINDS, 'audio'),
-          venue: id(o.venue) ?? 'unknown',
-          date: d,
-          seconds: num(o.seconds, 0, 86_400, 0),
-          grade: o.grade === null ? null : oneOf<Recording['grade']>(o.grade, GRADES, null),
-          tracklist: list(o.tracklist, entry, 500),
-          favorite: bool(o.favorite, false),
-          title: str(o.title, 80, 'Set'),
-        };
-      }),
-      clips: list(r.clips, (x) => {
-        const o = obj(x);
-        const cid = id(o.id);
-        const d = date(o.date);
-        if (!cid || !d) return null;
-        return { id: cid, recordingId: id(o.recordingId), venue: id(o.venue) ?? 'unknown', date: d, seconds: num(o.seconds, 0, 3600, 0), aspect: oneOf(o.aspect, ASPECTS, '9:16'), title: str(o.title, 80, 'Clip') };
-      }),
-    };
+    return { items: list(obj(raw).items, recording) };
   },
 };
 

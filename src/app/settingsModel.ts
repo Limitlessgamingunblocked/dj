@@ -40,6 +40,10 @@ export interface Settings {
   lights: Partial<ShowControls>;
   /** the player chose "Later" at the naming scene: don't open it by itself again */
   namingLater: boolean;
+  /** the recording studio's settings (checked by app/recording.ts → cleanRecord) */
+  record: Record<string, unknown>;
+  /** the replay buffer: length in minutes (0 off) and whether it keeps video */
+  replay: Record<string, unknown>;
 }
 
 export const DEFAULTS: Settings = {
@@ -66,6 +70,8 @@ export const DEFAULTS: Settings = {
   fpsMeter: false,
   lastTracks: {},
   namingLater: false,
+  record: {},
+  replay: {},
 };
 
 const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'];
@@ -75,7 +81,7 @@ const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 
  * type it expects (an old version's or a hand-edited file can't break startup).
  */
 export function cleanSettings(raw: unknown): Settings {
-  const out: Settings = { ...DEFAULTS, vis: {}, lights: {}, lastTracks: {} };
+  const out: Settings = { ...DEFAULTS, vis: {}, lights: {}, lastTracks: {}, record: {}, replay: {} };
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out;
   const r = raw as Record<string, unknown>;
   for (const k of Object.keys(DEFAULTS) as (keyof Settings)[]) {

@@ -20,6 +20,8 @@ export interface TopBarActions {
   /** livestream viewer count, or null when not streaming */
   live(): string | null;
   record(): void;
+  /** the recording studio's settings */
+  recordMenu(): void;
   /** open the pre-gig screen */
   gig(): void;
   midi(): void;
@@ -29,7 +31,7 @@ export interface TopBarActions {
   setUiMode(m: 'simple' | 'pro'): void;
   boardName(): string;
   midiConnected(): boolean;
-  recording(): { on: boolean; elapsed: number };
+  recording(): { on: boolean; elapsed: number; counting?: boolean; buffer?: boolean };
 }
 
 export class TopBar {
@@ -50,6 +52,8 @@ export class TopBar {
   private master: HTMLElement;
   private masterDeck: HTMLElement;
   private rec: HTMLElement;
+  private recGroup: HTMLElement;
+  private bufDot: HTMLElement;
   private recTime: HTMLElement;
   private midiDot: HTMLElement;
 
@@ -82,6 +86,10 @@ export class TopBar {
     this.recTime = h('span', { class: 'mono', style: { fontSize: '12px' } });
     this.rec.append(this.recTime);
     this.rec.addEventListener('click', () => a.record());
+    const recMenu = h('button', { class: 'btn rec-menu', title: 'Recording studio: mode, quality, camera, overlays, replay buffer', 'aria-label': 'Recording settings', type: 'button' }, '▾');
+    recMenu.addEventListener('click', () => a.recordMenu());
+    this.bufDot = h('span', { class: 'buf-dot', title: 'Replay buffer on: SAVE THAT MIX (Shift+S) keeps the last few minutes', hidden: true });
+    this.recGroup = h('div', { class: 'rec-group' }, this.rec, recMenu, this.bufDot);
     const gig = h('button', { class: 'btn gig-btn', title: 'Play a gig: pick a venue, a slot and a set length', type: 'button' }, 'Play a gig');
     gig.addEventListener('click', () => a.gig());
     this.midiDot = h('span', { class: 'status-dot on' });
@@ -111,7 +119,7 @@ export class TopBar {
       this.hypeEl,
       h('div', { class: 'master-readout', title: 'Tempo of the sync master deck' }, this.beatLed, this.masterDeck, this.master),
       gig,
-      this.rec,
+      this.recGroup,
       this.midiBtn,
       mode,
       more,
@@ -138,7 +146,9 @@ export class TopBar {
     setText(this.master, md ? formatBpm(md.bpm) : '--.-');
     const r = this.a.recording();
     setClass(this.rec, 'on', r.on);
-    setText(this.recTime, r.on ? formatTime(r.elapsed) : '');
+    setClass(this.rec, 'counting', !!r.counting);
+    setText(this.recTime, r.on ? formatTime(r.elapsed) : r.counting ? '…' : '');
+    this.bufDot.hidden = !r.buffer;
     this.midiBtn.hidden = !this.a.midiConnected();
   }
 }

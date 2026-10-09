@@ -146,6 +146,13 @@ export class Stage {
   private fade: { k: number; phase: 'none' | 'out' | 'in'; view: ViewId | null } = { k: 1, phase: 'none', view: null };
   /** a photo was asked for: called with the canvas right after the next frame is drawn */
   private shotWanted: ((src: HTMLCanvasElement) => void) | null = null;
+  /** called with the canvas after every frame (recording, the replay buffer's video), same task as the draw */
+  readonly frameHooks = new Set<(src: HTMLCanvasElement) => void>();
+  /**
+   * While recording video: the frame size it needs from the stage (after cropping to its aspect).
+   * The stage renders sharper to give it (up to 3× the screen), whatever the adaptive quality says.
+   */
+  private recordNeed: { w: number; h: number } | null = null;
   /** text burnt into the picture by some looks: the security camera's clock, the camcorder's REC */
   private lensText: { el: HTMLElement; tl: HTMLElement; tr: HTMLElement; bl: HTMLElement; br: HTMLElement; shown: string; at: number; since: number };
   private zones: Zone[] = [];
@@ -667,7 +674,24 @@ export class Stage {
   /** the render's pixel ratio for live frames: the quality's cap times the adaptive resolution */
   private livePixelRatio(): number {
     const cap = Math.min(window.devicePixelRatio || 1, this.quality === 'high' ? 2 : this.quality === 'medium' ? 1.5 : 1);
-    return Math.max(0.5, cap * this.adaptive.step.renderScale);
+    const live = Math.max(0.5, cap * this.adaptive.step.renderScale);
+    const need = this.recordNeed;
+    if (!need) return live;
+    // the crop of the stage that fills the recording's frame, in CSS pixels
+    const { w, h } = this.size;
+    const cw = w / h > need.w / need.h ? h * (need.w / need.h) : w;
+    return Math.min(3, Math.max(live, need.w / cw));
+  }
+
+  /** Render sharp enough for a recording of this frame size (null: back to normal). */
+  setRecordSize(need: { w: number; h: number } | null): void {
+    this.recordNeed = need;
+    this.resize();
+  }
+
+  /** the canvas's drawing size right now */
+  get pixelSize(): { w: number; h: number } {
+    return { w: this.canvas.width, h: this.canvas.height };
   }
 
   private setPixels(dpr: number): void {
@@ -936,7 +960,7 @@ export class Stage {
     if (this.view === 'visual') {
       r.setRenderTarget(null);
       r.render(this.screenScene, this.screenCam);
-      this.takeShot();
+      this.frameDone();
       return;
     }
     this.bloom.enabled = this.quality !== 'low';
@@ -1030,8 +1054,10 @@ export class Stage {
     if (photo) this.setPixels(Math.min(3, Math.max(this.livePixelRatio(), 1920 / this.size.w)));
     this.composer.render(dt);
     if (photo) {
-      this.takeShot();
+      // the photo (and any recording) gets the full-size frame before the canvas shrinks back, which clears it
+      this.frameDone();
       this.setPixels(this.livePixelRatio());
+      return;
     }
     if (this.view === 'split') {
       const { w, h } = this.size;
@@ -1046,11 +1072,18 @@ export class Stage {
       r.setViewport(0, 0, w, h);
       r.autoClear = true;
     }
-    this.takeShot();
+    this.frameDone();
   }
 
-  /** hand the frame just drawn to a waiting photo (same task: the drawing buffer is still there) */
-  private takeShot(): void {
+  /** hand the frame just drawn to the frame hooks and a waiting photo (same task: the drawing buffer is still there) */
+  private frameDone(): void {
+    for (const fn of this.frameHooks) {
+      try {
+        fn(this.canvas);
+      } catch (err) {
+        console.warn('frame hook failed:', err);
+      }
+    }
     const f = this.shotWanted;
     if (!f) return;
     this.shotWanted = null;

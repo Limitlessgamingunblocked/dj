@@ -2,10 +2,9 @@
  * The results screen after every set (Section 6.9): the grade (D → S), the
  * vibe over the whole set against the slot's target curve, the best
  * transition, the crowd's peak moment, the fame, cash and followers earned,
- * milestones, and a word from the promoter.
- *
- * TODO: "replay the best transition" and "save highlights" need the replay
- * buffer (Stage 4); the buttons say so for now.
+ * milestones, and a word from the promoter. The replay buffer still holds
+ * the set here (Section 12.6): save it, or replay the best transition in the
+ * trim editor, before it's cleared when this screen closes.
  */
 import { MILESTONE_LABEL, type GigResults } from '../game/Gig';
 import { SLOTS, TRANSITION_LABEL } from '../game/vibe';
@@ -17,6 +16,12 @@ export interface ResultsHooks {
   dj: string;
   again(): void;
   studio(): void;
+  /** the replay buffer has the set: save it (Section 12.6) */
+  saveHighlights?(): Promise<boolean>;
+  /** save the buffer and open the trim editor on this moment */
+  replay?(label: string): void;
+  /** the screen closed (the buffer is cleared after this) */
+  closed?(): void;
 }
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -115,8 +120,8 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
   const fame = h('b', {}, '0');
   const cash = h('b', {}, '0');
   const fol = h('b', {}, '0');
-  const replay = h('button', { class: 'btn', type: 'button', disabled: true, title: 'Replays arrive with the replay buffer (Stage 4)' }, 'Replay');
-  const save = h('button', { class: 'btn', type: 'button', disabled: true, title: 'Saving highlights arrives with the replay buffer (Stage 4)' }, 'Save highlights');
+  const replay = h('button', { class: 'btn', type: 'button', disabled: !hooks.replay || !best, title: hooks.replay ? 'Watch it again in the trim editor (saves the replay buffer to My Sets)' : 'The replay buffer is off' }, 'Replay') as HTMLButtonElement;
+  const save = h('button', { class: 'btn', type: 'button', disabled: !hooks.saveHighlights, title: hooks.saveHighlights ? 'Save the replay buffer (the last few minutes of the set) to My Sets' : 'The replay buffer is off: turn it on in the recording settings' }, 'Save highlights') as HTMLButtonElement;
   const again = h('button', { class: 'btn', type: 'button' }, 'Play again');
   const studio = h('button', { class: 'btn primary', type: 'button' }, 'Back to the decks');
   const content = h(
@@ -148,6 +153,23 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     h('div', { class: 'res-actions' }, save, again, studio),
   );
   const modal = openModal('Set complete', content, { wide: true });
+  const close = modal.close;
+  modal.close = () => {
+    close();
+    hooks.closed?.();
+  };
+  save.addEventListener('click', async () => {
+    save.disabled = true;
+    const ok = await hooks.saveHighlights?.();
+    save.textContent = ok ? 'Saved ✓' : 'Save highlights';
+    if (!ok) save.disabled = false;
+  });
+  replay.addEventListener('click', () => {
+    if (!best) return;
+    // takes its copy of the buffer before the screen closes (and the buffer is cleared)
+    hooks.replay?.(TRANSITION_LABEL[best.name]);
+    modal.close();
+  });
   countUp(fame, r.rewards.fame, '+');
   countUp(cash, r.rewards.cash, '+$');
   countUp(fol, r.rewards.followers, '+');

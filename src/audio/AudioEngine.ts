@@ -16,7 +16,7 @@ import { Deck, type DeckHost } from './Deck';
 import { Mixer } from './Mixer';
 import { BeatFX, type FxTarget } from './fx/BeatFX';
 import { Sampler } from './Sampler';
-import { MixRecorder } from './Recorder';
+import { Capture } from './capture/Capture';
 import { dspWasm, loadWorklets } from './worklets';
 import type { DeckId } from '../core/types';
 
@@ -28,7 +28,8 @@ export class AudioEngine {
   readonly mixer: Mixer;
   readonly fx: BeatFX;
   readonly sampler: Sampler;
-  readonly recorder: MixRecorder;
+  /** the lossless tap on the clean master: replay buffer and recordings (Sections 11, 12) */
+  readonly capture: Capture;
   /** the crowd you hear, in the room */
   readonly crowd: CrowdAudio;
   /** analyser on the master output for the visual player */
@@ -44,7 +45,13 @@ export class AudioEngine {
   isShift: () => boolean = () => false;
 
   static async create(): Promise<AudioEngine> {
-    const ctx = new AudioContext({ latencyHint: 'interactive' });
+    // 48 kHz, so recordings are native 48 kHz / 24-bit (Section 11.2); the browser resamples for the speakers if it must
+    let ctx: AudioContext;
+    try {
+      ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+    } catch {
+      ctx = new AudioContext({ latencyHint: 'interactive' });
+    }
     await loadWorklets(ctx);
     const wasm = await dspWasm();
     return new AudioEngine(ctx, wasm);
@@ -86,7 +93,7 @@ export class AudioEngine {
     );
     this.sampler = new Sampler(ctx, () => this.nextBeatTime(this.masterDeck));
     this.sampler.out.connect(this.mixer.masterBus);
-    this.recorder = new MixRecorder(ctx, this.mixer.masterOut);
+    this.capture = new Capture(ctx, this.mixer.masterOut);
     this.crowd = new CrowdAudio(ctx, this.mixer.room.input);
     this.visAnalyser = ctx.createAnalyser();
     this.visAnalyser.fftSize = 4096;

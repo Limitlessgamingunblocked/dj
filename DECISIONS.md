@@ -111,3 +111,39 @@ Blender still wasn't reachable, so the character is built in code, made to be sw
 39. **The Bedroom and Basement are built in code** like every venue so far, stand-ins for the Blender sets (see TODO.md).
 40. **Lighting rules (Section 2.3)** live in the shared light show, so every venue gets them: hats flick the string lights (off with reduced flashing), bass lights the booth from below, vocals bring up a spotlight on the DJ, breakdowns warm toward amber, and overall intensity follows the vibe (about 60 % in a cold room, full at the peak).
 41. **The stream chat's handles and the raiding channel are made up.** Viewers climb from 3 to about 50 with the vibe; a raid (vibe over 85 % for 15 seconds) brings 220–400 more, once per set.
+
+## Stage 4: Recording & replay (2026-10-09)
+
+42. **Recordings are lossless at the source.** An AudioWorklet taps the clean master (before the room's acoustics) and hands 4096-frame blocks to the main thread, which keeps them as 24-bit stereo. The audio engine now runs at 48 kHz, so WAV exports are native 24-bit / 48 kHz with no resampling. A stretch saved from the replay buffer is bit-identical to the same stretch recorded by hand (tested).
+43. **MP3 export uses one new dependency: `@breezystack/lamejs`** (a JavaScript port of LAME, LGPL-3.0, about 170 KB minified). Browsers can't encode MP3 themselves, and writing an MP3 encoder from scratch isn't sensible. It runs in its own worker, apart from the app's code, and only when you export an MP3. **Say if you'd rather not have it:** removing it removes MP3 export and nothing else.
+44. **Video goes through WebCodecs into our own muxers** (`src/media/webm.ts`, `src/media/mp4.ts`), with no library. That gives control of resolution, frame rate and bitrate, and the file is ready the moment you stop.
+    - Order of preference: MP4 with H.264 + AAC (plays anywhere), then WebM with VP9 (or VP8) + Opus, then the browser's MediaRecorder where WebCodecs is missing.
+    - The test browser here can't encode H.264, so MP4 was verified end to end with VP9 + Opus inside it (it plays and seeks). The H.264 + AAC sample entries are checked by unit tests only.
+    - If the encoder falls behind, frames are dropped rather than queued, so a slow machine records a lower frame rate instead of stalling the game.
+45. **A recording shows the stage, not the screen.** The 3D view is cropped to the aspect (16:9, 9:16, 1:1) and composited with the overlays; menus and the HUD never appear. For resolutions above the window's, the stage renders sharper while recording (up to 3×), so 4K from a small window costs GPU time.
+46. **Video recordings keep their encoded audio** (AAC 256 kbps or Opus 192 kbps), not a lossless copy, to save space. Audio-only recordings and everything saved from the replay buffer keep the lossless PCM, so they export to WAV and MP3.
+47. **The replay buffer's length depends on the device.** The brief's 10 minutes is the default on desktops; machines with 4 GB or less get 5 minutes, and phones get 2.
+    - Audio memory is fixed once full: 10-second segments are reused, about 165 MB for 10 minutes.
+    - Video (720p, 30 fps, 2 Mbps, about 150 MB for 10 minutes) starts on only with 8 GB+ and 8+ cores. Everything is changeable in the recording settings, with the memory shown for each length.
+48. **SAVE THAT MIX is instant**: the buffer is copied at once, and the file is put together afterwards.
+    - **CLIP IT** re-encodes the last 30 or 60 seconds as a 9:16, 720 × 1280 clip with your overlays, centre-cropped from the buffer's 720p video.
+    - With video off, clips are made from the set's stills, blurred behind your name with a waveform that moves with the music.
+49. **Smart markers**:
+    - drops (from the beat clock)
+    - named transitions and comebacks
+    - vibe spikes (up 12 points within 6 seconds)
+    - "hands up" (vibe over 92 %)
+    - name chants
+    - the venue's signature moment (vibe over 86 % for 10 seconds)
+    - the encore
+    Tapping one in the trim editor picks 8 bars before a drop or transition (4 before anything else) and 12 after (8 after a transition), at least 15 seconds in all.
+50. **My Sets lives in IndexedDB** in a database of its own (`deckhouse-media`), separate from the music library. The list (titles, tracklists, markers, bar lines) is a career save, `recordings` v2. Nothing had ever written a v1 recordings save, so changing the format risked nothing; v1 still migrates.
+51. **The drop punch-in and breakdown orbit** (Section 2.5) work whenever the auto director is on, recording or not.
+    - The punch-in is a snap zoom of about 22 % that eases out over about 3 seconds, with a jolt when camera shake is on.
+    - The orbit is a slow drift round the booth through breakdowns.
+    - Both stop when reduced motion is on.
+    - While recording: "auto-cinematic" turns the auto director on; "locked" and "live switch" turn it off; booth cam locks the booth view. The director goes back to how it was afterwards.
+52. **The results screen offers the buffer before it's cleared**: "Save highlights" keeps it, and "Replay" saves it and opens the trim editor at the best transition. Closing the screen clears the buffer.
+53. **Trim-editor previews play straight to the speakers**, not through the mixer, so they're never recorded or kept in the buffer.
+54. **The old MediaRecorder recorder (`audio/Recorder.ts`) is replaced** by the studio. It recorded compressed WebM audio only, and everything it did is covered by the new one.
+55. **The trim editor saves an audio clip instantly** (the lossless audio of the selection) and makes a video clip only when asked ("Save video clip": your aspect, size and overlays, from the set's video, or from its stills when it has none). Rendering video in software can take minutes on a slow machine, so the quick path doesn't wait for it.

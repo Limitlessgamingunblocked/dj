@@ -58,6 +58,19 @@ Stage 3 made it **a game you can play a set in**:
 - **13 new original tracks** in the brief's lanes, each with section markers, energy 1–10 and tags (the **First Gigs** crate).
 - Free play still works the way it always has: pick any venue and mix, with the vibe meter driving the room.
 
+Stage 4 added **recording and instant replay**:
+- **REC** (top bar or Shift+R) records the set, with an optional three-beat count-in so it starts on the downbeat. The ▾ next to it opens the recording studio:
+  - **Audio only**: the clean master, lossless (24-bit / 48 kHz), exported as WAV or MP3 (320 kbps, tagged with your name, the venue and the cover).
+  - **Video + audio** or **booth cam** (close on your hands): 720p up to 4K, 30 or 60 fps, 16:9, 9:16 or 1:1, with the size per minute shown. Saves as MP4 where the browser can, otherwise WebM.
+  - **Camera:** auto-cinematic (cuts on the phrase, a punch-in on every drop, a slow orbit through breakdowns), locked, or switch it yourself.
+  - **Overlays:** your name as a watermark (pick the corner and the lettering), venue and date, "now playing", a live tracklist, a VHS timestamp.
+- **The replay buffer** quietly keeps the last few minutes (10 by default on a desktop; the memory each length takes is shown):
+  - **SAVE THAT MIX** (Shift+S) keeps it all.
+  - **CLIP IT** (Shift+C) turns the last 30 or 60 seconds into a vertical clip.
+  - After a gig, the results screen offers to save it, or to replay your best transition, before it's cleared.
+- **My Sets** (a new tab) lists every recording, saved mix and clip with its date, venue, length, grade, tracklist, cover art and thumbnail. You can sort, filter, rename, favourite, delete, export (video, WAV, MP3, cover art, tracklist) and clean up old sets.
+- **The trim editor** shows a saved set as a waveform with stills above it, the moments it caught (drops, transitions, peaks, chants) and the bar lines. Drag the handles (they snap to bars), zoom in, preview, add fades, and export a clip in any aspect.
+
 ## Run it
 
 ```bash

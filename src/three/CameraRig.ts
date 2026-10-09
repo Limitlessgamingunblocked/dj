@@ -112,6 +112,12 @@ export class CameraRig {
   private ahead = new THREE.Vector3();
   private perfOffset: THREE.Vector3 | null = null;
   private perfOffsetAt = 0;
+  /** the drop punch-in (Section 2.5): seconds since it fired, and the zoom it has applied */
+  private punchT = 1e9;
+  private punchMult = 1;
+  private punchShake = false;
+  /** the breakdown orbit: 0..1, how strongly a still shot drifts round the booth */
+  orbit = 0;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -497,8 +503,21 @@ export class CameraRig {
     this.droneFx.roll = d.roll;
   }
 
+  /** The drop punch-in: a snap zoom towards the DJ that eases back over a couple of bars (with a jolt if `shake`). */
+  punch(shake = true): void {
+    if (reducedMotion() || this.drone) return;
+    this.punchT = 0;
+    this.punchShake = shake;
+  }
+
   update(dt: number, f: Features | null, shakeEnabled: boolean): void {
     this.inUpdate = true;
+    // take off last frame's punch zoom before anything reads the lens
+    if (this.punchMult !== 1) {
+      this.camera.fov /= this.punchMult;
+      this.punchMult = 1;
+      this.camera.updateProjectionMatrix();
+    }
     // lens: the drone flies wide, everything else uses the normal lens
     const wantFov = this.drone ? DRONE_FOV : (this.lensFov ?? this.baseFov);
     if (Math.abs(this.camera.fov - wantFov) > 0.05) {
@@ -539,6 +558,11 @@ export class CameraRig {
       this.base = { pos: p.pos, target: p.target };
       liveFov = p.fov;
     }
+    // the breakdown orbit: a still shot drifts slowly round the booth while the track breathes
+    if (this.orbit > 0.01 && !this.isLive && !this.focused && !this.goalPos && this.view !== 'top' && !reducedMotion()) {
+      const off = this.tmpB.copy(this.camera.position).sub(this.controls.target).applyAxisAngle(Y_AXIS, dt * 0.075 * this.orbit);
+      this.camera.position.copy(this.controls.target).add(off);
+    }
     // dynamic performance view: slow sway around the board when idle
     const idle = performance.now() - this.lastInteraction > 4000;
     if (this.view === 'perf' && idle && !this.focused && !this.goalPos && f?.playing && !reducedMotion()) {
@@ -569,6 +593,21 @@ export class CameraRig {
       this.shake = Math.max(this.shake * Math.exp(-dt * 12), (f.kickPulse * 0.006 * f.intensity + f.drop * 0.01) * mult);
       this.shakeOffset.set((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
       this.camera.position.add(this.shakeOffset);
+    }
+    // the punch-in: 0.15 s in, then back out over about three seconds
+    if (this.punchT < 6 && !this.drone) {
+      this.punchT += dt;
+      const t = this.punchT;
+      const k = t < 0.15 ? t / 0.15 : Math.exp(-(t - 0.15) / 1.4);
+      this.punchMult = 1 - 0.22 * k * (2 - k);
+      this.camera.fov *= this.punchMult;
+      this.camera.updateProjectionMatrix();
+      if (this.punchShake && shakeEnabled && t < 0.4) {
+        const j = 0.02 * (1 - t / 0.4);
+        const jolt = this.tmpA.set((Math.random() - 0.5) * j, (Math.random() - 0.5) * j, 0);
+        this.shakeOffset.add(jolt);
+        this.camera.position.add(jolt);
+      }
     }
     this.inUpdate = false;
   }

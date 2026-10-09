@@ -10,7 +10,9 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 | `src/game/tracks.ts` | Imported music has no section markers: its energy is estimated from tempo and loudness. Let players mark sections (or detect them). | 4 |
 | `src/three/venues/bedroom.ts`, `basement.ts` | **Both venues are built in code**, stand-ins for the Blender sets (Section 14). The Bedroom's monitor shows the visual player; there's no modelled furniture, and the Basement's crowd is the shared procedural crowd. | 3 (art) |
 | `src/game/Gig.ts` → `TIER_FAME` | Fame needed per tier is a placeholder table. Stage 6's ProgressionSystem owns tiers, unlocks and bookings. | 6 |
-| `src/ui/Results.ts` | "Replay the best transition" and "Save highlights" are shown but disabled: they need the replay buffer. | 4 |
+| `src/media/MediaWriter.ts`, `src/media/mp4.ts` | MP4 with H.264 + AAC is the preferred recording format, but the build container's browser can't encode H.264, so that path is checked by unit tests only (MP4 itself was verified end to end with VP9 + Opus). Record a short H.264 clip in Chrome or Edge and check it plays in a phone's gallery. | 4 (verify) |
+| `src/audio/room.ts` | "Record room sound" (the venue's acoustics on the recording) isn't offered: recordings are always the clean master. | 7 |
+| `src/media/Studio.ts` | Video recordings keep their encoded audio only (AAC or Opus), not a lossless copy, so they don't export to WAV or MP3. | 7 |
 | `src/ui/GigSetup.ts` | You pick venue, slot and length freely. Stage 6's booking offers replace that choice. | 6 |
 | `src/core/models.ts` → `BoardDoc` | Provisional shape. The board file format gets documented, with its component types, in Stage 5. | 5 |
 | `scripts/blender/export_glb.py`, `preview.py` | Written against the Blender 4.x API but never run: there's no Blender in the build container. Run both on a test `.blend` once Blender is available. | 1 → 2 |
@@ -82,8 +84,20 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 
 ## Stage 4: Recording & replay
 
-- [ ] WAV (24-bit / 48 kHz) and MP3 320 export, video + audio, booth cam, quality settings, overlays, cover art, tracklist.
-- [ ] Ring-buffer replay (lossless audio), Save That Mix, Clip It, trim editor, smart markers, My Sets, storage manager.
+- [x] REC (top bar, Shift+R, MIDI-mappable) with a pulsing light, timer and optional three-beat count-in landing on a downbeat.
+- [x] Audio only: lossless 24-bit / 48 kHz; WAV and MP3 (320 kbps, tagged with title, your name, venue, year and cover) exports.
+- [x] Video + audio and booth cam: 720p / 1080p / 1440p / 4K (what the browser can encode), 30 / 60 fps, 16:9 / 9:16 / 1:1, size per minute shown.
+- [x] Camera director while recording: auto-cinematic (phrase cuts, drop punch-in, breakdown orbit), locked, live switch.
+- [x] Overlays: name watermark (corner and style), venue and date, now playing, live tracklist, VHS timestamp.
+- [x] Auto cover art in the venue's flyer style; tracklist text export.
+- [x] Replay buffer: 2 / 5 / 10 / 15 / 30 minutes with memory shown, audio-only or audio + video, or off; a quiet dot in the HUD and top bar.
+- [x] SAVE THAT MIX (Shift+S) and CLIP IT (Shift+C, last 30 or 60 seconds, vertical), with the confirmation line.
+- [x] Smart markers: vibe spikes, drops, named transitions, signature moments, crowd peaks and chants.
+- [x] Trim editor: waveform with stills above, markers, bar lines, snapping handles, zoom, preview, fades, export (new set, WAV, MP3).
+- [x] Results screen: Save highlights and Replay (the best transition) before the buffer is cleared.
+- [x] My Sets: date, venue, length, grade, tracklist and thumbnail; sort, filter, rename, delete, favourite; storage manager with clean-up.
+- [ ] Board buttons for REC, SAVE THAT MIX, CLIP IT and the camera switcher. → Stage 5 (Board Builder components; the controls already exist for MIDI and keys)
+- [ ] Your look in recordings is whatever's on stage; a dedicated "recording look" toggle isn't planned unless you want one.
 
 ## Stage 5: Board Builder
 

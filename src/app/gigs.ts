@@ -10,7 +10,7 @@ import { ASSISTS, Gig, type Assist, type GigConfig, type GigEvent } from '../gam
 import { Snapshot } from '../game/snapshot';
 import { nextSection } from '../game/tracks';
 import { Tutorial, TUTORIAL } from '../game/tutorial';
-import { eventText, moodFor, SLOTS, VibeMeter, type VibeEvent } from '../game/vibe';
+import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
 import type { Features } from '../visualizer/AudioFeatures';
@@ -46,6 +46,12 @@ export interface GigHost {
   press(id: string): void;
   /** the venue's own signature moment hooks (the raid's rainbow strip) */
   signature(what: string): void;
+  /** a moment worth keeping, for the replay buffer's smart markers (Section 12.5) */
+  mark(kind: 'vibe' | 'transition' | 'signature' | 'peak' | 'chant', label: string): void;
+  /** a gig finished with this grade */
+  finished(grade: 'S' | 'A' | 'B' | 'C' | 'D'): void;
+  /** the replay buffer, for the results screen: null when it's off */
+  replay(): { save(): Promise<boolean>; moment(label: string): void; clear(): void } | null;
   /** a crowd reaction for the room to play (cheer, groan, boo) */
   crowd(what: 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant'): void;
 }
@@ -63,7 +69,7 @@ export class GigDirector {
   private tutEl: HTMLElement | null = null;
   private lastCfg: GigConfig | null = null;
   private tipAt = -1e9;
-  private crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9 };
+  private crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
   private building = false;
   private keyMatched = new Set<string>();
 
@@ -115,12 +121,14 @@ export class GigDirector {
     if (crate !== undefined) this.host.showCrate(crate);
     this.lastCfg = cfg;
     this.gig = new Gig(cfg);
-    this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9 };
+    this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
     this.keyMatched.clear();
     this.hud = new GigHud({
       setAssist: (a) => this.setAssist(a),
       end: () => this.end(),
       clean: (on) => document.body.classList.toggle('gig-clean', on),
+      saveMix: () => this.host.press('replay.save'),
+      clip: () => this.host.press('replay.clip'),
     });
     this.host.stageEl.append(this.hud.el);
     // the HUD sits left of the camera buttons, whose width changes (the framing chip comes and goes),
@@ -198,11 +206,21 @@ export class GigDirector {
     this.teardown();
     this.gig = null;
     this.free.vibe = gig.meter.vibe;
+    this.host.finished(r.grade);
+    const rp = this.host.replay();
     showResults(r, this.host.venueName(gig.config.venue), {
       dj: this.host.djName() || 'DJ',
+      saveHighlights: rp ? () => rp.save() : undefined,
+      replay: rp ? (label) => rp.moment(label) : undefined,
+      closed: () => rp?.clear(),
       again: () => this.lastCfg && this.start({ ...this.lastCfg, tutorial: this.lastCfg.venue === 'bedroom' && !this.host.career.progress.tutorialDone }),
       studio: () => undefined,
     });
+  }
+
+  /** the running gig's slot ("Peak time"), or null in free play */
+  slotLabel(): string | null {
+    return this.gig ? SLOTS[this.gig.config.slot].label : null;
   }
 
   /* -------------------------------------------------------------- */
@@ -267,7 +285,7 @@ export class GigDirector {
       events = gig.update(dt, decks, level, e.redline, f.dropHit);
       if (gig.assist === 'chill') this.chill(gig.t);
       const target = SLOTS[gig.config.slot].target(gig.progress);
-      this.hud?.update({ vibe: gig.meter.vibe, target, remaining: gig.remaining, phase: gig.phase, recording: this.host.recording(), assist: gig.assist, slot: SLOTS[gig.config.slot].label, venue: this.host.venueName(gig.config.venue), redline: e.redline });
+      this.hud?.update({ vibe: gig.meter.vibe, target, remaining: gig.remaining, phase: gig.phase, recording: this.host.recording(), buffer: !!this.host.replay(), assist: gig.assist, slot: SLOTS[gig.config.slot].label, venue: this.host.venueName(gig.config.venue), redline: e.redline });
       this.chat?.update(dt, gig.meter.vibe, moodFor(gig.meter.vibe));
       if (this.tutorial && !this.tutorial.done && this.tutorial.update({ decks, sync: e.decks.map((d) => d.sync), pro: gig.assist === 'pro' })) {
         this.host.crowd('cheer');
@@ -297,6 +315,7 @@ export class GigDirector {
     if (ev.kind === 'gig') {
       if (ev.what === 'last_minute') this.hud?.say('Promoter:', 'One minute left. Make it count.');
       if (ev.what === 'encore') {
+        this.host.mark('peak', 'Encore');
         this.hud?.say('Crowd:', '"One more tune! One more tune!"');
         this.host.crowd('chant');
         this.host.callout({ text: 'One more tune! Play an encore', tone: 'hype' });
@@ -305,6 +324,8 @@ export class GigDirector {
     }
     const text = eventText(ev);
     if (text) this.host.callout({ text, tone: ev.kind === 'mistake' ? 'bad' : ev.kind === 'drop' || ev.kind === 'comeback' ? 'hype' : 'good' });
+    if (ev.kind === 'transition') this.host.mark('transition', TRANSITION_LABEL[ev.name]);
+    if (ev.kind === 'comeback') this.host.mark('vibe', 'Comeback');
     this.chat?.react(ev);
     if (!this.gig) return;
     // the room and the crew react
@@ -331,7 +352,12 @@ export class GigDirector {
     if (this.crew.chantFor > 8 && gig.t - this.crew.chantAt > 45 && gig.config.venue !== 'bedroom') {
       this.crew.chantAt = gig.t;
       this.host.crowd('chant');
+      this.host.mark('chant', 'They chant your name');
     }
+    // the room at its peak: hands up, and the venue's signature moment after a while up there
+    if (v > 0.92) this.host.mark('peak', 'Hands up');
+    this.crew.sigFor = v > 0.86 ? this.crew.sigFor + dt : 0;
+    if (this.crew.sigFor > 10 && this.crew.sigFor - dt <= 10) this.host.mark('signature', gig.config.venue === 'bedroom' ? 'Raid' : 'The room goes off');
     if (!this.crew.security && v > 0.8) {
       this.crew.security = true;
       this.hud?.say('Security:', 'gives you a nod.');

@@ -87,10 +87,10 @@ scripts/               build-single (one-file HTML), build-wasm
 | **2.2** | Palette and visual identity | Partial | Design tokens in `ui/styles`, per-venue palettes in `show.ts` | The brief's 7-colour palette isn't adopted; no flyer, VHS or disposable-camera art direction in the UI |
 | **2.3** | Beat-locked lighting rules | Exists (Stage 3) | `show.ts`: kick → washes, hats → string-light flicks, bass → booth underglow, vocals → DJ spotlight, breakdown → amber, intensity from the vibe meter; builds and drops choreographed; haze | Pin spots on hats only where a venue has string lights or pin spots |
 | **2.4** | Post-processing | Partial | Bloom, grain, vignette and VHS look all exist | Chromatic aberration only on drops isn't done; there's no per-effect toggle (one quality level only) |
-| **2.5** | Six camera shots | Partial | Over-the-shoulder ("perf"), crowd POV, wide, booth fisheye, crane, drone; auto director; Bedroom webcam and Basement CCTV | A named "breakdown orbit" and a "drop punch-in" with toggleable shake are missing; camera energy doesn't scale with the vibe yet |
+| **2.5** | Six camera shots | Exists (Stage 4) | Over-the-shoulder ("perf"), crowd POV, wide, booth fisheye, crane, drone; auto director with a drop punch-in and a breakdown orbit; Bedroom webcam and Basement CCTV | Camera energy doesn't scale with the vibe yet |
 | **2.6** | Voice of the game | Partial | Call-outs and toasts are short | Copy needs a pass to the brief's voice |
 | **3** | Naming scene, NameService, name everywhere | Partial (Stage 2A) | `src/name/`, `ui/NamingScene.ts`, naming room; booth panels, neon, LED walls, crowd sign, stickers, top bar, chants | Filter word list; surfaces that wait on later systems (lasers, flyers, results, recordings, merch, outdoor venues) |
-| **4** | Character creator, wardrobe, outfits | Built in code (Stage 2B) | `src/character/` (catalogue, looks, procedural avatar), `ui/CharacterCreator.ts`, dressing room venue; your character at the decks in every venue | Modelled character, hair and outfits (Blender, Section 14); dress-code bonus applied by the vibe meter (Stage 3); looks in recordings (Stage 4) |
+| **4** | Character creator, wardrobe, outfits | Built in code (Stage 2B) | `src/character/` (catalogue, looks, procedural avatar), `ui/CharacterCreator.ts`, dressing room venue; your character at the decks in every venue | Modelled character, hair and outfits (Blender, Section 14) |
 | **5.2** | Venues (Bedroom → Sunrise) | Partial (Stage 3) | Bedroom (tutorial, stream chat, raid) and Basement (red light, mirror ball, drips at the peak) built; the Warehouse exists; 6 real-world rooms for free play; venue acoustics (`audio/room.ts`) | Rooftop, Beach Club, Boat, Festival and Sunrise; booking-based unlocks (Stage 6) |
 | **5.3** | Set slots | Exists (Stage 3) | `game/vibe.ts` `SLOTS`: warm-up, peak time, closing, after-hours, each with a target curve and a promoter brief | — |
 | **6.1** | Assist levels | Exists (Stage 3) | `game/Gig.ts`, `app/gigs.ts`: Chill (auto sync and key), Club, Pro (no sync, no key hints, ×1.5) | — |
@@ -101,7 +101,7 @@ scripts/               build-single (one-file HTML), build-wasm
 | **6.6** | Transition recognition | Exists (Stage 3) | `game/vibe.ts`: long blend, bass swap, filter fade, echo out, loop roll, quick cut, double drop, clean mix, with points | — |
 | **6.7** | Vibe meter | Exists (Stage 3) | `game/vibe.ts`: slot match, drift, fatigue, drop spacing, dead air, redline, repeats, too hard in a warm-up, comeback; drives lights, crowd, chat and the Bedroom's raid / Basement's peak | Camera energy |
 | **6.8** | Crate digging | Exists (Stage 3) | `ui/LibraryPanel.ts`: energy 1–10, the brief's tags, favourites, `tag:` and `energy:` search, an "imported" badge, the First Gigs crate | — |
-| **6.9** | Set lengths, results screen, encore | Exists (Stage 3) | 10 / 20 / 30 / 60 min; `ui/Results.ts` (grade, graph, best transition, crowd peak, rewards, milestones); encore at 75 % vibe | Replay and highlights wait on the replay buffer (Stage 4) |
+| **6.9** | Set lengths, results screen, encore | Exists (Stage 3) | 10 / 20 / 30 / 60 min; `ui/Results.ts` (grade, graph, best transition, crowd peak, rewards, milestones); encore at 75 % vibe | — (replay and highlights came with Stage 4) |
 | **6.10** | B2B rivals | Missing | Auto DJ is the base | Personalities, turn-taking, chemistry |
 | **6.11** | Mistakes and recovery | Exists (Stage 3) | Trainwrecks, dead air, redline, drop spam, fatigue; the sound engineer and promoter react; comeback bonus | — |
 | **7.1–7.2** | 40+ original tracks with metadata and markers | Partial (Stage 3) | 45 synthesised tracks (13 new originals), all with section markers, energy and tags (`game/tracks.ts`) | Lane balance: some older demos are techno and breaks |
@@ -115,11 +115,11 @@ scripts/               build-single (one-file HTML), build-wasm
 | **9** | Currencies, tiers, bookings, reputation, milestones, feed, hub | Missing | — | Everything (Stage 6). Stage 1 adds the save model for it |
 | **10.1** | Design system | Partial | Tokens, shared widgets, beat-pulsing meters | Brief palette and type; chrome treatment |
 | **10.2** | Screens | Partial | Studio screens (decks, mixer, library, show, settings, set builder); name entry, creator, wardrobe (Stage 2); pre-gig and results (Stage 3) | Title, hub, My Sets, trim, board builder, bookings, feed |
-| **10.3** | In-gig HUD with clean view | Exists (Stage 3) | `ui/GigHud.ts`: vibe meter with the slot target, mood, set timer, REC dot, assist chips, clean view, End set | The replay buffer dot (Stage 4) |
+| **10.3** | In-gig HUD with clean view | Exists (Stage 3) | `ui/GigHud.ts`: vibe meter with the slot target, mood, set timer, REC dot, assist chips, clean view, End set | — (the replay buffer dot came with Stage 4) |
 | **10.4** | Juice | Partial | Pads, knobs and faders animate; toasts | UI sounds |
 | **10.5** | Input | Partial | Mouse, keyboard (remappable), touch on the software UI, MIDI | Gamepad; touch on the 3D board |
-| **11** | Recording studio | Partial | `audio/Recorder.ts`: audio only, WebM/Opus | WAV / MP3 export, video, booth cam, quality, overlays, cover art, tracklist, My Sets, storage (Stage 4) |
-| **12** | Replay buffer, Save That Mix, trim editor | Missing | — | Stage 4 |
+| **11** | Recording studio | Exists (Stage 4) | `media/Studio.ts`, `media/Compositor.ts`, `media/MediaWriter.ts` (WebCodecs → own WebM / MP4 muxers), `audio/capture/` (lossless tap, WAV, MP3), `media/cover.ts`, `ui/RecordPanel.ts`, `ui/SetView.ts`, `ui/MySetsPanel.ts` | H.264 MP4 untested in this container; room sound on recordings not offered |
+| **12** | Replay buffer, Save That Mix, trim editor | Exists (Stage 4) | `media/Replay.ts` (24-bit ring, 720p video ring, stills), `media/reencode.ts`, `media/demux.ts`, `ui/TrimEditor.ts`, smart markers in `app/recording.ts` | — |
 | **13** | Board Builder | Partial | 7 presets built from modular parts (`three/builder.ts`, `parts.ts`), finishes, stickers; every control works | The editor, inspector, add-ons, node wiring, sharing and the board file format are all missing (Stage 5) |
 | **13.10** | Hardware mapping | Partial | MIDI learn with saved mappings, keyboard remap | Gamepad; per-board profiles |
 | **14** | Blender pipeline and models | Missing | No Blender, no connector, no model files | Folders, export scripts and loader added in Stage 1; **modelling is blocked on Blender access** (see the questions at the end) |
@@ -144,7 +144,7 @@ scripts/               build-single (one-file HTML), build-wasm
 | `LightingSystem` | `src/three/venues/show.ts` + fixtures | Stage 3 moves it onto BeatClock events |
 | `CrowdSystem` | `crowd.ts`, `farcrowd.ts`, `app/Hype.ts` | Stage 3: crowd states in `crowd.ts`, crowd sound in `audio/crowd.ts`; `Hype.ts` removed |
 | `VibeMeter` | `app/Hype.ts` (partial) | Stage 3: `src/game/vibe.ts`, run by `src/game/Gig.ts` and `src/app/gigs.ts` |
-| `RecordingSystem` / `ReplayBuffer` | `audio/Recorder.ts` (partial) | Stage 4 |
+| `RecordingSystem` / `ReplayBuffer` | `audio/Recorder.ts` (partial) | Stage 4: `media/Studio.ts`, `media/Replay.ts`, `audio/capture/`, `app/recording.ts` |
 | `BoardBuilder` | `three/boards.ts`, `builder.ts`, `parts.ts` (presets only) | Stage 5 |
 | `InputMapping` | `core/controls.ts`, `app/keyboard.ts`, `midi/MidiManager.ts` | Stage 5 / 7 (gamepad) |
 | `ProgressionSystem` | — | Data model in Stage 1; system in Stage 6 |

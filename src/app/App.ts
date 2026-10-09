@@ -32,7 +32,9 @@ import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
 import { GigDirector, type Callout } from './gigs';
 import { roomFor } from '../audio/room';
-import { Director } from '../three/director';
+import { Director, sectionOf } from '../three/director';
+import { RecordingDesk } from './recording';
+import { MySetsPanel } from '../ui/MySetsPanel';
 import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
 import { registerLightControls } from './lightControls';
@@ -69,11 +71,11 @@ const GIG_VENUES = ['bedroom', 'basement'];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
 const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, dressing: 0, naming: 0 };
 
-type TabId = 'library' | 'sets' | 'mixer' | 'show' | 'settings';
+type TabId = 'library' | 'sets' | 'mysets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */
 const OLD_TABS: Record<string, TabId> = { lights: 'show', visuals: 'show', sampler: 'mixer' };
 /** labels for narrow screens */
-const TAB_SHORT: Partial<Record<TabId, string>> = { sets: 'Sets', mixer: 'Mixer' };
+const TAB_SHORT: Partial<Record<TabId, string>> = { sets: 'Builder', mysets: 'My Sets', mixer: 'Mixer' };
 
 export class App implements AppContext {
   engine!: AudioEngine;
@@ -123,6 +125,10 @@ export class App implements AppContext {
   private last = 0;
   private frame = 0;
   private director = new Director();
+  private desk!: RecordingDesk;
+  private mySets!: MySetsPanel;
+  /** when the drop punch-in fires (performance.now), 0 for none */
+  private punchAt = 0;
   private slowT = 0;
   private autodj!: AutoDJ;
   private setsPanel!: SetBuilderPanel;
@@ -277,7 +283,10 @@ export class App implements AppContext {
     });
     this.midi = new MidiManager(this.reg);
     this.features = new AudioFeatures(this.engine.visAnalyser, this.engine);
-    this.clock.onDrop(() => (this.clockDrop = true));
+    this.clock.onDrop(() => {
+      this.clockDrop = true;
+      this.desk?.mark('drop', 'Drop');
+    });
     // the DJ name on every surface follows the profile
     nameService.set(this.career.profile);
     this.career.changed.on('profile', (p) => nameService.set(p));
@@ -315,6 +324,24 @@ export class App implements AppContext {
     });
     this.stage.directing = this.settings.director;
     this.stage.lensPick = prefs.lens;
+    this.desk = new RecordingDesk({
+      engine: this.engine,
+      stage: this.stage,
+      career: this.career,
+      reg: this.reg,
+      venue: () => {
+        const v = venueById(this.settings.venue);
+        return { id: v.id, name: v.name };
+      },
+      venueName: (id) => venueById(id).name,
+      pictureTime: () => this.engine.ctx.currentTime - avDelay(this.engine.ctx, prefs.avOffset),
+      setLabel: () => this.gigs.slotLabel() ?? 'Free play',
+      record: { get: () => this.settings.record, save: (r) => ((this.settings.record = r as unknown as Record<string, unknown>), this.save()) },
+      replay: { get: () => this.settings.replay, save: (r) => ((this.settings.replay = r as unknown as Record<string, unknown>), this.save()) },
+      director: { on: () => this.settings.director, set: (on) => this.setDirector(on, true), goTo: (v) => this.stage.goTo(v) },
+      onBar: (fn) => this.clock.onBar(fn),
+      trim: (r, at) => void this.desk.trim(r, at),
+    });
     this.gigs = new GigDirector({
       engine: this.engine,
       career: this.career,
@@ -334,7 +361,10 @@ export class App implements AppContext {
       showCrate: (id) => this.libPanel.showCrate(id),
       currentCrate: () => this.libPanel.currentCrate(),
       openCreator: () => this.creator?.show(),
-      recording: () => this.engine.recorder.recording,
+      recording: () => this.desk.recording.on,
+      mark: (kind, label) => this.desk.mark(kind, label),
+      finished: (grade) => this.desk.gigFinished(grade),
+      replay: () => (this.desk.replay.on ? { save: async () => !!(await this.desk.saveMix()), moment: (label) => void this.desk.replayMoment(label), clear: () => this.desk.replay.clear() } : null),
       djName: () => nameService.text,
       autoDJOff: () => this.setAutoDJ(false),
       press: (id) => this.reg.press(id, 'ui'),
@@ -512,14 +542,15 @@ export class App implements AppContext {
       gig: () => this.gigs.openSetup(),
       beat: () => this.features.f.beatPulse,
       live: () => (this.settings.venue === 'boilerroom' ? (this.viewers >= 1000 ? `${(this.viewers / 1000).toFixed(1)}k` : String(Math.round(this.viewers))) : null),
-      record: () => void this.toggleRecord(),
+      record: () => void this.desk.toggle(),
+      recordMenu: () => this.desk.openSettings(),
       midi: () => this.showTab('settings'),
       menu: (x, y) => this.moreMenu(x, y),
       uiMode: () => this.settings.uiMode,
       setUiMode: (m) => this.setUiMode(m),
       boardName: () => this.boardDef.name,
       midiConnected: () => !!this.midi.access && this.midi.devices().length > 0,
-      recording: () => ({ on: this.engine.recorder.recording, elapsed: this.engine.recorder.elapsed }),
+      recording: () => this.desk.recording,
     });
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
@@ -581,7 +612,8 @@ export class App implements AppContext {
         for (const t of this.library.list()) if (t.source === 'file') await this.library.deleteTrack(t.id);
       },
     });
-    // five tabs: the sampler lives with the mixer, lights / venue / visuals / lyrics are "Show"
+    this.mySets = new MySetsPanel({ sets: this.desk.sets, open: (r) => this.desk.view(r), trim: (r) => void this.desk.trim(r), venueName: (id) => venueById(id).name });
+    // six tabs: the sampler lives with the mixer, lights / venue / visuals / lyrics are "Show"
     const mixerTab = h('div', { class: 'mixer-tab' }, mixer.el, fx.el, sampler.el);
     const showTab = h('div', { class: 'show-tab' }, lights.el, visuals.el);
     const settingsTab = h('div', { class: 'settings-tab' }, this.setupPanel.el, midi.el);
@@ -589,6 +621,7 @@ export class App implements AppContext {
     const defs: [TabId, string, HTMLElement, ((dt: number) => void) | undefined][] = [
       ['library', 'Library', this.libPanel.el, undefined],
       ['sets', 'Set Builder', sets.el, undefined],
+      ['mysets', 'My Sets', this.mySets.el, undefined],
       ['mixer', 'Mixer & FX', mixerTab, (dt) => {
         mixer.update(dt, this.meters);
         fx.update();
@@ -780,12 +813,13 @@ export class App implements AppContext {
   }
 
   /** The auto director: the camera cuts between angles with the music; any hand on the camera stops it. */
-  private setDirector(on: boolean): void {
+  private setDirector(on: boolean, quiet = false): void {
     if (on === this.settings.director) return;
     this.settings.director = on;
     this.stage.directing = on;
     if (on) this.director.reset();
-    toast(on ? 'Auto director on: the camera cuts with the music. Move the camera to take over.' : 'Auto director off');
+    else this.stage.rig.orbit = 0;
+    if (!quiet) toast(on ? 'Auto director on: the camera cuts with the music. Move the camera to take over.' : 'Auto director off');
     this.save();
   }
 
@@ -1034,26 +1068,6 @@ export class App implements AppContext {
     contextMenu(x, y, items);
   }
 
-  private async toggleRecord(): Promise<void> {
-    const rec = this.engine.recorder;
-    if (!rec.supported) {
-      toast('Recording is not supported in this browser.', 'error');
-      return;
-    }
-    await this.engine.resume();
-    if (!rec.recording) {
-      if (rec.start()) toast('Recording the master output');
-      else toast('Could not start recording.', 'error');
-      return;
-    }
-    const r = await rec.stop();
-    if (!r) return;
-    const name = `deckhouse-mix-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')}.${r.ext}`;
-    const audio = h('audio', { controls: true, src: r.url, style: { width: '100%' } });
-    const link = h('a', { class: 'btn primary', href: r.url, download: name }, 'Save recording');
-    openModal('Your mix', h('div', { style: { display: 'grid', gap: '10px' } }, audio, h('div', {}, link), h('p', { class: 'note' }, `${(r.blob.size / 1048576).toFixed(1)} MB · ${r.blob.type}. If the save button does nothing (some embedded viewers block downloads), open the page on its own to save the file.`)));
-  }
-
   private bindGlobalDrop(): void {
     let overlay: HTMLElement | null = null;
     let depth = 0;
@@ -1220,9 +1234,22 @@ export class App implements AppContext {
   private direct(): void {
     const s = this.stage.show.state;
     // cuts land on the clock's bars and drops; the show supplies how built-up / peaking it is
-    const v = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: this.clockDrop }, this.stage.rig.view);
+    const drop = this.clockDrop;
+    const v = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop }, this.stage.rig.view);
     this.clockDrop = false;
-    if (v) this.stage.cutTo(v);
+    if (v) {
+      this.stage.cutTo(v);
+      // the drop punch-in lands once the cut has (Section 2.5)
+      if (drop) this.punchAt = performance.now() + 220;
+    }
+    if (this.punchAt && performance.now() >= this.punchAt) {
+      this.punchAt = 0;
+      this.stage.rig.punch(this.stage.visualizer.settings.shake);
+    }
+    // the breakdown orbit: still shots drift round the booth while the track breathes
+    const sec = sectionOf({ playing: this.clock.playing, build: s.build, peak: s.peak });
+    const want = sec === 'breakdown' || sec === 'build' ? Math.min(1, s.build * 1.3) : 0;
+    this.stage.rig.orbit += (want - this.stage.rig.orbit) * 0.04;
   }
 
   private setFpsMeter(on: boolean): void {
@@ -1294,6 +1321,7 @@ export class App implements AppContext {
       this.creator?.update(dt);
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
       this.stage.hype = this.gigs.update(dt, f);
+      this.desk.update(dt, this.stage.hype);
       this.engine.crowd.update(dt, this.stage.hype, this.clock.playing);
       this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);

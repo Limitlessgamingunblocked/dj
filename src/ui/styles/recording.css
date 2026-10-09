@@ -1,0 +1,279 @@
+/* Recording studio, replay buffer, My Sets, trim editor (Sections 11, 12) */
+
+.rec-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rec-group .rec-btn {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.rec-menu {
+  padding: 0 7px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  color: #ffb3c0;
+}
+
+.rec-btn.counting .dot {
+  background: var(--live);
+  animation: pulse 0.5s infinite;
+}
+
+/* the replay buffer is running: a quiet dot, not a light show */
+.buf-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #3ddc97;
+  opacity: 0.55;
+}
+
+/* the count-in over the stage */
+.rec-count {
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-label);
+  font-weight: 900;
+  font-size: min(34vh, 220px);
+  color: #fff;
+  text-shadow: 0 0 40px rgb(255 46 46 / 70%);
+  pointer-events: none;
+}
+
+.rec-count.pulse {
+  animation: rec-count 0.45s ease-out;
+}
+
+@keyframes rec-count {
+  from {
+    transform: scale(1.35);
+    opacity: 0.2;
+  }
+}
+
+.rec-panel .rp-h {
+  margin: 14px 0 2px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rp-overlays {
+  display: grid;
+  gap: 6px;
+}
+
+.rp-wm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-wm select {
+  max-width: 190px;
+}
+
+.rp-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rp-size {
+  color: #ffb547;
+}
+
+/* one set */
+.set-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+}
+
+.sv-media {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.sv-cover {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #111;
+  object-fit: cover;
+}
+
+.sv-video {
+  width: 100%;
+  max-height: 62vh;
+  border-radius: 8px;
+  background: #000;
+}
+
+.sv-video.a-9x16 {
+  width: auto;
+  max-width: 100%;
+  justify-self: center;
+}
+
+.sv-audio {
+  width: 100%;
+}
+
+.sv-side {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+
+.sv-head {
+  display: flex;
+  gap: 8px;
+}
+
+.sv-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sv-facts {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sv-exports {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sv-tracks {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  max-height: 210px;
+  overflow: auto;
+  font-size: 13px;
+}
+
+.sv-tracks li {
+  padding: 3px 0;
+  border-bottom: 1px solid rgb(255 255 255 / 6%);
+}
+
+.sv-tracks .mono {
+  color: var(--muted);
+}
+
+.sv-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sv-hint {
+  grid-column: 1 / -1;
+}
+
+.btn.danger {
+  color: #ff8fa3;
+}
+
+@media (max-width: 720px) {
+  .set-view {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* the in-gig HUD: buffer dot and its buttons */
+.gh-buf {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3ddc97;
+  opacity: 0.6;
+}
+
+.gh-bufbtns {
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* the trim editor */
+.trim-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.tr-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.tr-preview video,
+.tr-preview canvas {
+  width: 100%;
+  max-height: 46vh;
+  border-radius: 8px;
+  background: #000;
+  display: block;
+  object-fit: contain;
+}
+
+.tr-side {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.tr-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.tr-sel {
+  color: #ffb547;
+}
+
+.tr-canvas {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.tr-marks {
+  max-height: 84px;
+  overflow: auto;
+}
+
+@media (max-width: 720px) {
+  .tr-top {
+    grid-template-columns: 1fr;
+  }
+}

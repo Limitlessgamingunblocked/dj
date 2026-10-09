@@ -2,6 +2,7 @@
  * and prepares the WebAssembly DSP binary for the processors. */
 import deckSrc from './worklets/deck-processor.js?raw';
 import fxSrc from './worklets/fx-processors.js?raw';
+import captureSrc from './worklets/capture-processor.js?raw';
 import { DSP_WASM_BASE64 } from './wasm/dspWasm';
 import { base64ToBytes } from '../core/util';
 
@@ -9,7 +10,7 @@ let wasmBytes: Uint8Array | null = null;
 let wasmUsable: boolean | null = null;
 
 export async function loadWorklets(ctx: BaseAudioContext): Promise<void> {
-  for (const src of [deckSrc, fxSrc]) {
+  for (const src of [deckSrc, fxSrc, captureSrc]) {
     const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
     try {
       await ctx.audioWorklet.addModule(url);

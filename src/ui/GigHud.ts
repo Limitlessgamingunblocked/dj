@@ -23,12 +23,17 @@ export interface HudState {
   venue: string;
   /** master redline, 0..1: the meter flashes red when you're clipping */
   redline: number;
+  /** the replay buffer is running (Section 12.2: a subtle dot) */
+  buffer: boolean;
 }
 
 export interface HudHooks {
   setAssist(a: Assist): void;
   end(): void;
   clean(on: boolean): void;
+  /** SAVE THAT MIX and CLIP IT (the replay buffer) */
+  saveMix(): void;
+  clip(): void;
 }
 
 const mmss = (s: number) => {
@@ -42,6 +47,8 @@ export class GigHud {
   private mood: HTMLElement;
   private timer: HTMLElement;
   private rec: HTMLElement;
+  private buf: HTMLElement;
+  private bufBtns: HTMLElement;
   private where: HTMLElement;
   private msg: HTMLElement;
   private assistBtns = new Map<Assist, HTMLButtonElement>();
@@ -55,6 +62,12 @@ export class GigHud {
     this.mood = h('span', { class: 'gh-mood' });
     this.timer = h('span', { class: 'gh-time', 'aria-label': 'Time left in the set' });
     this.rec = h('span', { class: 'gh-rec', title: 'Recording' }, 'REC');
+    this.buf = h('span', { class: 'gh-buf', title: 'Replay buffer on: the last few minutes are kept' });
+    const saveMix = h('button', { type: 'button', class: 'gh-btn', title: 'SAVE THAT MIX (Shift+S): keep the replay buffer' }, '⟲ Save mix');
+    saveMix.addEventListener('click', () => this.hooks.saveMix());
+    const clip = h('button', { type: 'button', class: 'gh-btn', title: 'CLIP IT (Shift+C): the last 30 seconds, vertical' }, '✂ Clip');
+    clip.addEventListener('click', () => this.hooks.clip());
+    this.bufBtns = h('span', { class: 'gh-bufbtns' }, saveMix, clip);
     this.where = h('span', { class: 'gh-where' });
     const assists = h('div', { class: 'gh-assist', role: 'radiogroup', 'aria-label': 'Assist level' });
     for (const a of ASSISTS) {
@@ -73,7 +86,7 @@ export class GigHud {
     this.el = h(
       'div',
       { class: 'gig-hud' },
-      h('div', { class: 'gh-main' }, h('div', { class: 'gh-row' }, this.where, this.mood, this.timer, this.rec), meter, h('div', { class: 'gh-row gh-tools' }, assists, this.cleanBtn, end)),
+      h('div', { class: 'gh-main' }, h('div', { class: 'gh-row' }, this.where, this.mood, this.timer, this.rec, this.buf), meter, h('div', { class: 'gh-row gh-tools' }, assists, this.bufBtns, this.cleanBtn, end)),
       this.msg,
       this.showBtn,
     );
@@ -102,6 +115,8 @@ export class GigHud {
     setText(this.timer, s.phase === 'waiting' ? 'Press play' : s.phase === 'encore' ? 'Encore' : mmss(s.remaining));
     setClass(this.timer, 'low', s.phase === 'live' && s.remaining < 60);
     setClass(this.rec, 'on', s.recording);
+    this.buf.hidden = !s.buffer;
+    this.bufBtns.hidden = !s.buffer;
     setClass(this.el, 'red', s.redline > 0.5);
     setText(this.where, `${s.venue} · ${s.slot}`);
     for (const [id, b] of this.assistBtns) {
