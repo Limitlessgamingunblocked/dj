@@ -17,6 +17,12 @@ export interface VisMode {
   scene: THREE.Scene;
   camera: THREE.Camera;
   update(f: Features, dt: number): void;
+  /** offscreen work before the frame is drawn (feedback buffers) */
+  prerender?(r: THREE.WebGLRenderer): void;
+  /** offscreen scenes to compile ahead of time, so the first switch doesn't stall */
+  warm?: THREE.Scene[];
+  /** the mode is off screen: let go of big buffers until it comes back */
+  sleep?(): void;
   resize(w: number, h: number): void;
   dispose(): void;
 }
@@ -554,10 +560,10 @@ export function crtMode(): VisMode {
 }
 
 export const MODE_FACTORIES: (() => VisMode)[] = [warpMode, matrixMode, galaxyMode, gridMode, crtMode];
-export const MODE_INFO = [
-  { id: 'warp', name: 'Warp Tunnel', blurb: 'Infinite tunnel, a ring passes on every beat' },
-  { id: 'matrix', name: 'Spectrum Matrix', blurb: '3D bar matrix with a scrolling spectrogram' },
-  { id: 'galaxy', name: 'Particle Galaxy', blurb: '70k particles that burst on kicks and explode on drops' },
-  { id: 'grid', name: 'Wave Grid', blurb: 'Neon frequency terrain racing toward a sunset' },
-  { id: 'crt', name: 'CRT Monitor', blurb: 'Vintage phosphor scope, spectrum and beat counter' },
+export const MODE_INFO: { id: string; name: string; blurb: string; energy: 'calm' | 'mid' | 'peak' }[] = [
+  { id: 'warp', name: 'Warp Tunnel', blurb: 'Infinite tunnel, a ring passes on every beat', energy: 'mid' },
+  { id: 'matrix', name: 'Spectrum Matrix', blurb: '3D bar matrix with a scrolling spectrogram', energy: 'mid' },
+  { id: 'galaxy', name: 'Particle Galaxy', blurb: '70k particles that burst on kicks and explode on drops', energy: 'peak' },
+  { id: 'grid', name: 'Wave Grid', blurb: 'Neon frequency terrain racing toward a sunset', energy: 'calm' },
+  { id: 'crt', name: 'CRT Monitor', blurb: 'Vintage phosphor scope, spectrum and beat counter', energy: 'calm' },
 ];

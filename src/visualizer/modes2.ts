@@ -7,83 +7,8 @@
  *   chrome   – raymarched liquid-chrome blobs pumping with the bass
  *   fractal  – flight through a neon fractal tunnel at the track's tempo
  */
-import * as THREE from 'three';
-import type { Features } from './AudioFeatures';
-import { fullscreenQuad, PALETTE, spectrumTexture, writeSpectrum, type VisMode } from './modes';
-
-const COMMON = /* glsl */ `
-  precision highp float;
-  varying vec2 vUv;
-  uniform float uTime, uBeat, uBar, uPulse, uKick, uSnare, uHigh, uSub, uLevel, uDrop, uHue, uBuild, uTravel, uI;
-  uniform vec2 uRes;
-  uniform sampler2D uSpec;
-  ${PALETTE}
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float noise(vec2 p) {
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
-  }
-  float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }
-  mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
-  vec2 screen() { return (vUv - 0.5) * vec2(uRes.x / uRes.y, 1.0); }
-`;
-
-function shaderMode(id: string, name: string, blurb: string, body: string, travelSpeed = 1): VisMode {
-  const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const spec = spectrumTexture();
-  const u: Record<string, THREE.IUniform> = {
-    uTime: { value: 0 },
-    uBeat: { value: 0 },
-    uBar: { value: 0 },
-    uPulse: { value: 0 },
-    uKick: { value: 0 },
-    uSnare: { value: 0 },
-    uHigh: { value: 0 },
-    uSub: { value: 0 },
-    uLevel: { value: 0 },
-    uDrop: { value: 0 },
-    uHue: { value: 0 },
-    uBuild: { value: 0 },
-    uTravel: { value: 0 },
-    uI: { value: 1 },
-    uRes: { value: new THREE.Vector2(16, 9) },
-    uSpec: { value: spec },
-  };
-  scene.add(fullscreenQuad(COMMON + body, u));
-  return {
-    id,
-    name,
-    blurb,
-    scene,
-    camera,
-    update(f: Features, dt: number) {
-      const i = f.intensity;
-      u.uTime.value += dt;
-      u.uBeat.value = f.beatCount + f.beatPhase;
-      u.uBar.value = Math.floor(f.beatCount / 4);
-      u.uPulse.value = f.beatPulse * i;
-      u.uKick.value = f.kickPulse * i;
-      u.uSnare.value = f.snarePulse * i;
-      u.uHigh.value = f.high;
-      u.uSub.value = f.sub;
-      u.uLevel.value = f.level;
-      u.uDrop.value = f.drop * i;
-      u.uHue.value = f.hue;
-      u.uBuild.value = f.breakdown;
-      u.uI.value = i;
-      u.uTravel.value += dt * (f.bpm / 60) * travelSpeed * (f.playing ? 1 : 0.12) * (1 + f.kickPulse * 0.5 * i);
-      writeSpectrum(spec, f.spectrum);
-    },
-    resize(w: number, h: number) {
-      (u.uRes.value as THREE.Vector2).set(w, h);
-    },
-    dispose() {
-      spec.dispose();
-    },
-  };
-}
+import type { VisMode } from './modes';
+import { shaderMode, type ModeInfo } from './kit';
 
 export function laserMode(): VisMode {
   return shaderMode(
@@ -104,7 +29,7 @@ export function laserMode(): VisMode {
       float haze = 0.45 + 0.9 * fbm(p * 2.5 + vec2(uTime * 0.07, -uTime * 0.05));
       vec3 col = vec3(0.0);
       float peak = clamp(uDrop * 1.4, 0.0, 1.0);
-      float gate = mix(1.0, step(0.5, fract(uBeat * 2.0)), peak);
+      float eighth = mix(1.0, gate(2.0, 0.5), peak);
       for (int s = 0; s < 3; s++) {
         float fs = float(s);
         vec2 o = s == 0 ? vec2(0.0, -0.58) : vec2(fs == 1.0 ? -0.95 : 0.95, -0.52);
@@ -115,7 +40,7 @@ export function laserMode(): VisMode {
         float lvl = 0.0;
         for (int i = 0; i < 12; i++) {
           float fi = float(i) / 11.0 - 0.5;
-          float g = mod(float(i) + floor(uBeat * 2.0), 2.0) < 1.0 ? 1.0 : gate;
+          float g = mod(float(i) + floor(uBeat * 2.0), 2.0) < 1.0 ? 1.0 : eighth;
           lvl += beam(p, o, base + fi * spread, 0.0022) * g;
         }
         col += c * lvl * (0.55 + 0.45 * uPulse + uKick * 0.4);
@@ -124,8 +49,8 @@ export function laserMode(): VisMode {
       col *= haze;
       // floor reflection
       if (p.y < -0.5) col *= 0.35 + 0.2 * fbm(p * 8.0);
-      float strobe = peak * step(0.72, fract(uBeat * 4.0));
-      col += vec3(strobe * 0.35);
+      float strobe = peak * gate(4.0, 0.28);
+      col += vec3(strobe * 0.35 * flashAmp());
       col += vec3(0.02, 0.01, 0.03) * haze;
       gl_FragColor = vec4(col * (0.7 + 0.5 * uI), 1.0);
     }`,
@@ -200,7 +125,7 @@ export function strobeMode(): VisMode {
       v *= 0.12 + 0.88 * fade;
       float drop = clamp(uDrop * 1.5, 0.0, 1.0);
       if (mod(b, 2.0) > 0.5 && drop > 0.3) v = 1.0 - v;
-      float strobe = drop * step(0.65, fract(uBeat * 4.0));
+      float strobe = drop * gate(4.0, 0.35) * flashAmp();
       v = max(v, strobe);
       v += uSnare * 0.15 * step(0.5, hash(floor(p * 40.0) + b));
       vec3 tint = mix(vec3(1.0), pow(palette(0.0, uHue), vec3(0.5)), clamp(uI - 1.0, 0.0, 0.5) * 2.0);
@@ -298,7 +223,7 @@ export function fractalMode(): VisMode {
       }
       vec3 col = glow * (0.05 + 0.06 * uPulse + 0.06 * uDrop);
       col = 1.0 - exp(-col * 1.6);
-      col += vec3(1.0) * uDrop * step(0.8, fract(uBeat * 4.0)) * 0.2;
+      col += vec3(1.0) * uDrop * gate(4.0, 0.2) * 0.2 * flashAmp();
       gl_FragColor = vec4(col * (0.8 + 0.3 * uI), 1.0);
     }`,
     1,
@@ -306,10 +231,10 @@ export function fractalMode(): VisMode {
 }
 
 export const MORE_MODES: (() => VisMode)[] = [laserMode, kaleidoMode, strobeMode, chromeMode, fractalMode];
-export const MORE_INFO = [
-  { id: 'lasers', name: 'Laser Show', blurb: 'Three projectors fanning lasers through haze, gated on the beat' },
-  { id: 'kaleido', name: 'Kaleidoscope', blurb: 'Fractal kaleidoscope, new symmetry every four bars, zooms on kicks' },
-  { id: 'strobe', name: 'Strobe Geometry', blurb: 'Hard black-and-white geometry, a new pattern every bar' },
-  { id: 'chrome', name: 'Liquid Chrome', blurb: 'Raymarched chrome blobs that pump with the bass' },
-  { id: 'fractal', name: 'Fractal Flight', blurb: 'Fly through a neon fractal tunnel at the track’s tempo' },
+export const MORE_INFO: ModeInfo[] = [
+  { id: 'lasers', name: 'Laser Show', blurb: 'Three projectors fanning lasers through haze, gated on the beat', energy: 'peak' },
+  { id: 'kaleido', name: 'Kaleidoscope', blurb: 'Fractal kaleidoscope, new symmetry every four bars, zooms on kicks', energy: 'mid' },
+  { id: 'strobe', name: 'Strobe Geometry', blurb: 'Hard black-and-white geometry, a new pattern every bar', energy: 'peak' },
+  { id: 'chrome', name: 'Liquid Chrome', blurb: 'Raymarched chrome blobs that pump with the bass', energy: 'calm' },
+  { id: 'fractal', name: 'Fractal Flight', blurb: 'Fly through a neon fractal tunnel at the track’s tempo', energy: 'peak' },
 ];

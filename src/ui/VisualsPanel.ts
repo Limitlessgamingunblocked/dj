@@ -2,7 +2,14 @@
 import type { Stage, StageView } from '../three/Stage';
 import { LYRIC_STYLES } from '../visualizer/LyricsLayer';
 import { Visualizer } from '../visualizer/Visualizer';
+import type { Energy } from '../visualizer/kit';
 import { h, setClass } from './dom';
+
+const GROUPS: [Energy, string, string][] = [
+  ['calm', 'Calm', 'Breakdowns and warm-ups'],
+  ['mid', 'Groove', 'The body of the set'],
+  ['peak', 'Peak', 'Drops and the big moments'],
+];
 
 export class VisualsPanel {
   readonly el: HTMLElement;
@@ -16,15 +23,20 @@ export class VisualsPanel {
     private setView: (v: StageView, fullscreen?: boolean) => void,
   ) {
     const vis = stage.visualizer;
-    const modes = h('div', { class: 'vis-modes' });
-    for (const m of Visualizer.modeInfo()) {
-      const b = h('button', { class: 'vis-mode', type: 'button' }, h('b', {}, m.name), h('span', {}, m.blurb));
-      b.addEventListener('click', () => {
-        vis.setMode(m.id);
-        this.onChange();
-      });
-      this.modeBtns.set(m.id, b);
-      modes.append(b);
+    // the modes in three groups by how hard they hit: the auto VJ uses the same groups
+    const modes = h('div', { class: 'vis-groups' });
+    for (const [energy, title, note] of GROUPS) {
+      const grid = h('div', { class: 'vis-modes' });
+      for (const m of Visualizer.modeInfo().filter((x) => x.energy === energy)) {
+        const b = h('button', { class: 'vis-mode', type: 'button' }, h('b', {}, m.name), h('span', {}, m.blurb));
+        b.addEventListener('click', () => {
+          vis.setMode(m.id);
+          this.onChange();
+        });
+        this.modeBtns.set(m.id, b);
+        grid.append(b);
+      }
+      modes.append(h('section', { class: 'vis-group', 'data-energy': energy }, h('h4', {}, title, h('span', {}, note)), grid));
     }
     const views: [StageView, string][] = [
       ['booth', 'Booth (LED wall)'],
@@ -42,14 +54,14 @@ export class VisualsPanel {
     full.addEventListener('click', () => this.setView('visual', true));
 
     const s = vis.settings;
-    const toggle = (label: string, get: () => boolean, set: (v: boolean) => void, id: string) => {
+    const toggle = (label: string, get: () => boolean, set: (v: boolean) => void, id: string, title?: string) => {
       const inp = h('input', { type: 'checkbox', id }) as HTMLInputElement;
       inp.checked = get();
       inp.addEventListener('change', () => {
         set(inp.checked);
         this.onChange();
       });
-      return h('label', { for: id, class: 'btn', style: { gap: '6px' } }, inp, label);
+      return h('label', { for: id, class: 'btn', style: { gap: '6px' }, title }, inp, label);
     };
     const intensity = h('input', { type: 'range', min: 0, max: 1.5, step: 0.05, value: s.intensity, id: 'vis-intensity', 'aria-label': 'Reaction intensity' }) as HTMLInputElement;
     intensity.addEventListener('input', () => {
@@ -85,7 +97,7 @@ export class VisualsPanel {
     this.el = h(
       'div',
       { class: 'pane', style: { display: 'grid', gap: '14px' } },
-      h('div', {}, h('h3', {}, 'Visual player'), h('p', { class: 'note' }, 'Plays on the venue screens, locked to the beat.')),
+      h('div', {}, h('h3', {}, 'Visual player'), h('p', { class: 'note' }, 'Plays on the venue screens, locked to the beat. Modes change over on the beat; turn on Auto VJ and it picks them for you.')),
       modes,
       h('div', { class: 'toggle-row' }, viewRow, full),
       h(
@@ -95,7 +107,7 @@ export class VisualsPanel {
         toggle('Chromatic aberration', () => s.aberration, (v) => (s.aberration = v), 'vis-ab'),
         toggle('Camera shake', () => s.shake, (v) => (s.shake = v), 'vis-shake'),
         toggle('Palette shift on drops', () => s.palette, (v) => (s.palette = v), 'vis-pal'),
-        toggle('Auto-cycle modes', () => s.autoCycle, (v) => (s.autoCycle = v), 'vis-cycle'),
+        toggle('Auto VJ', () => s.autoCycle, (v) => (s.autoCycle = v), 'vis-cycle', 'Picks modes to fit the music: a change every 8 bars, calm ones in breakdowns, a peak mode on the drop'),
         toggle('Reactive club lights', () => stage.reactiveLights, (v) => (stage.reactiveLights = v), 'vis-lights'),
       ),
       h('label', { class: 'field', for: 'vis-intensity', style: { maxWidth: '360px' } }, 'Reaction intensity', intensity),

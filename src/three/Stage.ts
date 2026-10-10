@@ -948,6 +948,7 @@ export class Stage {
     const needVis = this.view !== 'booth' || (!!venue && this.onScreen(venue.visObjects));
     const visFrame = this.view !== 'booth' || this.adaptive.step.visualizerFull || this.frame % 2 === 0;
     if (needVis && visFrame) {
+      this.visualizer.safe = this.show.controls.reduceFlash;
       this.visualizer.render(f, dt, { frame: lyric, colors: show.colors });
       const tex = this.visualizer.texture;
       if (venue) {

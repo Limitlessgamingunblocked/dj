@@ -402,7 +402,7 @@ export class App implements AppContext {
       },
     });
     Object.assign(this.stage.visualizer.settings, this.settings.vis);
-    this.stage.visualizer.setMode(this.stage.visualizer.settings.mode);
+    this.stage.visualizer.setMode(this.stage.visualizer.settings.mode, { kind: 'cut' });
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());

@@ -40,6 +40,8 @@ export interface Features {
   intensity: number;
   /** 1 when camera shake is enabled */
   shake: number;
+  /** 1 when flashing is reduced: strobes stay under 3 a second (set by the visual player) */
+  safe?: number;
 }
 
 interface Band {

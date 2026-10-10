@@ -274,8 +274,20 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
 - Measurements and method (draw calls, triangles, heap and allocation rate, before and after each change) are in [docs/overhaul.md](docs/overhaul.md); the lighting and effects pass (volumetric beams, exposure, confetti, mirror balls, lens, AV sync) is in [docs/vfx-master.md](docs/vfx-master.md).
 
 ### Visual player
-Ten GLSL modes: Warp Tunnel, Spectrum Matrix, Particle Galaxy, Wave Grid, CRT Monitor, Laser Show, Kaleidoscope, Strobe Geometry, Liquid Chrome and Fractal Flight.
+28 modes, grouped by how hard they hit:
 
+| Group | Modes |
+|---|---|
+| Calm (breakdowns and warm-ups) | Wave Grid, CRT Monitor, Liquid Chrome, Acid Plasma, Aurora, Deep Water, Op Art, Ink Flow |
+| Groove (the body of the set) | Warp Tunnel, Spectrum Matrix, Kaleidoscope, Cell Pulse, Sonar, Circuit Board, Mandelbulb, Code Rain, Infinity Mirror, Spectrum City, Morph Cloud, Name in Lights |
+| Peak (drops) | Particle Galaxy, Laser Show, Strobe Geometry, Fractal Flight, Hyperspace, Hex Floor, Datamosh, Pulse Orb |
+
+- **Some modes remember their last frame** (feedback): Infinity Mirror folds every frame into the last, Datamosh smears the picture along broken motion vectors until a clean frame lands on the bar, and Ink Flow carries coloured ink on a curl-noise current.
+- **3D scenes:** a night drive through towers that grow with the spectrum (Spectrum City), 60,000 points that become a new shape every four bars (Morph Cloud), and a sphere the spectrum pushes out (Pulse Orb).
+- **Name in Lights** puts your DJ name on an LED marquee that steps along with the beat.
+- **Modes change over on the beat.** The old mode fades, irises, slices, zooms or pixels away over one beat.
+- **Auto VJ** (Show tab) picks modes for you. It changes on a bar line every 8 bars and plays calm modes in breakdowns. On a drop it cuts straight to a peak mode, and it never repeats what it just played.
+- **Reduce flashing** (lights desk) applies to the player too: strobing modes flash at most once a beat (every other beat above 165 BPM), always under 3 a second, and softer.
 - Driven by sub-bass, kick, snare, vocal and high bands, locked to the master deck's beat grid, with drop detection.
 - Post-processing: bloom, chromatic aberration, palette shifts, and camera shake that can be switched off.
 - Lyrics as kinetic typography over every mode (see Lyrics on the screens).
@@ -296,7 +308,7 @@ src/setbuilder/            SmartDJ set generation: track profiles, artist styles
 src/lyrics/                lyric formats (LRC, tags, LRCLIB), vocal activity + alignment, lyrics clock
 src/three/                 stage, camera rig (incl. drone and the moving angles), lens pass and looks, board parts and presets, stickers
 src/three/venues/          venues, light show director, fixtures (beams, lasers, strobes…), crowd, pyro
-src/visualizer/            audio features, visual modes, lyrics typography
+src/visualizer/            audio features, visual modes and their shader kit, the auto VJ, lyrics typography
 src/ui/                    software panels and widgets
 src/app/                   app shell, saved settings, control registry bindings, keyboard map, gigs (gigs.ts)
 src/game/                  career, vibe meter, gigs and rewards, track metadata (sections, energy, tags)

@@ -238,3 +238,15 @@ You asked for the app to feel less confusing and more finished.
 87. **Sections for your own music** are found from the analysis waveform's low band, bar by bar on the beat grid in 8-bar phrases: weak runs between strong ones are breakdowns, and the strong phrase after one is a drop. It needs nothing new from the analysis, so tracks already imported get markers straight away. On synthetic tracks it finds the breakdown and drop on the exact bar.
 88. **Streaks, crowd requests and the coach** sit on top of the vibe meter without changing it. The gig adds the bonuses to the meter's points, so they count towards the grade like the encore bonus already did.
 89. **New players start on the All-in-One Two** with 3-band (blue, orange, white) waveforms. Club Standard is a four-deck rig, which put decks 3 and 4 in front of beginners. Saved boards and colours aren't changed.
+
+## More visuals (2026-10-10)
+
+You asked for more, and more unique, visual modes.
+
+90. **28 modes, each tagged calm, groove or peak.** The tag drives the mode picker's groups and the auto VJ. The 18 new modes share one shader kit (`src/visualizer/kit.ts`): common uniforms, noise, a palette that is never negative, and a strobe gate.
+91. **Reduce flashing reaches the visual player.** One `gate()` helper in the kit decides every strobe in every mode. With flashing reduced it drops to once a beat (every other beat above 165 BPM, so always under 3 a second) at about a third of the brightness. The drop flash in the output pass is softer too.
+92. **Feedback modes keep their two frame buffers at screen size only while they play.** When a mode leaves the screen, its buffers shrink to 16 × 9, so 28 modes don't hold 28 sets of full-screen textures.
+93. **Changes over a beat, not a cut.** The outgoing mode keeps rendering into its own target while a pass blends it out over one beat: a fade, an iris, slices, a zoom or pixels. Saved settings load with a cut.
+94. **The auto VJ is a pure class (`director.ts`), unit-tested.** It changes on a bar line every 8 bars. A breakdown under a loud mode gets a calm mode at the next bar, after at least 4 bars. A drop cuts to a peak mode on the hit, unless a peak mode started under 4 bars ago. It doesn't pick any of the last four modes.
+95. **Shaders compile in the background**, one mode every 30 frames, against an offscreen target so the compiled programs match the ones used at draw time. The first switch to a mode, often on a drop, no longer stalls.
+

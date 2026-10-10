@@ -156,10 +156,52 @@
 
 
 /* visuals tab */
+.vis-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.vis-group h4 {
+  margin: 0 0 6px;
+  font-family: var(--font-label);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.vis-group h4 span {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+}
+
 .vis-modes {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 8px;
+}
+
+.vis-group h4::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dot, var(--deck4));
+  align-self: center;
+}
+
+.vis-group[data-energy='calm'] {
+  --dot: var(--deck1);
+}
+
+.vis-group[data-energy='peak'] {
+  --dot: var(--deck2);
 }
 
 .vis-mode {
