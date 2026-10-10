@@ -15,7 +15,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { nameStyleFor } from '../../name/venueStyles';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { boothClutter, exitSign } from './details';
-import { atBar, crewArc, vipCrew } from './crew';
+import { atBar } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, mirrorBall, speaker, Strobes, TABLE_Y } from './fixtures';
 import { MirrorBallSpots } from './mirrorball';
 import type { ShowState } from './show';
@@ -279,9 +279,6 @@ class Basement extends VenueBase {
     const barSpot = new THREE.Object3D();
     barSpot.position.set(-2.4, 0, z0 + 0.6);
     this.add(atBar(barSpot, 3.4, 82, { staff: 0, leaners: 2, clothes: ['#0e0e10', '#2a2d33', '#5a1e22'] }));
-    // a friend or two squeezed in by the booth
-    const crew = vipCrew(crewArc(0, 1.15, 1.6, 0.35, 1.6).filter((p) => Math.abs(p.x) < 1.6), 83, ['#0e0e10', '#d9d6cf', '#5a1e22']);
-    if (crew) this.add(crew);
     const r = rng(77);
     for (let i = 0; i < 14; i++) {
       const bt = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.28, 8), new THREE.MeshPhysicalMaterial({ color: [0x2e6b3a, 0x6b3a1e, 0xbfd8e8][i % 3], roughness: 0.1, transmission: 0.4, transparent: true, opacity: 0.85 }));

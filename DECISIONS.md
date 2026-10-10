@@ -250,3 +250,5 @@ You asked for more, and more unique, visual modes.
 94. **The auto VJ is a pure class (`director.ts`), unit-tested.** It changes on a bar line every 8 bars. A breakdown under a loud mode gets a calm mode at the next bar, after at least 4 bars. A drop cuts to a peak mode on the hit, unless a peak mode started under 4 bars ago. It doesn't pick any of the last four modes.
 95. **Shaders compile in the background**, one mode every 30 frames, against an offscreen target so the compiled programs match the ones used at draw time. The first switch to a mode, often on a drop, no longer stalls.
 
+96. **No one stands behind you in the Basement Club** (you asked). The booth there is tiny and on the crowd's level, and the one friend who stood behind the DJ crowded the shot. Your crew still turns up from the Rooftop on, where the stage has room.
+
