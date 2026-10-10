@@ -1,5 +1,6 @@
 /* Full track analysis (pure function, runs in the analysis workers). */
 import { ANALYSIS_VERSION, WAVE_RATE, type TrackAnalysis } from '../core/types';
+import { detectGenre } from './genre';
 import { detectKey } from './key';
 import { detectTempo } from './tempo';
 import { computeWaveform, loudness } from './waveform';
@@ -20,6 +21,7 @@ export function analyzePcm(channels: Float32Array[], sampleRate: number): TrackA
   const key = detectKey(mono, sampleRate);
   const waveform = computeWaveform(mono, sampleRate, WAVE_RATE);
   const loud = loudness(mono, sampleRate);
+  const g = detectGenre(mono, sampleRate, tempo.bpm, tempo.firstBeat, !!key?.minor);
   return {
     version: ANALYSIS_VERSION,
     duration,
@@ -30,5 +32,6 @@ export function analyzePcm(channels: Float32Array[], sampleRate: number): TrackA
     peak: loud.peak,
     waveform,
     waveRate: WAVE_RATE,
+    genre: { genre: g.genre, confidence: g.confidence, runnerUp: g.runnerUp },
   };
 }

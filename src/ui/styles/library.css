@@ -475,3 +475,41 @@ table.tracks .art {
   margin-left: -18px;
   color: var(--dim);
 }
+
+/* the genre: a small chip you can click to change; a guess from the sound is lighter */
+table.tracks td.genre-cell {
+  max-width: 150px;
+}
+
+table.tracks button.genre {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text, #e6ebf2);
+  font: inherit;
+  font-size: 12px;
+  padding: 1px 9px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+table.tracks button.genre:hover {
+  border-color: var(--deck1);
+}
+
+table.tracks button.genre.guess {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+table.tracks button.genre.you {
+  border-color: color-mix(in srgb, var(--deck1) 60%, var(--line));
+}
+
+table.tracks button.genre.none {
+  border-color: transparent;
+  color: var(--muted);
+}

@@ -15,6 +15,7 @@ import { dbAll, dbDelete, dbGet, dbPut } from './db';
 import { readTags } from './tags';
 import { lyricsFromSynced, lyricsFromText, type Lyrics } from '../lyrics/lyrics';
 import { trackInfo } from '../game/tracks';
+import { genreOf } from './genres';
 import { matchEntry, matchPlaylist, type MatchTarget, type Playlist, type PlaylistEntry } from './playlists';
 
 export interface Crate {
@@ -112,10 +113,37 @@ export class Library extends Emitter<LibraryEvents> {
 
   /** Analyse anything that is missing or outdated, in the background. */
   analyzeMissing(): void {
+    const genreless: LibraryTrack[] = [];
     for (const t of this.tracks.values()) {
       if (t.status === 'analyzing') continue;
       if (!t.analysis || t.analysis.version !== ANALYSIS_VERSION) void this.analyzeInBackground(t);
+      else if (!t.analysis.genre && t.source === 'file') genreless.push(t);
     }
+    void this.genresInBackground(genreless);
+  }
+
+  /** Tracks analysed before the genre analyser: just the genre, one at a time, keeping their grids and edits. */
+  private async genresInBackground(list: LibraryTrack[]): Promise<void> {
+    for (const t of list) {
+      const a = t.analysis;
+      if (!a || a.genre || !this.tracks.has(t.id)) continue;
+      try {
+        const pcm = await this.getPcm(t);
+        a.genre = await this.pool.genre(pcm, a.bpm, a.firstBeat, !!a.key?.minor);
+        this.touch(t);
+        this.emit('track', t);
+      } catch {
+        /* the audio's gone or won't decode: it keeps no genre */
+      }
+    }
+    if (list.length) this.emit('changed', undefined);
+  }
+
+  /** Your genre for a track (null goes back to its tag or the guess). */
+  setGenre(t: LibraryTrack, genre: string | null): void {
+    t.genre = genre || undefined;
+    this.saveTrack(t, 0);
+    this.emit('changed', undefined);
   }
 
   /** Star a track in the crate, or take the star off. */
@@ -513,6 +541,7 @@ export class Library extends Emitter<LibraryEvents> {
       bpm: t.analysis?.bpm ?? null,
       firstBeat: t.analysis?.firstBeat ?? null,
       musicalKey: t.analysis?.key?.camelot ?? null,
+      genre: t.genre ?? null,
       cues: t.cues,
     }));
     const keyOf = new Map(this.list().map((t) => [t.id, this.trackKey(t)]));
@@ -524,7 +553,7 @@ export class Library extends Emitter<LibraryEvents> {
     const data = JSON.parse(text) as {
       app?: string;
       crates?: { id: string; name: string; kind: 'folder' | 'crate'; parent: string | null; tracks: string[] }[];
-      tracks?: { key: string; fileName: string; size: number; title: string; artist: string; bpm: number | null; firstBeat: number | null; cues: LibraryTrack['cues'] }[];
+      tracks?: { key: string; fileName: string; size: number; title: string; artist: string; bpm: number | null; firstBeat: number | null; genre?: string | null; cues: LibraryTrack['cues'] }[];
     };
     if (data.app !== 'deckhouse') throw new Error('This file is not a Deckhouse library export.');
     const byKey = new Map(this.list().map((t) => [this.trackKey(t), t]));
@@ -543,6 +572,7 @@ export class Library extends Emitter<LibraryEvents> {
       if (x.cues) t.cues = x.cues;
       if (t.analysis && x.bpm) t.analysis.bpm = x.bpm;
       if (t.analysis && x.firstBeat != null) t.analysis.firstBeat = x.firstBeat;
+      if (typeof x.genre === 'string' && x.genre) t.genre = x.genre.slice(0, 40);
       this.saveTrack(t);
     }
     const idMap = new Map<string, string>();
@@ -608,7 +638,7 @@ export function matchTrack(t: LibraryTrack, q: ReturnType<typeof parseSearch>): 
   const info = q.text || q.fields.tag || q.fields.energy ? trackInfo(t) : null;
   if (q.text) {
     // tags count as words: "rave" finds rave-tagged tracks
-    const hay = `${m.title} ${m.artist} ${m.album} ${m.genre} ${t.fileName} ${info!.tags.join(' ')}`.toLowerCase();
+    const hay = `${m.title} ${m.artist} ${m.album} ${genreOf(t).genre} ${t.fileName} ${info!.tags.join(' ')}`.toLowerCase();
     for (const w of q.text.split(' ')) if (!hay.includes(w)) return false;
   }
   for (const [k, v] of Object.entries(q.fields)) {
@@ -622,7 +652,7 @@ export function matchTrack(t: LibraryTrack, q: ReturnType<typeof parseSearch>): 
       if (r && (info!.energy < +r[1] || info!.energy > +(r[2] ?? r[1]))) return false;
       continue;
     }
-    const val = (k === 'title' ? m.title : k === 'artist' ? m.artist : k === 'album' ? m.album : k === 'genre' ? m.genre : '').toLowerCase();
+    const val = (k === 'title' ? m.title : k === 'artist' ? m.artist : k === 'album' ? m.album : k === 'genre' ? genreOf(t).genre : '').toLowerCase();
     if (!val.includes(v)) return false;
   }
   const bpm = t.analysis?.bpm;

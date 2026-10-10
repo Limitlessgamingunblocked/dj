@@ -264,3 +264,11 @@ You asked for dancers next to you while you DJ, and for funny "hell yeah" moment
 102. **The crowd surfer keeps clear of the crowd camera.** They ride on the side of the room away from it, and don't appear in rooms too narrow to pass at 2 m. In the first test they flew straight through the lens.
 103. **HELL YEAH is gone** (you asked). With it went the stamp, the LED-wall shout and the camera cut to the room. So did the beach balls, the flamingo, the crowd surfer, the dancers' sparklers, the HELL YEAH signs and its automatic triggers, since nothing else used them. Decisions 99–102 no longer apply. The dancers, the air horn pad, the funny signs and the new clothes stay.
 
+## Genres (2026-10-10)
+
+You asked for the analyser to say house, hip hop, trap and so on, and to sort by it in the library.
+
+104. **Genre is a guess from rules over rhythm and tone, not a trained model.** There's no labelled music to train on here, and a model big enough to be good would be tens of megabytes in a single-file app. The analyser measures the drum pattern on the beat grid (four on the floor, backbeat, half-time, dembow, 2-step, hats, rolls, swing), the tonal balance and the pulse. Each genre is a set of soft rules over those. It is tested on synthetic beats in ten styles and on the 58 generated club tracks. On real music it will get the family right more often than the exact sub-style. That's why a low-confidence pick between close sub-styles is shown as the family, and why the file's tag wins over the guess.
+105. **Your genre wins, then the tag, then the guess.** Tags are tidied to one spelling per genre so they sort together. Anything we don't know is kept as written.
+106. **Old tracks get their genre without being re-analysed.** Bumping the analysis version would redo every track and throw away manual beat-grid edits, which live in the analysis. Instead, tracks analysed before genres existed get a genre-only pass in the background, using their current grid.
+

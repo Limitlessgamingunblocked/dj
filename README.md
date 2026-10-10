@@ -90,6 +90,10 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 ### Your music and playlists
 - **Import** MP3, WAV, AIFF, FLAC, OGG or M4A files, a whole folder, or drop them anywhere. They're analysed in the browser (tempo, beat grid, key, loudness, sections) and stay on your device.
 - **Import a playlist** (Library ⋯ menu, or drop the file): M3U / M3U8, PLS, XSPF, rekordbox XML, Traktor NML, an Apple Music / iTunes library XML, a CSV of a streaming playlist from a playlist export tool, or a pasted "Artist - Title" list. Each playlist becomes a crate under **Playlists**. Tracks you have go straight in, matched by file name or by artist and title. The rest are listed under the crate and slot in when you import their files.
+- **Genres:** every track gets a genre in the library's Genre column. It's the file's own genre tag if it has one (tidied, so "hip-hop", "HipHop" and "Hip Hop" sort together). Otherwise it's a guess from the sound: House, Deep House, Tech House, Techno, Trance, Hardstyle, Drum & Bass, Dubstep, UK Garage, Disco, Afro House, Trap, Hip Hop, R&B, Pop, Reggaeton, Lo-fi or Ambient.
+  - Sort by the column, pick a genre in the filter next to the key filter, or type one in the search ("trap", or genre:house).
+  - A guess has a dashed outline, and a "?" when it's unsure. When it can't tell close styles apart it says the family ("House" rather than "Deep House or Afro House").
+  - Click a genre (or right-click the track) to set your own. Your pick wins over the tag and the guess, and goes in the crates-and-cues backup.
 - **Spotify and SoundCloud** can't be connected. Spotify's developer policy rules out DJ apps and mixing its content, and SoundCloud's API rules out modifying or mixing tracks. Both deliver their audio in a form a browser mixer can't process. Bring the track list and your own files instead.
 
 ### Gigs: streaks, requests and the coach
@@ -184,6 +188,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - Analysis runs in a pool of Web Workers:
   - BPM from spectral flux and autocorrelation, refined by comb folding to about 0.01 BPM
   - beat grid phase and first downbeat
+  - genre from rhythm and tone on the beat grid. It reads four on the floor, the backbeat, a half-time snare, the dembow, 2-step kicks, off-beat and rolling hats and swing. It also weighs the sub/bass/mid/top balance and how clearly the music pulses
   - Camelot key
   - 3-band waveform (low red, mid green, high blue)
   - loudness for auto gain

@@ -3,6 +3,9 @@ import { DEMO_TRACKS, renderDemoTrack } from './fixtures/synth';
 import { analyzePcm } from '../src/analysis/analyze';
 import { makeKey, compatibility, parseKeyTag, keySyncShift } from '../src/analysis/keys';
 
+/* the demo tracks are all four-to-the-floor club styles: the genre guess should land in the club family */
+const CLUB = ['House', 'Deep House', 'Tech House', 'Techno', 'Trance', 'UK Garage', 'Disco', 'Afro House'];
+
 describe('track analysis on generated demo tracks', () => {
   // each render + analysis blocks for seconds: give the worker's event loop a turn between them
   afterEach(() => new Promise<void>((r) => setTimeout(r, 0)));
@@ -20,7 +23,9 @@ describe('track analysis on generated demo tracks', () => {
         demo.title,
         `render ${(t1 - t0).toFixed(0)}ms analyze ${(t2 - t1).toFixed(0)}ms`,
         `bpm ${a.bpm} first ${a.firstBeat.toFixed(3)} key ${a.key?.name} (${a.key?.camelot}) expected ${expectedKey.name} loud ${a.loudness.toFixed(1)}`,
+        `genre ${a.genre?.genre} (${a.genre?.confidence.toFixed(2)}, ${a.genre?.runnerUp})`,
       );
+      expect(CLUB).toContain(a.genre?.genre);
       expect(Math.abs(a.bpm - demo.spec.bpm)).toBeLessThan(0.05);
       expect(Math.min(phaseErr, 1 - phaseErr) * beat).toBeLessThan(0.02);
       expect(compatibility(a.key, expectedKey)).not.toBeNull();

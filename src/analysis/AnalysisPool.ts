@@ -87,6 +87,13 @@ export class AnalysisPool {
     return r.analysis as TrackAnalysis;
   }
 
+  /** the genre only, for tracks analysed before genres were (keeps their beat grid as it is) */
+  async genre(pcm: PcmData, bpm: number, firstBeat: number, minor: boolean): Promise<NonNullable<TrackAnalysis['genre']>> {
+    const channels = pcm.channels.map((c) => c.slice());
+    const r = await this.run({ type: 'genre', channels, sampleRate: pcm.sampleRate, bpm, firstBeat, minor }, channels.map((c) => c.buffer));
+    return r.genre as NonNullable<TrackAnalysis['genre']>;
+  }
+
   async sample(name: SampleName, sampleRate: number): Promise<PcmData> {
     const r = await this.run({ type: 'sample', name, sampleRate });
     return r.pcm as PcmData;

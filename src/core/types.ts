@@ -29,6 +29,8 @@ export interface TrackAnalysis {
   /** waveform: WAVE_RATE points per second, 4 bytes per point: low, mid, high, full */
   waveform: Uint8Array;
   waveRate: number;
+  /** the genre guessed from the sound (analysis/genre.ts); added later, so older analyses may lack it */
+  genre?: { genre: string; confidence: number; runnerUp: string };
 }
 
 export interface TrackMeta {
@@ -66,6 +68,8 @@ export interface LibraryTrack {
   error?: string;
   /** lyrics with timings (embedded, .lrc, pasted, looked up or tapped) */
   lyrics?: import('../lyrics/lyrics').Lyrics;
+  /** the genre you picked for it (over its tag and the analyser's guess) */
+  genre?: string;
 }
 
 export interface DemoSpec {

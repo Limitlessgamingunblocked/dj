@@ -1,8 +1,9 @@
 /*
  * Library browser: collection / favourites / history views, nested crate folders,
  * smart search ("bpm:120-128 key:8A artist:x"), BPM range, key-match
- * highlighting against a deck, sortable columns, drag to decks, crates,
- * JSON export/import of crates and cues.
+ * highlighting against a deck, sortable columns, a genre column (its tag, or
+ * the analyser's guess, or your own pick) with a genre filter, drag to decks,
+ * crates, JSON export/import of crates and cues.
  */
 import { saveFile } from '../core/download';
 import type { AppContext } from '../app/context';
@@ -10,6 +11,8 @@ import { camelotColor, compatibility, formatKey } from '../analysis/keys';
 import type { LibraryTrack } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { AUDIO_ACCEPT, matchTrack, parseSearch, type Crate } from '../library/Library';
+import { GENRES } from '../analysis/genre';
+import { genreNote, genreOf } from '../library/genres';
 import { trackInfo } from '../game/tracks';
 import { clear, h } from './dom';
 import { openPlaylistImport } from './PlaylistImport';
@@ -18,7 +21,7 @@ import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 
 type View = { kind: 'all' } | { kind: 'favs' } | { kind: 'history' } | { kind: 'crate'; id: string };
-export type SortKey = 'title' | 'artist' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
+export type SortKey = 'title' | 'artist' | 'genre' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
 
 export class LibraryPanel {
   readonly el: HTMLElement;
@@ -29,6 +32,8 @@ export class LibraryPanel {
   private bpmMin: HTMLInputElement;
   private bpmMax: HTMLInputElement;
   private keyMatch: HTMLSelectElement;
+  private genreFilter: HTMLSelectElement;
+  private genreOptions = '';
   private countEl: HTMLElement;
   private view: View = { kind: 'all' };
   private sort: { key: SortKey; dir: 1 | -1 } = { key: 'added', dir: -1 };
@@ -52,7 +57,7 @@ export class LibraryPanel {
     this.folderInput.addEventListener('change', onPick(this.folderInput));
 
     this.side = h('nav', { class: 'lib-side', 'aria-label': 'Library sources and crates' });
-    this.search = h('input', { class: 'search', type: 'search', placeholder: 'Search', title: 'Title or artist. Also try bpm:120-128 or key:8A', 'aria-label': 'Search library' }) as HTMLInputElement;
+    this.search = h('input', { class: 'search', type: 'search', placeholder: 'Search', title: 'Title, artist or genre. Also try bpm:120-128, key:8A or genre:house', 'aria-label': 'Search library' }) as HTMLInputElement;
     this.bpmMin = h('input', { type: 'number', min: 40, max: 250, placeholder: 'min', 'aria-label': 'Minimum BPM' }) as HTMLInputElement;
     this.bpmMax = h('input', { type: 'number', min: 40, max: 250, placeholder: 'max', 'aria-label': 'Maximum BPM' }) as HTMLInputElement;
     this.keyMatch = h(
@@ -63,6 +68,8 @@ export class LibraryPanel {
       h('option', { value: 'only' }, 'Key matches only'),
     ) as HTMLSelectElement;
     this.keyMatch.value = 'mark';
+    this.genreFilter = h('select', { 'aria-label': 'Genre filter', title: 'Only tracks of one genre' }, h('option', { value: '' }, 'All genres')) as HTMLSelectElement;
+    this.genreFilter.addEventListener('change', () => this.queueRender());
     this.countEl = h('span', { class: 'label' });
     for (const el of [this.search, this.bpmMin, this.bpmMax]) el.addEventListener('input', () => this.queueRender());
     this.keyMatch.addEventListener('change', () => this.queueRender());
@@ -104,6 +111,7 @@ export class LibraryPanel {
           this.search,
           h('div', { class: 'bpm-range', title: 'BPM range' }, h('span', { class: 'label' }, 'BPM'), this.bpmMin, h('span', { class: 'label' }, '–'), this.bpmMax),
           this.keyMatch,
+          this.genreFilter,
           this.countEl,
           h('span', { class: 'spacer' }),
           importBtn,
@@ -354,6 +362,8 @@ export class LibraryPanel {
     list = list.filter((t) => matchTrack(t, q));
     const mk = this.matchKey();
     if (this.keyMatch.value === 'only' && mk) list = list.filter((t) => compatibility(t.analysis?.key, mk) !== null);
+    const genre = this.genreFilter.value;
+    if (genre) list = list.filter((t) => genreOf(t).genre === genre);
     if (this.view.kind !== 'history') {
       const { key, dir } = this.sort;
       const val = (t: LibraryTrack): string | number => {
@@ -362,6 +372,9 @@ export class LibraryPanel {
             return t.meta.title.toLowerCase();
           case 'artist':
             return t.meta.artist.toLowerCase();
+          case 'genre':
+            // tracks with no genre yet go to the bottom
+            return genreOf(t).genre.toLowerCase() || '\uffff';
           case 'bpm':
             return t.analysis?.bpm ?? 0;
           case 'key':
@@ -395,6 +408,7 @@ export class LibraryPanel {
       [null, ''],
       ['title', 'Title'],
       ['artist', 'Artist'],
+      ['genre', 'Genre'],
       ['bpm', 'BPM'],
       ['key', 'Key'],
       ['energy', 'Energy'],
@@ -414,6 +428,7 @@ export class LibraryPanel {
     }
     this.thead.append(tr);
 
+    this.refreshGenres();
     this.rows = this.visibleTracks();
     const importing = this.app.library.importing;
     this.countEl.textContent = `${this.rows.length} tracks${importing ? ` · importing ${importing}` : ''}`;
@@ -468,12 +483,24 @@ export class LibraryPanel {
         e.stopPropagation();
         this.app.library.setFavorite(t, !t.fav);
       });
+      const g = genreOf(t);
+      const unsure = g.source === 'guess' && (a?.genre?.confidence ?? 0) < 0.25;
+      const genreBtn = g.genre
+        ? h('button', { class: `genre ${g.source}`, type: 'button', title: genreNote(t) }, g.genre + (unsure ? '?' : ''))
+        : h('button', { class: 'genre none', type: 'button', title: genreNote(t) }, t.status === 'analyzing' ? '…' : '—');
+      genreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.app.select(t);
+        const r = genreBtn.getBoundingClientRect();
+        this.genreMenu(t, r.left, r.bottom + 4);
+      });
       const energy = h('span', { class: 'energy', title: `Energy ${info.energy} of 10`, style: { '--e': String(info.energy / 10) } as Partial<CSSStyleDeclaration> }, String(info.energy));
       row.append(
         h('td', {}, star),
         h('td', {}, art),
         h('td', { class: 'title', title: t.meta.title }, t.meta.title),
         h('td', { title: t.meta.artist }, t.meta.artist || '—'),
+        h('td', { class: 'genre-cell' }, genreBtn),
         h('td', { class: 'num' }, a ? formatBpm(a.bpm) : status ?? '—'),
         h('td', {}, keyCell),
         h('td', { class: 'num' }, energy),
@@ -558,6 +585,7 @@ export class LibraryPanel {
     const lib = this.app.library;
     const deckIds = this.app.deckCount() === 4 ? [1, 2, 3, 4] : [1, 2];
     const items: ({ label: string; action: () => void; danger?: boolean } | 'sep')[] = deckIds.map((id) => ({ label: `Load to deck ${id}`, action: () => void this.app.loadTrack(id, t.id) }));
+    items.push('sep', { label: `Genre: ${genreOf(t).genre || 'none'}…`, action: () => this.genreMenu(t, e.clientX, e.clientY) });
     const crates = lib.crates.filter((c) => c.kind === 'crate');
     if (crates.length) {
       items.push('sep');
@@ -569,6 +597,39 @@ export class LibraryPanel {
     }
     items.push('sep', { label: 'Remove from library', danger: true, action: () => void lib.deleteTrack(t.id) });
     contextMenu(e.clientX, e.clientY, items);
+  }
+
+  /** pick a genre for a track: the analyser's list, any other genres in the library, or back to automatic */
+  private genreMenu(t: LibraryTrack, x: number, y: number): void {
+    const lib = this.app.library;
+    const cur = genreOf(t);
+    const extra = [...new Set(lib.list().map((x) => genreOf(x).genre))].filter((g) => g && !(GENRES as readonly string[]).includes(g)).sort();
+    const pick = (g: string) => ({ label: g, checked: cur.genre === g, action: () => lib.setGenre(t, g) });
+    const auto = genreOf({ ...t, genre: undefined });
+    contextMenu(x, y, [
+      { header: 'Genre' },
+      ...(t.genre ? [{ label: auto.genre ? `Automatic (${auto.genre})` : 'Automatic', action: () => lib.setGenre(t, null) }, 'sep' as const] : []),
+      ...GENRES.map(pick),
+      ...(extra.length ? ['sep' as const, ...extra.map(pick)] : []),
+    ]);
+  }
+
+  /** the genre filter lists the genres in the library */
+  private refreshGenres(): void {
+    const counts = new Map<string, number>();
+    for (const t of this.app.library.list()) {
+      const g = genreOf(t).genre;
+      if (g) counts.set(g, (counts.get(g) ?? 0) + 1);
+    }
+    const list = [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    const sig = list.map(([g, n]) => `${g}:${n}`).join('|');
+    if (sig === this.genreOptions) return;
+    this.genreOptions = sig;
+    const cur = this.genreFilter.value;
+    clear(this.genreFilter);
+    this.genreFilter.append(h('option', { value: '' }, 'All genres'), ...list.map(([g, n]) => h('option', { value: g }, `${g} (${n})`)));
+    this.genreFilter.value = counts.has(cur) ? cur : '';
+    this.genreFilter.hidden = !list.length;
   }
 
   /* ------------------------------------------------------------------ */
