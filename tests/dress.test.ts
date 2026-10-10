@@ -25,13 +25,21 @@ describe('set dressing', () => {
     const list = meshes(d);
     const mats = new Set(list.map((m) => m.material));
     expect(list.length).toBe(mats.size);
-    // steel, red, and the road case's laminate, aluminium, black metal, white tape and rubber feet
-    expect(list.length).toBeLessThanOrEqual(7);
+    // plain colours share a family's material, the colour carried per vertex: steel, aluminium and
+    // black metal are one mesh; red, the case's laminate, white tape and rubber feet another
+    expect(list.length).toBe(2);
     for (const m of list) {
       const g = m.geometry;
       expect(g.index).toBeNull();
-      expect(Object.keys(g.attributes).sort()).toEqual(['normal', 'position', 'uv']);
+      expect(Object.keys(g.attributes).sort()).toEqual(['color', 'normal', 'position', 'uv']);
+      expect((m.material as THREE.MeshStandardMaterial).vertexColors).toBe(true);
     }
+    // the steel boxes keep steel's colour
+    const metal = list.find((m) => (m.material as THREE.MeshStandardMaterial).metalness > 0.5)!;
+    const col = metal.geometry.attributes.color as THREE.BufferAttribute;
+    const steel = new THREE.Color(0x80858c);
+    expect(col.getX(0)).toBeCloseTo(steel.r, 5);
+    expect(col.getZ(0)).toBeCloseTo(steel.b, 5);
   });
 
   it('builds the same set from the same seed', () => {

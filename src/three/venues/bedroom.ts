@@ -313,7 +313,7 @@ class Bedroom extends VenueBase {
           for (let w = 0; w < 4; w++) d.put(ix === iy ? 'black' : 'grey', new THREE.CylinderGeometry(0.035, 0.035, 0.29, 3).rotateZ(Math.PI / 2).rotateX(ix === iy ? 0 : Math.PI / 2).translate(x, y - 0.11 + w * 0.073, z0 + 0.04));
         }
     // the streamer's ring light on a tripod, turned to face the desk
-    const ring = d.glow('#fff4e6', 'steady', 1.5);
+    const ring = d.glow('#fff4e6', 'steady', 0.8);
     const rp = V(-1.3, 0, -0.35);
     for (let k = 0; k < 3; k++) {
       const a = (k / 3) * Math.PI * 2 + 0.3;

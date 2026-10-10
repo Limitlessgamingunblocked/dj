@@ -1,10 +1,11 @@
 /*
  * Set dressing: everything that makes a room look lived in and wired up,
- * rather than built for the shot. A Dresser collects pieces into one merged
- * mesh per material (a whole venue's ducts, cases, doors and rails come to a
- * dozen draw calls), plus a few instanced extras, and animates its own
- * lights (rack LEDs on the kick, neon that hums and sometimes stutters,
- * warm bulbs that breathe).
+ * rather than built for the shot. A Dresser collects pieces into merged
+ * meshes (plain colours share four materials with the colour per vertex, so
+ * a whole venue's ducts, cases, doors and rails come to a handful of draw
+ * calls), plus a few instanced extras, and animates its own lights (rack
+ * LEDs on the kick, neon that hums and sometimes stutters, warm bulbs that
+ * breathe).
  *
  *   overhead   ducts with hangers, cable trays, sprinkler pipe, conduit,
  *              cables slung between points
@@ -93,6 +94,60 @@ const MATS: Record<MatKey, () => THREE.Material> = {
   cloth: () => new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.92, side: THREE.DoubleSide }),
   rust: () => new THREE.MeshStandardMaterial({ color: 0x4a3426, metalness: 0.45, roughness: 0.8 }),
 };
+
+/**
+ * Plain-coloured pieces are drawn in one of four shared materials, their
+ * colour carried per vertex, so a venue's whole dressing is a handful of
+ * meshes rather than one per colour.
+ */
+type Family = 'metal' | 'matte' | 'cloth' | 'flat';
+const FAMILY: Record<MatKey, Family> = {
+  steel: 'metal',
+  galv: 'metal',
+  blackMetal: 'metal',
+  alu: 'metal',
+  duct: 'metal',
+  black: 'matte',
+  red: 'matte',
+  rubber: 'matte',
+  yellow: 'matte',
+  grey: 'matte',
+  wood: 'matte',
+  darkWood: 'matte',
+  white: 'matte',
+  cream: 'matte',
+  case: 'matte',
+  green: 'matte',
+  terracotta: 'matte',
+  trunk: 'matte',
+  sand: 'matte',
+  blue: 'matte',
+  trackway: 'matte',
+  straw: 'matte',
+  rust: 'matte',
+  canvas: 'cloth',
+  leaf: 'cloth',
+  cloth: 'cloth',
+  foliage: 'flat',
+  stone: 'flat',
+};
+const FAMILIES: Record<Family, () => THREE.MeshStandardMaterial> = {
+  metal: () => new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.72, roughness: 0.42 }),
+  matte: () => new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.06, roughness: 0.76 }),
+  cloth: () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }),
+  flat: () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, flatShading: true }),
+};
+const tints = new Map<MatKey, THREE.Color>();
+/** a key's colour, in the working (linear) space vertex colours use */
+function tint(k: MatKey): THREE.Color {
+  let c = tints.get(k);
+  if (!c) {
+    const m = MATS[k]() as THREE.MeshStandardMaterial;
+    tints.set(k, (c = m.color.clone()));
+    m.dispose();
+  }
+  return c;
+}
 
 export type GlowMode = 'steady' | 'kick' | 'level' | 'flicker' | 'blink' | 'breathe' | 'flame' | 'palette';
 
@@ -484,6 +539,7 @@ export class Dresser implements Fixture {
   readonly r: () => number;
   private bins = new Map<THREE.Material, THREE.BufferGeometry[]>();
   private mats = new Map<string, THREE.Material>();
+  private family = new Set<THREE.Material>();
   private glows: Glow[] = [];
   private glowCache = new Map<string, THREE.MeshBasicMaterial>();
   private t = 0;
@@ -493,15 +549,21 @@ export class Dresser implements Fixture {
     this.r = rng(seed);
   }
 
+  /** the shared material a key is drawn with (its family's) */
   mat(k: MatKey): THREE.Material {
-    let m = this.mats.get(k);
-    if (!m) this.mats.set(k, (m = MATS[k]()));
+    const f = FAMILY[k];
+    let m = this.mats.get(`family:${f}`);
+    if (!m) {
+      this.mats.set(`family:${f}`, (m = FAMILIES[f]()));
+      this.family.add(m);
+    }
     return m;
   }
 
-  /** a geometry already in place, in material k */
+  /** a geometry already in place, in material k (a plain colour, or a material of its own) */
   put(k: MatKey | THREE.Material, g: THREE.BufferGeometry): void {
     const m = typeof k === 'string' ? this.mat(k) : k;
+    if (typeof k === 'string') g.userData.tint = tint(k);
     let list = this.bins.get(m);
     if (!list) this.bins.set(m, (list = []));
     list.push(g);
@@ -1735,11 +1797,18 @@ export class Dresser implements Fixture {
   /** merge everything into one mesh per material; call once, after the last piece */
   done(): this {
     for (const [mat, geos] of this.bins) {
+      const tinted = this.family.has(mat);
       const flat = geos.map((g) => {
         const n = g.index ? g.toNonIndexed() : g;
         for (const k of Object.keys(n.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') n.deleteAttribute(k);
         if (!n.attributes.uv) n.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n.attributes.position.count * 2), 2));
         if (!n.attributes.normal) n.computeVertexNormals();
+        if (tinted) {
+          const c = (g.userData.tint as THREE.Color | undefined) ?? new THREE.Color(1, 1, 1);
+          const col = new Float32Array(n.attributes.position.count * 3);
+          for (let i = 0; i < col.length; i += 3) col.set([c.r, c.g, c.b], i);
+          n.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        }
         return n;
       });
       const merged = mergeGeometries(flat, false);
