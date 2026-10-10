@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { lineAt, lyricsFromSynced, lyricsFromText, parseLrc, parseLrclib, parsePlain, spreadWords, syllables, toLrc } from '../src/lyrics/lyrics';
 import { alignToVocals, analyzeVocals, snapWords, type VocalMap } from '../src/lyrics/vocal';
-import { demoLyrics } from '../src/lyrics/demo';
+import { demoLyrics } from './fixtures/demoLyrics';
 import { readTags } from '../src/library/tags';
-import { DEMO_TRACKS } from '../src/audio/synth';
+import { DEMO_TRACKS } from './fixtures/synth';
 
 describe('lyrics formats', () => {
   it('parses LRC with ends, repeated stamps, offset and hooks', () => {

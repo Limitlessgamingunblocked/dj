@@ -1501,3 +1501,149 @@ body.hub-open .app .main {
     min-height: 0;
   }
 }
+
+/* ------------------------------------------------- the HUD: score, streak, requests, coach */
+
+.gh-top .gh-time {
+  font-size: 17px;
+}
+
+.gh-mid {
+  font-size: 12px;
+}
+
+.gh-score {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.gh-streak {
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #ff2e88, #ffb547);
+  color: #120a10;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.gh-streak.pop {
+  animation: gh-pop 0.4s var(--ease);
+}
+
+@keyframes gh-pop {
+  40% {
+    transform: scale(1.35);
+  }
+}
+
+.gh-req {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 8px;
+  margin-top: 2px;
+  border-radius: var(--radius);
+  background: rgb(255 181 71 / 12%);
+  border: 1px solid rgb(255 181 71 / 35%);
+  position: relative;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  animation: gh-in 0.35s var(--ease);
+}
+
+.gh-req-k,
+.gh-coach-k {
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ffb547;
+}
+
+.gh-req-text {
+  flex: 1;
+}
+
+.gh-req-bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 10%);
+  overflow: hidden;
+}
+
+.gh-req-bar i {
+  --left: 1;
+  display: block;
+  height: 100%;
+  width: calc(var(--left) * 100%);
+  background: #ffb547;
+  transition: width 0.4s linear;
+}
+
+.gh-req.late {
+  border-color: rgb(255 91 110 / 60%);
+}
+
+.gh-req.late .gh-req-bar i {
+  background: #ff5b6e;
+}
+
+@keyframes gh-in {
+  from {
+    transform: translateY(-4px);
+  }
+}
+
+.gh-coach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.gh-coach-k {
+  color: var(--deck1);
+}
+
+.gh-coach-t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.gh-coach-t b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.gh-coach-t span {
+  color: var(--muted);
+  flex: none;
+}
+
+.gh-load {
+  flex: none;
+}
+
+.gh-end {
+  color: #ff8fa3;
+}

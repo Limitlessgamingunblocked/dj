@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEMO_TRACKS, renderDemoTrack } from '../src/audio/synth';
+import { DEMO_TRACKS, renderDemoTrack } from './fixtures/synth';
 import { analyzePcm } from '../src/analysis/analyze';
 import { makeKey, compatibility, parseKeyTag, keySyncShift } from '../src/analysis/keys';
 

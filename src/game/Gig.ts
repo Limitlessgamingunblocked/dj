@@ -11,6 +11,8 @@
  */
 import { PROGRESS, type Progress } from '../core/models';
 import { applySet, MILESTONES, summarize, type BookingTerms, type Rewards, type SetOutcome, type SetSummary } from './progression';
+import { REQUEST_VIBE, Requests, type RequestEvent } from './requests';
+import { Streak } from './streak';
 import { SLOTS, VibeMeter, type DeckSnap, type Grade, type SlotId, type VibeEvent } from './vibe';
 
 export type Assist = 'chill' | 'club' | 'pro';
@@ -54,14 +56,29 @@ export interface GigResults {
   tierUp: number | null;
   /** the set summed up (for reputation, bookings' objectives, the feed) */
   summary: SetSummary;
+  /** the longest run of clean moments, and what the streak paid */
+  bestStreak: number;
+  streakBonus: number;
+  /** the crowd's requests: how many were asked and met */
+  requests: { asked: number; met: number };
   /** everything the set changes in the career, to save */
   outcome: SetOutcome;
 }
 
-export type GigEvent = VibeEvent | { kind: 'gig'; what: 'start' | 'halfway' | 'last_minute' | 'time' | 'encore' | 'over'; t: number };
+/** a clean moment that paid extra for being part of a streak */
+export type StreakEvent = { kind: 'streak'; count: number; mult: number; bonus: number; t: number };
+
+export type GigEvent = VibeEvent | RequestEvent | StreakEvent | { kind: 'gig'; what: 'start' | 'halfway' | 'last_minute' | 'time' | 'encore' | 'over'; t: number };
+
+/** the vibe meter's own events (not the gig's, the streak's or the requests') */
+export function isVibeEvent(e: GigEvent): e is VibeEvent {
+  return e.kind !== 'gig' && e.kind !== 'streak' && e.kind !== 'request';
+}
 
 export class Gig {
   readonly meter: VibeMeter;
+  readonly streak = new Streak();
+  readonly requests: Requests;
   /** set seconds (the clock starts with the first track) */
   t = 0;
   phase: 'waiting' | 'live' | 'encore' | 'over' = 'waiting';
@@ -78,6 +95,7 @@ export class Gig {
   constructor(readonly config: GigConfig) {
     this.meter = new VibeMeter(SLOTS[config.slot]);
     this.assist = config.assist;
+    this.requests = new Requests(config.slot);
   }
 
   get length(): number {
@@ -110,7 +128,25 @@ export class Gig {
     }
     this.t += dt;
     this.assistTime[this.assist] += dt;
-    out.push(...this.meter.update({ t: this.t, dt, decks, level, redline, progress: this.progress, dropHit }));
+    const vibe = this.meter.update({ t: this.t, dt, decks, level, redline, progress: this.progress, dropHit });
+    out.push(...vibe);
+    // the streak multiplies clean moments in a row
+    for (const e of vibe) {
+      const bonus = this.streak.onEvent(e);
+      if (bonus > 0) {
+        this.meter.points += bonus;
+        out.push({ kind: 'streak', count: this.streak.count, mult: this.streak.mult, bonus, t: this.t });
+      }
+    }
+    // the crowd asks for things (not in the encore: that's their request already)
+    const slot = SLOTS[this.config.slot];
+    for (const r of this.requests.update({ t: this.t, energy: this.meter.energy, target: slot.target(this.progress), remaining: this.remaining, live: this.phase === 'live' }, vibe)) {
+      if (r.what === 'met') {
+        this.meter.points += r.req.points;
+        this.meter.vibe = Math.min(1, this.meter.vibe + REQUEST_VIBE.met);
+      } else if (r.what === 'missed') this.meter.vibe = Math.max(0.02, this.meter.vibe + REQUEST_VIBE.missed);
+      out.push(r);
+    }
     // a full minute at 100 %
     this.fullMinute = this.meter.vibe > 0.97 ? this.fullMinute + dt : 0;
     this.bestFull = Math.max(this.bestFull, this.fullMinute);
@@ -202,6 +238,9 @@ export class Gig {
       tierUp: outcome.tierUp,
       summary,
       outcome,
+      bestStreak: this.streak.best,
+      streakBonus: this.streak.bonus,
+      requests: { asked: this.requests.asked, met: this.requests.met },
     };
   }
 }

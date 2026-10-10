@@ -47,8 +47,9 @@ export interface Settings {
 }
 
 export const DEFAULTS: Settings = {
-  board: 'club4',
-  finish: 'booth',
+  // new players start on a two-deck all-in-one: two decks, one screen, nothing to switch
+  board: 'aio2',
+  finish: 'black',
   venue: 'bedroom',
   view: 'booth',
   camera: 'perf',

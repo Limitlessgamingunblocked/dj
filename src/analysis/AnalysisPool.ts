@@ -1,6 +1,6 @@
 /* Pool of analysis workers: several tracks analyse in parallel off the main thread. */
 import AnalysisWorker from './analysis.worker?worker&inline';
-import type { DemoSpec, PcmData, TrackAnalysis } from '../core/types';
+import type { PcmData, TrackAnalysis } from '../core/types';
 import type { SampleName } from '../audio/synth';
 
 interface Job {
@@ -85,11 +85,6 @@ export class AnalysisPool {
     const channels = pcm.channels.map((c) => c.slice());
     const r = await this.run({ type: 'analyze', channels, sampleRate: pcm.sampleRate }, channels.map((c) => c.buffer), priority);
     return r.analysis as TrackAnalysis;
-  }
-
-  async demo(spec: DemoSpec, opts: { analyze: boolean; returnPcm: boolean; priority?: boolean }): Promise<{ analysis: TrackAnalysis | null; pcm: PcmData | null }> {
-    const r = await this.run({ type: 'demo', spec, sampleRate: 44100, analyze: opts.analyze, returnPcm: opts.returnPcm }, [], opts.priority);
-    return { analysis: (r.analysis as TrackAnalysis) ?? null, pcm: (r.pcm as PcmData) ?? null };
   }
 
   async sample(name: SampleName, sampleRate: number): Promise<PcmData> {

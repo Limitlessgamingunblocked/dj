@@ -18,6 +18,7 @@ import { setWaveScheme } from '../ui/waveform';
 import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData } from '../core/types';
 import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
+import { isPlaylistFile, parsePlaylistFile, type Playlist } from '../library/playlists';
 import type { LyricLine } from '../lyrics/lyrics';
 import { LyricsEngine } from '../lyrics/LyricsEngine';
 import { MidiManager } from '../midi/MidiManager';
@@ -272,8 +273,14 @@ export class App implements AppContext {
 
   async importFiles(files: File[], loadTo?: number, crateId?: string | null): Promise<LibraryTrack[]> {
     const audio = files.filter(isAudioFile);
-    if (!audio.length) {
+    // playlist files that came along (a .txt is a lyrics sidecar, not a playlist, when dropped with audio)
+    const lists = files.filter((f) => isPlaylistFile(f.name) && !isAudioFile(f) && !(audio.length && /\.(txt|lrc)$/i.test(f.name)));
+    if (!audio.length && !lists.length) {
       toast('No audio files there. Deckhouse plays MP3, WAV, AIFF, FLAC, OGG and M4A.', 'error');
+      return [];
+    }
+    if (!audio.length) {
+      await this.importPlaylistFiles(lists);
       return [];
     }
     toast(`Importing ${audio.length} file${audio.length > 1 ? 's' : ''}…`);
@@ -282,8 +289,31 @@ export class App implements AppContext {
     const created = await this.library.importFiles(audio, crateId ?? null, lyricFiles);
     const ok = created.filter((t) => t.status === 'ready');
     if (ok.length) toast(`Imported ${ok.length} track${ok.length > 1 ? 's' : ''}`);
+    if (lists.length) await this.importPlaylistFiles(lists);
     if (loadTo && ok[0]) await this.loadTrack(loadTo, ok[0].id);
     return created;
+  }
+
+  /** playlist files dropped in: each playlist becomes a crate */
+  private async importPlaylistFiles(files: File[]): Promise<void> {
+    const pls: Playlist[] = [];
+    for (const f of files) {
+      try {
+        pls.push(...parsePlaylistFile(f.name, await f.text()));
+      } catch {
+        /* not a playlist we can read */
+      }
+    }
+    if (!pls.length) {
+      toast('No tracks found in that playlist.', 'error');
+      return;
+    }
+    const res = this.library.importPlaylists(pls);
+    const found = res.reduce((n, r) => n + r.found, 0);
+    const missing = res.reduce((n, r) => n + r.missing.length, 0);
+    this.showTab('library');
+    if (res[0]) this.libPanel.showCrate(res[0].id);
+    toast(`${res.length === 1 ? `“${res[0].name}”` : `${res.length} playlists`}: ${found} found${missing ? `, ${missing} to add` : ''}`);
   }
 
   /* ------------------------------------------------------------------ */
@@ -422,6 +452,10 @@ export class App implements AppContext {
         });
       },
       showCrate: (id) => this.libPanel.showCrate(id),
+      openLibrary: () => {
+        this.showTab('library');
+        this.libPanel.showCrate(null);
+      },
       currentCrate: () => this.libPanel.currentCrate(),
       openCreator: () => this.creator?.show(),
       recording: () => this.desk.recording.on,
@@ -578,7 +612,7 @@ export class App implements AppContext {
       this.last = t;
       this.tick(t);
     });
-    void this.loadDemoDecks().then(() => {
+    void this.restoreDecks().then(() => {
       this.library.analyzeMissing();
       void this.loadDefaultSamples();
     });
@@ -612,18 +646,13 @@ export class App implements AppContext {
     this.engine.sampler.setBuffer(slot, pcm, SAMPLE_NAMES[slot], false);
   }
 
-  /**
-   * Opens in a working state: the tracks that were on the decks last time, or two
-   * harmonically compatible demo tracks on decks 1 and 2.
-   */
-  private async loadDemoDecks(): Promise<void> {
+  /** Opens where you left off: the tracks that were on the decks last time (an empty library starts on the Library tab). */
+  private async restoreDecks(): Promise<void> {
     const last = this.settings.lastTracks;
     const plan: [number, string][] = [];
-    for (let d = 1; d <= this.deckCount(); d++) {
-      const id = last[d] && this.library.get(last[d]) ? last[d] : d === 1 ? 'demo-301' : d === 2 ? 'demo-302' : '';
-      if (id) plan.push([d, id]);
-    }
-    await Promise.all(plan.map(([deck, id]) => (!this.engine.deck(deck).loaded && this.library.get(id) ? this.loadTrack(deck, id) : Promise.resolve())));
+    for (let d = 1; d <= this.deckCount(); d++) if (last[d] && this.library.get(last[d])) plan.push([d, last[d]]);
+    if (!this.library.list().length) this.showTab('library');
+    await Promise.all(plan.map(([deck, id]) => (!this.engine.deck(deck).loaded ? this.loadTrack(deck, id) : Promise.resolve())));
   }
 
   /* ------------------------------------------------------------------ */
@@ -1204,7 +1233,7 @@ export class App implements AppContext {
       if (!e.dataTransfer?.types.includes('Files')) return;
       depth++;
       if (!overlay) {
-        overlay = h('div', { class: 'drop-overlay', style: { position: 'fixed' } }, 'Drop audio files to import');
+        overlay = h('div', { class: 'drop-overlay', style: { position: 'fixed' } }, 'Drop music or playlists to import');
         document.body.append(overlay);
       }
     });

@@ -13,7 +13,7 @@ describe('preferences', () => {
     expect(sanitizePrefs([1, 2])).toEqual(DEFAULT_PREFS);
     const p = sanitizePrefs({ keyNotation: 'klingon', waveScheme: 7, tempoRange: 0.33, jogMode: 'laser', loopBeats: 3, endWarning: 'soon', loadLock: 'yes' });
     expect(p.keyNotation).toBe('camelot');
-    expect(p.waveScheme).toBe('rgb');
+    expect(p.waveScheme).toBe('threeband');
     expect(p.tempoRange).toBe(0.08);
     expect(p.jogMode).toBe('vinyl');
     expect(p.loopBeats).toBe(4);

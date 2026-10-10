@@ -3,14 +3,13 @@
  * lane it sits in, and section markers (intro, groove, breakdown, build,
  * drop, outro) so the game knows where the drops are.
  *
- * The original tracks are synthesised (audio/synth.ts), so their sections
- * come straight from the arrangement plan they're rendered with. Imported
- * music has no markers: its energy is estimated from tempo and loudness, and
- * the vibe meter falls back to the live audio features for drops.
- * TODO: let players mark sections on imported tracks (or detect them).
+ * The game ships no music: everything is your own. A track's energy is
+ * estimated from its tempo and loudness, and its sections are found in the
+ * analysis (game/sections.ts). Synthesised test tracks (tests/fixtures) carry
+ * the arrangement they were rendered with.
  */
-import { DEMO_TRACKS, type DemoTrack } from '../audio/synth';
 import type { DemoSpec, LibraryTrack } from '../core/types';
+import { detectSections } from './sections';
 
 /** the crate tags (Section 6.8) */
 export const TAGS = ['deep', 'groovy', 'rolling', 'vocal', 'rave', 'piano', 'garage', 'peak', 'afterhours', 'closer'] as const;
@@ -99,8 +98,6 @@ const STYLE_INFO: Record<DemoSpec['style'], { energy: number; tags: Tag[] }> = {
   rave: { energy: 8, tags: ['rave', 'piano', 'peak'] },
 };
 
-const BY_SEED = new Map<number, DemoTrack>(DEMO_TRACKS.map((d) => [d.spec.seed, d]));
-
 const clampEnergy = (e: number) => Math.max(1, Math.min(10, Math.round(e)));
 
 /** an imported track's energy from its tempo and loudness (5 for a 124 BPM track at -10 dBFS) */
@@ -115,14 +112,10 @@ export function estimateEnergy(bpm: number, loudnessDb: number): number {
 
 export function trackInfo(t: LibraryTrack): TrackInfo {
   if (t.source === 'demo' && t.demo) {
-    const d = BY_SEED.get(t.demo.seed);
     const base = STYLE_INFO[t.demo.style];
-    const energy = d?.energy ?? clampEnergy(base.energy + (t.demo.bpm - 126) / 4);
-    return { energy, tags: (d?.tags as Tag[] | undefined) ?? base.tags, sections: sectionsFor(t.demo), original: !!d?.energy, imported: false };
+    return { energy: clampEnergy(base.energy + (t.demo.bpm - 126) / 4), tags: base.tags, sections: sectionsFor(t.demo), original: false, imported: false };
   }
   const a = t.analysis;
-  return { energy: a ? estimateEnergy(a.bpm, a.loudness) : 5, tags: [], sections: null, original: false, imported: true };
+  // your own music: energy from tempo and loudness, sections found in the analysis
+  return { energy: a ? estimateEnergy(a.bpm, a.loudness) : 5, tags: [], sections: a?.waveform?.length ? detectSections(a) : null, original: false, imported: true };
 }
-
-/** the game's own tracks, in library order */
-export const ORIGINAL_IDS = DEMO_TRACKS.filter((d) => d.energy !== undefined).map((d) => `demo-${d.spec.seed}`);

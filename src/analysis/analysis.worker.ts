@@ -1,13 +1,11 @@
 /// <reference lib="webworker" />
-/* Analysis worker: track analysis, demo track rendering, PCM parsing. */
+/* Analysis worker: track analysis, sampler sounds, PCM parsing. */
 import { analyzePcm } from './analyze';
 import { parsePcm } from './pcm';
-import { renderDemoTrack, renderSample, type SampleName } from '../audio/synth';
-import type { DemoSpec } from '../core/types';
+import { renderSample, type SampleName } from '../audio/synth';
 
 type Req =
   | { id: number; type: 'analyze'; channels: Float32Array[]; sampleRate: number }
-  | { id: number; type: 'demo'; spec: DemoSpec; sampleRate: number; analyze: boolean; returnPcm: boolean }
   | { id: number; type: 'sample'; name: SampleName; sampleRate: number }
   | { id: number; type: 'parsePcm'; bytes: ArrayBuffer };
 
@@ -20,16 +18,6 @@ ctx.onmessage = (e: MessageEvent<Req>) => {
       case 'analyze': {
         const analysis = analyzePcm(m.channels, m.sampleRate);
         ctx.postMessage({ id: m.id, ok: true, analysis }, [analysis.waveform.buffer]);
-        break;
-      }
-      case 'demo': {
-        const r = renderDemoTrack(m.spec, m.sampleRate);
-        const analysis = m.analyze ? analyzePcm([r.left, r.right], r.sampleRate) : null;
-        const transfer: Transferable[] = [];
-        if (analysis) transfer.push(analysis.waveform.buffer);
-        const pcm = m.returnPcm ? { sampleRate: r.sampleRate, channels: [r.left, r.right] } : null;
-        if (pcm) transfer.push(r.left.buffer, r.right.buffer);
-        ctx.postMessage({ id: m.id, ok: true, analysis, pcm }, transfer);
         break;
       }
       case 'sample': {

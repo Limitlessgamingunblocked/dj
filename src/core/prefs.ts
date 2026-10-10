@@ -70,7 +70,7 @@ export const DEFAULT_DECK_COLORS: [string, string, string, string] = ['#4cc9f0',
 
 export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   keyNotation: 'camelot',
-  waveScheme: 'rgb',
+  waveScheme: 'threeband',
   accent: '',
   deckColors: DEFAULT_DECK_COLORS,
   uiScale: 1,

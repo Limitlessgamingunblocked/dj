@@ -39,7 +39,7 @@ export function openGigSetup(o: SetupHooks): void {
   const bk = o.booking ?? null;
   const cfg: GigConfig = bk ? { venue: bk.venue, slot: bk.slot, minutes: bk.minutes, assist: o.assist } : { venue: firstOpen?.id ?? 'bedroom', slot: 'warmup', minutes: 10, assist: o.assist };
   let look = o.currentLook;
-  let crate = o.currentCrate ?? o.crates.find((c) => c.name === 'First Gigs')?.id ?? null;
+  let crate = o.currentCrate ?? null;
 
   const chipRow = <T extends string | number>(label: string, values: readonly { id: T; label: string; title?: string }[], get: () => T, set: (v: T) => void) => {
     const row = h('div', { class: 'gs-chips', role: 'radiogroup', 'aria-label': label });

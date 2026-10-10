@@ -7,7 +7,7 @@ const SECTIONS: [string, string[]][] = [
   [
     'Mix',
     [
-      'Two tracks are already on the decks. Press Play.',
+      'Load a track on each deck and press Play.',
       'Sync locks the other deck to the master tempo.',
       'Faders, EQ, filter and crossfader are on the 3D board and in Mixer & FX.',
       'Turn an EQ knob fully left to kill that band.',
@@ -17,6 +17,7 @@ const SECTIONS: [string, string[]][] = [
     'Your music',
     [
       'Import music in the Library, or drop audio files anywhere.',
+      'Import a playlist from rekordbox, Traktor, Apple Music or a CSV: it becomes a crate.',
       'Drag a track onto a deck, double-click it, or use its deck numbers.',
     ],
   ],

@@ -147,7 +147,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
         h('span', { class: 'res-kicker' }, `${venueName} · ${SLOTS[r.config.slot].label} · ${r.config.minutes} min${r.encore ? ' · encore' : ''}`),
         h('h2', { class: 'res-dj' }, hooks.dj),
         h('p', { class: 'res-promoter' }, h('b', {}, 'Promoter: '), promoterLine(r)),
-        h('div', { class: 'res-nums' }, stat('Average vibe', `${Math.round(r.average * 100)}%`), stat('Score', r.score.toLocaleString(), r.score !== r.points ? `${r.points.toLocaleString()} × assist` : undefined), stat('Transitions', String(r.transitions)), stat('Mistakes', String(r.mistakes))),
+        h('div', { class: 'res-nums' }, stat('Average vibe', `${Math.round(r.average * 100)}%`), stat('Score', r.score.toLocaleString(), r.score !== r.points ? `${r.points.toLocaleString()} × assist` : undefined), stat('Transitions', String(r.transitions)), stat('Best streak', r.bestStreak >= 2 ? `${r.bestStreak}` : '—', r.streakBonus ? `+${r.streakBonus.toLocaleString()}` : undefined), stat('Requests', r.requests.asked ? `${r.requests.met}/${r.requests.asked}` : '—'), stat('Mistakes', String(r.mistakes))),
       ),
     ),
     graph(r),

@@ -339,3 +339,139 @@ table.tracks .art {
   font-size: 15px;
   margin-bottom: 4px;
 }
+
+/* an empty library: how to get music in */
+.lib-welcome {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.lib-welcome h3 {
+  margin: 0;
+  font-family: var(--font-label);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lib-welcome p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.lib-welcome-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+/* a playlist crate's tracks that aren't here yet */
+.wanted {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.wanted b {
+  color: var(--text);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wanted-list {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* import a playlist */
+.pl-import {
+  display: grid;
+  gap: 16px;
+}
+
+.pl-pick {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.pl-pick .note {
+  margin: 0;
+}
+
+.pl-paste-wrap {
+  display: grid;
+  gap: 8px;
+}
+
+.pl-paste {
+  width: 100%;
+  resize: vertical;
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--bg);
+  font: 13px/1.5 var(--font-mono);
+}
+
+.pl-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pl-row .search {
+  flex: 1;
+}
+
+.pl-result {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--panel-2);
+}
+
+.pl-result-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pl-count {
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.pl-count.all {
+  color: var(--ok);
+}
+
+.pl-count.part {
+  color: var(--warn);
+}
+
+.pl-missing {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  display: grid;
+  gap: 2px;
+}
+
+.pl-missing .more {
+  list-style: none;
+  margin-left: -18px;
+  color: var(--dim);
+}

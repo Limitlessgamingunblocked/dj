@@ -3,8 +3,8 @@
  * "hey!", "ohh"). Mirrors the arrangement in audio/synth.ts, so the kinetic
  * typography can be tried without importing anything.
  */
-import type { DemoSpec } from '../core/types';
-import type { Lyrics, LyricLine } from './lyrics';
+import type { DemoSpec } from '../../src/core/types';
+import type { Lyrics, LyricLine } from '../../src/lyrics/lyrics';
 
 export function demoLyrics(spec: DemoSpec): Lyrics | null {
   if (spec.style !== 'techhouse' && spec.style !== 'rave' && spec.style !== 'rolling') return null;

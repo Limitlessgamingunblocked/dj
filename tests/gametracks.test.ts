@@ -1,33 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { DEMO_TRACKS, renderDemoTrack } from '../src/audio/synth';
-import type { LibraryTrack } from '../src/core/types';
-import { energyAt, estimateEnergy, nextSection, ORIGINAL_IDS, sectionAt, sectionsFor, TAGS, trackInfo } from '../src/game/tracks';
+import { DEMO_TRACKS, renderDemoTrack } from './fixtures/synth';
+import type { DemoSpec, LibraryTrack } from '../src/core/types';
+import { energyAt, estimateEnergy, nextSection, sectionAt, sectionsFor, trackInfo } from '../src/game/tracks';
 import { matchTrack, parseSearch } from '../src/library/Library';
 
-const lib = (id: string): LibraryTrack => {
-  const d = DEMO_TRACKS.find((x) => `demo-${x.spec.seed}` === id)!;
-  return { id, fileName: d.title, size: 0, addedAt: 0, meta: { title: d.title, artist: d.artist, album: '', genre: d.genre ?? '', year: '', format: 'SYNTH' }, cues: { cue: null, hot: [] }, source: 'demo', demo: d.spec, plays: 0, status: 'ready' };
-};
+const spec = (id: string, demo: DemoSpec): LibraryTrack => ({ id, fileName: id, size: 0, addedAt: 0, meta: { title: id, artist: 'x', album: '', genre: '', year: '', format: 'WAV' }, cues: { cue: null, hot: [] }, source: 'demo', demo, plays: 0, status: 'ready' });
 
-describe('the original track library', () => {
-  it('has 40+ original tracks in the brief’s lanes with full metadata (Section 7.1)', () => {
-    expect(ORIGINAL_IDS.length).toBeGreaterThanOrEqual(40);
-    const originals = DEMO_TRACKS.filter((d) => d.energy !== undefined);
-    expect(new Set(originals.map((d) => d.title)).size).toBe(originals.length);
-    for (const d of originals) {
-      expect(d.spec.bpm).toBeGreaterThanOrEqual(120);
-      expect(d.spec.bpm).toBeLessThanOrEqual(130);
-      expect(d.spec.bars).toBe(128);
-      expect(d.energy).toBeGreaterThanOrEqual(1);
-      expect(d.energy).toBeLessThanOrEqual(10);
-      expect(d.tags!.length).toBeGreaterThan(0);
-      for (const t of d.tags!) expect(TAGS).toContain(t);
-      // no techno or breaks in the game's own lanes
-      expect(['minimal', 'rolling', 'techhouse', 'rave', 'garage', 'house']).toContain(d.spec.style);
-    }
-    // every lane is there
-    const tags = new Set(originals.flatMap((d) => d.tags!));
-    for (const t of ['deep', 'groovy', 'rolling', 'vocal', 'rave', 'piano', 'garage', 'peak', 'afterhours', 'closer']) expect(tags).toContain(t);
+describe('what the game knows about a track', () => {
+  it('ships no tracks of its own: the library is your music', () => {
+    // the synthesised tracks are only test fixtures now
+    expect(DEMO_TRACKS.length).toBeGreaterThan(0);
   });
 
   it('marks DJ-friendly sections: 16-bar intro and outro, a build before the drop', () => {
@@ -69,21 +51,18 @@ describe('the original track library', () => {
   });
 
   it('knows each track’s energy, lifted on drops and lowered in breakdowns', () => {
-    const t = lib('demo-312');
+    const t = spec('rave-1', { seed: 1, bpm: 126, root: 0, minor: true, style: 'rave', bars: 128 });
     const info = trackInfo(t);
-    expect(info.original).toBe(true);
+    expect(info.original).toBe(false);
     expect(info.imported).toBe(false);
-    expect(info.energy).toBe(9);
+    expect(info.energy).toBe(8);
     const s = info.sections!;
     const drop = energyAt(info, s.find((x) => x.kind === 'drop')!.t + 1);
     const breakdown = energyAt(info, s.find((x) => x.kind === 'breakdown')!.t + 1);
     expect(drop).toBeGreaterThan(breakdown);
     expect(drop).toBeLessThanOrEqual(1);
-    // the old studio demos get energy and tags from their style
-    const old = trackInfo(lib('demo-11'));
-    expect(old.original).toBe(false);
-    expect(old.tags).toContain('groovy');
-    // imported music: estimated, no markers
+    expect(info.tags).toContain('rave');
+    // imported music: estimated, no markers until it's been analysed for sections
     const imported = trackInfo({ ...t, source: 'file', demo: undefined, analysis: { version: 5, duration: 300, bpm: 124, firstBeat: 0, key: null, loudness: -10, peak: 0, waveform: new Uint8Array(), waveRate: 150 } });
     expect(imported.imported).toBe(true);
     expect(imported.sections).toBeNull();
@@ -93,13 +72,13 @@ describe('the original track library', () => {
   });
 
   it('searches by tag and energy', () => {
-    const rave = lib('demo-312');
-    const deep = lib('demo-301');
+    const rave = spec('r', { seed: 2, bpm: 128, root: 0, minor: true, style: 'rave', bars: 128 });
+    const deep = spec('d', { seed: 3, bpm: 122, root: 0, minor: true, style: 'minimal', bars: 128 });
     expect(matchTrack(rave, parseSearch('tag:rave'))).toBe(true);
     expect(matchTrack(deep, parseSearch('tag:rave'))).toBe(false);
     expect(matchTrack(deep, parseSearch('deep'))).toBe(true);
     expect(matchTrack(rave, parseSearch('energy:8-10'))).toBe(true);
     expect(matchTrack(deep, parseSearch('energy:8-10'))).toBe(false);
-    expect(matchTrack(deep, parseSearch('energy:4'))).toBe(true);
+    expect(matchTrack(deep, parseSearch('energy:3'))).toBe(true);
   });
 });

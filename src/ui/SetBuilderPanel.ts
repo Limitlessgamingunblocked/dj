@@ -577,7 +577,6 @@ export class SetBuilderPanel {
     };
     const slug = () => this.name.replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'smartdj-set';
     const files = plan.entries.filter((e) => e.profile.format !== 'SYNTH').length;
-    const synth = plan.entries.length - files;
     const fmt = (label: string, note: string, make: () => void, needsFiles = true) => {
       const b = h('button', { class: 'btn', type: 'button', disabled: needsFiles && !files }, label);
       b.addEventListener('click', make);
@@ -607,14 +606,13 @@ export class SetBuilderPanel {
         h('label', { class: 'sb-label' }, 'Playlist name', nameIn),
         h('label', { class: 'sb-label' }, 'Music folder on the computer running your DJ software', folderIn),
         h('p', { class: 'note' }, 'Where the files live on your computer, so the DJ software can find them. Leave it empty to relocate them after import.'),
-        synth ? h('p', { class: 'note' }, `${synth} built-in demo track${synth > 1 ? 's are' : ' is'} generated in the browser and left out of file exports.`) : null,
         h('h3', {}, 'DJ software'),
         fmt('rekordbox XML', 'Beat grid, key and mix-in / mix-out memory cues. In rekordbox: File › Import › rekordbox xml.', () => download(`${slug()}.xml`, toRekordboxXml(plan, target()), 'application/xml')),
         fmt('Traktor NML', 'Beat grid, key and mix cues. Import it from the Playlists tree in Traktor.', () => download(`${slug()}.nml`, toTraktorNml(plan, target()), 'application/xml')),
         fmt('M3U8 playlist', 'Serato DJ (drag onto Crates), VirtualDJ, Engine DJ and media players. Order only — no cues.', () => download(`${slug()}.m3u8`, toM3U(plan, target()), 'audio/x-mpegurl')),
         fmt('CSV cue sheet', 'Every track with start time, mix points, tempo and key moves, and transition notes.', () => download(`${slug()}.csv`, toCsv(plan), 'text/csv'), false),
         h('h3', {}, 'Streaming'),
-        h('p', { class: 'note' }, real.length ? 'Copy the list into a playlist-transfer service to build it on Spotify or Apple Music, or open each track below.' : 'The demo tracks only exist in Deckhouse, so there is nothing to find on streaming services.'),
+        h('p', { class: 'note' }, 'Copy the list into a playlist-transfer service to build it on Spotify or Apple Music, or open each track below.'),
         h('div', {}, listBtn),
         links,
       ),

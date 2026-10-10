@@ -3,8 +3,8 @@
  * Full-resolution waveforms are pre-rendered once per track into canvas tiles
  * (WAVE_RATE px per second) and blitted with scaling each frame; beat grid,
  * cues and loops are drawn on top.
- * Colours follow the scheme picked in Settings (RGB by default: low = red,
- * mid = green, high = blue, additively blended).
+ * Colours follow the scheme picked in Settings (3-band by default: lows
+ * blue, mids orange, highs white, layered).
  */
 import type { Deck } from '../audio/Deck';
 import type { WaveScheme } from '../core/prefs';
@@ -34,11 +34,11 @@ const SCHEMES: Record<WaveScheme, Scheme> = {
   blue: { mode: 'layer', colors: ['#1c47c9', '#3f8cff', '#cfe6ff'] },
   mono: { mode: 'mono', colors: ['#f0cf8e', '#f0cf8e', '#f0cf8e'] },
 };
-let scheme: Scheme = SCHEMES.rgb;
+let scheme: Scheme = SCHEMES.threeband;
 
 /** Switch the waveform colours; the cached waveform images are redrawn on next use. */
 export function setWaveScheme(id: WaveScheme): void {
-  const next = SCHEMES[id] ?? SCHEMES.rgb;
+  const next = SCHEMES[id] ?? SCHEMES.threeband;
   if (next === scheme) return;
   scheme = next;
   tileCache.clear();

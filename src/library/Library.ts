@@ -1,21 +1,21 @@
 /*
  * Music library: track collection with IndexedDB persistence (audio blobs,
  * metadata, analysis cache, cue points), crates in nested folders, the
- * ingestion pipeline (tags → decode → analysis in workers), built-in demo
- * tracks, JSON export/import of crates and cue data, and smart search.
+ * ingestion pipeline (tags → decode → analysis in workers), JSON
+ * export/import of crates and cue data, and smart search. Everything in it is
+ * your own music: the game ships no tracks.
  */
 import { Emitter } from '../core/emitter';
-import { ANALYSIS_VERSION, type DemoSpec, type HotCue, type LibraryTrack, type PcmData, type TrackAnalysis } from '../core/types';
+import { ANALYSIS_VERSION, type HotCue, type LibraryTrack, type PcmData, type TrackAnalysis } from '../core/types';
 import { uid } from '../core/util';
 import type { AnalysisPool } from '../analysis/AnalysisPool';
 import { sniffPcmFormat } from '../analysis/pcm';
-import { makeKey, parseKeyTag } from '../analysis/keys';
-import { DEMO_TRACKS } from '../audio/synth';
+import { parseKeyTag } from '../analysis/keys';
 import { dbAll, dbDelete, dbGet, dbPut } from './db';
 import { readTags } from './tags';
 import { lyricsFromSynced, lyricsFromText, type Lyrics } from '../lyrics/lyrics';
-import { demoLyrics } from '../lyrics/demo';
-import { ORIGINAL_IDS, trackInfo } from '../game/tracks';
+import { trackInfo } from '../game/tracks';
+import { matchEntry, matchPlaylist, type MatchTarget, type Playlist, type PlaylistEntry } from './playlists';
 
 export interface Crate {
   id: string;
@@ -23,6 +23,8 @@ export interface Crate {
   kind: 'folder' | 'crate';
   parent: string | null;
   trackIds: string[];
+  /** an imported playlist's entries that aren't in the library yet: they slot in as the files arrive */
+  wanted?: PlaylistEntry[];
 }
 
 interface LibraryEvents extends Record<string, unknown> {
@@ -77,22 +79,35 @@ export class Library extends Emitter<LibraryEvents> {
       this.tracks.set(t.id, t);
     }
     this.crates = (await dbGet<Crate[]>('kv', 'crates')) ?? [];
-    this.ensureDemos();
-    if (!this.crates.length) {
-      const folder = this.createCrate('Sets', 'folder', null, false);
-      const demo = this.createCrate('Demo Set', 'crate', folder.id, false);
-      demo.trackIds = DEMO_TRACKS.map((d) => `demo-${d.spec.seed}`);
-      this.createCrate('Warm Up', 'crate', folder.id, false);
-      this.saveCrates();
-    }
-    // the game's own tracks, ready for the first gigs
-    if (!this.crates.some((c) => c.name === 'First Gigs' && c.kind === 'crate')) {
-      const folder = this.crates.find((c) => c.kind === 'folder' && c.name === 'Sets') ?? null;
-      const first = this.createCrate('First Gigs', 'crate', folder?.id ?? null, false);
-      first.trackIds = [...ORIGINAL_IDS];
-      this.saveCrates();
-    }
+    this.removeGenerated();
     this.emit('changed', undefined);
+  }
+
+  /**
+   * Earlier versions shipped generated tracks and made crates for them ("Demo
+   * Set", "First Gigs", an empty "Warm Up" in a "Sets" folder). They're gone:
+   * the tracks, their place in your crates and history, and those crates if
+   * nothing of yours is left in them.
+   */
+  private removeGenerated(): void {
+    const gone = [...this.tracks.values()].filter((t) => t.source === 'demo').map((t) => t.id);
+    for (const id of gone) {
+      this.tracks.delete(id);
+      void dbDelete('tracks', id);
+    }
+    const doomed = new Set(gone);
+    let changed = gone.length > 0;
+    for (const c of this.crates) {
+      const n = c.trackIds.length;
+      c.trackIds = c.trackIds.filter((id) => !doomed.has(id));
+      changed ||= c.trackIds.length !== n;
+    }
+    this.history = this.history.filter((id) => !doomed.has(id));
+    const auto = new Set(['Demo Set', 'First Gigs', 'Warm Up']);
+    const before = this.crates.length;
+    this.crates = this.crates.filter((c) => !(c.kind === 'crate' && auto.has(c.name) && !c.trackIds.length));
+    this.crates = this.crates.filter((c) => !(c.kind === 'folder' && c.name === 'Sets' && !this.crates.some((x) => x.parent === c.id)));
+    if (changed || this.crates.length !== before) this.saveCrates();
   }
 
   /** Analyse anything that is missing or outdated, in the background. */
@@ -100,46 +115,6 @@ export class Library extends Emitter<LibraryEvents> {
     for (const t of this.tracks.values()) {
       if (t.status === 'analyzing') continue;
       if (!t.analysis || t.analysis.version !== ANALYSIS_VERSION) void this.analyzeInBackground(t);
-    }
-  }
-
-  private ensureDemos(): void {
-    // demo tracks the game no longer ships (the old techno and breaks demos) go
-    const keep = new Set(DEMO_TRACKS.map((d) => `demo-${d.spec.seed}`));
-    for (const t of [...this.tracks.values()]) {
-      if (t.source !== 'demo' || keep.has(t.id)) continue;
-      this.tracks.delete(t.id);
-      for (const c of this.crates) c.trackIds = c.trackIds.filter((x) => x !== t.id);
-      void dbDelete('tracks', t.id);
-    }
-    for (const d of DEMO_TRACKS) {
-      const id = `demo-${d.spec.seed}`;
-      const have = this.tracks.get(id);
-      if (have) {
-        if (!have.lyrics) {
-          const l = demoLyrics(d.spec);
-          if (l) {
-            have.lyrics = l;
-            this.saveTrack(have, 0);
-          }
-        }
-        continue;
-      }
-      const t: LibraryTrack = {
-        id,
-        fileName: `${d.title}.demo`,
-        size: 0,
-        addedAt: Date.now(),
-        meta: { title: d.title, artist: d.artist, album: d.energy !== undefined ? 'Deckhouse Originals' : 'Deckhouse Demo Tracks', genre: d.genre ?? d.spec.style, label: d.label, year: '2026', format: 'SYNTH', sampleRate: 44100, bitrate: 1411 },
-        cues: { cue: null, hot: [] },
-        source: 'demo',
-        demo: d.spec,
-        plays: 0,
-        status: 'new',
-        lyrics: demoLyrics(d.spec) ?? undefined,
-      };
-      this.tracks.set(id, t);
-      this.saveTrack(t, 0);
     }
   }
 
@@ -211,7 +186,65 @@ export class Library extends Emitter<LibraryEvents> {
     this.importing += list.length;
     this.emit('changed', undefined);
     await Promise.all(Array.from({ length: Math.min(2, list.length) }, worker));
+    this.fillWanted(created);
     return created;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* playlists from other apps                                            */
+  /* ------------------------------------------------------------------ */
+
+  private matchTargets(tracks: Iterable<LibraryTrack> = this.tracks.values()): MatchTarget[] {
+    return [...tracks].filter((t) => t.status !== 'error').map((t) => ({ id: t.id, fileName: t.fileName, title: t.meta.title, artist: t.meta.artist }));
+  }
+
+  /** each playlist becomes a crate in the Playlists folder, with what's already here; the rest waits for its files */
+  importPlaylists(pls: Playlist[]): { id: string; name: string; found: number; missing: PlaylistEntry[] }[] {
+    let folder = this.crates.find((c) => c.kind === 'folder' && c.name === 'Playlists' && c.parent === null);
+    folder ??= this.createCrate('Playlists', 'folder', null, false);
+    const targets = this.matchTargets();
+    const names = new Set(this.crates.filter((c) => c.parent === folder!.id).map((c) => c.name));
+    const out = pls.map((p) => {
+      let name = p.name.trim() || 'Playlist';
+      for (let n = 2; names.has(name); n++) name = `${p.name.trim() || 'Playlist'} (${n})`;
+      names.add(name);
+      const { ids, missing } = matchPlaylist(p, targets);
+      const c = this.createCrate(name, 'crate', folder!.id, false);
+      c.trackIds = ids;
+      if (missing.length) c.wanted = missing;
+      return { id: c.id, name, found: ids.length, missing };
+    });
+    this.saveCrates();
+    this.emit('changed', undefined);
+    return out;
+  }
+
+  /** how many playlist entries are still waiting for their files */
+  get wantedCount(): number {
+    return this.crates.reduce((n, c) => n + (c.wanted?.length ?? 0), 0);
+  }
+
+  /** files that just arrived may be ones a playlist was waiting for */
+  private fillWanted(added: LibraryTrack[]): void {
+    const targets = this.matchTargets(added);
+    if (!targets.length) return;
+    let changed = false;
+    for (const c of this.crates) {
+      if (!c.wanted?.length) continue;
+      const still: PlaylistEntry[] = [];
+      for (const e of c.wanted) {
+        const id = matchEntry(e, targets);
+        if (id) {
+          if (!c.trackIds.includes(id)) c.trackIds.push(id);
+          changed = true;
+        } else still.push(e);
+      }
+      c.wanted = still.length ? still : undefined;
+    }
+    if (changed) {
+      this.saveCrates();
+      this.emit('changed', undefined);
+    }
   }
 
   private async ingest(file: File): Promise<LibraryTrack | null> {
@@ -306,17 +339,9 @@ export class Library extends Emitter<LibraryEvents> {
     const pending = this.pcmPending.get(t.id);
     if (pending) return pending;
     const p = (async () => {
-      let pcm: PcmData;
-      if (t.source === 'demo' && t.demo) {
-        const needs = !t.analysis || t.analysis.version !== ANALYSIS_VERSION;
-        const r = await this.pool.demo(t.demo, { analyze: needs, returnPcm: true, priority: true });
-        pcm = r.pcm!;
-        if (r.analysis) this.setAnalysis(t, r.analysis);
-      } else {
-        const blob = await dbGet<Blob>('blobs', t.id);
-        if (!blob) throw new Error('The audio for this track is no longer stored in this browser. Import the file again.');
-        pcm = await this.decode(await blob.arrayBuffer(), true);
-      }
+      const blob = await dbGet<Blob>('blobs', t.id);
+      if (!blob) throw new Error('The audio for this track is no longer stored in this browser. Import the file again.');
+      const pcm = await this.decode(await blob.arrayBuffer(), true);
       this.cachePcm(t.id, pcm);
       return pcm;
     })();
@@ -347,14 +372,9 @@ export class Library extends Emitter<LibraryEvents> {
     t.status = 'analyzing';
     this.emit('track', t);
     try {
-      if (t.source === 'demo' && t.demo) {
-        const r = await this.pool.demo(t.demo, { analyze: true, returnPcm: false });
-        if (r.analysis) this.setAnalysis(t, r.analysis);
-      } else {
-        const pcm = await this.getPcm(t);
-        const a = await this.pool.analyze(pcm);
-        this.setAnalysis(t, a);
-      }
+      const pcm = await this.getPcm(t);
+      const a = await this.pool.analyze(pcm);
+      this.setAnalysis(t, a);
     } catch (err) {
       t.status = 'error';
       t.error = err instanceof Error ? err.message : String(err);
@@ -386,7 +406,7 @@ export class Library extends Emitter<LibraryEvents> {
 
   async deleteTrack(id: string): Promise<void> {
     const t = this.tracks.get(id);
-    if (!t || t.source === 'demo') return;
+    if (!t) return;
     this.tracks.delete(id);
     this.pcmCache.delete(id);
     for (const c of this.crates) c.trackIds = c.trackIds.filter((x) => x !== id);
@@ -480,7 +500,7 @@ export class Library extends Emitter<LibraryEvents> {
   /* ------------------------------------------------------------------ */
 
   private trackKey(t: LibraryTrack): string {
-    return t.source === 'demo' ? t.id : `${t.fileName}|${t.size}`;
+    return `${t.fileName}|${t.size}`;
   }
 
   exportJSON(): string {
@@ -610,8 +630,4 @@ export function matchTrack(t: LibraryTrack, q: ReturnType<typeof parseSearch>): 
   if (q.bpmMax !== undefined && (!bpm || bpm > q.bpmMax)) return false;
   if (q.keys && (!t.analysis?.key || !q.keys.has(t.analysis.key.camelot))) return false;
   return true;
-}
-
-export function demoKey(spec: DemoSpec) {
-  return makeKey(spec.root, spec.minor);
 }

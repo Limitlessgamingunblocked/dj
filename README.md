@@ -2,7 +2,7 @@
 
 A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks, Alexandra Palace (an arena show, or in the round under 43,000 hanging lights) or the house warehouse — each with its own room, a dancing crowd (sign holders, VIP guests by the booth) and a light show of lasers, moving heads, strobes, blinders, CO2 and pyro that follows the beat. Fly an FPV drone camera through the room. Load your own music, mix it, add effects and watch an audio-reactive visual player, with the lyrics of whatever is playing as kinetic type on the LED walls.
 
-It opens ready to play, in the Bedroom: two original tracks are already loaded on decks 1 and 2. Press **Play a gig** in the top bar for a scored set.
+It ships no music: it opens on the Library tab, where you add your own (files, a folder, or a playlist from another app). Load a track on each deck, or press **Play a gig** in the top bar for a scored set.
 
 It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library into an ordered, harmonically mixed set around the artists, labels or genres you pick, shaped to an energy arc, with transition guidance for every mix. It can build sets in four house sounds (Deep & Groovy, Rolling Minimal, Bouncy Tech House, Rave Energy) from whatever your library holds.
 
@@ -55,7 +55,7 @@ Stage 3 made it **a game you can play a set in**:
 - **Assists:** Chill syncs for you, Club lets you sync, Pro takes sync away for a ×1.5 score.
 - **Results:** a grade from D to S, the vibe over the set against what the slot wanted, your best transition, the crowd's peak, and fame, cash and followers. Finish above 75 % and they call for an encore.
 - **The room reacts:** lights follow the hi-hats, bass and vocals and dim when the room is cold; the crowd goes from scrolling their phones to jumping in sync; you hear them murmur, cheer, groan and chant your name; the promoter, sound engineer, security, the bar and the door all have something to say.
-- **13 new original tracks** in the brief's lanes, each with section markers, energy 1–10 and tags (the **First Gigs** crate).
+- Your own tracks get section markers (intro, breakdown, build, drop, outro) found from their analysis, so drops and builds score on any music.
 - Free play still works the way it always has: pick any venue and mix, with the vibe meter driving the room.
 
 Stage 4 added **recording and instant replay**:
@@ -86,6 +86,18 @@ npm run build:single   # one self-contained HTML file in dist-single/
 Serve `dist/` from `localhost` or any `https://` host. The single-file build (`npm run build:single`) also works when opened straight from disk. Current Chrome, Edge, Firefox and Safari are supported; Web MIDI needs Chrome, Edge or Opera.
 
 ## What's in it
+
+### Your music and playlists
+- **Import** MP3, WAV, AIFF, FLAC, OGG or M4A files, a whole folder, or drop them anywhere. They're analysed in the browser (tempo, beat grid, key, loudness, sections) and stay on your device.
+- **Import a playlist** (Library ⋯ menu, or drop the file): M3U / M3U8, PLS, XSPF, rekordbox XML, Traktor NML, an Apple Music / iTunes library XML, a CSV of a streaming playlist from a playlist export tool, or a pasted "Artist - Title" list. Each playlist becomes a crate under **Playlists**. Tracks you have go straight in, matched by file name or by artist and title. The rest are listed under the crate and slot in when you import their files.
+- **Spotify and SoundCloud** can't be connected. Spotify's developer policy rules out DJ apps and mixing its content, and SoundCloud's API rules out modifying or mixing tracks. Both deliver their audio in a form a browser mixer can't process. Bring the track list and your own files instead.
+
+### Gigs: streaks, requests and the coach
+- **Live score** in the gig HUD.
+- **Streak:** clean transitions, built drops and comebacks in a row multiply their points (×1.25, ×1.5 … up to ×2). A trainwreck, a key clash, dead air, redlining, too many drops or a repeat breaks it.
+- **Crowd requests** every couple of minutes, with a timer: more energy or less when the room is off the slot's curve, otherwise a drop, a long blend, a filter fade or something new. Met requests pay points and lift the vibe; missed ones cost a little.
+- **Next-track coach** (Chill and Club): a track from your crate that's in key, close in tempo and at the energy the slot wants next, with a Load button.
+- The results show your best streak and how many requests you met.
 
 ### Auto DJ
 Turn it on from the ⋯ menu (or Shift+A) and it mixes by itself, the way you would on two decks:
@@ -135,7 +147,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **All-in-One Two's touch screen** works like the real one. Tap its tabs:
   - **DECKS:** both decks' scrolling waveforms, title, BPM, key, tempo and time, beat FX, and an overview per deck. Tap an overview to jump there.
   - **BROWSE:** your library, the same list as the Library tab. Tap a track to pick it and tap it again to load it, or use LOAD ▶ DECK 1 / 2. Drag or scroll to move through the list, tap a column to sort, and use ★ TAG for favourites. Tracks that suit the master deck's key get a green dot.
-  - **PLAYLISTS:** the collection, demo tracks, favourites, history and your crates.
+  - **PLAYLISTS:** the collection, favourites, history and your crates.
   - **SEARCH:** jump to a letter, or change the sort.
 
   Beside the screen are the browse encoder (turn to move through the list; push to open it, or to load from it), BACK, TAG TRACK and LOAD 1 / 2. Each deck adds CUE/LOOP CALL ◀ ▶ with MEMORY and DELETE (on the hot cues), track search ◀◀ ▶▶ (the previous or next track in the list) and search (hold to scan). The mixer has a sound colour FX (FILTER or CRUSH on the COLOR knobs, with PARAMETER). The mic, aux and booth-monitor knobs turn but have no audio behind them in a browser game.
@@ -172,7 +184,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - Beat-grid tools: tap tempo, ×2, ÷2, set downbeat, nudge grid.
 
 ### Set Builder (SmartDJ)
-Builds a set from the analysed tracks in your library (or one crate). The library ships with 32 generated demo tracks by fictional artists on seven fictional labels, so you can try it straight away with anchors such as `Kora Vance`, `Tidal Room` or `techno`.
+Builds a set from the analysed tracks in your library (or one crate), around artists, labels or genres you name, or one of four sounds.
 
 - **Sound lanes**: `Deep & Groovy`, `Rolling Minimal`, `Bouncy Tech House` and `Rave Energy` work as anchors (type them or use the ≈ buttons). The builder matches the sound from your library and says so. Each lane has a profile: tempo range, energy band, genre words, sounds to avoid and major/minor leaning.
   | Lane | Sound |
@@ -193,7 +205,7 @@ Builds a set from the analysed tracks in your library (or one crate). The librar
 - **Guidance** for every transition: mix length in bars, where to start the incoming track (the outgoing track's mix-out point, on a 4-bar phrase found from the waveform's intro/outro), pitch change to beat-match, key move (with a key-shift suggestion for clashes) and a 0–100 score. An energy chart compares the set with the arc.
 - **Fine-tuning**: pin, swap (ranked alternatives for that slot), move, remove, re-roll (keeps pins, skips removed tracks). Timings and scores update after every edit.
 - **Play it**: *Load first two* puts tracks 1 and 2 on the left and right decks; *Load next* feeds the following track into whichever deck isn't playing. *Write mix cues* stores each track's mix-in and mix-out points on hot cues G and H (pads that hold your own cues are left alone). *Save as crate* adds the set to Library › Sets.
-- **Export**: rekordbox XML and Traktor NML (beat grid, key, mix-in/mix-out cues, playlist), M3U8 for Serato DJ, VirtualDJ and Engine DJ, a CSV cue sheet, and a plain track list with Spotify and Apple Music search links. The browser doesn't know where your files live, so give the export the folder that holds them (or relocate after import). Built-in demo tracks are left out of file exports.
+- **Export**: rekordbox XML and Traktor NML (beat grid, key, mix-in/mix-out cues, playlist), M3U8 for Serato DJ, VirtualDJ and Engine DJ, a CSV cue sheet, and a plain track list with Spotify and Apple Music search links. The browser doesn't know where your files live, so give the export the folder that holds them (or relocate after import).
 
 The engine is in `src/setbuilder/` (profiling, harmony, arcs, generation, exports) and has no UI dependencies.
 
@@ -202,7 +214,7 @@ The engine is in `src/setbuilder/` (profiling, harmony, arcs, generation, export
 - **Aligning plain lyrics to the vocals**: the track is scanned for centre-panned tonal energy in the voice band (250 Hz–3.5 kHz, side channel subtracted, broadband drums ignored). That gives a vocal-activity curve and syllable onsets. Lines are laid over the sung parts in proportion to their syllables, and words snap to nearby onsets. This is signal analysis, not speech recognition, so it can drift on dense tracks: the editor has tap-sync (tap at the start of each line while the track plays), an offset slider, a live preview and .lrc export.
 - **Kinetic typography**: the loudest playing deck's lyrics appear on the LED walls and in the visual player. Words pop in as they're sung, the type breathes with the kick, ripples with the vocal and glitches on snares. Styles: neon outline, glitch (slice displacement and RGB split), kinetic wave, tracking (letter-spacing glides in), karaoke wipe, or auto (hooks in neon and glitch, verses tracking and waving). Colours follow the light show's palette.
 - **Key phrases hit the lights**: repeated lines and `[Chorus]`/`[Hook]` sections are hooks. When one lands, the lights fire a beat of strobes, a blinder pop and a burst of lit haze, and the crowd throws their arms up.
-- The 🎤 button on each deck (Pro layout, or the deck's ⋯ menu) opens the editor; the Show tab has the style and switches (hook lighting, booth subtitle). The demo tracks with vocal chops come with word-timed lyrics.
+- The 🎤 button on each deck (Pro layout, or the deck's ⋯ menu) opens the editor; the Show tab has the style and switches (hook lighting, booth subtitle).
 
 ### Venues and light show
 | Venue | What it is |

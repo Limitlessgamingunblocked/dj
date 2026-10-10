@@ -1,5 +1,5 @@
 /*
- * Library browser: collection / demo / history views, nested crate folders,
+ * Library browser: collection / favourites / history views, nested crate folders,
  * smart search ("bpm:120-128 key:8A artist:x"), BPM range, key-match
  * highlighting against a deck, sortable columns, drag to decks, crates,
  * JSON export/import of crates and cues.
@@ -12,10 +12,12 @@ import { formatBpm, formatTime } from '../core/util';
 import { AUDIO_ACCEPT, matchTrack, parseSearch, type Crate } from '../library/Library';
 import { trackInfo } from '../game/tracks';
 import { clear, h } from './dom';
+import { openPlaylistImport } from './PlaylistImport';
+import { entryLabel } from '../library/playlists';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 
-type View = { kind: 'all' } | { kind: 'demo' } | { kind: 'favs' } | { kind: 'history' } | { kind: 'crate'; id: string };
+type View = { kind: 'all' } | { kind: 'favs' } | { kind: 'history' } | { kind: 'crate'; id: string };
 export type SortKey = 'title' | 'artist' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
 
 export class LibraryPanel {
@@ -78,6 +80,7 @@ export class LibraryPanel {
     moreBtn.addEventListener('click', (e) =>
       contextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
         { label: 'Import a folder…', action: () => this.folderInput.click() },
+        { label: 'Import a playlist…', action: () => this.importPlaylist() },
         'sep',
         { label: 'Back up crates and cues', action: () => this.exportJson() },
         { label: 'Restore crates and cues…', action: () => this.importJson() },
@@ -168,7 +171,6 @@ export class LibraryPanel {
     const all = lib.list();
     this.side.append(
       item('Collection', '◉', all.length, this.view.kind === 'all', () => this.setView({ kind: 'all' })),
-      item('Originals', '♪', all.filter((t) => t.source === 'demo').length, this.view.kind === 'demo', () => this.setView({ kind: 'demo' })),
       item('Favourites', '★', all.filter((t) => t.fav).length, this.view.kind === 'favs', () => this.setView({ kind: 'favs' })),
       item('History', '↺', lib.history.length, this.view.kind === 'history', () => this.setView({ kind: 'history' })),
     );
@@ -210,7 +212,7 @@ export class LibraryPanel {
       });
     } else {
       el.append(h('span', { class: 'nm' }, c.name));
-      if (c.kind === 'crate') el.append(h('span', { class: 'ct' }, String(c.trackIds.length)));
+      if (c.kind === 'crate') el.append(h('span', { class: 'ct', title: c.wanted?.length ? `${c.wanted.length} still to add` : undefined }, c.wanted?.length ? `${c.trackIds.length}/${c.trackIds.length + c.wanted.length}` : String(c.trackIds.length)));
       const more = h('button', { class: 'more', 'aria-label': `${c.name} options` }, '⋯');
       more.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -303,7 +305,10 @@ export class LibraryPanel {
 
   /** show a crate (or the whole collection) */
   showCrate(id: string | null): void {
-    this.setView(id && this.app.library.crate(id) ? { kind: 'crate', id } : { kind: 'all' });
+    const c = id ? this.app.library.crate(id) : undefined;
+    // open the folders it sits in
+    for (let p = c?.parent ?? null; p; p = this.app.library.crate(p)?.parent ?? null) this.openFolders.add(p);
+    this.setView(c ? { kind: 'crate', id: c.id } : { kind: 'all' });
   }
 
   private setView(v: View): void {
@@ -327,9 +332,6 @@ export class LibraryPanel {
     const lib = this.app.library;
     let list: LibraryTrack[];
     switch (this.view.kind) {
-      case 'demo':
-        list = lib.list().filter((t) => t.source === 'demo');
-        break;
       case 'favs':
         list = lib.list().filter((t) => t.fav);
         break;
@@ -396,7 +398,6 @@ export class LibraryPanel {
       ['bpm', 'BPM'],
       ['key', 'Key'],
       ['energy', 'Energy'],
-      [null, 'Tags'],
       ['time', 'Time'],
       [null, 'Load'],
     ];
@@ -417,7 +418,13 @@ export class LibraryPanel {
     const importing = this.app.library.importing;
     this.countEl.textContent = `${this.rows.length} tracks${importing ? ` · importing ${importing}` : ''}`;
     clear(this.tbody);
-    if (!this.rows.length) {
+    const lib = this.app.library;
+    if (!lib.list().length && this.view.kind !== 'crate') {
+      this.tbody.append(h('tr', {}, h('td', { colspan: cols.length }, this.welcome())));
+      return;
+    }
+    const wanted = this.view.kind === 'crate' ? (lib.crate(this.view.id)?.wanted ?? []) : [];
+    if (!this.rows.length && !wanted.length) {
       const msg =
         this.view.kind === 'crate'
           ? h('div', { class: 'empty' }, h('strong', {}, 'Empty crate'), 'Drag tracks onto its name in the sidebar.')
@@ -462,16 +469,14 @@ export class LibraryPanel {
         this.app.library.setFavorite(t, !t.fav);
       });
       const energy = h('span', { class: 'energy', title: `Energy ${info.energy} of 10`, style: { '--e': String(info.energy / 10) } as Partial<CSSStyleDeclaration> }, String(info.energy));
-      const tags = h('span', { class: 'tags' }, ...info.tags.slice(0, 3).map((x) => h('span', { class: 'tag' }, x)));
       row.append(
         h('td', {}, star),
         h('td', {}, art),
-        h('td', { class: 'title', title: t.meta.title }, t.meta.title, info.imported ? h('span', { class: 'mine', title: 'Your own file: stays on this device' }, 'imported') : null),
+        h('td', { class: 'title', title: t.meta.title }, t.meta.title),
         h('td', { title: t.meta.artist }, t.meta.artist || '—'),
         h('td', { class: 'num' }, a ? formatBpm(a.bpm) : status ?? '—'),
         h('td', {}, keyCell),
         h('td', { class: 'num' }, energy),
-        h('td', {}, tags),
         h('td', { class: 'num' }, a ? formatTime(a.duration) : '—'),
         h('td', {}, loads),
       );
@@ -489,6 +494,43 @@ export class LibraryPanel {
       frag.append(row);
     }
     this.tbody.append(frag);
+    if (wanted.length) {
+      const add = h('button', { class: 'btn small', type: 'button' }, 'Add files…');
+      add.addEventListener('click', () => this.fileInput.click());
+      this.tbody.append(
+        h(
+          'tr',
+          { class: 'wanted-row' },
+          h('td', { colspan: cols.length }, h('div', { class: 'wanted' }, h('b', {}, `${wanted.length} more in this playlist`), h('span', { class: 'wanted-list' }, wanted.slice(0, 6).map(entryLabel).join(' · ') + (wanted.length > 6 ? ' …' : '')), add)),
+        ),
+      );
+    }
+  }
+
+  /** an empty library: how to get music in */
+  private welcome(): HTMLElement {
+    const files = h('button', { class: 'btn primary', type: 'button' }, 'Import music');
+    files.addEventListener('click', () => this.fileInput.click());
+    const folder = h('button', { class: 'btn', type: 'button' }, 'Import a folder');
+    folder.addEventListener('click', () => this.folderInput.click());
+    const playlist = h('button', { class: 'btn', type: 'button' }, 'Import a playlist');
+    playlist.addEventListener('click', () => this.importPlaylist());
+    return h(
+      'div',
+      { class: 'lib-welcome' },
+      h('h3', {}, 'Add your music'),
+      h('p', {}, 'Drop audio files anywhere, or pick them here. They stay on this device.'),
+      h('div', { class: 'lib-welcome-acts' }, files, folder, playlist),
+      h('p', { class: 'fineprint' }, 'MP3, WAV, AIFF, FLAC, OGG and M4A. Playlists from rekordbox, Traktor, Apple Music, or a CSV of a streaming playlist.'),
+    );
+  }
+
+  private importPlaylist(): void {
+    openPlaylistImport({
+      library: this.app.library,
+      importFiles: (files) => this.app.importFiles(files),
+      showCrate: (id) => this.showCrate(id),
+    });
   }
 
   private highlightSelection(): void {
@@ -525,9 +567,7 @@ export class LibraryPanel {
       const cid = this.view.id;
       items.push({ label: 'Remove from this crate', action: () => lib.removeFromCrate(cid, [t.id]) });
     }
-    if (t.source !== 'demo') {
-      items.push('sep', { label: 'Remove from library', danger: true, action: () => void lib.deleteTrack(t.id) });
-    }
+    items.push('sep', { label: 'Remove from library', danger: true, action: () => void lib.deleteTrack(t.id) });
     contextMenu(e.clientX, e.clientY, items);
   }
 
@@ -535,13 +575,12 @@ export class LibraryPanel {
   /* the board's touch screen browses the same list                      */
   /* ------------------------------------------------------------------ */
 
-  /** every source the library has: the collection, demo tracks, favourites, history, then crates and folders */
+  /** every source the library has: the collection, favourites, history, then crates and folders */
   sources(): { id: string; name: string; count: number; depth: number; folder: boolean }[] {
     const lib = this.app.library;
     const all = lib.list();
     const out = [
       { id: 'all', name: 'Collection', count: all.length, depth: 0, folder: false },
-      { id: 'demo', name: 'Originals', count: all.filter((t) => t.source === 'demo').length, depth: 0, folder: false },
       { id: 'favs', name: 'Favourites', count: all.filter((t) => t.fav).length, depth: 0, folder: false },
       { id: 'history', name: 'History', count: lib.history.length, depth: 0, folder: false },
     ];
@@ -562,7 +601,7 @@ export class LibraryPanel {
 
   setSource(id: string): void {
     if (id.startsWith('crate:')) this.showCrate(id.slice(6));
-    else if (id === 'all' || id === 'demo' || id === 'favs' || id === 'history') this.setView({ kind: id });
+    else if (id === 'all' || id === 'favs' || id === 'history') this.setView({ kind: id });
   }
 
   /** the tracks on show, in the order shown */

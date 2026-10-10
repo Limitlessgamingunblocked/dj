@@ -56,6 +56,11 @@ export class StreamChat {
     while (this.list.children.length > 14) this.list.firstElementChild?.remove();
   }
 
+  /** a viewer asks for something (the crowd's request, in the chat) */
+  say(text: string): void {
+    this.post(text.toLowerCase().replace(/!$/, '!!'));
+  }
+
   react(e: VibeEvent): void {
     const key = e.kind === 'mistake' ? e.name : e.kind;
     const lines = REACT[key];

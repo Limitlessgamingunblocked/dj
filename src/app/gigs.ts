@@ -9,7 +9,7 @@ import { dressCodeBonus } from '../character/look';
 import type { Booking } from '../core/models';
 import { goalMet, played, seeded } from '../game/bookings';
 import { addPosts, postsForSet } from '../game/social';
-import { ASSISTS, Gig, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
+import { ASSISTS, Gig, isVibeEvent, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
 import { CHEMISTRY_UNLOCK, INTROS, RIVALS, rivalOf, type RivalId } from '../game/rivals';
 import type { ControlRegistry } from '../core/controls';
@@ -17,6 +17,8 @@ import { B2B } from './b2b';
 import { Snapshot } from '../game/snapshot';
 import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
+import { suggestNext, type Suggestion } from '../game/coach';
+import type { LibraryTrack } from '../core/types';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
@@ -26,6 +28,8 @@ import { GigHud } from '../ui/GigHud';
 import { openGigSetup, type GigVenue } from '../ui/GigSetup';
 import { showResults } from '../ui/Results';
 import { StreamChat } from '../ui/StreamChat';
+import { h } from '../ui/dom';
+import { openModal } from '../ui/modal';
 
 export interface Callout {
   text: string;
@@ -45,6 +49,8 @@ export interface GigHost {
   gigVenues(): GigVenue[];
   showCrate(id: string | null): void;
   currentCrate(): string | null;
+  /** the Library tab, to add music */
+  openLibrary(): void;
   openCreator(): void;
   recording(): boolean;
   djName(): string;
@@ -109,6 +115,10 @@ export class GigDirector {
   /** the venue's signature moment in this set, if it happened (the fans post about it) */
   private moment: string | null = null;
   private keyMatched = new Set<string>();
+  /** the coach's pick for the next track, and the tracks the room has heard tonight */
+  private coach: Suggestion | null = null;
+  private coachAt = -1e9;
+  private heard = new Set<string>();
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
@@ -149,6 +159,16 @@ export class GigDirector {
 
   /** the pre-gig screen: a booking's terms, or a free choice */
   openPreGig(b: Booking | null): void {
+    // a set needs music to mix: at least two of your tracks
+    if (this.host.library.list().filter((t) => t.status !== 'error').length < 2) {
+      const go = h('button', { class: 'btn primary', type: 'button' }, 'Open the library');
+      const m = openModal('Add music first', h('div', { class: 'gig-setup' }, h('p', {}, 'A set needs at least two tracks. Import your music or a playlist, then come back.'), h('div', { class: 'gs-actions' }, go)));
+      go.addEventListener('click', () => {
+        m.close();
+        this.host.openLibrary();
+      });
+      return;
+    }
     const c = this.host.career;
     const rival = rivalOf(b?.special);
     openGigSetup({
@@ -193,12 +213,16 @@ export class GigDirector {
     this.gig = new Gig(cfg);
     this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
     this.keyMatched.clear();
+    this.heard.clear();
+    this.coach = null;
+    this.coachAt = -1e9;
     this.hud = new GigHud({
       setAssist: (a) => this.setAssist(a),
       end: () => this.end(),
       clean: (on) => document.body.classList.toggle('gig-clean', on),
       saveMix: () => this.host.press('replay.save'),
       clip: () => this.host.press('replay.clip'),
+      loadCoach: () => this.loadCoach(),
     });
     this.host.stageEl.append(this.hud.el);
     // the HUD sits left of the camera buttons, whose width changes (the framing chip comes and goes),
@@ -371,6 +395,47 @@ export class GigDirector {
   }
 
   /* -------------------------------------------------------------- */
+  /* the next-track coach                                           */
+  /* -------------------------------------------------------------- */
+
+  /** the deck to load the next track on: one of the front two that isn't playing (an empty one first) */
+  private freeDeck(): number | null {
+    const front = this.host.engine.decks.slice(0, 2).filter((d) => !d.playing);
+    return (front.find((d) => !d.loaded) ?? front[0])?.id ?? null;
+  }
+
+  /** Chill and Club: a track that fits next, every couple of seconds, while a deck is free */
+  private updateCoach(gig: Gig): void {
+    if (gig.t - this.coachAt < 2) return;
+    this.coachAt = gig.t;
+    const e = this.host.engine;
+    if (gig.assist === 'pro' || gig.phase === 'over' || this.freeDeck() === null || this.b2b) {
+      this.coach = null;
+      return;
+    }
+    const lib = this.host.library;
+    const crate = this.host.currentCrate();
+    const pool = (crate ? (lib.crate(crate)?.trackIds ?? []).map((id) => lib.get(id)) : lib.list()).filter((t): t is LibraryTrack => !!t && !!t.analysis);
+    const onDecks = new Set(e.decks.map((d) => d.track?.id).filter((x): x is string => !!x));
+    const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing && d.loaded);
+    this.coach = suggestNext({
+      playing: lead ? { bpm: lead.bpm, key: lead.currentKey() } : null,
+      want: SLOTS[gig.config.slot].target(Math.min(1, gig.progress + 0.1)),
+      tracks: pool.map((t) => ({ id: t.id, title: t.meta.title, artist: t.meta.artist, bpm: t.analysis!.bpm, key: t.analysis!.key, energy: this.snap.infoFor(t).energy })),
+      exclude: new Set([...this.heard, ...onDecks]),
+    });
+  }
+
+  private loadCoach(): void {
+    const pick = this.coach;
+    const deck = this.freeDeck();
+    if (!pick || deck === null) return;
+    void this.host.loadTrack(deck, pick.id);
+    this.coach = null;
+    this.coachAt = this.gig?.t ?? 0;
+  }
+
+  /* -------------------------------------------------------------- */
   /* every frame                                                    */
   /* -------------------------------------------------------------- */
 
@@ -394,7 +459,25 @@ export class GigDirector {
       }
       if (gig.assist === 'chill') this.chill(gig.t);
       const target = SLOTS[gig.config.slot].target(gig.progress);
-      this.hud?.update({ vibe: gig.meter.vibe, target, remaining: gig.remaining, phase: gig.phase, recording: this.host.recording(), buffer: !!this.host.replay(), assist: gig.assist, slot: SLOTS[gig.config.slot].label, venue: this.host.venueName(gig.config.venue), redline: e.redline });
+      for (const d of decks) if (d.trackId && d.playing && d.audible > 0.12) this.heard.add(d.trackId);
+      this.updateCoach(gig);
+      const req = gig.requests.current;
+      this.hud?.update({
+        vibe: gig.meter.vibe,
+        target,
+        remaining: gig.remaining,
+        phase: gig.phase,
+        recording: this.host.recording(),
+        buffer: !!this.host.replay(),
+        assist: gig.assist,
+        slot: SLOTS[gig.config.slot].label,
+        venue: this.host.venueName(gig.config.venue),
+        redline: e.redline,
+        score: Math.round(gig.meter.points * gig.multiplier),
+        streak: { count: gig.streak.count, next: gig.streak.next },
+        request: req ? { text: req.text, left: Math.max(0, (req.until - gig.t) / Math.max(1, req.until - req.at)) } : null,
+        coach: this.coach ? { title: this.coach.title, artist: this.coach.artist, why: this.coach.why } : null,
+      });
       this.chat?.update(dt, gig.meter.vibe, moodFor(gig.meter.vibe));
       this.crewTalk(dt, gig);
       // the room sees a build coming: "whoa"
@@ -412,7 +495,21 @@ export class GigDirector {
   }
 
   private handle(ev: VibeEvent | GigEvent): void {
-    if (ev.kind !== 'gig') this.b2b?.onEvent(ev);
+    if (ev.kind === 'streak') {
+      if (ev.count >= 2) this.hud?.streak(ev.count, ev.mult, ev.bonus);
+      return;
+    }
+    if (ev.kind === 'request') {
+      const r = ev.req;
+      // the HUD's request card says it; the Bedroom's chat says it too
+      if (ev.what === 'ask') this.chat?.say(r.text);
+      else if (ev.what === 'met') {
+        this.host.callout({ text: `Request met +${r.points}`, tone: 'hype' });
+        this.host.crowd('cheer');
+      }
+      return;
+    }
+    if (isVibeEvent(ev)) this.b2b?.onEvent(ev);
     if (ev.kind === 'gig') {
       if (ev.what === 'last_minute') this.hud?.say('Promoter:', 'One minute left. Make it count.');
       if (ev.what === 'encore') {

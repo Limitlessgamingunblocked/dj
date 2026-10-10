@@ -8,7 +8,7 @@ import { alternativesFor, buildPool, describeSet, fieldMatches, generateSet, par
 import { keyRelation, keyShiftFix, tempoMatch } from '../src/setbuilder/harmony';
 import { profileTrack, type TrackProfile } from '../src/setbuilder/profile';
 import { styleForAnchor } from '../src/setbuilder/styles';
-import { DEMO_TRACKS } from '../src/audio/synth';
+import { DEMO_TRACKS } from './fixtures/synth';
 
 const ARTISTS: [string, string, string][] = [
   ['Carl Cox', 'Intec', 'techno'],
