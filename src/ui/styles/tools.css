@@ -409,3 +409,170 @@ input[type='color'] {
 .custom-pal {
   margin-top: 4px;
 }
+
+/* sound card picker (Settings → Audio, and the end of the controller setup) */
+.soundcard {
+  display: grid;
+  gap: 8px;
+}
+
+.soundcard-quad.off {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.soundcard-status {
+  margin: 0;
+}
+
+/* the controller setup wizard */
+.csetup {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.csetup p {
+  margin: 0;
+}
+
+.csetup-start,
+.csetup-done,
+.csetup-after {
+  display: grid;
+  gap: 12px;
+}
+
+.csetup-after {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.csetup-after h4 {
+  margin: 0;
+  font-family: var(--font-label);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.csetup-warn {
+  color: var(--warn);
+}
+
+.csetup-step {
+  display: grid;
+  gap: 10px;
+}
+
+.csetup-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+
+.csetup-progress i {
+  display: block;
+  height: 100%;
+  background: var(--ok);
+  transition: width var(--dur) var(--ease);
+}
+
+.csetup-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.csetup-group {
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  color: var(--dim);
+}
+
+.csetup-group.now {
+  color: var(--text);
+  border-color: var(--focus);
+}
+
+.csetup-group.done {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+}
+
+.csetup-title {
+  margin: 4px 0 0;
+  font-family: var(--font-label);
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.csetup-hint {
+  font-size: var(--text-l);
+}
+
+.csetup-ear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.csetup-ear.got {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.csetup-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--focus);
+  animation: csetup-pulse 1.2s ease-in-out infinite;
+  flex: none;
+}
+
+.csetup-ear.got .csetup-dot {
+  background: var(--ok);
+  animation: none;
+}
+
+@keyframes csetup-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csetup-dot {
+    animation: none;
+  }
+}
+
+.csetup-live {
+  font-size: var(--text-s);
+  color: var(--dim);
+  min-height: 1.4em;
+}
+
+.csetup-nav {
+  margin-top: 4px;
+}
+
+.midi-rev5 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--focus);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--focus) 8%, var(--panel));
+}

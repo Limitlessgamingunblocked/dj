@@ -272,3 +272,14 @@ You asked for the analyser to say house, hip hop, trap and so on, and to sort by
 105. **Your genre wins, then the tag, then the guess.** Tags are tidied to one spelling per genre so they sort together. Anything we don't know is kept as written.
 106. **Old tracks get their genre without being re-analysed.** Bumping the analysis version would redo every track and throw away manual beat-grid edits, which live in the analysis. Instead, tracks analysed before genres existed get a genre-only pass in the background, using their current grid.
 
+## Pioneer DDJ-REV5 (2026-10-10)
+
+You asked for your DDJ-REV5 to plug in and work with the game, then sent AlphaTheta's *DDJ-REV5 List of MIDI Messages* (E1).
+
+107. **The REV5's mapping is built in, from the message list, and loads by itself** the first time the board is plugged in (a mapping you made yourself is never replaced). This reverses the earlier "no brand-specific presets" line for this one board: it names the model in text only, with no logo. Each control maps to the game feature it names; where the game has nothing matching, to the nearest it has: SAVED LOOP → Beat Jump, SCRATCH BANK → Slicer. That's said in the README and the code.
+108. **Pads are one block per deck that covers every pad mode.** The board sends each pad mode on its own run of eight notes. The block maps any note to pad (note mod 8) and switches the deck's pad mode to match the run, so the game and the board can't disagree about the mode. An exact mapping beats the block on the same note: the deck pads' hot cues, sampler and stem mutes.
+109. **DECK 1/3 and 2/4 drive the game's deck layers from the board's own "deck on" message, and only from its "on".** Switching back to deck 1 the board sends "deck 1 on" and then "deck 3 off", so following every message would land on the wrong deck. Any message from deck 3/4 also moves the layer, so the game catches up even if it missed the switch. The board's lights follow the layer to that deck's channel.
+110. **Jog ticks per turn default to 720** because the list doesn't say; *Calibrate jog wheels* measures them in one spin each. Jog sensitivity in Settings still scales them.
+111. **The touch-by-touch setup stays, for every other board.** It also reads the tempo fader's direction, 14-bit pairs, jog ticks and decks 3/4 from what it hears.
+112. **The output device is the AudioContext's own (setSinkId), not a second audio element**, so the whole mix, recordings aside, goes to the board with no extra latency. With four outputs, master goes to 1/2 and the headphone cue to 3/4 (a discrete four-channel destination), which is where controller sound cards wire their headphone jack. Device names need microphone permission in browsers, so that's asked for only when you click Show names, and the microphone is let go straight away.
+

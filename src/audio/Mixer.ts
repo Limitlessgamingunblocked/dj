@@ -7,6 +7,9 @@
  *   - split mode: master (mono) on the left channel, cue mix (mono) on the right,
  *     for a single output with a splitter cable
  *   - a second output device (setSinkId) where the browser supports it
+ *   - a DJ controller's own sound card: the whole mix goes to it (setSinkId on
+ *     the context), master on outputs 1/2 and the cue mix on 3/4, which is
+ *     where those cards put their headphone jack
  */
 import { Room } from './room';
 import { clamp, dbToGain } from '../core/util';
@@ -40,6 +43,7 @@ export class Mixer {
   private masterInPhones: GainNode;
   private phonesDevice: MediaStreamAudioDestinationNode | null = null;
   private phonesEl: HTMLAudioElement | null = null;
+  private quad: { gain: GainNode } | null = null;
   private meterBuf = new Float32Array(1024);
 
   xfader = 0.5;
@@ -49,6 +53,8 @@ export class Mixer {
   cueMix = 0.3;
   phones = 0.8;
   split = false;
+  /** the cue mix on outputs 3/4 of a four-output sound card */
+  quadPhones = false;
 
   constructor(
     private ctx: AudioContext,
@@ -188,6 +194,55 @@ export class Mixer {
       out[i] = m;
     });
     return out;
+  }
+
+  /**
+   * Send everything to this output device ('' = the system default; Chrome and
+   * Edge 110+). Resolves how many outputs it has, or null when it can't be used.
+   */
+  async setOutputDevice(deviceId: string): Promise<number | null> {
+    const ctx = this.ctx as AudioContext & { setSinkId?: (id: string) => Promise<void> };
+    if (typeof ctx.setSinkId !== 'function') return null;
+    try {
+      await ctx.setSinkId(deviceId);
+    } catch {
+      return null;
+    }
+    const n = this.ctx.destination.maxChannelCount;
+    if (this.quadPhones && n < 4) this.setQuadPhones(false);
+    return n;
+  }
+
+  /** how many outputs the current output device has */
+  get outputChannels(): number {
+    return this.ctx.destination.maxChannelCount;
+  }
+
+  /** master on outputs 1/2, the headphone cue mix on 3/4 (a controller's headphone jack); false if the output has fewer than four */
+  setQuadPhones(on: boolean): boolean {
+    const dest = this.ctx.destination;
+    if (on && dest.maxChannelCount < 4) return false;
+    if (on && !this.quad) {
+      const split = this.ctx.createChannelSplitter(2);
+      const merge = this.ctx.createChannelMerger(4);
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      this.phonesOut.connect(split);
+      split.connect(merge, 0, 2);
+      split.connect(merge, 1, 3);
+      merge.connect(gain).connect(dest);
+      this.quad = { gain };
+    }
+    try {
+      // 'discrete': the stereo mix fills outputs 1/2 and leaves 3/4 to the cue
+      dest.channelCount = on ? 4 : 2;
+      dest.channelInterpretation = on ? 'discrete' : 'speakers';
+    } catch {
+      return false;
+    }
+    if (this.quad) this.ramp(this.quad.gain.gain, on ? 1 : 0);
+    this.quadPhones = on;
+    return true;
   }
 
   /** Route the headphone mix to a separate output device (Chrome/Edge). */

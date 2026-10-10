@@ -140,6 +140,27 @@ export class BeatFX {
     this.resync();
   }
 
+  /**
+   * A controller's FX paddle on a channel: held (or latched) on, the effect
+   * plays on that channel; when the last paddle comes back, the effect stops
+   * and the unit goes back to the master.
+   */
+  paddle(ch: number, on: boolean): void {
+    if (on) {
+      this.targets.delete('M');
+      this.targets.add(ch as FxTarget);
+      this.setOn(true);
+    } else {
+      this.targets.delete(ch as FxTarget);
+      if (![...this.targets].some((t) => t !== 'M')) {
+        this.targets = new Set(['M']);
+        this.setOn(false);
+      }
+      this.applyRouting();
+    }
+    this.resync();
+  }
+
   setSingleTarget(t: FxTarget): void {
     this.targets = new Set([t]);
     this.applyRouting();

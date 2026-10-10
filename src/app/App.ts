@@ -22,6 +22,8 @@ import { isPlaylistFile, parsePlaylistFile, type Playlist } from '../library/pla
 import type { LyricLine } from '../lyrics/lyrics';
 import { LyricsEngine } from '../lyrics/LyricsEngine';
 import { MidiManager } from '../midi/MidiManager';
+import { presetFor } from '../midi/rev5';
+import { restoreSoundCard } from './soundCard';
 import { boardById, isTurntable, type BoardDef } from '../three/boards';
 import { venueById, VENUES } from '../three/venues';
 import { Career } from '../game/Career';
@@ -377,6 +379,19 @@ export class App implements AppContext {
       },
     });
     this.midi = new MidiManager(this.reg);
+    // the board's deck switches move the app's deck layers (MIDI decks 3/4)
+    this.reg.on('layer', () => this.events.emit('layout', undefined));
+    // a board with a built-in mapping (the DDJ-REV5) works the moment it's plugged in
+    this.midi.on('devices', (list) => {
+      for (const d of list) {
+        const preset = this.midi.hasMappings(d) ? null : presetFor(d);
+        if (!preset) continue;
+        this.midi.setProfile(d, preset);
+        toast(`${d} connected: ready to play`);
+      }
+    });
+    void this.reconnectMidi();
+    void restoreSoundCard(this.engine.mixer).then((warn) => warn && toast(warn));
     this.features = new AudioFeatures(this.engine.visAnalyser, this.engine);
     this.clock.onDrop(() => {
       this.clockDrop = true;
@@ -749,7 +764,7 @@ export class App implements AppContext {
       this.setView(v);
       if (fs) this.fullscreen();
     });
-    const midi = new MidiPanel(this.midi, this.reg);
+    const midi = new MidiPanel(this.midi, this.reg, this.engine.mixer);
     const lights = new LightsPanel(this, this.stage, () => this.saveLights());
     this.setupPanel = new SetupPanel(this, this.stage, {
       settings: this.settings,
@@ -1318,6 +1333,16 @@ export class App implements AppContext {
     this.settings.vis = { ...this.stage.visualizer.settings };
     this.settings.reactiveLights = this.stage.reactiveLights;
     this.save();
+  }
+
+  /** MIDI allowed on an earlier visit: connect straight away, so a plugged-in board just works */
+  private async reconnectMidi(): Promise<void> {
+    try {
+      const st = await navigator.permissions?.query({ name: 'midi' as PermissionName });
+      if (st?.state === 'granted') await this.midi.enable();
+    } catch {
+      /* no permissions API, or no MIDI: the Connect button still works */
+    }
   }
 
   private save(): void {

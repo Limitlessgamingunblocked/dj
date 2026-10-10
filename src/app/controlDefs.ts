@@ -195,6 +195,9 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
     btn(p + 'loop.half', L('Loop ½'), () => d.resizeLoop(-1), () => false);
     btn(p + 'loop.double', L('Loop ×2'), () => d.resizeLoop(1), () => false);
     reg.register({ id: p + 'loop.size', label: L('Loop size'), kind: 'encoder', step: (dl) => d.resizeLoop(dl > 0 ? 1 : -1), press: () => d.autoLoop() });
+    // PARAMETER ◀ / ▶ by the pads: the beat jump size in beat jump mode, else the loop / roll size
+    btn(p + 'param.down', L('Pad parameter ◀ (loop or jump size)'), () => (d.padMode === 'jump' ? d.resizeJump(-1) : d.resizeLoop(-1)), () => false);
+    btn(p + 'param.up', L('Pad parameter ▶ (loop or jump size)'), () => (d.padMode === 'jump' ? d.resizeJump(1) : d.resizeLoop(1)), () => false);
     btn(p + 'jump.back', L('Beat jump back'), () => d.beatJump(-d.jumpBeats), () => false);
     btn(p + 'jump.fwd', L('Beat jump forward'), () => d.beatJump(d.jumpBeats), () => false);
     reg.register({ id: p + 'jump.size', label: L('Beat jump size'), kind: 'encoder', step: (dl) => d.resizeJump(dl > 0 ? 1 : -1) });
@@ -329,6 +332,10 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
   });
   for (const t of FX_TYPES) btn(`fx.type.${t}`, `Beat FX ${t}`, () => fx.setType(t), () => (fx.type === t ? '#ffffff' : false));
   const targets: FxTarget[] = [1, 2, 3, 4, 'M'];
+  // a controller's FX paddles: the effect on that channel while the paddle is on
+  for (const n of [1, 2, 3, 4]) {
+    btn(`fx.paddle.${n}`, `Beat FX paddle: channel ${n}`, () => fx.paddle(n, true), () => (fx.on && fx.targets.has(n as FxTarget) ? '#ff3b5c' : false), () => fx.paddle(n, false));
+  }
   for (const t of targets) btn(`fx.target.${t}`, `Beat FX assign ${t === 'M' ? 'master' : `ch ${t}`}`, () => fx.toggleTarget(t), () => (fx.targets.has(t) ? '#ff9f1c' : false));
   reg.register({
     id: 'fx.select',

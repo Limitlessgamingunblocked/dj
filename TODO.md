@@ -110,3 +110,10 @@ Remaining venues and signature moments, VIP crew and NPCs, progression, bookings
 ## Stage 7: Polish & release prep
 
 Accessibility (flashing warning, colour-blind modes, high contrast, subtitles, volume buses), performance pass, UI polish, audio pass, clear this file.
+
+## DDJ-REV5
+
+- [ ] Try the built-in mapping on a real DDJ-REV5. It is written from the message list and tested against it, not yet on the hardware.
+- [ ] Pad colours on the REV5: the list says pads take a colour number (1–127) but not which colour each number is.
+- [ ] REV5 features with nothing behind them yet: BPM transition, the STEMS button's solo combinations, fader start, the SHIFT layer of most buttons.
+

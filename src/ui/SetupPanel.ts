@@ -18,6 +18,7 @@ import type { Quality, Stage } from '../three/Stage';
 import { clear, h } from './dom';
 import { KeysEditor } from './keysTable';
 import { openModal } from './modal';
+import { soundCardControls } from './SoundCardControls';
 import { toast } from './toast';
 
 export { shortcutsTable } from './keysTable';
@@ -335,7 +336,8 @@ export class SetupPanel {
       ),
       this.row('Channel fader curve', curve, 'fader curve'),
       this.check('Split cue: master left, headphone cue right', () => engine.mixer.split, (v) => engine.mixer.setSplit(v), 'headphones mono'),
-      this.row('Headphone output (Chrome/Edge)', phones, 'headphones device output cue'),
+      this.row('Main output: your controller’s sound card (Chrome/Edge)', soundCardControls(engine.mixer, 'DDJ-REV5'), 'sound card output device speakers controller rev5 pioneer headphones jack'),
+      this.row('Headphone output on another device (Chrome/Edge)', phones, 'headphones device output cue'),
     );
   }
 
