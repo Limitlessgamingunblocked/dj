@@ -252,3 +252,14 @@ You asked for more, and more unique, visual modes.
 
 96. **No one stands behind you in the Basement Club** (you asked). The booth there is tiny and on the crowd's level, and the one friend who stood behind the DJ crowded the shot. Your crew still turns up from the Rooftop on, where the stage has room.
 
+## Party: hype dancers and HELL YEAH (2026-10-10)
+
+You asked for dancers next to you while you DJ, and for funny "hell yeah" moments.
+
+97. **The dancers are built on your own avatar**, in a new 'hype' mode, not on the crowd's instanced figures. Up close next to you they need faces, hair that swings and real outfits. Their looks are glam go-go styles picked by seed, so each venue has its own pair. They wear clothes anyone can now wear too: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots. They're styled for a club, nothing more revealing than that.
+98. **They stand on podiums out past the booth's monitors** (2.35 m either side by default, closer in the small rooms). At first they stood where the monitors hid them. They stay home from the Bedroom, the menus and the naming scene.
+99. **HELL YEAH waits at least 4 s between any two, and 45 s between automatic ones**, so it stays an event (game/hellyeah.ts, unit-tested). The pad always works. The air horn has no limit, because spamming it is the joke.
+100. **The HELL YEAH camera cut only happens from a board angle** (top, angled or booth), and only if you're not zoomed into the board. It goes back after two bars unless you've picked another angle meanwhile. That's how you see the dancers and the crowd go off while you're mixing.
+101. **The horn plays into the mix like a sampler pad**, so it's in your recordings. It's rendered apart from the 8 slots, so it works whatever you've loaded into them. The crowd's cheer stays in the room, not the mix, as before.
+102. **The crowd surfer keeps clear of the crowd camera.** They ride on the side of the room away from it, and don't appear in rooms too narrow to pass at 2 m. In the first test they flew straight through the lens.
+

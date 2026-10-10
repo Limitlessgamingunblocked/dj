@@ -34,6 +34,8 @@ import type { VenueDef, VenueScene } from './venues/base';
 import { Crowd, TABLE_Y } from './venues/fixtures';
 import { Pyro } from './venues/pyro';
 import { LightShow } from './venues/show';
+import { HypeSquad } from './HypeSquad';
+import { PartyProps } from './PartyProps';
 
 export type StageView = 'booth' | 'split' | 'visual';
 export type Quality = 'low' | 'medium' | 'high';
@@ -94,6 +96,12 @@ export class Stage {
   private underGlow: THREE.PointLight;
   /** you: at the decks, seen from the crowd and venue cameras (and in the dressing room) */
   readonly avatar: Avatar;
+  /** the two dancers either side of the booth */
+  readonly dancers = new HypeSquad();
+  /** beach balls and a crowd surfer over the crowd (HELL YEAH) */
+  readonly party = new PartyProps();
+  /** after a HELL YEAH cut to the room: when to go back, and to which angle */
+  private camBack: { at: number; view: ViewId } | null = null;
   /**
    * A scene that stands you somewhere other than the decks (the dressing
    * room): where, which way you face, and what you're moving to. The booth
@@ -239,6 +247,7 @@ export class Stage {
     // you, as seen from the crowd and venue cameras
     this.avatar = new Avatar(defaultLook());
     this.scene.add(this.avatar.object);
+    this.scene.add(this.dancers.group, this.party.group);
     this.rig = new CameraRig(this.camera, this.canvas);
 
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.msaa }));
@@ -340,6 +349,7 @@ export class Stage {
     this.venueDef = def;
     // a new gig: you start it fresh
     this.avatar.sweat = 0;
+    this.dancers.setVenue(def.id);
     const v = def.build();
     this.venue = v;
     // the studio environment map is for the hardware; keep big venue surfaces from mirroring it
@@ -348,6 +358,7 @@ export class Stage {
       for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
     });
     this.scene.add(v.group);
+    this.party.setVenue(v.group);
     this.scene.background = v.background;
     this.scene.fog = v.fog;
     this.keyLight.color.set(v.keyLight.color);
@@ -562,6 +573,18 @@ export class Stage {
   }
 
   /** Cut to an angle through a quick dip to black (the auto director, and moves too long to fly). */
+  /**
+   * HELL YEAH: from a board angle, cut to the room for a moment to show it
+   * (the dancers, the crowd going up), then cut back.
+   */
+  hellYeahCam(secs: number): void {
+    const from = this.rig.view;
+    if (this.rig.focused || this.view === 'visual' || this.avatarSpot || this.camBack) return;
+    if (from !== 'perf' && from !== 'top' && from !== 'booth') return;
+    this.cutTo('crowd');
+    this.camBack = { at: performance.now() + secs * 1000, view: from };
+  }
+
   cutTo(v: ViewId): void {
     this.focusedZone = null;
     this.fade.view = v;
@@ -942,6 +965,14 @@ export class Stage {
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;
       this.placeAvatar(show, dt);
+      this.dancers.enabled = this.show.controls.dancers;
+      this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, dt);
+      this.party.update(show, dt);
+      if (this.camBack && performance.now() >= this.camBack.at) {
+        // back to your angle, unless you've picked another one since
+        if (this.rig.view === 'crowd') this.cutTo(this.camBack.view);
+        this.camBack = null;
+      }
     }
 
     // on the venue screens the visual player can run at half rate when the load is high

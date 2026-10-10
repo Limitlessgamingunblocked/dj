@@ -21,6 +21,9 @@
  *   moves    grooves locked to the beat (head nod, shoulder bounce, two-step,
  *            full body, still), hands on the decks, the signature drop move,
  *            a between-mix habit every 32 bars, blinking, sweat building up
+ *   hype     the dancers by the booth: a new move every two bars (sway, wave,
+ *            hair flip, point at the DJ, body roll, clap in the build), a jump
+ *            on the drop, and a sparkler bottle held high on a HELL YEAH
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -123,8 +126,11 @@ function handGeometry(armR: number, k: number): THREE.BufferGeometry {
 export class Avatar {
   readonly object = new THREE.Group();
   readonly bones = {} as Record<BoneName, THREE.Object3D>;
-  /** 'dj' stands at the decks; 'idle' stands and grooves (the dressing room) */
-  mode: 'dj' | 'idle' = 'dj';
+  /** 'dj' stands at the decks; 'idle' stands and grooves (the dressing room); 'hype' dances by the booth; 'surf' rides the crowd */
+  mode: 'dj' | 'idle' | 'hype' | 'surf' = 'dj';
+  /** a hype dancer's own pick of moves, and which side of the DJ she's on (-1 left, 1 right) */
+  seed = 0;
+  side = 1;
   /** 0..1, builds up through a long set; reset between gigs */
   sweat = 0;
   /** how strong the blacklight is (UV paint, irises and bright fabric glow) */
@@ -142,6 +148,8 @@ export class Avatar {
   private prop: THREE.Object3D | null = null;
   private t = 0;
   private dropT = 1e9;
+  private cheerT = 1e9;
+  private sparkler: { group: THREE.Group; sparks: THREE.Points; vel: Float32Array; life: Float32Array } | null = null;
   private habitAt = -1;
   private lastHead = new THREE.Vector3();
   private blinkAt = 2;
@@ -175,6 +183,7 @@ export class Avatar {
   private clear(): void {
     for (const x of this.owned) x.dispose();
     this.owned = [];
+    this.sparkler = null;
     this.skinMats = [];
     this.glowMats = [];
     this.springs = [];
@@ -350,7 +359,7 @@ export class Avatar {
     for (const s of [-1, 1]) this.mesh(new THREE.SphereGeometry(0.0085 * nw, 12, 8), plain, head, tipP.clone().add(V(s * 0.011 * nw, -0.004, -0.006)));
 
     // lips
-    const lipCol = skinCol.clone().lerp(new THREE.Color(0.55, 0.18, 0.2), 0.32).multiplyScalar(0.85);
+    const lipCol = l.colors.lips ? new THREE.Color(l.colors.lips) : skinCol.clone().lerp(new THREE.Color(0.55, 0.18, 0.2), 0.32).multiplyScalar(0.85);
     const lipMat = this.std(lipCol, { roughness: 0.4 });
     const lf = 1 + f('lip_fullness') * 0.5;
     const lw = 1 + f('lip_width') * 0.3;
@@ -887,7 +896,7 @@ export class Avatar {
     const item = (slot: Slot) => l.items[slot] ?? null;
 
     // tops and outer layers share a torso shell builder
-    const shell = (slot: Slot, push: number, o: { sleeves: 'none' | 'short' | 'elbow' | 'long'; open?: number; collar?: 'crew' | 'high' | 'shirt' | 'none'; hood?: boolean; puffy?: boolean; length?: number }) => {
+    const shell = (slot: Slot, push: number, o: { sleeves: 'none' | 'short' | 'elbow' | 'long'; open?: number; collar?: 'crew' | 'high' | 'shirt' | 'none'; hood?: boolean; puffy?: boolean; length?: number; crop?: boolean }) => {
       const m = this.fabric(slot);
       const trim = this.fabric(slot, 2);
       const gap = o.open ?? 0;
@@ -895,11 +904,17 @@ export class Avatar {
       const pl = Math.PI * 2 - gap;
       const lenDrop = o.length ?? 0;
       const bulge = (k: number) => (o.puffy ? 1 + 0.06 * Math.sin(k * Math.PI * 6) ** 2 : 1);
-      this.mesh(lathe([[(d.hipsR + push) * 0.98 * bulge(0), -0.11 - lenDrop], [d.hipsR + push, -0.03], [(d.hipsR + d.waistR) / 2 + push, 0.06], [d.waistR + push, 0.135]], d.depth * 1.06, ps, pl), m, b.hips);
+      // a crop stops above the waist and leaves the midriff bare
+      if (!o.crop) this.mesh(lathe([[(d.hipsR + push) * 0.98 * bulge(0), -0.11 - lenDrop], [d.hipsR + push, -0.03], [(d.hipsR + d.waistR) / 2 + push, 0.06], [d.waistR + push, 0.135]], d.depth * 1.06, ps, pl), m, b.hips);
+      else {
+        const hem = this.mesh(new THREE.TorusGeometry(d.chestR * 0.95 + push, 0.005, 6, 28), trim, b.spine, V(0, 0.085 * d.H, 0));
+        hem.rotation.x = Math.PI / 2;
+        hem.scale.set(1, d.depth * 1.02, 1);
+      }
       this.mesh(
         lathe(
           [
-            [d.waistR + push, -0.03],
+            o.crop ? [d.chestR * 0.95 + push, 0.085 * d.H] : [d.waistR + push, -0.03],
             [d.chestR * 0.97 + push * bulge(0.3), 0.1 * d.H],
             [d.chestR + push * bulge(0.6), 0.19 * d.H],
             [d.shoulder * 0.86 + push, 0.3 * d.H],
@@ -961,6 +976,8 @@ export class Avatar {
         hoodie: { sleeves: 'long', collar: 'none', hood: true, push: 0.022, length: 0.03 },
         tank_mesh: { sleeves: 'none', collar: 'crew' },
         longsleeve: { sleeves: 'long', collar: 'crew' },
+        crop_top: { sleeves: 'none', collar: 'crew', crop: true, push: 0.006 },
+        top_sequin: { sleeves: 'none', collar: 'none', crop: true, push: 0.008 },
       };
       const o = map[top] ?? { sleeves: 'short', collar: 'crew' };
       shell('top', o.push ?? 0.01, o);
@@ -1005,8 +1022,16 @@ export class Avatar {
       const m = this.fabric('bottom');
       const baggy = ['cargos_baggy', 'cargos_black', 'cargo_tech', 'joggers'].includes(bottom) ? 0.028 : bottom === 'trousers_flared' ? 0.012 : 0.01;
       const shorts = bottom.startsWith('shorts');
-      this.mesh(lathe([[d.hipsR * 0.92 + baggy, -0.13], [d.hipsR + baggy, -0.03], [(d.hipsR + d.waistR) / 2 + baggy * 0.7, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.07), m, b.hips);
+      const skirt = bottom.startsWith('skirt');
+      if (skirt) {
+        // a short flared skirt from the waist to mid-thigh, legs bare beneath
+        this.mesh(lathe([[d.hipsR * 1.32 + 0.03, -0.3], [d.hipsR * 1.12 + 0.012, -0.12], [d.hipsR + 0.012, -0.03], [(d.hipsR + d.waistR) / 2 + 0.008, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.1), m, b.hips);
+        const band = this.mesh(new THREE.TorusGeometry(d.waistR + 0.008, 0.006, 6, 28), this.fabric('bottom', 2), b.hips, V(0, 0.115, 0));
+        band.rotation.x = Math.PI / 2;
+        band.scale.set(1, d.depth * 1.1, 1);
+      } else this.mesh(lathe([[d.hipsR * 0.92 + baggy, -0.13], [d.hipsR + baggy, -0.03], [(d.hipsR + d.waistR) / 2 + baggy * 0.7, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.07), m, b.hips);
       for (const s of ['l', 'r'] as const) {
+        if (skirt) continue;
         this.mesh(limb(d.legR * 1.15 + baggy, shorts ? d.thigh * 0.55 : d.thigh, d.legR * 0.95 + baggy), m, b[`thigh_${s}`]);
         if (!shorts) {
           const flare = bottom === 'trousers_flared';
@@ -1029,7 +1054,7 @@ export class Avatar {
       }
       const upper = this.fabric('shoes');
       const sole = this.fabric('shoes', 2);
-      const soleH = { trainers_chunky: 0.04, platforms: 0.08, slides: 0.02, boots_tactical: 0.03, deck_shoes: 0.015, slippers: 0.02 }[shoe] ?? 0.025;
+      const soleH = { trainers_chunky: 0.04, platforms: 0.08, slides: 0.02, boots_tactical: 0.03, deck_shoes: 0.015, slippers: 0.02, gogo_boots: 0.05 }[shoe] ?? 0.025;
       const so = this.mesh(new THREE.CapsuleGeometry(0.05, 0.16, 4, 16).rotateX(Math.PI / 2), sole, foot, V(0, -0.075 + soleH / 2, 0.045));
       so.scale.set(1.04, soleH / 0.1, 1.02);
       if (shoe === 'slides') {
@@ -1039,6 +1064,7 @@ export class Avatar {
       }
       const u = this.mesh(new THREE.CapsuleGeometry(0.046, 0.15, 4, 14).rotateX(Math.PI / 2), upper, foot, V(0, -0.075 + soleH + 0.035, 0.045));
       u.scale.set(1.05, shoe === 'slippers' ? 0.95 : 0.78, 1);
+      if (shoe === 'gogo_boots') this.mesh(new THREE.CylinderGeometry(d.legR * 0.95 + 0.012, d.legR * 0.66 + 0.01, d.shin * 0.82, 18, 1, true).translate(0, -d.shin * 0.59, 0), upper, b[`shin_${s}`]);
       if (shoe === 'boots_tactical' || shoe === 'high_tops') this.mesh(new THREE.CylinderGeometry(0.056, 0.058, shoe === 'boots_tactical' ? 0.17 : 0.09, 16).translate(0, shoe === 'boots_tactical' ? 0.03 : -0.01, 0), upper, foot);
       if (shoe === 'runners_retro' || shoe === 'trainers_chunky') {
         // a plain stripe down each side (no maker's mark)
@@ -1260,12 +1286,31 @@ export class Avatar {
     const amp = s.playing ? 1 : 0.35;
     if (s.dropHit) this.dropT = 0;
     else this.dropT += dt;
+    this.cheerT += dt;
     if (s.playing) this.sweat = Math.min(1, this.sweat + dt / 900);
 
     // rest pose
     for (const o of Object.values(b)) o.rotation.set(0, 0, 0);
     b.hips.position.set(0, this.d.hipY, 0);
     this.body.position.y = 0;
+    if (this.mode === 'hype') {
+      this.dance(s, beat, ph, hit, knee, dt);
+      this.settle(dt);
+      return;
+    }
+    if (this.mode === 'surf') {
+      // arms out wide, legs kicking, loving it
+      const k = this.t * 3;
+      for (const [arm, sgn] of [['l', 1], ['r', -1]] as const) {
+        b[`upper_arm_${arm}`].rotation.set(0, 0, sgn * (1.5 + 0.25 * Math.sin(k + sgn)));
+        b[`forearm_${arm}`].rotation.set(-0.3, 0, 0);
+        b[`thigh_${arm}`].rotation.set(-0.2 - 0.25 * Math.max(0, Math.sin(k * 1.3 + sgn)), 0, sgn * 0.18);
+        b[`shin_${arm}`].rotation.x = 0.4 + 0.3 * Math.max(0, Math.sin(k * 1.3 + sgn));
+      }
+      b.neck.rotation.x = -0.3;
+      this.settle(dt);
+      return;
+    }
     const dj = this.mode === 'dj';
 
     // the groove, locked to the beat
@@ -1386,6 +1431,154 @@ export class Avatar {
       this.habitAt = bar;
     } else if (this.prop) this.holdProp(null);
 
+    this.settle(dt);
+  }
+
+  /** a HELL YEAH: a jump and a sparkler bottle held high, for two bars */
+  cheer(): void {
+    this.cheerT = 0;
+  }
+
+  /** your signature drop move, now (a HELL YEAH at the decks) */
+  celebrate(): void {
+    this.dropT = 0;
+  }
+
+  /** the hype dancers' routine, locked to the beat */
+  private dance(s: AvatarInput, beat: number, ph: number, hit: number, knee: number, dt: number): void {
+    const b = this.bones;
+    const amp = s.playing ? 1 : 0.4;
+    const beatLen = 60 / 124;
+    const setArm = (arm: 'l' | 'r', ux: number, uz: number, fx: number, uy = 0) => {
+      const k = arm === 'l' ? 1 : -1;
+      b[`upper_arm_${arm}`].rotation.set(ux, uy * k, uz * k);
+      b[`forearm_${arm}`].rotation.set(fx, 0, 0);
+    };
+    const sway = Math.sin(beat * Math.PI);
+    // the hips sway a side a beat and the knees take the bounce
+    const bob = 0.03 * knee * amp;
+    b.hips.position.y -= bob;
+    b.hips.position.x = 0.05 * sway * amp;
+    b.hips.rotation.z = -0.14 * sway * amp;
+    b.hips.rotation.y = 0.16 * Math.sin(beat * Math.PI * 0.5) * amp;
+    b.spine.rotation.z = 0.1 * sway * amp;
+    for (const leg of ['l', 'r'] as const) {
+      const step = Math.max(0, sway * (leg === 'l' ? 1 : -1)) * 0.18 * amp;
+      b[`thigh_${leg}`].rotation.x = -bob * 6 - step;
+      b[`shin_${leg}`].rotation.x = bob * 12 + step * 1.6;
+      b[`foot_${leg}`].rotation.x = -bob * 6 - step * 0.6;
+    }
+    // the arm nearest the DJ, for pointing at them
+    const near: 'l' | 'r' = this.side < 0 ? 'r' : 'l';
+    const far: 'l' | 'r' = near === 'l' ? 'r' : 'l';
+    const MOVES = ['wave', 'sway', 'point', 'hair', 'roll', 'wave', 'point', 'sway'] as const;
+    const bar = Math.floor(beat / 4);
+    const move = s.build > 0.5 ? 'clap' : MOVES[(Math.floor(bar / 2) + this.seed) % MOVES.length];
+    switch (move) {
+      case 'wave':
+        setArm('l', -0.3, 2.45 + 0.22 * sway * amp, -0.35);
+        setArm('r', -0.3, 2.45 - 0.22 * sway * amp, -0.35);
+        break;
+      case 'sway':
+        setArm(far, -0.3, 2.3 + 0.35 * hit * amp, -0.3);
+        setArm(near, 0.25 * sway, 0.3, -0.5);
+        break;
+      case 'point':
+        // "this one!": pointing at the DJ, a jab on every beat
+        setArm(near, -0.35, 1.45 + 0.12 * hit * amp, -0.08);
+        setArm(far, -0.3, 2.35 + 0.3 * hit * amp, -0.4);
+        b.spine.rotation.y = -this.side * 0.35;
+        b.neck.rotation.y = -this.side * 0.4;
+        break;
+      case 'hair':
+        setArm('l', -0.25, 2.5, -1.9);
+        setArm('r', -0.25, 2.5, -1.9);
+        b.neck.rotation.z = 0.3 * sway * amp;
+        b.neck.rotation.x = 0.18 * Math.cos(beat * Math.PI * 2) * amp;
+        break;
+      case 'roll':
+        b.spine.rotation.x = 0.22 * Math.sin(beat * Math.PI * 2) * amp;
+        b.hips.rotation.x = -0.15 * Math.sin(beat * Math.PI * 2) * amp;
+        setArm('l', -0.35, 2.7 + 0.1 * sway * amp, -0.9);
+        setArm('r', -0.35, 2.7 - 0.1 * sway * amp, -0.9);
+        break;
+      case 'clap':
+        // the build: clapping overhead, hands meeting on the beat
+        setArm('l', -0.3, 2.4 + 0.5 * hit, -0.4);
+        setArm('r', -0.3, 2.4 + 0.5 * hit, -0.4);
+        break;
+    }
+    // the drop: jumping, both arms up, for two bars
+    if (this.dropT < beatLen * 8) {
+      this.body.position.y = Math.max(0, Math.sin(ph * Math.PI)) * 0.16;
+      setArm('l', -0.25, 2.65, -0.3);
+      setArm('r', -0.25, 2.65, -0.3);
+    }
+    // HELL YEAH: the sparkler bottle up high, the other fist pumping
+    const cheering = this.cheerT < beatLen * 8;
+    if (cheering) {
+      this.body.position.y = Math.max(0, Math.sin(ph * Math.PI)) * 0.2;
+      setArm('r', -0.25, 2.75, -0.2);
+      setArm('l', -0.5, 2.1 + 0.45 * hit, -1.3 + 0.5 * hit);
+    }
+    this.sparkle(cheering, dt);
+  }
+
+  /** the sparkler bottle: built once, shown on a cheer, its sparks fall in world space */
+  private sparkle(on: boolean, dt: number): void {
+    if (!on && !this.sparkler) return;
+    if (!this.sparkler) {
+      const group = new THREE.Group();
+      const glass = this.std(0x0f3a22, { roughness: 0.15, metalness: 0.2 });
+      const foil = this.std(0xd4a64a, { roughness: 0.3, metalness: 0.9 });
+      this.mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.2, 16), glass, group, V(0, -0.12, 0.03));
+      this.mesh(new THREE.CylinderGeometry(0.013, 0.034, 0.09, 16), foil, group, V(0, -0.265, 0.03));
+      this.mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.1, 6), this.std(0x8a8580), group, V(0, -0.36, 0.03));
+      const N = 60;
+      const geo = this.keep(new THREE.BufferGeometry());
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+      const mat = this.keep(new THREE.PointsMaterial({ color: new THREE.Color(2.2, 1.5, 0.7), size: 0.022, sizeAttenuation: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      const sparks = new THREE.Points(geo, mat);
+      sparks.frustumCulled = false;
+      group.add(sparks);
+      this.bones.hand_r.add(group);
+      this.sparkler = { group, sparks, vel: new Float32Array(N * 3), life: new Float32Array(N) };
+    }
+    const sp = this.sparkler;
+    sp.group.visible = on;
+    if (!on) return;
+    const pos = sp.sparks.geometry.getAttribute('position') as THREE.BufferAttribute;
+    const arr = pos.array as Float32Array;
+    // gravity, turned into the hand's frame
+    this.object.updateMatrixWorld(true);
+    const g = new THREE.Vector3(0, -2.5, 0).applyQuaternion(sp.group.getWorldQuaternion(new THREE.Quaternion()).invert());
+    const h = Math.min(dt, 0.05);
+    for (let i = 0; i < sp.life.length; i++) {
+      sp.life[i] -= h;
+      if (sp.life[i] <= 0) {
+        sp.life[i] = 0.25 + Math.random() * 0.35;
+        arr[i * 3] = 0;
+        arr[i * 3 + 1] = -0.41;
+        arr[i * 3 + 2] = 0.03;
+        const a = Math.random() * Math.PI * 2;
+        const r = 0.4 + Math.random() * 0.6;
+        sp.vel[i * 3] = Math.cos(a) * r;
+        sp.vel[i * 3 + 1] = -0.6 - Math.random() * 0.8;
+        sp.vel[i * 3 + 2] = Math.sin(a) * r;
+      }
+      sp.vel[i * 3] += g.x * h;
+      sp.vel[i * 3 + 1] += g.y * h;
+      sp.vel[i * 3 + 2] += g.z * h;
+      arr[i * 3] += sp.vel[i * 3] * h;
+      arr[i * 3 + 1] += sp.vel[i * 3 + 1] * h;
+      arr[i * 3 + 2] += sp.vel[i * 3 + 2] * h;
+    }
+    pos.needsUpdate = true;
+  }
+
+  /** blinking, the hair's springs, sweat and blacklight: every mode */
+  private settle(dt: number): void {
+    const b = this.bones;
     // blinking
     this.blinkAt -= dt;
     const blink = this.blinkAt < 0 ? 1 : 0;

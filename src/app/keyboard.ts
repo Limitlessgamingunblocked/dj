@@ -72,6 +72,8 @@ export const KEY_DEFS: KeyDef[] = [
   { key: 'Shift+KeyT', id: 'light.pyro', label: 'Lights: fire the pyro' },
   { key: 'Shift+KeyY', id: 'light.confetti', label: 'Lights: fire the confetti cannons' },
   { key: 'Backquote', id: 'light.blackout', label: 'Lights: blackout (hold)' },
+  { key: 'Shift+KeyH', id: 'fun.hellyeah', label: 'Party: HELL YEAH!' },
+  { key: 'Shift+KeyJ', id: 'fun.airhorn', label: 'Party: air horn' },
   ...Array.from({ length: 8 }, (_, i): KeyDef => ({ key: `Shift+Digit${i + 1}`, id: `sampler.pad.${i + 1}`, label: `Sampler slot ${i + 1}`, group: 'Sampler slots 1–8' })),
 ];
 

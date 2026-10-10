@@ -41,7 +41,8 @@ import { RecordingDesk } from './recording';
 import { MySetsPanel } from '../ui/MySetsPanel';
 import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
-import { registerLightControls } from './lightControls';
+import { registerLightControls, registerPartyControls } from './lightControls';
+import { Party } from './party';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
@@ -77,7 +78,7 @@ import { seeded } from '../game/bookings';
 import { getCrewTier, setCrewTier } from '../three/venues/crew';
 import { cleanSettings, type Settings } from './settingsModel';
 
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash', 'dancers', 'hellyeah'] as const;
 /** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
 const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise'];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
@@ -132,6 +133,8 @@ export class App implements AppContext {
   private audioBanner!: HTMLElement;
   /** gigs and the vibe meter */
   gigs!: GigDirector;
+  /** HELL YEAH and the air horn */
+  party!: Party;
   private callouts!: HTMLElement;
   private lyrics!: LyricsEngine;
   private lyricHud!: HTMLElement;
@@ -406,6 +409,14 @@ export class App implements AppContext {
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
+    this.party = new Party({
+      engine: this.engine,
+      stage: this.stage,
+      vibe: () => this.gigs?.meter.vibe ?? 0.6,
+      bpm: () => this.clock.bpm || 124,
+      crew: (text) => this.gigs?.crewLine(text),
+    });
+    registerPartyControls(this.reg, this.party);
     registerCameraControls(this.reg, this.stage.rig, {
       next: () => this.nextAngle(),
       reset: () => this.resetAngle(),
@@ -467,6 +478,7 @@ export class App implements AppContext {
       press: (id) => this.reg.press(id, 'ui'),
       signature: (what) => (this.stage.venue as { signature?(w: string): void } | null)?.signature?.(what),
       crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
+      moment: (what) => this.party.moment(what),
       boardId: () => this.boardDef.id,
       venueThumb: (id, g, w, h) => venueById(id).thumb(g, w, h),
       reg: this.reg,
@@ -633,6 +645,12 @@ export class App implements AppContext {
       } catch (err) {
         console.warn('sample render failed', err);
       }
+    }
+    // the HELL YEAH horn, apart from the slots (so it works whatever you've loaded into them)
+    try {
+      this.engine.sampler.setExtra('horn', await this.pool.sample('Air Horn', this.engine.ctx.sampleRate));
+    } catch (err) {
+      console.warn('horn render failed', err);
     }
   }
 

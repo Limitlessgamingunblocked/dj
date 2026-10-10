@@ -40,6 +40,28 @@ export class Sampler {
     s.custom = custom;
   }
 
+  private extras = new Map<string, AudioBuffer>();
+
+  /** a one-shot outside the 8 slots (the HELL YEAH air horn), played into the mix like the slots */
+  setExtra(name: string, pcm: PcmData): void {
+    const ch = pcm.channels;
+    const buf = this.ctx.createBuffer(ch.length, ch[0].length, pcm.sampleRate);
+    ch.forEach((d, k) => buf.copyToChannel(d as Float32Array<ArrayBuffer>, k));
+    this.extras.set(name, buf);
+  }
+
+  playExtra(name: string, gain = 0.8): boolean {
+    const buf = this.extras.get(name);
+    if (!buf) return false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this.ctx.createGain();
+    g.gain.value = gain;
+    src.connect(g).connect(this.out);
+    src.start();
+    return true;
+  }
+
   setVolume(v: number): void {
     this.volume = clamp(v, 0, 1);
     this.out.gain.setTargetAtTime(this.volume * this.volume * 1.2, this.ctx.currentTime, 0.01);

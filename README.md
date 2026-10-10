@@ -99,6 +99,21 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - **Next-track coach** (Chill and Club): a track from your crate that's in key, close in tempo and at the energy the slot wants next, with a Load button.
 - The results show your best streak and how many requests you met.
 
+### Party: hype dancers and HELL YEAH
+- **Hype dancers:** two glam go-go dancers on glowing podiums either side of the booth, in every club (not the Bedroom).
+  - They dance on the beat: a new move every two bars (sway, waving, hair flips, pointing at you, body rolls).
+  - They clap overhead through the build and jump on the drop.
+- **HELL YEAH!** (the pad in Show → Party, or Shift+H) sets the whole room off:
+  - the air horn, and HELL YEAH! stamped over the stage and in neon on the LED walls;
+  - the dancers' sparkler bottles go up and you throw your signature move;
+  - CO2 and confetti fire, and the crowd cheers, jumps and flips its signs to HELL YEAH;
+  - giant beach balls (sometimes an inflatable flamingo) bounce over the crowd, and someone crowd-surfs to the front;
+  - from a board angle, the camera cuts to the room for two bars to show it, then back.
+- **On big moments** it also fires by itself: a built drop, every fourth clean mix in a row, the encore or a raid. It waits at least 45 seconds between automatic ones. Turn it off in Show → Party.
+- **The air horn** (Shift+J) works as often as you like.
+- **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
+- **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.
+
 ### Auto DJ
 Turn it on from the ⋯ menu (or Shift+A) and it mixes by itself, the way you would on two decks:
 - **What comes next:** the next track of your Set Builder set; without a set, the best match in the library (a compatible key, a tempo within a few percent, allowing half / double time, not played this session). Load something onto the free deck yourself and that's the next track.

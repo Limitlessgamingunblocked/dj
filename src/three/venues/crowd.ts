@@ -157,7 +157,49 @@ const SIGNS: { text: string; color: string }[] = [
   { text: 'PLAY IT AGAIN', color: '#8a7dff' },
   { text: 'LOVE THIS', color: '#ffffff' },
 ];
+/* the funny ones: a few swap in for the regular messages at every venue */
+const FUNNY: { text: string; color: string }[] = [
+  { text: 'TOLD MUM I’M AT THE LIBRARY', color: '#2ee6ff' },
+  { text: 'MARRY ME DJ', color: '#ff3df0' },
+  { text: 'IT’S MY BIRTHDAY', color: '#ffd23f' },
+  { text: 'SKIPPED WORK FOR THIS', color: '#3dff7a' },
+  { text: 'BASS FACE', color: '#ff7a1a' },
+  { text: 'I CAME FOR THE DROP', color: '#8a7dff' },
+  { text: 'WHO NEEDS SLEEP', color: '#ffffff' },
+  { text: 'MY FEET HATE YOU', color: '#ff2a3c' },
+  { text: 'PLAY ONE MY DAD KNOWS', color: '#2ee6ff' },
+  { text: 'TURN IT UP TO 11', color: '#ffd23f' },
+  { text: 'NOD IF YOU’RE LOST', color: '#3dff7a' },
+  { text: 'MORE COWBELL', color: '#ff7a1a' },
+];
+/* what they hold up on a HELL YEAH */
+const HELL: { text: string; color: string }[] = [
+  { text: 'HELL YEAH', color: '#ff2a3c' },
+  { text: 'LEGEND', color: '#ffd23f' },
+  { text: 'ABSOLUTE SCENES', color: '#2ee6ff' },
+  { text: 'SEND IT', color: '#3dff7a' },
+  { text: 'TUNE!!!', color: '#ff3df0' },
+  { text: 'WHAT A DROP', color: '#ff7a1a' },
+  { text: 'HELL YEAH', color: '#ffffff' },
+];
 let signTex: THREE.CanvasTexture | null = null;
+let signRows: { text: string; color: string }[] = SIGNS;
+let signMode: 'normal' | 'hellyeah' = 'normal';
+
+/** the messages on the crowd's signs: three funny ones in with the regulars (a new pick each time), or the HELL YEAH set */
+export function setSignMode(mode: 'normal' | 'hellyeah'): void {
+  if (mode === signMode && mode === 'hellyeah') return;
+  signMode = mode;
+  if (mode === 'hellyeah') signRows = [...HELL, SIGNS[SIGNS.length - 1]];
+  else {
+    const rows = SIGNS.slice();
+    const pool = FUNNY.slice();
+    for (const i of [1, 3, 5]) rows[i] = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+    signRows = rows;
+  }
+  drawSigns();
+}
+
 function signAtlas(): THREE.Texture {
   if (signTex) return signTex;
   const c = document.createElement('canvas');
@@ -166,7 +208,7 @@ function signAtlas(): THREE.Texture {
   signTex = new THREE.CanvasTexture(c);
   signTex.colorSpace = THREE.SRGBColorSpace;
   signTex.anisotropy = 4;
-  drawSigns();
+  setSignMode('normal');
   // a rename shows up on the signs straight away
   nameService.onChange(drawSigns);
   return signTex;
@@ -176,7 +218,7 @@ function drawSigns(): void {
   if (!signTex) return;
   const c = signTex.image as HTMLCanvasElement;
   const g = c.getContext('2d')!;
-  const rows = SIGNS.map((s, i) => (i === SIGNS.length - 1 && nameService.named ? { text: nameService.text, color: '#ff2e88' } : s));
+  const rows = signRows.map((s, i) => (i === signRows.length - 1 && nameService.named ? { text: nameService.text, color: '#ff2e88' } : s));
   g.fillStyle = '#000';
   g.fillRect(0, 0, 512, 1024);
   g.textAlign = 'center';
@@ -551,6 +593,13 @@ export class Crowd implements Fixture {
     });
 
     n = spots.length;
+    // where the dancing crowd is, for things that happen over their heads (beach balls, a crowd surfer)
+    const floor = spots.filter((p) => (p.role ?? o.role ?? 'dancer') === 'dancer');
+    if (floor.length >= 20) {
+      const box = new THREE.Box3();
+      for (const p of floor) box.expandByPoint(new THREE.Vector3(p.x, p.y ?? 0, p.z));
+      this.object.userData.crowd = { box, count: floor.length };
+    }
     const mat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 });
     this.u.uSigns.value = signIdx.size ? signAtlas() : null;
     mat.onBeforeCompile = (sh) => {

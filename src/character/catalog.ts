@@ -285,6 +285,8 @@ export const ITEMS: ItemDef[] = [
   it('hoodie', 'top', 'Hoodie', 'start', ['cozy', 'underground'], ['#4a4f5a', '#2a2d33', '#ffb547']),
   it('tank_mesh', 'top', 'Mesh tank', 'warehouse', ['dark', 'bold'], ['#111111', '#2a2d33', '#b6ff3b'], 'mesh'),
   it('longsleeve', 'top', 'Long-sleeve tee', 'set:18', ['cozy'], ['#2a2d33', '#d9d6cf', '#ff2e88']),
+  it('crop_top', 'top', 'Crop top', 'start', ['glam', 'bold'], ['#ff2e88', '#ffffff', '#111111']),
+  it('top_sequin', 'top', 'Sequin halter top', 'rooftop', ['glam'], ['#d4a64a', '#ffffff', '#111111'], 'sequin'),
   // the rivals' pieces, for great chemistry in a B2B (Section 6.10)
   it('tee_marlowe', 'top', 'Deep-stripe tee (MARLOWE)', 'rival:marlowe', ['underground', 'smart'], ['#1c2a44', '#e9e6df', '#7fb3ff'], 'cotton', 'stripes'),
   it('tee_volt', 'top', 'Piano-key tee (KIKI VOLT)', 'rival:kiki_volt', ['bold', 'bright'], ['#111111', '#f4f4f2', '#ff4fb0'], 'cotton', 'checkerboard'),
@@ -318,6 +320,8 @@ export const ITEMS: ItemDef[] = [
   it('shellsuit_bottoms', 'bottom', 'Shell suit bottoms', 'basement', ['sporty', 'bold'], ['#7a3cff', '#3ad7ff', '#ff2e88'], 'satin', 'stripes'),
   it('jeans_ripped', 'bottom', 'Ripped jeans', 'start', ['underground'], ['#3a5a86', '#2c4466', '#e9e6df'], 'denim'),
   it('joggers', 'bottom', 'Joggers', 'start', ['cozy'], ['#4a4f5a', '#2a2d33', '#ffffff']),
+  it('skirt_mini', 'bottom', 'Mini skirt', 'start', ['glam', 'bold'], ['#111111', '#2a2d33', '#ff2e88'], 'leather'),
+  it('skirt_sequin', 'bottom', 'Sequin skirt', 'rooftop', ['glam'], ['#c9ced6', '#7a3cff', '#ffffff'], 'sequin'),
   it('jeans_straight', 'bottom', 'Straight jeans', 'start', ['smart'], ['#1f2c44', '#2c4466', '#c9a24a'], 'denim'),
   // socks
   it('socks_tennis', 'socks', 'Tennis socks', 'sunrise', ['bright', 'sporty'], ['#ffffff', '#d33a2c', '#1f4fa8']),
@@ -333,6 +337,7 @@ export const ITEMS: ItemDef[] = [
   it('sneakers_worn', 'shoes', 'Worn sneakers', 'start', ['underground'], ['#d9d4c7', '#8a8580', '#111111']),
   it('slippers', 'shoes', 'House slippers', 'start', ['cozy'], ['#4a4f5a', '#d9d6cf', '#ffb547'], 'velvet'),
   it('high_tops', 'shoes', 'High-tops', 'set:5', ['sporty'], ['#111111', '#ffffff', '#d33a2c']),
+  it('gogo_boots', 'shoes', 'Go-go boots', 'rooftop', ['glam', 'bold'], ['#f4f4f2', '#c9ced6', '#111111'], 'leather'),
   // bag & extra
   it('record_bag', 'bag', 'Record bag', 'set:16', ['underground'], ['#2a2018', '#8a5a32', '#c9a24a'], 'leather'),
   it('towel', 'bag', 'Towel over the shoulder', 'start', ['underground', 'sporty'], ['#f4f4f2', '#ff2e88', '#d9d6cf']),

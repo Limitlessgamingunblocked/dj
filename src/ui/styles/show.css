@@ -302,6 +302,93 @@
   grid-column: span 2;
 }
 
+.party-pads {
+  grid-template-columns: 2fr 1fr;
+}
+
+.hw.light-pad.yeah-pad {
+  --pad: #ff2a3c;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.hw.light-pad.airhorn {
+  --pad: #ffd23f;
+}
+
+/* HELL YEAH! stamped over the stage */
+.hellyeah {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  z-index: 6;
+  pointer-events: none;
+  font-family: var(--font-label);
+  font-weight: 800;
+  font-size: clamp(42px, 9vw, 132px);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(180deg, #fff6c2 0%, #ffd23f 38%, #ff5b2e 70%, #ff2a3c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(4px 4px 0 #2a0610) drop-shadow(0 0 18px rgba(255, 70, 60, 0.75));
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.4) rotate(-8deg);
+}
+
+.hellyeah.on {
+  animation: hellyeah 2.1s cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+
+@keyframes hellyeah {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.6) rotate(-14deg);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.92) rotate(-6deg);
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.06) rotate(-7deg);
+  }
+  26%,
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(-6deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.15) rotate(-6deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hellyeah.on {
+    animation: hellyeah-calm 2.1s ease forwards;
+  }
+  @keyframes hellyeah-calm {
+    0%,
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) rotate(-6deg);
+    }
+    15%,
+    80% {
+      opacity: 1;
+      transform: translate(-50%, -50%) rotate(-6deg);
+    }
+  }
+}
+
+body.gig-clean .hellyeah {
+  display: none;
+}
+
 .lights-col .sliders .field {
   flex: 1;
   min-width: 140px;
