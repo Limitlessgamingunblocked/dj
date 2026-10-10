@@ -9,6 +9,13 @@
 
 export type CrowdSound = 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant';
 
+/**
+ * What a venue sounds like round the music (Section 8.3): glasses clinking on
+ * the rooftop, waves at the beach, water and the engine on the boat, wind
+ * over the festival field, birds as the sun comes up.
+ */
+export type Ambience = 'none' | 'glasses' | 'waves' | 'water' | 'field' | 'dawn';
+
 function noiseBuffer(ctx: BaseAudioContext, secs: number, seed = 7): AudioBuffer {
   const len = Math.max(1, Math.floor(ctx.sampleRate * secs));
   const b = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -31,6 +38,11 @@ export class CrowdAudio {
   size = 1;
   private level = 0;
   private lastSound = new Map<CrowdSound, number>();
+  private amb: Ambience = 'none';
+  private ambNodes: AudioScheduledSourceNode[] = [];
+  private ambOut: GainNode;
+  /** 0..1 how light it is (the dawn chorus builds with it) */
+  dawn = 0;
 
   constructor(
     private ctx: AudioContext,
@@ -40,6 +52,9 @@ export class CrowdAudio {
     this.out.gain.value = 0.9;
     this.out.connect(dest);
     this.noise = noiseBuffer(ctx, 4);
+    this.ambOut = ctx.createGain();
+    this.ambOut.gain.value = 0;
+    this.ambOut.connect(this.out);
     // the murmur: two bands of looped noise, slowly breathing
     this.murmur = ctx.createGain();
     this.murmur.gain.value = 0;
@@ -76,6 +91,128 @@ export class CrowdAudio {
     const want = this.size * (playing ? 0.035 + 0.12 * vibe * vibe : 0.05);
     this.level += (want - this.level) * Math.min(1, dt * 0.8);
     this.murmur.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.1);
+    // the venue's little sounds, now and then
+    if (this.amb === 'glasses' && Math.random() < dt * 0.7) this.clink(this.ctx.currentTime + Math.random() * 0.1);
+    if (this.amb === 'dawn' && Math.random() < dt * this.dawn * this.dawn * 2.2) this.chirp(this.ctx.currentTime);
+  }
+
+  /** the venue's ambience (replaces the last one) */
+  ambience(kind: Ambience): void {
+    if (kind === this.amb) return;
+    for (const n of this.ambNodes) {
+      try {
+        n.stop();
+      } catch {
+        // never started
+      }
+    }
+    this.ambNodes = [];
+    this.amb = kind;
+    const c = this.ctx;
+    const now = c.currentTime;
+    this.ambOut.gain.cancelScheduledValues(now);
+    this.ambOut.gain.setValueAtTime(0, now);
+    if (kind === 'none') return;
+    this.ambOut.gain.linearRampToValueAtTime(1, now + 2);
+    // a bed of shaped noise with a slow swell
+    const bed = (type: BiquadFilterType, f: number, q: number, gain: number, lfoHz: number, depth: number) => {
+      const src = c.createBufferSource();
+      src.buffer = this.noise;
+      src.loop = true;
+      const flt = c.createBiquadFilter();
+      flt.type = type;
+      flt.frequency.value = f;
+      flt.Q.value = q;
+      const g = c.createGain();
+      g.gain.value = gain;
+      const lfo = c.createOscillator();
+      lfo.frequency.value = lfoHz;
+      const d = c.createGain();
+      d.gain.value = gain * depth;
+      lfo.connect(d).connect(g.gain);
+      src.connect(flt).connect(g).connect(this.ambOut);
+      src.start();
+      lfo.start();
+      this.ambNodes.push(src, lfo);
+    };
+    switch (kind) {
+      case 'waves':
+        // the sea: a deep wash rolling in every eight seconds or so, a hiss on top
+        bed('lowpass', 520, 0.6, 0.05, 0.12, 0.9);
+        bed('bandpass', 2400, 0.5, 0.008, 0.12, 0.9);
+        break;
+      case 'water': {
+        // lapping at the hull, and the engine's hum
+        bed('bandpass', 380, 0.9, 0.03, 0.7, 0.7);
+        const hum = c.createOscillator();
+        hum.type = 'sawtooth';
+        hum.frequency.value = 46;
+        const lp = c.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 140;
+        const hg = c.createGain();
+        hg.gain.value = 0.012;
+        hum.connect(lp).connect(hg).connect(this.ambOut);
+        hum.start();
+        this.ambNodes.push(hum);
+        break;
+      }
+      case 'field':
+        // wind over a big field
+        bed('lowpass', 320, 0.5, 0.035, 0.07, 0.8);
+        break;
+      case 'glasses':
+        bed('bandpass', 900, 0.4, 0.008, 0.05, 0.4);
+        break;
+      case 'dawn':
+        bed('lowpass', 260, 0.5, 0.02, 0.06, 0.7);
+        break;
+    }
+  }
+
+  /** two glasses touching, somewhere on the terrace */
+  private clink(t0: number): void {
+    const c = this.ctx;
+    const f = 2600 + Math.random() * 1600;
+    for (const [mul, gain] of [
+      [1, 0.012],
+      [2.76, 0.005],
+    ]) {
+      const o = c.createOscillator();
+      o.frequency.value = f * mul;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+      const p = c.createStereoPanner();
+      p.pan.value = Math.random() * 1.6 - 0.8;
+      o.connect(g).connect(p).connect(this.ambOut);
+      o.start(t0);
+      o.stop(t0 + 0.4);
+    }
+  }
+
+  /** a bird: a few quick rising notes */
+  private chirp(t0: number): void {
+    const c = this.ctx;
+    const base = 2600 + Math.random() * 2200;
+    const p = c.createStereoPanner();
+    p.pan.value = Math.random() * 1.8 - 0.9;
+    p.connect(this.ambOut);
+    const n = 2 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) {
+      const s = t0 + i * (0.08 + Math.random() * 0.05);
+      const o = c.createOscillator();
+      o.frequency.setValueAtTime(base, s);
+      o.frequency.exponentialRampToValueAtTime(base * (1.3 + Math.random() * 0.4), s + 0.05);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.006, s + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.07);
+      o.connect(g).connect(p);
+      o.start(s);
+      o.stop(s + 0.08);
+    }
   }
 
   /** a reaction, scaled by how into it they are */

@@ -7,7 +7,8 @@
  *   Boards     custom boards                           (filled in by Stage 5)
  *   Crates     playlists for gigs
  *   Recordings recordings and clips                    (filled in by Stage 4)
- *   Bookings   gig offers and the calendar             (filled in by Stage 6)
+ *   Bookings   gig offers and the calendar
+ *   Feed       the social feed: fans' posts, your clips
  * Validators repair rather than reject: unknown fields are dropped, numbers
  * clamped, bad entries skipped, so a save from an older build or a
  * hand-edited file still loads.
@@ -586,5 +587,71 @@ export const BOOKINGS: SaveSpec<BookingsSave> = {
   },
 };
 
+/* ------------------------------------------------------------------ */
+/* the social feed (Stage 6, Section 9.6)                               */
+/* ------------------------------------------------------------------ */
+
+export const POST_KINDS = ['fan', 'clip', 'promoter', 'rival', 'news', 'you'] as const;
+
+export interface PostComment {
+  author: string;
+  handle: string;
+  text: string;
+}
+
+export interface Post {
+  id: string;
+  kind: (typeof POST_KINDS)[number];
+  author: string;
+  handle: string;
+  text: string;
+  date: string;
+  likes: number;
+  comments: PostComment[];
+  /** a saved clip (a My Sets recording id) */
+  clip: string | null;
+  venue: string | null;
+}
+
+export interface FeedSave {
+  posts: Post[];
+  seq: number;
+}
+
+const comment = (x: unknown): PostComment | null => {
+  const o = obj(x);
+  return typeof o.text === 'string' ? { author: str(o.author, 40, 'someone'), handle: str(o.handle, 40, '@someone'), text: str(o.text, 200) } : null;
+};
+
+export const FEED: SaveSpec<FeedSave> = {
+  kind: 'feed',
+  version: 1,
+  migrations: {},
+  defaults: () => ({ posts: [], seq: 1 }),
+  validate(raw) {
+    return {
+      seq: int(obj(raw).seq, 1, 1e9, 1),
+      posts: list(obj(raw).posts, (x) => {
+        const o = obj(x);
+        const pid = id(o.id);
+        const d = date(o.date);
+        if (!pid || !d || typeof o.text !== 'string') return null;
+        return {
+          id: pid,
+          kind: oneOf(o.kind, POST_KINDS, 'fan'),
+          author: str(o.author, 40, 'someone'),
+          handle: str(o.handle, 40, '@someone'),
+          text: str(o.text, 280),
+          date: d,
+          likes: int(o.likes, 0, 1e9, 0),
+          comments: list(o.comments, comment).slice(0, 8),
+          clip: typeof o.clip === 'string' ? id(o.clip) : null,
+          venue: typeof o.venue === 'string' ? id(o.venue) : null,
+        };
+      }).slice(0, 120),
+    };
+  },
+};
+
 /** every saved kind, for erase-all and the debug menu */
-export const ALL_SPECS = [PROFILE, PROGRESS, LOOKS, BOARDS, CRATES, RECORDINGS, BOOKINGS] as const;
+export const ALL_SPECS = [PROFILE, PROGRESS, LOOKS, BOARDS, CRATES, RECORDINGS, BOOKINGS, FEED] as const;

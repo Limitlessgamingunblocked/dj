@@ -21,7 +21,8 @@ export const VENUE_NAME_STYLES: Record<string, VenueNameStyle> = {
   boat: { booth: 'chrome_led', sign: 'led_sign' },
   festival: { booth: 'pixel_led', screen: 'pixel_led' },
   sunrise: { booth: 'white_install', sign: 'white_install' },
-  // the real rooms
+  // the real rooms, and the house room
+  deckhouse: { booth: 'chrome_led', sign: 'neon_red', screen: 'chrome_led' },
   dc10: { booth: 'neon_red', sign: 'neon_red' },
   boilerroom: { booth: 'marker' },
   berghain: { booth: 'white_install' },

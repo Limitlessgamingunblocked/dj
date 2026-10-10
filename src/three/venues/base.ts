@@ -74,6 +74,8 @@ export interface VenueScene {
    * almost none.
    */
   readonly ambient?: number;
+  /** how far the camera sees (default 160 m): open-air venues see the horizon */
+  readonly far?: number;
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
   prerender?(renderer: THREE.WebGLRenderer, dt: number): void;
@@ -119,13 +121,15 @@ export abstract class VenueBase implements VenueScene {
   feed?: LiveFeed;
   grade?: Grade;
   toneMapping?: 'aces' | 'agx';
+  far?: number;
   protected fixtures: Fixture[] = [];
   protected washes: Wash[] = [];
   protected hemi: THREE.HemisphereLight;
   protected flashLight: THREE.PointLight;
   protected hemiBase: number;
-  private fogBase: THREE.Color;
-  private fogDensity: number;
+  /** the haze's own colour (open-air venues follow the sky with it) */
+  protected fogBase: THREE.Color;
+  protected fogDensity: number;
   private boothStrips: THREE.MeshBasicMaterial[] = [];
   private tmp = new THREE.Color();
 

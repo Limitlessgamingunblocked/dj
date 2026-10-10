@@ -4,6 +4,7 @@
  */
 import { saveFile } from '../core/download';
 import { AudioEngine } from '../audio/AudioEngine';
+import type { Ambience } from '../audio/crowd';
 import { SAMPLE_NAMES } from '../audio/synth';
 import { AnalysisPool } from '../analysis/AnalysisPool';
 import { ControlRegistry } from '../core/controls';
@@ -66,13 +67,22 @@ import { hwButton, type Widget } from '../ui/widgets';
 import type { AppContext, AppEvents } from './context';
 import { registerControls } from './controlDefs';
 import { bindKeyboard } from './keyboard';
+import { moments, setClock } from '../three/venues/moments';
+import { addPosts, clipPost } from '../game/social';
+import { HubView } from '../ui/Hub';
+import { openFeed } from '../ui/SocialFeed';
+import type { Recording } from '../core/models';
+import { seeded } from '../game/bookings';
+import { getCrewTier, setCrewTier } from '../three/venues/crew';
 import { cleanSettings, type Settings } from './settingsModel';
 
 const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
 /** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
-const GIG_VENUES = ['bedroom', 'basement', 'warehouse'];
+const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise'];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
-const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, dressing: 0, naming: 0 };
+/** what each venue sounds like round the music */
+const AMBIENCE: Record<string, Ambience> = { rooftop: 'glasses', beach: 'waves', boat: 'water', festival: 'field', sunrise: 'dawn' };
+const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, rooftop: 0.7, boat: 0.8, festival: 1.3, sunrise: 1.1, dressing: 0, naming: 0 };
 
 type TabId = 'library' | 'sets' | 'mysets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */
@@ -94,11 +104,14 @@ export class App implements AppContext {
   private clockDrop = false;
   /** the career saves (profile, progress…); see game/Career.ts */
   readonly career = new Career();
+  /** how far through the set (the open-air venues' time of day): for the debug menu and tests */
+  readonly setClock = setClock;
   private debug: DebugMenu | null = null;
   private chant: NameChant | null = null;
   private naming: NamingScene | null = null;
   private namingBusy = false;
   private creator: CharacterCreator | null = null;
+  private home: HubView | null = null;
   /** the kick envelope this frame (the dressing room grooves to it when the decks play) */
   private kick = 0;
   private debugDrop = false;
@@ -163,15 +176,29 @@ export class App implements AppContext {
   setVenue(id: string, initial = false): void {
     const def = venueById(id);
     const changed = def.id !== this.stage.venueDef?.id;
+    // the VIP crew on stage follows your fame
+    const p = this.career.progress;
+    setCrewTier(p.sandbox ? 7 : p.tier);
     this.settings.venue = def.id;
     if (changed || initial) this.stage.setVenue(def);
     // how the room sounds, and how big its crowd is
     this.engine.mixer.room.set(roomFor(def.id));
     this.engine.crowd.size = CROWD_SIZE[def.id] ?? 1;
+    this.engine.crowd.ambience(AMBIENCE[def.id] ?? 'none');
     document.documentElement.style.setProperty('--venue', prefs.accent || def.ui);
     if (changed && !initial && def.note) toast(def.note);
     this.events.emit('venue', def.id);
     this.save();
+  }
+
+  /** a clip you saved goes up on your feed (and counts towards "save 10 clips") */
+  private postClip(r: Recording): void {
+    if (r.source !== 'clip' && r.source !== 'trim') return;
+    const c = this.career;
+    c.setProgress({ stats: { ...c.progress.stats, clips: (c.progress.stats.clips ?? 0) + 1 } });
+    const post = clipPost({ dj: nameService.text, venueName: venueById(r.venue).name, venue: r.venue, followers: c.progress.followers, clip: r.id }, seeded(c.feed.seq * 13 + 1));
+    c.setFeed(addPosts(c.feed, [post], new Date()));
+    toast('Clip posted to your feed 📱');
   }
 
   /** track search ◀◀ ▶▶: the track before or after this deck's one in the library list */
@@ -377,6 +404,7 @@ export class App implements AppContext {
       director: { on: () => this.settings.director, set: (on) => this.setDirector(on, true), goTo: (v) => this.stage.goTo(v) },
       onBar: (fn) => this.clock.onBar(fn),
       trim: (r, at) => void this.desk.trim(r, at),
+      saved: (r) => this.postClip(r),
     });
     this.gigs = new GigDirector({
       engine: this.engine,
@@ -408,6 +436,29 @@ export class App implements AppContext {
       crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
       boardId: () => this.boardDef.id,
       venueThumb: (id, g, w, h) => venueById(id).thumb(g, w, h),
+      reg: this.reg,
+      loadTrack: (d, id) => this.loadTrack(d, id),
+    });
+    // a tier up brings more of the crew: rebuild the room between sets
+    this.career.changed.on('progress', (p) => {
+      const t = p.sandbox ? 7 : p.tier;
+      if (t === getCrewTier()) return;
+      setCrewTier(t);
+      if (!this.gigs.gig) this.stage.setVenue(venueById(this.settings.venue));
+    });
+    // the lighting tech answers when you use the lights in a set
+    this.reg.on('activity', ({ id, source }) => {
+      if (source !== undefined && id.startsWith('light.')) this.gigs.lightsUsed(id);
+    });
+    // a venue's signature moment: mark it for the replay, the crowd goes up, the room's sound changes
+    moments.on((m) => {
+      if (m.venue !== this.settings.venue) return;
+      if (m.label) {
+        this.desk.mark('signature', m.label);
+        this.callout({ text: m.label, tone: 'hype' });
+      }
+      if (m.crowd) this.engine.crowd.play(m.crowd, Math.max(0.6, this.stage.hype), this.clock.bpm || 124);
+      if (m.echo) this.engine.mixer.room.echo(m.echo);
     });
     this.lyrics = new LyricsEngine(this.engine, (id) => {
       const t = this.engine.deck(id).track;
@@ -464,6 +515,21 @@ export class App implements AppContext {
       restoreVenue: (id) => this.setVenue(id, true),
       busy: (on) => (this.namingBusy = on),
       music: () => ({ playing: this.clock.playing, beat: this.clock.position, kick: this.kick }),
+    });
+    // home: the hub apartment and its stations
+    this.home = new HubView({
+      stage: this.stage,
+      career: this.career,
+      venue: () => this.settings.venue,
+      restoreVenue: (id) => this.setVenue(id, true),
+      venueName: (id) => venueById(id).name,
+      music: () => ({ playing: this.clock.playing, beat: this.clock.position, kick: this.kick }),
+      bookings: () => this.gigs.openSetup(),
+      wardrobe: () => this.creator?.show(),
+      crates: () => this.showTab('library'),
+      mySets: () => this.showTab('mysets'),
+      phone: () => openFeed({ feed: this.career.feed, dj: nameService.text, followers: this.career.progress.followers, watch: () => this.showTab('mysets') }),
+      busy: (on) => (this.namingBusy = on),
     });
     // you, as you look (the creator shows its own changes while it's open)
     this.stage.setLook(this.career.look, nameService.text);
@@ -570,7 +636,7 @@ export class App implements AppContext {
     this.audioBanner.querySelector('button')!.addEventListener('click', () => void this.engine.resume());
     this.topbar = new TopBar(this, {
       pickBoard: () => this.pickBoard(),
-      pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id)),
+      pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id), (id) => venueLock(id, this.career.progress)),
       venueName: () => venueById(this.settings.venue).name,
       venueShort: () => {
         const v = venueById(this.settings.venue);
@@ -578,6 +644,7 @@ export class App implements AppContext {
       },
       hype: () => this.gigs.meter.vibe,
       gig: () => this.gigs.openSetup(),
+      home: () => this.home?.show(),
       beat: () => this.features.f.beatPulse,
       live: () => (this.settings.venue === 'boilerroom' ? (this.viewers >= 1000 ? `${(this.viewers / 1000).toFixed(1)}k` : String(Math.round(this.viewers))) : null),
       record: () => void this.desk.toggle(),
@@ -645,7 +712,7 @@ export class App implements AppContext {
       settings: this.settings,
       save: () => this.save(),
       pickBoard: () => this.pickBoard(),
-      pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id)),
+      pickVenue: () => openVenuePicker(() => this.settings.venue, (id) => this.setVenue(id), (id) => venueLock(id, this.career.progress)),
       setUiMode: (m) => this.setUiMode(m),
       setAutoZoom: (v) => {
         this.settings.autoZoom = v;
@@ -1377,6 +1444,7 @@ export class App implements AppContext {
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
       this.stage.hype = this.gigs.update(dt, f);
       this.desk.update(dt, this.stage.hype);
+      this.engine.crowd.dawn = this.settings.venue === 'sunrise' ? Math.max(0, (setClock.progress - 0.55) / 0.45) : 0;
       this.engine.crowd.update(dt, this.stage.hype, this.clock.playing);
       this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);

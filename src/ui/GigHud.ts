@@ -55,6 +55,7 @@ export class GigHud {
   private cleanBtn: HTMLButtonElement;
   private showBtn: HTMLButtonElement;
   private msgTimer = 0;
+  private duo: HTMLElement;
 
   constructor(private hooks: HudHooks) {
     this.bar = h('div', { class: 'gh-fill' });
@@ -83,10 +84,11 @@ export class GigHud {
     this.showBtn = h('button', { type: 'button', class: 'gh-show', title: 'Show the HUD' }, 'HUD') as HTMLButtonElement;
     this.showBtn.addEventListener('click', () => this.setClean(false));
     this.msg = h('div', { class: 'gh-msg', role: 'status', 'aria-live': 'polite' });
+    this.duo = h('div', { class: 'gh-b2b', hidden: true });
     this.el = h(
       'div',
       { class: 'gig-hud' },
-      h('div', { class: 'gh-main' }, h('div', { class: 'gh-row' }, this.where, this.mood, this.timer, this.rec, this.buf), meter, h('div', { class: 'gh-row gh-tools' }, assists, this.bufBtns, this.cleanBtn, end)),
+      h('div', { class: 'gh-main' }, h('div', { class: 'gh-row' }, this.where, this.mood, this.timer, this.rec, this.buf), meter, this.duo, h('div', { class: 'gh-row gh-tools' }, assists, this.bufBtns, this.cleanBtn, end)),
       this.msg,
       this.showBtn,
     );
@@ -103,6 +105,18 @@ export class GigHud {
     setClass(this.msg, 'on', true);
     clearTimeout(this.msgTimer);
     this.msgTimer = window.setTimeout(() => setClass(this.msg, 'on', false), 4500);
+  }
+
+  /** a B2B: who you're playing with, whose turn it is, the chemistry meter (Section 6.10) */
+  b2b(o: { name: string; color: string; chemistry: number; turn: 'you' | 'rival' } | null): void {
+    this.duo.hidden = !o;
+    if (!o) return;
+    this.duo.style.setProperty('--rc', o.color);
+    this.duo.replaceChildren(
+      h('span', { class: 'gh-b2b-who' }, `B2B · ${o.name}`),
+      h('span', { class: 'gh-chem', role: 'meter', 'aria-label': 'Chemistry', 'aria-valuenow': String(Math.round(o.chemistry * 100)), 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: `width:${(o.chemistry * 100).toFixed(0)}%` })),
+      h('span', { class: 'gh-turn' }, o.turn === 'you' ? 'Your turn' : `${o.name}’s turn`),
+    );
   }
 
   update(s: HudState): void {

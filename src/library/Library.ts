@@ -104,6 +104,14 @@ export class Library extends Emitter<LibraryEvents> {
   }
 
   private ensureDemos(): void {
+    // demo tracks the game no longer ships (the old techno and breaks demos) go
+    const keep = new Set(DEMO_TRACKS.map((d) => `demo-${d.spec.seed}`));
+    for (const t of [...this.tracks.values()]) {
+      if (t.source !== 'demo' || keep.has(t.id)) continue;
+      this.tracks.delete(t.id);
+      for (const c of this.crates) c.trackIds = c.trackIds.filter((x) => x !== t.id);
+      void dbDelete('tracks', t.id);
+    }
     for (const d of DEMO_TRACKS) {
       const id = `demo-${d.spec.seed}`;
       const have = this.tracks.get(id);

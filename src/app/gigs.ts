@@ -7,11 +7,15 @@
 import type { AudioEngine } from '../audio/AudioEngine';
 import { dressCodeBonus } from '../character/look';
 import type { Booking } from '../core/models';
-import { goalMet, played } from '../game/bookings';
+import { goalMet, played, seeded } from '../game/bookings';
+import { addPosts, postsForSet } from '../game/social';
 import { ASSISTS, Gig, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
-import { rivalOf } from '../game/rivals';
+import { CHEMISTRY_UNLOCK, INTROS, RIVALS, rivalOf, type RivalId } from '../game/rivals';
+import type { ControlRegistry } from '../core/controls';
+import { B2B } from './b2b';
 import { Snapshot } from '../game/snapshot';
+import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
@@ -60,6 +64,28 @@ export interface GigHost {
   boardId(): string;
   /** a venue's picture, for the bookings */
   venueThumb(id: string, g: CanvasRenderingContext2D, w: number, h: number): void;
+  /** for the B2B rival: the controls (to hear you grab a fader) and loading their tracks */
+  reg: ControlRegistry;
+  loadTrack(deck: number, id: string): Promise<void>;
+}
+
+/** what the lighting tech says when you take the lights */
+const TECH_LINES: [string, string][] = [
+  ['strobe', 'Strobes! Love it.'],
+  ['blinder', 'Blinders up, they felt that.'],
+  ['laser', 'Lasers, here we go.'],
+  ['blackout', 'Killing it… and back. Nice.'],
+  ['co2', 'CO2, good timing.'],
+  ['pyro', 'Fire! Stand back.'],
+  ['confetti', 'Confetti away!'],
+  ['auto', 'Fine, I\'ll drive. You mix.'],
+  ['dropfx', 'I\'ve got the drops covered.'],
+];
+
+/** the promoter at the start of a booking, warmer as you get bigger (Section 8.5) */
+export function promoterHello(tier: number, expectation: string): string {
+  const greet = tier >= 6 ? 'Sold out in minutes. They\'re all here for you.' : tier >= 4 ? 'Big crowd tonight, they know your name.' : tier >= 2 ? 'Good to have you back.' : 'Thanks for stepping in.';
+  return `${greet} ${expectation}.`;
 }
 
 export class GigDirector {
@@ -77,10 +103,18 @@ export class GigDirector {
   private tipAt = -1e9;
   private crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
   private building = false;
+  private techSaid = -1e9;
+  /** a B2B set: the rival on the other deck */
+  private b2b: B2B | null = null;
+  /** the venue's signature moment in this set, if it happened (the fans post about it) */
+  private moment: string | null = null;
   private keyMatched = new Set<string>();
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
+    moments.on((m) => {
+      if (this.gig && m.label && m.venue === this.gig.config.venue) this.moment ??= m.label;
+    });
   }
 
   /** the meter the room follows right now */
@@ -142,6 +176,20 @@ export class GigDirector {
     if (crate !== undefined) this.host.showCrate(crate);
     this.lastCfg = cfg;
     this.booking = booking;
+    this.moment = null;
+    this.b2b?.stop();
+    this.b2b = null;
+    const rival = rivalOf(booking?.special);
+    if (rival) {
+      this.b2b = new B2B(rival.id, {
+        engine: e,
+        reg: this.host.reg,
+        tracks: () => this.host.library.list(),
+        loadTrack: (d, id) => this.host.loadTrack(d, id),
+        say: (who, text) => this.hud?.say(who, text),
+      });
+    }
+    setClock.progress = 0;
     this.gig = new Gig(cfg);
     this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
     this.keyMatched.clear();
@@ -174,8 +222,13 @@ export class GigDirector {
     }
     this.applyAssist();
     const slot = SLOTS[cfg.slot];
-    if (booking) {
-      this.hud.say(`${booking.promoter}:`, `${booking.expectation}. ${cfg.minutes} minutes.`);
+    if (this.b2b) {
+      const dj = this.host.djName() || 'DJ';
+      const b2b = this.b2b;
+      this.hud.say(`${b2b.name}:`, INTROS[b2b.rival].replace('{name}', dj).replace('{NAME}', dj.toUpperCase()));
+      setTimeout(() => this.b2b === b2b && this.hud?.say('Promoter:', `Back to back with ${b2b.name}. You open: play a track, they answer, then it’s you again.`), 4200);
+    } else if (booking) {
+      this.hud.say(`${booking.promoter}:`, `${promoterHello(this.host.career.progress.tier, booking.expectation)} ${cfg.minutes} minutes.`);
       setTimeout(() => this.gig && this.booking === booking && this.hud?.say('Bonus:', booking.objective), 3200);
     } else this.hud.say('Promoter:', `${slot.label}, ${cfg.minutes} minutes. ${slot.brief}`);
     // dressed for the room: the crowd starts a little warmer (Section 4.9)
@@ -187,6 +240,8 @@ export class GigDirector {
   }
 
   private teardown(): void {
+    this.b2b?.stop();
+    this.hud?.b2b(null);
     this.toolsWatch?.disconnect();
     this.toolsWatch = null;
     this.hud?.el.remove();
@@ -211,9 +266,29 @@ export class GigDirector {
     const board = this.host.boardId();
     const met = b ? goalMet(b.goal, gig.summary(board)) : false;
     const r = gig.results(c.progress, { board, booking: b ? { pay: b.pay, met, special: b.special } : undefined });
+    // a B2B: the chemistry you built (the best one is kept); great chemistry gets their pieces
+    const duo = this.b2b;
+    let chemistry: { name: string; value: number; unlocked: boolean } | null = null;
+    if (duo) {
+      const v = duo.chemistry;
+      const prev = c.progress.chemistry[duo.rival] ?? 0;
+      const unlock = `rival:${duo.rival}`;
+      const already = (r.outcome.patch.unlocked ?? c.progress.unlocked).includes(unlock);
+      const unlocked = v >= CHEMISTRY_UNLOCK && !already;
+      r.outcome.patch.chemistry = { ...c.progress.chemistry, [duo.rival]: Math.max(prev, Math.round(v * 100) / 100) };
+      if (unlocked) {
+        r.outcome.patch.unlocked = [...(r.outcome.patch.unlocked ?? c.progress.unlocked), unlock];
+        r.outcome.unlocked.push({ kind: 'item', label: `${duo.name}’s pieces in your wardrobe` });
+      }
+      chemistry = { name: duo.name, value: v, unlocked };
+    }
     c.setProgress(r.outcome.patch);
     // the calendar moves on a night; the booking keeps how it went
     c.setBookings(played(c.bookings, b?.id ?? null, b ? { grade: r.grade, met } : null));
+    // the fans post about it
+    const dj = this.host.djName() || 'DJ';
+    const posts = postsForSet({ summary: r.summary, dj, venueName: this.host.venueName(gig.config.venue), venue: gig.config.venue, followers: c.progress.followers, story: r.outcome.story?.replace(/\{name\}/g, dj) ?? null, moment: this.moment }, seeded(c.progress.setsPlayed * 31 + 7));
+    c.setFeed(addPosts(c.feed, posts, new Date()));
     this.teardown();
     this.gig = null;
     this.booking = null;
@@ -224,6 +299,7 @@ export class GigDirector {
       dj: this.host.djName() || 'DJ',
       next: nextGoal(c.progress),
       objective: b ? { text: b.objective, met } : null,
+      chemistry,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
       closed: () => rp?.clear(),
@@ -231,6 +307,15 @@ export class GigDirector {
       again: () => (b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
+  }
+
+  /** the lighting tech (Section 8.5) answers when you work the lights in a set */
+  lightsUsed(id: string): void {
+    const gig = this.gig;
+    if (!gig || gig.t - this.techSaid < 20) return;
+    const line = TECH_LINES.find(([k]) => id.includes(k))?.[1] ?? 'On it. Your call.';
+    this.techSaid = gig.t;
+    this.hud?.say('Lighting tech:', line);
   }
 
   /** the running gig's slot ("Peak time"), or null in free play */
@@ -296,8 +381,17 @@ export class GigDirector {
     const level = this.snap.level();
     let events: (VibeEvent | GigEvent)[];
     const gig = this.gig;
+    // the open-air venues light themselves by how far through the set we are
+    setClock.gig = !!gig && gig.phase !== 'over';
+    if (gig) setClock.progress = gig.progress;
+    else tickFreeClock(dt, decks.some((d) => d.playing));
     if (gig) {
       events = gig.update(dt, decks, level, e.redline, f.dropHit);
+      if (this.b2b) {
+        this.b2b.update(dt);
+        const rv = RIVALS[this.b2b.rival as RivalId];
+        this.hud?.b2b({ name: rv.name, color: rv.color, chemistry: this.b2b.chemistry, turn: this.b2b.turn });
+      }
       if (gig.assist === 'chill') this.chill(gig.t);
       const target = SLOTS[gig.config.slot].target(gig.progress);
       this.hud?.update({ vibe: gig.meter.vibe, target, remaining: gig.remaining, phase: gig.phase, recording: this.host.recording(), buffer: !!this.host.replay(), assist: gig.assist, slot: SLOTS[gig.config.slot].label, venue: this.host.venueName(gig.config.venue), redline: e.redline });
@@ -318,6 +412,7 @@ export class GigDirector {
   }
 
   private handle(ev: VibeEvent | GigEvent): void {
+    if (ev.kind !== 'gig') this.b2b?.onEvent(ev);
     if (ev.kind === 'gig') {
       if (ev.what === 'last_minute') this.hud?.say('Promoter:', 'One minute left. Make it count.');
       if (ev.what === 'encore') {

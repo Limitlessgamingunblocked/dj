@@ -10,8 +10,8 @@ const lib = (id: string): LibraryTrack => {
 };
 
 describe('the original track library', () => {
-  it('has a first batch of 10+ tracks in the brief’s lanes with full metadata', () => {
-    expect(ORIGINAL_IDS.length).toBeGreaterThanOrEqual(10);
+  it('has 40+ original tracks in the brief’s lanes with full metadata (Section 7.1)', () => {
+    expect(ORIGINAL_IDS.length).toBeGreaterThanOrEqual(40);
     const originals = DEMO_TRACKS.filter((d) => d.energy !== undefined);
     expect(new Set(originals.map((d) => d.title)).size).toBe(originals.length);
     for (const d of originals) {
@@ -80,9 +80,9 @@ describe('the original track library', () => {
     expect(drop).toBeGreaterThan(breakdown);
     expect(drop).toBeLessThanOrEqual(1);
     // the old studio demos get energy and tags from their style
-    const old = trackInfo(lib('demo-27'));
+    const old = trackInfo(lib('demo-11'));
     expect(old.original).toBe(false);
-    expect(old.tags).toContain('peak');
+    expect(old.tags).toContain('groovy');
     // imported music: estimated, no markers
     const imported = trackInfo({ ...t, source: 'file', demo: undefined, analysis: { version: 5, duration: 300, bpm: 124, firstBeat: 0, key: null, loudness: -10, peak: 0, waveform: new Uint8Array(), waveRate: 150 } });
     expect(imported.imported).toBe(true);

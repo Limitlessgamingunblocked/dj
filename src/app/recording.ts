@@ -48,6 +48,8 @@ export interface DeskHost {
   onBar(fn: () => void): void;
   /** open the trim editor */
   trim(r: Recording, at?: number): void;
+  /** a recording was saved (clips go on the social feed) */
+  saved?(r: Recording): void;
 }
 
 /** the replay buffer's saved settings, defaults by device */
@@ -263,6 +265,7 @@ export class RecordingDesk {
         cover: { name: nameService.named ? nameService.text : '', nameStyle: nameStyleFor(v.id).booth, venueId: v.id, venue: v.name, date: take.date, seconds: take.seconds, sub: this.host.setLabel() },
       });
       if (headline) this.view(rec, headline);
+      this.host.saved?.(rec);
       return rec;
     } catch (e) {
       toast(`Couldn’t save the recording: ${(e as Error).message}`, 'error');
@@ -445,7 +448,7 @@ export class RecordingDesk {
   private async keepTrim(take: Take, from: Recording, a: number, b: number): Promise<Recording | null> {
     const venueName = this.host.venueName(from.venue);
     try {
-      return await this.sets.add({
+      const rec = await this.sets.add({
         take,
         venueId: from.venue,
         venueName,
@@ -455,6 +458,8 @@ export class RecordingDesk {
         cover: { name: nameService.named ? nameService.text : '', nameStyle: nameStyleFor(from.venue).booth, venueId: from.venue, venue: venueName, date: new Date(from.date), seconds: take.seconds, sub: 'Clip' },
         bars: from.bars.filter((x) => x >= a && x <= b).map((x) => x - a),
       });
+      this.host.saved?.(rec);
+      return rec;
     } catch (e) {
       toast(`Couldn’t save the clip: ${(e as Error).message}`, 'error');
       return null;

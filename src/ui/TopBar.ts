@@ -24,6 +24,8 @@ export interface TopBarActions {
   recordMenu(): void;
   /** open the pre-gig screen */
   gig(): void;
+  /** home: the hub apartment */
+  home(): void;
   midi(): void;
   /** open the ⋯ menu at a screen position */
   menu(x: number, y: number): void;
@@ -92,6 +94,8 @@ export class TopBar {
     this.recGroup = h('div', { class: 'rec-group' }, this.rec, recMenu, this.bufDot);
     const gig = h('button', { class: 'btn gig-btn', title: 'Play a gig: your bookings, or a free set', type: 'button' }, 'Play a gig');
     gig.addEventListener('click', () => a.gig());
+    const home = h('button', { class: 'btn ghost home-btn', title: 'Home: your place, your bookings, wardrobe, crates, sets and phone', 'aria-label': 'Home', type: 'button' }, '⌂', h('span', { class: 'hide-sm' }, ' Home'));
+    home.addEventListener('click', () => a.home());
     this.midiDot = h('span', { class: 'status-dot on' });
     this.midiBtn = h('button', { class: 'btn ghost hide-sm', title: 'MIDI controller connected — open MIDI settings', hidden: true }, this.midiDot, 'MIDI');
     this.midiBtn.addEventListener('click', () => a.midi());
@@ -118,6 +122,7 @@ export class TopBar {
       this.liveEl,
       this.hypeEl,
       h('div', { class: 'master-readout', title: 'Tempo of the sync master deck' }, this.beatLed, this.masterDeck, this.master),
+      home,
       gig,
       this.recGroup,
       this.midiBtn,

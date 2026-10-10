@@ -285,6 +285,11 @@ export const ITEMS: ItemDef[] = [
   it('hoodie', 'top', 'Hoodie', 'start', ['cozy', 'underground'], ['#4a4f5a', '#2a2d33', '#ffb547']),
   it('tank_mesh', 'top', 'Mesh tank', 'warehouse', ['dark', 'bold'], ['#111111', '#2a2d33', '#b6ff3b'], 'mesh'),
   it('longsleeve', 'top', 'Long-sleeve tee', 'set:18', ['cozy'], ['#2a2d33', '#d9d6cf', '#ff2e88']),
+  // the rivals' pieces, for great chemistry in a B2B (Section 6.10)
+  it('tee_marlowe', 'top', 'Deep-stripe tee (MARLOWE)', 'rival:marlowe', ['underground', 'smart'], ['#1c2a44', '#e9e6df', '#7fb3ff'], 'cotton', 'stripes'),
+  it('tee_volt', 'top', 'Piano-key tee (KIKI VOLT)', 'rival:kiki_volt', ['bold', 'bright'], ['#111111', '#f4f4f2', '#ff4fb0'], 'cotton', 'checkerboard'),
+  it('shirt_dutch', 'top', 'Two-tone bowling shirt (DOUBLE DUTCH)', 'rival:double_dutch', ['bold', 'holiday'], ['#ffb547', '#f4efe2', '#2a2d33'], 'satin', 'stripes'),
+  it('tee_nox', 'top', 'Black-on-black tee (NOX)', 'rival:nox', ['dark', 'underground'], ['#0b0b0c', '#141416', '#9d8cff']),
   // outer
   it('utility_vest', 'outer', 'Utility vest', 'warehouse', ['dark', 'techwear'], ['#1c1e23', '#0e0f12', '#3a3d44']),
   it('jacket_sequin', 'outer', 'Sequin jacket', 'rooftop', ['glam'], ['#c9a24a', '#7a3cff', '#ffffff'], 'sequin'),
@@ -293,6 +298,10 @@ export const ITEMS: ItemDef[] = [
   it('bomber', 'outer', 'Bomber jacket', 'set:6', ['underground'], ['#2f3a2c', '#d77a2a', '#111111'], 'satin'),
   it('denim_jacket', 'outer', 'Denim jacket', 'set:8', ['cozy'], ['#3a5a86', '#c9a24a', '#e9e6df'], 'denim'),
   it('velvet_blazer', 'outer', 'Velvet blazer', 'rooftop', ['smart', 'glam'], ['#5a1e3a', '#111111', '#c9a24a'], 'velvet'),
+  it('overshirt_marlowe', 'outer', 'Navy overshirt (MARLOWE)', 'rival:marlowe', ['smart', 'underground'], ['#1c2a44', '#2a3a5a', '#e9e6df'], 'denim'),
+  it('jacket_volt', 'outer', 'Holographic jacket (KIKI VOLT)', 'rival:kiki_volt', ['future', 'bold'], ['#c9ced6', '#ff4fb0', '#3ad7ff'], 'holographic'),
+  it('track_dutch', 'outer', 'Bouncy track top (DOUBLE DUTCH)', 'rival:double_dutch', ['sporty', 'bold'], ['#ff5a2a', '#ffb547', '#f4efe2'], 'satin', 'stripes'),
+  it('coat_nox', 'outer', 'Black velvet coat (NOX)', 'rival:nox', ['dark'], ['#0b0b0c', '#1a1a1e', '#9d8cff'], 'velvet'),
   // wrists & hands
   it('watch_gold', 'wrists', 'Gold watch', 'beach', ['glam', 'holiday'], ['#d4a64a', '#111111', '#ffffff'], 'reflective'),
   it('watch_digital', 'wrists', 'Digital watch', 'set:4', ['sporty'], ['#111111', '#b6ff3b', '#c9ced6']),

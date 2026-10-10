@@ -357,6 +357,9 @@ export class Stage {
     // only the output pass tone-maps (scene programs render to a float target), so this recompiles one shader
     this.renderer.toneMapping = v.toneMapping === 'agx' ? THREE.AgXToneMapping : THREE.ACESFilmicToneMapping;
     this.rig.setViews(v.views);
+    // open air: see out to the horizon
+    this.camera.far = v.far ?? 160;
+    this.camera.updateProjectionMatrix();
     this.precompile();
   }
 

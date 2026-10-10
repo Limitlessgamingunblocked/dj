@@ -389,6 +389,8 @@ export class LedStrings implements Fixture {
   private at: number[] = [];
   private sid: number[] = [];
   private strings = 0;
+  /** overall brightness (open-air venues dim the bulbs in daylight) */
+  gain = 1;
 
   constructor(
     private o: { size?: number; warm?: string | null; spacing?: number } = {},
@@ -472,7 +474,7 @@ export class LedStrings implements Fixture {
     // no fast flicker with reduce flashing
     this.u.uHat.value = s.reduceFlash ? 0 : s.hat;
     this.u.uLevel.value = s.playing ? 0.4 + s.energy * 0.6 + s.peak * 0.6 : 0.15;
-    this.u.uMaster.value = s.master * Math.min(1.3, s.intensity);
+    this.u.uMaster.value = s.master * Math.min(1.3, s.intensity) * this.gain;
     if (this.o.warm) {
       this.u.uA.value.set(this.o.warm).multiplyScalar(1.4);
       this.u.uB.value.copy(s.colors[0]).lerp(this.u.uA.value, 0.5).multiplyScalar(1.2);

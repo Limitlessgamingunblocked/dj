@@ -26,6 +26,8 @@ export interface ResultsHooks {
   next?: string;
   /** the booking's bonus objective, and whether you hit it */
   objective?: { text: string; met: boolean } | null;
+  /** a B2B: the chemistry you built with the rival */
+  chemistry?: { name: string; value: number; unlocked: boolean } | null;
 }
 
 const NEW_ICON: Record<string, string> = { venue: '📍', item: '👕', set: '🧥', hair: '💇', title: '🏷', reputation: '⭐', story: '📰' };
@@ -157,6 +159,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
       h('div', { class: 'res-card res-earned' }, h('span', {}, 'You earned'), h('div', { class: 'res-earn' }, h('div', {}, fame, h('small', {}, 'fame')), h('div', {}, cash, h('small', {}, 'cash')), h('div', {}, fol, h('small', {}, 'followers'))), r.tierUp ? h('small', { class: 'res-tier' }, `Fame tier ${r.tierUp} reached. New gear in the wardrobe.`) : null),
     ),
     hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? '✓ Objective hit: ' : '✗ Objective missed: '), hooks.objective.text, hooks.objective.met ? ' (+25% pay and fame)' : '') : null,
+    hooks.chemistry ? h('div', { class: `res-objective ${hooks.chemistry.value >= 0.75 ? 'met' : ''}` }, h('b', {}, `Chemistry with ${hooks.chemistry.name}: ${Math.round(hooks.chemistry.value * 100)}%`), hooks.chemistry.unlocked ? ' · their pieces are in your wardrobe' : hooks.chemistry.value >= 0.75 ? '' : ' · 75% unlocks their pieces') : null,
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
     news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_ICON[n.kind] ?? '•', ' ', n.label.replace(/\{name\}/g, hooks.dj)))) : null,
     hooks.next ? h('p', { class: 'res-next' }, 'Next: ', hooks.next) : null,

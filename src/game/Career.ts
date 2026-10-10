@@ -7,7 +7,7 @@
  */
 import { defaultLook } from '../character/look';
 import { Emitter } from '../core/emitter';
-import { ALL_SPECS, BOOKINGS, LOOKS, PROFILE, PROGRESS, type BookingsSave, type Look, type Profile, type Progress } from '../core/models';
+import { ALL_SPECS, BOOKINGS, FEED, LOOKS, PROFILE, PROGRESS, type BookingsSave, type FeedSave, type Look, type Profile, type Progress } from '../core/models';
 import { SaveSystem } from '../core/SaveSystem';
 import { refreshOffers, seeded } from './bookings';
 
@@ -17,20 +17,30 @@ export class Career {
   looks: { items: Look[]; current: string | null };
   /** the calendar: offers, accepted bookings, the night counter */
   bookings: BookingsSave;
+  /** the social feed: fans' posts and your clips */
+  feed: FeedSave;
   /** what went wrong loading the saves (shown once to the player) */
   readonly problems: string[] = [];
-  readonly changed = new Emitter<{ profile: Profile; progress: Progress; look: Look; bookings: BookingsSave }>();
+  readonly changed = new Emitter<{ profile: Profile; progress: Progress; look: Look; bookings: BookingsSave; feed: FeedSave }>();
 
   constructor(readonly saves = new SaveSystem()) {
     const p = saves.load(PROFILE);
     const g = saves.load(PROGRESS);
     const l = saves.load(LOOKS);
     const b = saves.load(BOOKINGS);
-    for (const r of [p, g, l, b]) if (r.problem) this.problems.push(r.problem);
+    const f = saves.load(FEED);
+    for (const r of [p, g, l, b, f]) if (r.problem) this.problems.push(r.problem);
     this.profile = p.data;
     this.progress = g.data;
     this.looks = l.data;
     this.bookings = b.data;
+    this.feed = f.data;
+  }
+
+  setFeed(next: FeedSave): void {
+    this.feed = FEED.validate(next);
+    this.saves.autosave(FEED, () => this.feed);
+    this.changed.emit('feed', this.feed);
   }
 
   /** the look you're wearing (the starter look until you save one) */
@@ -101,9 +111,11 @@ export class Career {
     this.progress = PROGRESS.defaults();
     this.looks = LOOKS.defaults();
     this.bookings = BOOKINGS.defaults();
+    this.feed = FEED.defaults();
     this.changed.emit('profile', this.profile);
     this.changed.emit('progress', this.progress);
     this.changed.emit('look', this.look);
     this.changed.emit('bookings', this.bookings);
+    this.changed.emit('feed', this.feed);
   }
 }
