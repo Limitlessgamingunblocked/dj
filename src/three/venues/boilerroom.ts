@@ -274,7 +274,7 @@ export const boilerRoom: VenueDef = {
   name: 'Boiler Room',
   place: 'Los Angeles, USA',
   kind: 'Outdoor session · livestream',
-  blurb: 'A night session downtown: the crowd packed in around (and behind) you, phones up, the red neon ring on its wires, City Hall lit up behind, and the stream camera rolling in front of the decks. Try the Stream cam view.',
+  blurb: 'A downtown session, the crowd packed in behind you and the stream camera rolling.',
   palette: ['#ff1e3c', '#ff4d6d', '#ffe3e8'],
   ui: '#ff2d55',
   capacity: '400 · streaming live',

@@ -198,7 +198,7 @@ export class App implements AppContext {
     c.setProgress({ stats: { ...c.progress.stats, clips: (c.progress.stats.clips ?? 0) + 1 } });
     const post = clipPost({ dj: nameService.text, venueName: venueById(r.venue).name, venue: r.venue, followers: c.progress.followers, clip: r.id }, seeded(c.feed.seq * 13 + 1));
     c.setFeed(addPosts(c.feed, [post], new Date()));
-    toast('Clip posted to your feed 📱');
+    toast('Clip posted to your feed');
   }
 
   /** track search ◀◀ ▶▶: the track before or after this deck's one in the library list */
@@ -245,21 +245,20 @@ export class App implements AppContext {
       return;
     }
     if (deck.playing && prefs.loadLock) {
-      toast(`Deck ${deckId} is playing. Pause it before loading a new track (or turn off the load lock in Settings → Decks).`);
+      toast(`Deck ${deckId} is playing. Pause it first.`);
       return;
     }
     if (t.status === 'error') {
       toast(t.error ?? 'This track cannot be played.', 'error');
       return;
     }
+    // the deck panel shows "Loading…" meanwhile
     deck.loading = true;
-    const note = t.source === 'demo' && !this.library.get(trackId)?.analysis ? 'Generating demo track…' : '';
-    if (note) toast(note);
     try {
       const pcm = await this.library.getPcm(t);
       const analysis = await this.library.ensureAnalysis(t, pcm);
       if (deck.playing && prefs.loadLock) {
-        toast(`Deck ${deckId} started playing — load cancelled.`);
+        toast(`Deck ${deckId} started playing, so the load was cancelled.`);
         return;
       }
       deck.load(t, pcm, analysis);
@@ -274,7 +273,7 @@ export class App implements AppContext {
   async importFiles(files: File[], loadTo?: number, crateId?: string | null): Promise<LibraryTrack[]> {
     const audio = files.filter(isAudioFile);
     if (!audio.length) {
-      toast('No audio files found. Supported: MP3, WAV, AIFF, FLAC, OGG, M4A/AAC.', 'error');
+      toast('No audio files there. Deckhouse plays MP3, WAV, AIFF, FLAC, OGG and M4A.', 'error');
       return [];
     }
     toast(`Importing ${audio.length} file${audio.length > 1 ? 's' : ''}…`);
@@ -804,19 +803,19 @@ export class App implements AppContext {
   /** the top bar's ⋯ menu: view, full screen, MIDI, help */
   private moreMenu(x: number, y: number): void {
     const v = this.stage.view;
-    const view = (id: StageView, label: string) => ({ label: `${v === id ? '● ' : ''}${label}`, action: () => this.setView(id) });
+    const view = (id: StageView, label: string): MenuItem => ({ label, checked: v === id, action: () => this.setView(id) });
     contextMenu(x, y, [
-      view('booth', 'Booth view'),
-      view('split', 'Booth + visual player inset'),
-      view('visual', 'Visual player only'),
+      { header: 'Show' },
+      view('booth', 'Booth'),
+      view('split', 'Booth + visuals'),
+      view('visual', 'Visuals only'),
       'sep',
-      { label: this.boardMode ? 'Leave board full screen' : 'Board full screen (Shift+B)', action: () => this.boardFull(!this.boardMode) },
-      { label: `${this.autodj.on ? '✓ ' : ''}Auto DJ: mix by itself (Shift+A)`, action: () => this.setAutoDJ(!this.autodj.on) },
-      { label: document.fullscreenElement && !this.boardMode ? 'Exit full screen' : 'Full screen', action: () => this.fullscreen() },
-      { label: this.settings.uiMode === 'simple' ? 'Switch to Pro layout' : 'Switch to Simple layout', action: () => this.setUiMode(this.settings.uiMode === 'simple' ? 'pro' : 'simple') },
+      { label: 'Auto DJ', checked: this.autodj.on, hint: '⇧A', action: () => this.setAutoDJ(!this.autodj.on) },
+      { label: 'Board full screen', checked: this.boardMode, hint: '⇧B', action: () => this.boardFull(!this.boardMode) },
+      { label: 'Full screen', checked: !!document.fullscreenElement && !this.boardMode, action: () => this.fullscreen() },
       'sep',
-      { label: 'MIDI controllers…', action: () => this.showTab('settings') },
-      { label: 'Help & keyboard shortcuts', action: () => openHelp() },
+      { label: 'MIDI controllers', action: () => this.showTab('settings') },
+      { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
     ]);
   }
 
@@ -872,7 +871,7 @@ export class App implements AppContext {
       return w.el;
     };
     const fold = h('button', { class: 'btn cam-pad-fold', type: 'button', title: 'Hide the camera pad', 'aria-label': 'Hide the camera pad' }, '–');
-    const open = h('button', { class: 'btn cam-pad-open', type: 'button', title: 'Camera pad: change the camera angle', 'aria-label': 'Show the camera pad' }, '🎥');
+    const open = h('button', { class: 'btn cam-pad-open', type: 'button', title: 'Camera pad: change the camera angle', 'aria-label': 'Show the camera pad' }, 'Camera');
     const group = (...kids: HTMLElement[]) => h('span', { class: 'cam-pad-group' }, ...kids);
     const el = h(
       'div',
@@ -886,7 +885,7 @@ export class App implements AppContext {
         group(b('cam.raise', '▲', 'Look more from above (hold)', ''), b('cam.lower', '▼', 'Look from lower down (hold)', '')),
         group(b('cam.out', '−', 'Zoom out (hold)', ''), b('cam.in', '+', 'Zoom in (hold)', '')),
         group(b('cam.reset', '⌂', 'Back to the board view', ''), b('cam.next', '⇢', 'Next camera angle', ''), b('cam.lens', '◎', 'Next lens look (fisheye, camcorder…)', '')),
-        group(b('cam.auto', 'Auto', 'Auto director: the camera cuts with the music', 'auto'), b('cam.photo', '📷', 'Take a photo', '')),
+        group(b('cam.auto', 'Auto', 'Auto director: the camera cuts with the music', 'auto'), b('cam.photo', 'Photo', 'Take a photo', '')),
         fold,
       ),
     );
@@ -988,7 +987,7 @@ export class App implements AppContext {
     if (this.boardMode) for (const b of framing.children) setClass(b as HTMLElement, 'active', (b as HTMLElement).dataset.view === v);
     const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
-    if (z) setText(zoomChip, `🔍 ${z} · move off the board or click here to zoom out`);
+    if (z) setText(zoomChip, `${z} · zoom out`);
   }
 
   /** the line being sung, as a subtitle over the booth (the screens show it big) */
@@ -1148,7 +1147,7 @@ export class App implements AppContext {
 
   private cameraMenu(x: number, y: number): void {
     const rig = this.stage.rig;
-    const angle = (v: ViewId): MenuItem => ({ label: `${rig.view === v ? '● ' : ''}${rig.label(v)}`, action: () => this.pickAngle(v) });
+    const angle = (v: ViewId): MenuItem => ({ label: rig.label(v), checked: rig.view === v, action: () => this.pickAngle(v) });
     const items: MenuItem[] = [
       { header: 'Board' },
       ...(['top', 'perf', 'booth'] as ViewId[]).map(angle),
@@ -1156,37 +1155,45 @@ export class App implements AppContext {
       ...(['wide', 'crowd'] as ViewId[]).map(angle),
       { header: 'Moving' },
       ...(['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'] as ViewId[]).map(angle),
-      'sep',
-      { label: `${this.settings.director ? '✓ ' : ''}Auto director: cut with the music`, action: () => this.setDirector(!this.settings.director) },
     ];
-    items.push({
-      label: `Lens: ${this.lensName()} ▸`,
-      action: () =>
-        contextMenu(x, y, [
-          { label: `${prefs.lens === 'auto' ? '● ' : ''}Auto — each angle's own`, action: () => setPrefs({ lens: 'auto' }) },
-          'sep',
-          ...LENS_LOOKS.map((l) => ({ label: `${prefs.lens === l.id ? '● ' : ''}${l.name}`, action: () => setPrefs({ lens: l.id }) })),
-        ]),
-    });
-    items.push({ label: '📷 Take a photo', action: () => void this.takePhoto() });
-    items.push('sep');
-    for (const a of rig.anchors()) items.push({ label: `★ ${a.name}`, action: () => rig.goToAnchor(a) });
-    items.push({
-      label: `${this.stage.autoZoom ? '✓ ' : ''}Zoom in on the board under the pointer`,
-      action: () => {
-        this.settings.autoZoom = !this.settings.autoZoom;
-        this.stage.setAutoZoom(this.settings.autoZoom);
-        this.save();
+    const saved = rig.anchors();
+    if (saved.length) items.push({ header: 'Saved' }, ...saved.map((a): MenuItem => ({ label: a.name, checked: false, action: () => rig.goToAnchor(a) })));
+    items.push(
+      'sep',
+      { label: 'Auto director', checked: this.settings.director, action: () => this.setDirector(!this.settings.director) },
+      {
+        label: 'Zoom to the pointer',
+        checked: this.stage.autoZoom,
+        action: () => {
+          this.settings.autoZoom = !this.settings.autoZoom;
+          this.stage.setAutoZoom(this.settings.autoZoom);
+          this.save();
+        },
       },
-    });
-    items.push({
-      label: 'Save current view',
-      action: () => {
-        const n = rig.anchors().length + 1;
-        rig.saveAnchor(`View ${n}`);
-        toast(`Saved camera view ${n}. Rename or remove it in Setup.`);
+      {
+        label: `Lens: ${this.lensName()}`,
+        checked: false,
+        hint: '▸',
+        action: () =>
+          contextMenu(x, y, [
+            { header: 'Lens' },
+            { label: 'Auto (per angle)', checked: prefs.lens === 'auto', action: () => setPrefs({ lens: 'auto' }) },
+            'sep',
+            ...LENS_LOOKS.map((l): MenuItem => ({ label: l.name, checked: prefs.lens === l.id, action: () => setPrefs({ lens: l.id }) })),
+          ]),
       },
-    });
+      'sep',
+      { label: 'Take a photo', checked: false, action: () => void this.takePhoto() },
+      {
+        label: 'Save this view',
+        checked: false,
+        action: () => {
+          const n = rig.anchors().length + 1;
+          rig.saveAnchor(`View ${n}`);
+          toast(`Saved as View ${n}`);
+        },
+      },
+    );
     contextMenu(x, y, items);
   }
 

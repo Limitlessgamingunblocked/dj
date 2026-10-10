@@ -30,7 +30,7 @@ export interface ResultsHooks {
   chemistry?: { name: string; value: number; unlocked: boolean } | null;
 }
 
-const NEW_ICON: Record<string, string> = { venue: '📍', item: '👕', set: '🧥', hair: '💇', title: '🏷', reputation: '⭐', story: '📰' };
+const NEW_KIND: Record<string, string> = { venue: 'Venue', item: 'Wardrobe', set: 'Outfit', hair: 'Hair', title: 'Title', reputation: 'Reputation', story: 'Story' };
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -53,8 +53,9 @@ function promoterLine(r: GigResults): string {
 
 /** the vibe across the set, with the band the slot wanted behind it */
 function graph(r: GigResults): HTMLCanvasElement {
-  const W = 640;
-  const H = 150;
+  // drawn near the size it's shown at in the wide dialog, so the axis text stays small
+  const W = 1120;
+  const H = 190;
   const c = h('canvas', { width: W * 2, height: H * 2, class: 'res-graph', 'aria-label': `Vibe over the set: average ${Math.round(r.average * 100)} percent` }) as HTMLCanvasElement;
   const g = c.getContext('2d')!;
   g.scale(2, 2);
@@ -158,10 +159,10 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
       h('div', { class: 'res-card' }, h('span', {}, 'Crowd peak'), h('b', {}, `${Math.round(r.peak.vibe * 100)}% at ${mmss(r.peak.t)}`), h('small', {}, r.peak.why || 'They were with you')),
       h('div', { class: 'res-card res-earned' }, h('span', {}, 'You earned'), h('div', { class: 'res-earn' }, h('div', {}, fame, h('small', {}, 'fame')), h('div', {}, cash, h('small', {}, 'cash')), h('div', {}, fol, h('small', {}, 'followers'))), r.tierUp ? h('small', { class: 'res-tier' }, `Fame tier ${r.tierUp} reached. New gear in the wardrobe.`) : null),
     ),
-    hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? '✓ Objective hit: ' : '✗ Objective missed: '), hooks.objective.text, hooks.objective.met ? ' (+25% pay and fame)' : '') : null,
+    hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? 'Bonus hit: ' : 'Bonus missed: '), hooks.objective.text, hooks.objective.met ? ' (+25%)' : '') : null,
     hooks.chemistry ? h('div', { class: `res-objective ${hooks.chemistry.value >= 0.75 ? 'met' : ''}` }, h('b', {}, `Chemistry with ${hooks.chemistry.name}: ${Math.round(hooks.chemistry.value * 100)}%`), hooks.chemistry.unlocked ? ' · their pieces are in your wardrobe' : hooks.chemistry.value >= 0.75 ? '' : ' · 75% unlocks their pieces') : null,
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
-    news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_ICON[n.kind] ?? '•', ' ', n.label.replace(/\{name\}/g, hooks.dj)))) : null,
+    news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_KIND[n.kind] ? h('small', {}, NEW_KIND[n.kind]) : null, n.label.replace(/\{name\}/g, hooks.dj)))) : null,
     hooks.next ? h('p', { class: 'res-next' }, 'Next: ', hooks.next) : null,
     h('div', { class: 'res-actions' }, save, again, studio),
   );
@@ -174,7 +175,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
   save.addEventListener('click', async () => {
     save.disabled = true;
     const ok = await hooks.saveHighlights?.();
-    save.textContent = ok ? 'Saved ✓' : 'Save highlights';
+    save.textContent = ok ? 'Saved' : 'Save highlights';
     if (!ok) save.disabled = false;
   });
   replay.addEventListener('click', () => {

@@ -454,7 +454,7 @@ export const boat: VenueDef = {
   short: 'Boat',
   place: 'On the river',
   kind: 'Party boat · two decks',
-  blurb: 'A two-level party boat at night: the booth on the top deck, strung lights along the rails, the city passing on both banks and the bridges coming over.',
+  blurb: 'A party boat at night, the city and its bridges sliding past.',
   palette: ['#5ad1ff', '#ff4fb0', '#ffc27a'],
   ui: '#5ad1ff',
   capacity: '400',

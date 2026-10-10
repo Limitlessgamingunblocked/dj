@@ -162,7 +162,7 @@ export class SetupPanel {
     const c = this.hooks.career;
     const msg = h('span', { class: 'hint', role: 'status' });
     const field = (key: 'name' | 'tagline', label: string, max: number, clean: (s: string) => string) => {
-      const inp = h('input', { type: 'text', maxlength: max, autocomplete: 'off', spellcheck: 'false', 'aria-label': label }) as HTMLInputElement;
+      const inp = h('input', { type: 'text', maxlength: max, autocomplete: 'off', spellcheck: 'false', 'aria-label': label, value: c.profile[key] }) as HTMLInputElement;
       inp.addEventListener('change', () => {
         const v = clean(inp.value);
         if (key === 'name' && !v) {
@@ -182,9 +182,9 @@ export class SetupPanel {
       return this.row(label, inp, 'dj name rename tagline profile');
     };
     const caps = this.check('Show the name in capitals', () => c.profile.uppercase, (v) => c.setProfile({ uppercase: v }), 'uppercase capitals');
-    const scene = h('button', { class: 'btn', type: 'button' }, 'Rename in the spotlight…');
+    const scene = h('button', { class: 'btn', type: 'button' }, 'Rename on stage…');
     scene.addEventListener('click', () => this.hooks.openNaming());
-    const dress = h('button', { class: 'btn', type: 'button' }, 'Dressing room…');
+    const dress = h('button', { class: 'btn', type: 'button' }, 'Change look…');
     dress.addEventListener('click', () => this.hooks.openCreator());
     c.changed.on('profile', () => this.syncs.forEach((f) => f()));
     return this.card(
@@ -194,7 +194,7 @@ export class SetupPanel {
       field('tagline', 'Tagline', TAGLINE_MAX, cleanTagline),
       caps,
       h('div', { class: 'set-row', 'data-k': 'naming scene spotlight' }, scene, msg),
-      h('div', { class: 'set-row', 'data-k': 'character creator look outfit wardrobe dressing room' }, dress, h('span', { class: 'hint' }, 'Your character, outfits and saved looks')),
+      h('div', { class: 'set-row', 'data-k': 'character creator look outfit wardrobe dressing room' }, dress, h('span', { class: 'hint' }, 'Your character and outfits')),
     );
   }
 
@@ -278,7 +278,7 @@ export class SetupPanel {
         'auto dj automix transition blend crossfade',
         'How long Auto DJ takes over each mix (⋯ menu or Shift+A).',
       ),
-      h('p', { class: 'note set-row', 'data-k': 'decks defaults' }, 'These apply to every deck straight away; the buttons on a deck still change it for the moment.'),
+      
     );
   }
 
@@ -367,7 +367,7 @@ export class SetupPanel {
       this.prefCheck('cameraMotion', 'Camera moves with the music (idle sway, beat shake)', 'motion sway shake', 'Always off when your system asks for reduced motion.'),
       this.row('Lens effect', this.prefSelect('lens', [['auto', 'Auto — each angle brings its own'], ...LENS_LOOKS.map((l): [Prefs['lens'], string] => [l.id, l.name])]), 'lens fisheye vhs camcorder security cctv tilt-shift miniature cinematic thermal night vision effect filter', 'The fisheye, camcorder and security-camera angles bring their own look on Auto.'),
       h('div', { class: 'set-row field', 'data-k': 'saved camera views anchors' }, h('span', {}, 'Saved camera views'), h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl),
-      h('p', { class: 'note set-row', 'data-k': 'orbit pan zoom drag' }, 'Switch views from the camera menu on the stage. Drag empty space to orbit, right-drag or two fingers to pan, scroll or pinch to zoom.'),
+      h('p', { class: 'note set-row', 'data-k': 'orbit pan zoom drag' }, 'Drag to orbit, right-drag to pan, scroll to zoom.'),
     );
   }
 
@@ -395,9 +395,9 @@ export class SetupPanel {
         'Lights and visuals delay',
         this.slider(() => prefs.avOffset, (v) => setPrefs({ avOffset: v }), { min: -150, max: 400, step: 10, fmt: (v) => (v === 0 ? 'Auto' : `${v > 0 ? '+' : ''}${v} ms`) }),
         'sync latency delay bluetooth speakers headphones lights early late audio video offset',
-        'The lights already wait for your audio output’s measured latency (shown under Audio). If they still land before the beat you hear — Bluetooth speakers often report too little — add more here.',
+        'If the lights land before the beat you hear (common with Bluetooth speakers), add delay here.',
       ),
-      h('p', { class: 'note set-row', 'data-k': 'palette colours lights' }, 'Light colours (including your own Custom palette), lasers and haze are on the Show tab.'),
+      h('p', { class: 'note set-row', 'data-k': 'palette colours lights' }, 'Light colours, lasers and haze are on the Show tab.'),
     );
   }
 
@@ -432,7 +432,7 @@ export class SetupPanel {
         'adaptive auto quality',
       ),
       this.check('Show the frame rate on the stage', () => s.fpsMeter, (v) => this.hooks.setFpsMeter(v), 'fps frame rate meter speed ms'),
-      h('p', { class: 'note set-row', 'data-k': 'quality low medium high' }, 'The quality you pick is the ceiling. With automatic adjustment on, resolution, crowd detail and effects step down when frames run long and come back when there is headroom. Low turns off shadows, bloom, multisampling and lens effects — use it on older laptops and phones.'),
+      h('p', { class: 'note set-row', 'data-k': 'quality low medium high' }, 'Automatic adjustment lowers detail when frames run slow, up to the quality you pick.'),
     );
   }
 
@@ -459,7 +459,7 @@ export class SetupPanel {
       'Your settings',
       'backup export import reset restore file library storage',
       h('div', { class: 'set-row toggle-row', 'data-k': 'export import backup file' }, exp, imp),
-      h('p', { class: 'note set-row', 'data-k': 'export import backup' }, 'Save everything you set here — keyboard shortcuts and MIDI mappings included — to a file, and load it in another browser.'),
+      h('p', { class: 'note set-row', 'data-k': 'export import backup' }, 'Save your settings to a file and load them in another browser.'),
       h('div', { class: 'set-row toggle-row', 'data-k': 'reset defaults remove clear library tracks' }, reset, clearLib),
     );
   }
@@ -571,7 +571,7 @@ export class SetupPanel {
     const e = this.app.engine;
     const ctx = e.ctx;
     const lat = ((ctx.baseLatency || 0) + ((ctx as AudioContext & { outputLatency?: number }).outputLatency || 0)) * 1000;
-    const text = `${ctx.sampleRate} Hz · output latency ≈ ${lat.toFixed(0)} ms · DSP: ${e.wasmAvailable ? 'WebAssembly (key lock, stems, pitch FX)' : 'JavaScript only (key lock and stems off)'} · ${ctx.state}`;
+    const text = `Output latency about ${lat.toFixed(0)} ms${e.wasmAvailable ? '' : ' · key lock and stems are off in this browser'}${ctx.state === 'running' ? '' : ' · audio is paused'}`;
     if (this.audioInfo.textContent !== text) this.audioInfo.textContent = text;
   }
 }

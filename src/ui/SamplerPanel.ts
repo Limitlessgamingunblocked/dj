@@ -64,7 +64,7 @@ export class SamplerPanel {
     this.el = h(
       'section',
       { class: 'sampler-section', 'aria-label': 'Sampler' },
-      h('div', { class: 'pane', style: { paddingBottom: '0' } }, h('h3', {}, 'Sampler'), h('p', { class: 'note' }, 'Trigger slots here, with number keys while holding Shift, or from the performance pads in SAMPLER mode. Drop an audio file on a slot to replace its sound. Loop slots start on the next beat.')),
+      h('div', { class: 'pane', style: { paddingBottom: '0' } }, h('h3', {}, 'Sampler'), h('p', { class: 'note' }, 'Shift + a number key fires a slot. Drop an audio file on a slot to replace it.')),
       grid,
     );
   }

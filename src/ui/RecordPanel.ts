@@ -169,8 +169,8 @@ export function openRecordPanel(o: RecordPanelHooks): ModalHandle {
   const replayVideo = chips(
     'Replay buffer content',
     [
-      { id: 'audio', label: 'Audio only (light)' },
-      { id: 'video', label: 'Audio + video (heavier)' },
+      { id: 'audio', label: 'Audio only' },
+      { id: 'video', label: 'Audio + video' },
     ],
     () => (r.video ? 'video' : 'audio'),
     (v) => {
@@ -180,6 +180,7 @@ export function openRecordPanel(o: RecordPanelHooks): ModalHandle {
     },
   );
   const replayMem = h('p', { class: 'gs-note' });
+  const replayVideoRow = h('div', { class: 'rp-row' }, h('span', { class: 'rp-label' }, 'Content'), h('div', { class: 'rp-ctl' }, replayVideo.row));
   const clipLen = chips(
     'Clip It length',
     [
@@ -194,8 +195,10 @@ export function openRecordPanel(o: RecordPanelHooks): ModalHandle {
     },
   );
 
-  const videoBits = h('div', { class: 'rp-video' }, h('div', { class: 'gs-row' }, h('span', {}, 'Resolution'), res.row), h('div', { class: 'gs-row' }, h('span', {}, 'Frame rate'), fps.row), h('div', { class: 'gs-row' }, h('span', {}, 'Aspect'), aspect.row), format, h('div', { class: 'gs-row' }, h('span', {}, 'Overlays'), overlays));
-  const camRow = h('div', { class: 'gs-row' }, h('span', {}, 'Camera'), director.row);
+  // a two-column form: labels on the left, controls (and their notes) on the right
+  const row = (label: string, ...controls: (Node | null)[]) => h('div', { class: 'rp-row' }, h('span', { class: 'rp-label' }, label), h('div', { class: 'rp-ctl' }, ...controls));
+  const videoBits = h('div', { class: 'rp-rows' }, row('Resolution', res.row), row('Frame rate', fps.row), row('Aspect', aspect.row, format), row('Overlays', overlays));
+  const camRow = row('Camera', director.row);
   const count = toggle('Count in three beats, so it starts on the downbeat', () => s.countdown, (v) => ((s.countdown = v), commit()));
   const startBtn = h('button', { class: 'btn primary gs-go', type: 'button' }, o.recording ? 'Recording…' : 'Start recording') as HTMLButtonElement;
   startBtn.disabled = o.recording;
@@ -223,8 +226,8 @@ export function openRecordPanel(o: RecordPanelHooks): ModalHandle {
     const fs = frameSize(s.resolution, s.aspect);
     setText(size, video ? `About ${Math.round(mbPerMinute(fs.w, fs.h, s.fps))} MB a minute (${fs.w}×${fs.h}, ${s.fps} fps).` : 'About 17 MB a minute as WAV (24-bit / 48 kHz); MP3 exports are about 2.4 MB a minute.');
     setText(format, supported.size ? `Saves as ${supported.get(s.resolution) ?? supported.values().next().value}.` : 'Checking what this browser can encode…');
-    replayVideo.row.hidden = r.minutes === 0;
-    setText(replayMem, r.minutes === 0 ? 'Off: nothing is kept unless you press REC.' : `Uses up to ${formatBytes(o.replayBytes(r.minutes, r.video))} of memory once it’s full. ${REPLAY_LENGTHS.map((m) => `${m} min: ${formatBytes(o.replayBytes(m, r.video))}`).join(' · ')}`);
+    replayVideoRow.hidden = r.minutes === 0;
+    setText(replayMem, r.minutes === 0 ? 'Off: only what you record is kept.' : `Uses up to ${formatBytes(o.replayBytes(r.minutes, r.video))} of memory.`);
     mode.sync();
     res.sync();
     fps.sync();
@@ -246,17 +249,12 @@ export function openRecordPanel(o: RecordPanelHooks): ModalHandle {
       return h(
         'div',
         { class: 'gig-setup rec-panel' },
-        h('div', { class: 'gs-row' }, h('span', {}, 'Record'), mode.row),
-        size,
+        h('div', { class: 'rp-rows' }, row('Record', mode.row, size)),
         videoBits,
-        camRow,
-        count,
+        h('div', { class: 'rp-rows' }, camRow, row('', count)),
         h('h3', { class: 'rp-h' }, 'Replay buffer'),
-        h('p', { class: 'gs-note' }, 'Always keeping the last few minutes, so a mix you didn’t record can still be saved: SAVE THAT MIX (Shift+S) keeps it all, CLIP IT (Shift+C) the last 30 seconds as a vertical clip.'),
-        h('div', { class: 'gs-row' }, h('span', {}, 'Keep'), replayLen.row),
-        replayVideo.row,
-        replayMem,
-        h('div', { class: 'gs-row' }, h('span', {}, 'Clip It'), clipLen.row),
+        h('div', { class: 'rp-rows' }, row('Keep', replayLen.row, replayMem), replayVideoRow, row('Clip length', clipLen.row)),
+        h('p', { class: 'gs-note' }, 'Shift+S saves the buffer, Shift+C clips the end of it.'),
         h('div', { class: 'gs-actions' }, startBtn),
       );
     },

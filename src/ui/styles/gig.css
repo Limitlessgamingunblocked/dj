@@ -267,8 +267,9 @@ body.gig-clean .lyric-hud {
 .stream-chat {
   position: absolute;
   right: 10px;
-  top: 56px;
   bottom: 12px;
+  /* grows with the chat instead of a tall empty box */
+  max-height: calc(100% - 68px);
   z-index: 5;
   width: min(250px, 30%);
   display: flex;
@@ -859,7 +860,7 @@ body.gig-clean .lyric-hud {
 .res-graph {
   width: 100%;
   height: auto;
-  aspect-ratio: 640 / 150;
+  aspect-ratio: 1120 / 190;
   border-radius: var(--radius);
   background: #07080b;
   border: 1px solid var(--line);
@@ -972,11 +973,22 @@ body.gig-clean .lyric-hud {
 }
 
 .res-new {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
   padding: 4px 10px;
   border-radius: 14px;
   background: rgb(255 255 255 / 6%);
   border: 1px solid var(--line);
   font-size: 13px;
+}
+
+.res-new small {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
 }
 
 .res-new.k-venue,
@@ -1057,8 +1069,7 @@ body.gig-clean .lyric-hud {
 
   .stream-chat {
     width: 44%;
-    top: auto;
-    height: 40%;
+    max-height: 40%;
   }
 
   /* full width, under the camera buttons (--tools-h: their bottom edge) */
@@ -1168,6 +1179,19 @@ body.gig-clean .lyric-hud {
   color: var(--muted);
 }
 
+.sf-kind {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--panel-3);
+  color: var(--muted);
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .sf-body p {
   margin: 4px 0;
   font-size: 14px;
@@ -1268,7 +1292,7 @@ body.gig-clean .lyric-hud {
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #ffb547;
+  color: var(--dim);
 }
 
 .hub-head h2 {
@@ -1280,54 +1304,114 @@ body.gig-clean .lyric-hud {
 
 .hub-tier {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
-.hub-tier small,
+.hub-tier-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.hub-tier-row span {
+  color: #ffb547;
+  font-size: 13px;
+}
+
+.hub-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hub-stat {
+  display: grid;
+  gap: 1px;
+}
+
+.hub-stat b {
+  font-family: var(--font-mono);
+  font-size: 15px;
+}
+
+.hub-stat span {
+  font-size: 11px;
+  color: var(--dim);
+}
+
 .hub-next {
+  margin: 10px 0 0;
   font-size: 12px;
   color: var(--muted);
 }
 
-.hub-next {
-  margin: 8px 0 0;
+.hub-next + .hub-next {
+  margin-top: 4px;
+}
+
+.hub-next b {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .hub-stations {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .hub-station {
-  display: grid;
-  gap: 2px;
-  justify-items: start;
-  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   text-align: left;
   border-radius: var(--radius-l);
   border: 1px solid var(--line-2);
   background: var(--panel-2);
   color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
 .hub-station:hover,
 .hub-station:focus-visible {
   border-color: #ff2e88;
+  background: var(--panel-3);
 }
 
 .hub-ic {
-  font-size: 22px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 9px;
+  background: rgb(255 46 136 / 12%);
+  color: #ff7ab8;
+}
+
+.hub-st-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
 }
 
 .hub-station b {
   font-family: var(--font-label);
   font-size: 16px;
+  letter-spacing: 0.02em;
 }
 
 .hub-station small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-station > .ic:last-child {
+  color: var(--dim);
 }
 
 .hub-foot {
@@ -1381,4 +1465,39 @@ body.hub-open .home-btn {
 
 .gh-turn {
   color: var(--muted);
+}
+
+/* home takes the whole screen under the top bar: no decks, waveforms or library */
+body.hub-open .app .deck-panel,
+body.hub-open .app .wavestrip,
+body.hub-open .app .dock,
+body.hub-open .app .dock-resize,
+body.hub-open .app .stage-tools {
+  display: none !important;
+}
+
+/* only the top bar and the stage are left in the grid (hidden items take no row) */
+body.hub-open .app {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+body.hub-open .app .main {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 980px) {
+  /* the stacked layout: the stage alone fills the screen under the top bar */
+  body.hub-open .app {
+    height: 100%;
+  }
+
+  body.hub-open .app .main {
+    flex: 1;
+    grid-template-areas: 'stage';
+  }
+
+  body.hub-open .app .main > .stage {
+    height: auto;
+    min-height: 0;
+  }
 }

@@ -983,11 +983,14 @@ export class Stage {
     const lensFx = this.quality !== 'low' && this.adaptive.step.lensFx;
     lu.uTime.value = this.ctx.now;
     lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
-    lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (this.rig.focused ? 0.3 : 1);
-    lu.uGhost.value = !lensFx || this.rig.focused ? 0 : 0.2;
+    // close on the board (the board angles, or zoomed in on a section) the lens stays clean: a desk
+    // lamp's ghost smeared over the decks reads as a bug, not as cinema
+    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth';
+    lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (close ? 0.15 : 1);
+    lu.uGhost.value = !lensFx || close ? 0 : 0.2;
     // dirt on the front element lights up when a wall of light hits it; stars on the brightest points
-    lu.uDirt.value = lensFx && this.bloom.enabled ? 0.5 * (this.rig.focused ? 0.2 : 1) : 0;
-    lu.uStarDirs.value = lensFx && !this.rig.focused ? (this.quality === 'high' ? 3 : 2) : 0;
+    lu.uDirt.value = lensFx && this.bloom.enabled ? 0.5 * (close ? 0.15 : 1) : 0;
+    lu.uStarDirs.value = lensFx && !close ? (this.quality === 'high' ? 3 : 2) : 0;
     lu.uStar.value = 0.018;
     // the grade moves with the track: softer through a breakdown, harder at the peak
     this.lens.followShow(show.build, show.peak);

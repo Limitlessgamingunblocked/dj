@@ -1,15 +1,16 @@
 /*
  * The in-gig HUD (Section 10.3): minimal so the club stays the focus.
  * Always there: the vibe meter (with the slot's target marked on it), the set
- * timer and the REC dot. Around it: the crowd's mood, the assist level
- * (switchable mid-set), what the crew in the booth says (sound engineer,
- * security, the bar), a clean view that hides everything for recording, and
- * End set. Transition pop-ups use the stage's call-outs.
+ * timer and the REC dot. Around it: the crowd's mood, Save mix and Clip, what
+ * the crew in the booth says (sound engineer, security, the bar) and End set;
+ * the assist level and a clean view for recording sit in a small menu.
+ * Transition pop-ups use the stage's call-outs.
  */
 import type { Assist } from '../game/Gig';
 import { ASSISTS } from '../game/Gig';
 import { MOOD_LABEL, moodFor } from '../game/vibe';
 import { h, setClass, setText, setVar } from './dom';
+import { contextMenu, type MenuItem } from './modal';
 
 export interface HudState {
   vibe: number;
@@ -36,6 +37,8 @@ export interface HudHooks {
   clip(): void;
 }
 
+const ASSIST_HINT: Record<Assist, string> = { chill: 'auto-sync', club: 'sync + hints', pro: 'score ×1.5' };
+
 const mmss = (s: number) => {
   const t = Math.max(0, Math.ceil(s));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -51,8 +54,7 @@ export class GigHud {
   private bufBtns: HTMLElement;
   private where: HTMLElement;
   private msg: HTMLElement;
-  private assistBtns = new Map<Assist, HTMLButtonElement>();
-  private cleanBtn: HTMLButtonElement;
+  private assist: Assist = 'club';
   private showBtn: HTMLButtonElement;
   private msgTimer = 0;
   private duo: HTMLElement;
@@ -64,22 +66,24 @@ export class GigHud {
     this.timer = h('span', { class: 'gh-time', 'aria-label': 'Time left in the set' });
     this.rec = h('span', { class: 'gh-rec', title: 'Recording' }, 'REC');
     this.buf = h('span', { class: 'gh-buf', title: 'Replay buffer on: the last few minutes are kept' });
-    const saveMix = h('button', { type: 'button', class: 'gh-btn', title: 'SAVE THAT MIX (Shift+S): keep the replay buffer' }, '⟲ Save mix');
+    const saveMix = h('button', { type: 'button', class: 'gh-btn', title: 'Keep the last few minutes (⇧S)' }, 'Save mix');
     saveMix.addEventListener('click', () => this.hooks.saveMix());
-    const clip = h('button', { type: 'button', class: 'gh-btn', title: 'CLIP IT (Shift+C): the last 30 seconds, vertical' }, '✂ Clip');
+    const clip = h('button', { type: 'button', class: 'gh-btn', title: 'A vertical clip of the last 30 seconds (⇧C)' }, 'Clip');
     clip.addEventListener('click', () => this.hooks.clip());
     this.bufBtns = h('span', { class: 'gh-bufbtns' }, saveMix, clip);
     this.where = h('span', { class: 'gh-where' });
-    const assists = h('div', { class: 'gh-assist', role: 'radiogroup', 'aria-label': 'Assist level' });
-    for (const a of ASSISTS) {
-      const b = h('button', { type: 'button', role: 'radio', title: a.blurb }, a.label) as HTMLButtonElement;
-      b.addEventListener('click', () => this.hooks.setAssist(a.id));
-      this.assistBtns.set(a.id, b);
-      assists.append(b);
-    }
-    this.cleanBtn = h('button', { type: 'button', class: 'gh-btn', title: 'Hide the HUD (for recording)' }, 'Clean view') as HTMLButtonElement;
-    this.cleanBtn.addEventListener('click', () => this.setClean(true));
-    const end = h('button', { type: 'button', class: 'gh-btn', title: 'Finish the set now' }, 'End set');
+    // the assist level and the clean view live in a small menu: rarely touched mid-set
+    const more = h('button', { type: 'button', class: 'gh-btn gh-more', title: 'Assist and view', 'aria-label': 'Assist and view', 'aria-haspopup': 'menu' }, '⋯');
+    more.addEventListener('click', () => {
+      const r = more.getBoundingClientRect();
+      contextMenu(r.left, r.bottom + 4, [
+        { header: 'Assist' },
+        ...ASSISTS.map((a): MenuItem => ({ label: a.label, hint: ASSIST_HINT[a.id], checked: a.id === this.assist, action: () => this.hooks.setAssist(a.id) })),
+        'sep',
+        { label: 'Hide the HUD', checked: false, action: () => this.setClean(true) },
+      ]);
+    });
+    const end = h('button', { type: 'button', class: 'gh-btn gh-end', title: 'Finish the set now' }, 'End set');
     end.addEventListener('click', () => this.hooks.end());
     this.showBtn = h('button', { type: 'button', class: 'gh-show', title: 'Show the HUD' }, 'HUD') as HTMLButtonElement;
     this.showBtn.addEventListener('click', () => this.setClean(false));
@@ -88,7 +92,7 @@ export class GigHud {
     this.el = h(
       'div',
       { class: 'gig-hud' },
-      h('div', { class: 'gh-main' }, h('div', { class: 'gh-row' }, this.where, this.mood, this.timer, this.rec, this.buf), meter, this.duo, h('div', { class: 'gh-row gh-tools' }, assists, this.bufBtns, this.cleanBtn, end)),
+      h('div', { class: 'gh-main' }, h('div', { class: 'gh-row' }, this.where, this.mood, this.timer, this.rec, this.buf), meter, this.duo, h('div', { class: 'gh-row gh-tools' }, this.bufBtns, h('span', { class: 'spacer' }), more, end)),
       this.msg,
       this.showBtn,
     );
@@ -133,9 +137,6 @@ export class GigHud {
     this.bufBtns.hidden = !s.buffer;
     setClass(this.el, 'red', s.redline > 0.5);
     setText(this.where, `${s.venue} · ${s.slot}`);
-    for (const [id, b] of this.assistBtns) {
-      setClass(b, 'active', id === s.assist);
-      b.setAttribute('aria-checked', String(id === s.assist));
-    }
+    this.assist = s.assist;
   }
 }

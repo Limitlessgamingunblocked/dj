@@ -189,7 +189,7 @@ export const berghain: VenueDef = {
   name: 'Berghain',
   place: 'Berlin, Germany',
   kind: 'Techno club · main floor',
-  blurb: 'The old power station: an 18 m concrete hall with steel pillars, the booth set into the back wall, stacks in the corners and one light bar across the room. Dark and hard — cold white beams, red work lamps, and a strobe bank that goes off at the peak.',
+  blurb: 'A concrete power station. Dark and hard: white beams and a strobe bank at the peak.',
   palette: ['#e8f0ff', '#4a7dff', '#ff2030'],
   ui: '#aab6cc',
   capacity: '1,500',

@@ -66,7 +66,7 @@ export class MidiPanel {
     this.el = h(
       'div',
       { class: 'pane', style: { display: 'grid', gap: '12px' } },
-      h('div', {}, h('h3', {}, 'Hardware controllers (Web MIDI)'), h('p', { class: 'note' }, 'Plug in any class-compliant MIDI controller. Turn on MIDI learn, click a control on screen (on the 3D board or in the software), then move the knob, fader, jog or button on your hardware. Mappings are saved in this browser, and buttons light up on controllers that accept LED feedback.')),
+      h('div', {}, h('h3', {}, 'MIDI controllers'), h('p', { class: 'note' }, 'Plug in a controller. To map it, turn on MIDI learn, click a control on screen, then move one on your hardware.')),
       h('div', { class: 'toggle-row' }, enable, this.learnBtn, exp, imp, clr, this.status),
       this.devList,
       this.learnHint,

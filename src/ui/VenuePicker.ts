@@ -28,7 +28,7 @@ export function venueCards(current: () => string, pick: (id: string) => void, lo
         'button',
         { class: `venue-card${v.id === current() ? ' active' : ''}${lock ? ' locked' : ''}`, type: 'button', disabled: !!lock, title: lock ?? '' },
         h('img', { src: venueThumb(v), alt: `${v.name} illustration`, width: 480, height: 270 }),
-        h('div', { class: 'info' }, h('span', { class: 'where' }, `${v.place} · ${v.kind}`), h('b', {}, v.name), h('p', {}, lock ? `🔒 ${lock}` : v.blurb), h('span', { class: 'cap' }, `Capacity ${v.capacity}`)),
+        h('div', { class: 'info' }, h('span', { class: 'where' }, v.place), h('b', {}, v.name), h('p', {}, lock ? h('span', { class: 'lock' }, lock) : v.blurb), h('span', { class: 'cap' }, `Capacity ${v.capacity}`)),
       );
       card.style.setProperty('--vc', v.ui);
       card.addEventListener('click', () => {
@@ -45,8 +45,8 @@ export function venueCards(current: () => string, pick: (id: string) => void, lo
 export function openVenuePicker(current: () => string, pick: (id: string) => void, locked?: (id: string) => string | null): void {
   const cards = venueCards(current, pick, locked);
   openModal(
-    'Where are you playing tonight?',
-    h('div', { style: { display: 'grid', gap: '12px' } }, h('p', { class: 'note' }, 'Each venue has its own room, crowd and light show — lasers, moving heads, strobes, blinders and CO2 that follow the beat grid and go off on the drop. Real venues are fan-made recreations, not affiliated with the clubs.'), cards.el),
+    'Venue',
+    h('div', { style: { display: 'grid', gap: '12px' } }, cards.el, h('p', { class: 'note fineprint' }, 'Real venues are fan-made recreations, not affiliated with the clubs.')),
     { wide: true },
   );
 }

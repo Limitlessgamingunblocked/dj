@@ -5,11 +5,10 @@
 /* ------------------------------------------------------------------ */
 
 .venue-btn {
-  max-width: 220px;
+  max-width: 260px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-color: color-mix(in srgb, var(--venue) 45%, var(--line-2));
 }
 
 .hype-meter {
@@ -172,6 +171,23 @@
   aspect-ratio: 16 / 9;
 }
 
+.venue-card.locked {
+  cursor: not-allowed;
+}
+
+.venue-card.locked img {
+  filter: grayscale(0.75) brightness(0.55);
+}
+
+.venue-card.locked b {
+  color: var(--muted);
+}
+
+.venue-card.locked:hover {
+  border-color: var(--line);
+  transform: none;
+}
+
 .venue-card .info {
   padding: 8px 10px 10px;
   display: grid;
@@ -184,13 +200,17 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--vc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .venue-card b {
   font-family: var(--font-label);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   font-size: 16px;
+  line-height: 1.15;
 }
 
 .venue-card p {

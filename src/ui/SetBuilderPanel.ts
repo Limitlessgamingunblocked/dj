@@ -1,5 +1,5 @@
 /*
- * SmartDJ set builder: anchors (artists, labels, genres), set length, energy
+ * Set builder: anchors (artists, labels, genres), set length, energy
  * arc, transition style and discovery share in; an ordered set with energy
  * chart, transition guidance and scores out. The set can be fine-tuned (pin,
  * swap, move, remove, re-roll), loaded onto the decks track by track, saved as
@@ -103,7 +103,7 @@ export class SetBuilderPanel {
 
   constructor(private app: AppContext) {
     this.suggestions = h('datalist', { id: 'sb-anchor-suggestions' });
-    this.anchorInput = h('input', { class: 'search', list: 'sb-anchor-suggestions', placeholder: 'Artist, label or genre — Enter to add', 'aria-label': 'Add an anchor artist, label or genre' }) as HTMLInputElement;
+    this.anchorInput = h('input', { class: 'search', list: 'sb-anchor-suggestions', placeholder: 'Add an artist, label or genre', 'aria-label': 'Add an artist, label or genre' }) as HTMLInputElement;
     this.anchorInput.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter' || e.key === ',') {
@@ -271,7 +271,7 @@ export class SetBuilderPanel {
       });
       presets.append(b);
     }
-    const all = h('button', { class: 'btn small primary', type: 'button', title: 'A Style Journey through all four sounds, deep grooves to rave peak' }, 'All four → journey');
+    const all = h('button', { class: 'btn small primary', type: 'button', title: 'A journey through all four sounds, deep grooves to rave peak' }, 'All four');
     all.addEventListener('click', () => {
       this.s.anchors = STYLES.map((x) => x.name);
       this.s.arc = 'journey';
@@ -285,11 +285,11 @@ export class SetBuilderPanel {
     return h(
       'div',
       { class: 'sb-form pane' },
-      field('Anchors', this.chips, this.anchorInput, this.suggestions, h('p', { class: 'note' }, 'Artists, labels or genres that set the sound. Leave empty to use the whole library. Artists marked ≈ also match by sound, so they work even without their records in your library.'), h('div', { class: 'sb-presets-label label' }, 'In the style of'), presets),
+      field('Build around', this.chips, this.anchorInput, this.suggestions, h('div', { class: 'sb-presets-label label' }, 'Or pick a sound'), presets),
       field('Length', h('div', { class: 'sb-row' }, seg, num)),
       field('Energy arc', arcs, order),
       field('Transitions', styles, styleNote),
-      field('Discovery', h('div', { class: 'sb-row' }, disc, discVal), h('p', { class: 'note' }, 'Share of tracks by other artists that sound like your anchors, favouring ones you rarely play.')),
+      field('Discovery', h('div', { class: 'sb-row' }, disc, discVal), h('p', { class: 'note' }, 'Tracks from outside your picks that fit the sound.')),
       field('Build from', this.sourceSel),
       go,
     );
@@ -317,7 +317,7 @@ export class SetBuilderPanel {
     }
     if (this.s.anchors.filter((a) => styleForAnchor(a)).length >= 2 && this.s.arc !== 'journey' && !this.journeyOffered) {
       this.journeyOffered = true;
-      toast('Two or more artist sounds: try the “Style Journey” energy arc to travel through them.');
+      toast('Tip: the Journey arc travels through each sound in turn.');
     }
     this.chips.hidden = !this.s.anchors.length;
     this.save();
@@ -402,7 +402,7 @@ export class SetBuilderPanel {
     this.seq = plan.entries.map((e) => this.pool.find((c) => c.profile.id === e.profile.id) ?? e);
     this.plan = plan;
     const arc = arcById(opts.arc).name;
-    this.name = plan.journey.length >= 2 && opts.arc === 'journey' ? `SmartDJ · ${plan.journey.join(' → ')}` : `SmartDJ · ${arc}${opts.anchors.length ? ` · ${opts.anchors.slice(0, 2).join(', ')}` : ''}`;
+    this.name = plan.journey.length >= 2 && opts.arc === 'journey' ? plan.journey.join(' → ') : `${arc}${opts.anchors.length ? ` · ${opts.anchors.slice(0, 2).join(', ')}` : ''}`;
     this.renderResult();
   }
 
@@ -477,7 +477,7 @@ export class SetBuilderPanel {
     const L = this.app.sideDeck('L');
     const R = this.app.sideDeck('R');
     if (e.deck(L).playing || e.deck(R).playing) {
-      toast('A deck is playing. Use “Load next” to feed the set into the free deck.');
+      toast('A deck is playing. Use Load next instead.');
       return;
     }
     await this.app.loadTrack(L, this.plan.entries[0].profile.id);
@@ -496,12 +496,12 @@ export class SetBuilderPanel {
     }
     const deck = this.freeSideDeck();
     if (deck === null) {
-      toast('Both decks are playing. Pause the outgoing deck, then load the next track.');
+      toast('Both decks are playing. Pause one first.');
       return;
     }
     await this.app.loadTrack(deck, entry.profile.id);
     this.cursor = next;
-    toast(`Deck ${deck}: #${next + 1} “${entry.profile.title}” — mix in at ${formatTime(entry.cueIn)}`);
+    toast(`Deck ${deck}: “${entry.profile.title}”, mix in at ${formatTime(entry.cueIn)}`);
     this.renderResult();
   }
 
@@ -606,10 +606,10 @@ export class SetBuilderPanel {
         { class: 'sb-export' },
         h('label', { class: 'sb-label' }, 'Playlist name', nameIn),
         h('label', { class: 'sb-label' }, 'Music folder on the computer running your DJ software', folderIn),
-        h('p', { class: 'note' }, 'The browser only knows file names, not where the files live. Put the folder that holds these files here so the DJ software can find them — or leave it empty and relocate the files after import.'),
+        h('p', { class: 'note' }, 'Where the files live on your computer, so the DJ software can find them. Leave it empty to relocate them after import.'),
         synth ? h('p', { class: 'note' }, `${synth} built-in demo track${synth > 1 ? 's are' : ' is'} generated in the browser and left out of file exports.`) : null,
         h('h3', {}, 'DJ software'),
-        fmt('rekordbox XML', 'Beat grid, key and SmartDJ mix-in / mix-out memory cues. rekordbox: File › Import › rekordbox xml.', () => download(`${slug()}.xml`, toRekordboxXml(plan, target()), 'application/xml')),
+        fmt('rekordbox XML', 'Beat grid, key and mix-in / mix-out memory cues. In rekordbox: File › Import › rekordbox xml.', () => download(`${slug()}.xml`, toRekordboxXml(plan, target()), 'application/xml')),
         fmt('Traktor NML', 'Beat grid, key and mix cues. Import it from the Playlists tree in Traktor.', () => download(`${slug()}.nml`, toTraktorNml(plan, target()), 'application/xml')),
         fmt('M3U8 playlist', 'Serato DJ (drag onto Crates), VirtualDJ, Engine DJ and media players. Order only — no cues.', () => download(`${slug()}.m3u8`, toM3U(plan, target()), 'audio/x-mpegurl')),
         fmt('CSV cue sheet', 'Every track with start time, mix points, tempo and key moves, and transition notes.', () => download(`${slug()}.csv`, toCsv(plan), 'text/csv'), false),
@@ -643,10 +643,9 @@ export class SetBuilderPanel {
         h(
           'div',
           { class: 'empty sb-empty' },
-          h('strong', {}, plan ? 'No set could be built' : 'Build a set from your library'),
+          h('strong', {}, plan ? 'No set could be built' : 'Build a set'),
           ...(plan?.warnings.length ? plan.warnings.map((w) => h('span', {}, w)) : []),
-          plan ? null : 'Add anchor artists, labels or genres, choose a length and an energy arc, then Generate. SmartDJ orders the tracks for harmonic, beat-matched mixing and tells you where and how to mix each one.',
-          plan ? null : h('span', { class: 'note' }, 'Try “All four → journey” for a set that travels through the four sounds — Deep & Groovy, Rolling Minimal, Bouncy Tech House and Rave Energy; the demo crate has tracks in each. Or anchor on demo artists like Kora Vance and labels like Tidal Room.'),
+          plan ? null : 'Pick a sound or an artist, a length and an energy arc, then Generate. You get a running order in key, with where to mix each track.',
         ),
       );
       return;

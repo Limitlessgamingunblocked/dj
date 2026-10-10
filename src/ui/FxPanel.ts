@@ -14,6 +14,7 @@ export class FxPanel {
   private dispBpm: HTMLElement;
   private paramLabel: HTMLElement;
   private chCards: HTMLElement[] = [];
+  private targets: HTMLElement[] = [];
 
   constructor(private app: AppContext) {
     const reg = app.reg;
@@ -37,13 +38,12 @@ export class FxPanel {
         { class: 'knob-row' },
         w(hwButton(reg, 'fx.beat.down', '◀ Beat')),
         w(hwButton(reg, 'fx.beat.up', 'Beat ▶')),
-        w(knob(reg, 'fx.depth', 'Level/Depth', { size: 44, color: '#ff3b5c' })),
+        w(knob(reg, 'fx.depth', 'Depth', { size: 44, color: '#ff3b5c' })),
         w(paramKnob),
         w(hwButton(reg, 'fx.on', 'FX On', { cls: 'big', color: '#ff3b5c' })),
       ),
-      h('div', { class: 'label' }, 'Assign (bus matrix)'),
-      h('div', { class: 'ctrl-row' }, ...[1, 2, 3, 4].map((c) => w(hwButton(reg, `fx.target.${c}`, `CH ${c}`))), w(hwButton(reg, 'fx.target.M', 'Master'))),
-      h('p', { class: 'note' }, 'Timing follows the BPM of the assigned deck (or the sync master when set to Master). Echo, ping-pong and reverb tails keep ringing after you switch the effect off.'),
+      h('div', { class: 'label' }, 'Apply to'),
+      h('div', { class: 'ctrl-row fx-targets' }, ...[1, 2, 3, 4].map((c) => w(hwButton(reg, `fx.target.${c}`, `Ch ${c}`))), w(hwButton(reg, 'fx.target.M', 'Master'))),
     );
     const colour = h('div', { class: 'card', style: { display: 'grid', gap: '10px' } }, h('h3', {}, 'Channel FX'));
     const grid = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' } });
@@ -51,13 +51,14 @@ export class FxPanel {
       const card = h(
         'div',
         { class: 'strip', style: { alignItems: 'stretch' } },
-        h('div', { class: 'strip-head', style: { color: `var(--deck${c})` } }, `CH ${c}`),
+        h('div', { class: 'strip-head', style: { color: `var(--deck${c})` } }, `Ch ${c}`),
         h('div', { class: 'knob-row', style: { justifyContent: 'space-around' } }, w(knob(reg, `ch.${c}.filter`, 'Filter')), w(knob(reg, `ch.${c}.res`, 'Reso')), w(knob(reg, `ch.${c}.crush`, 'Crush'))),
       );
       this.chCards.push(card);
       grid.append(card);
     }
-    colour.append(grid, h('p', { class: 'note' }, 'Filter: turn left for low-pass, right for high-pass. Resonance sharpens the sweep. Crush lowers bit depth and sample rate.'));
+    colour.append(grid);
+    this.targets = [...beatFx.querySelectorAll<HTMLElement>('.fx-targets > *')].slice(0, 4);
     this.el = h('div', { class: 'fx-grid' }, beatFx, colour);
   }
 
@@ -70,6 +71,7 @@ export class FxPanel {
     setText(this.paramLabel, FX_PARAM_LABELS[fx.type]);
     const n = this.app.deckCount();
     this.chCards.forEach((c, i) => (c.hidden = i >= n));
+    this.targets.forEach((t, i) => (t.hidden = i >= n));
     for (const w of this.widgets) w.update();
   }
 }

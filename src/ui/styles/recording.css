@@ -3,7 +3,7 @@
 .rec-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0;
 }
 
 .rec-group .rec-btn {
@@ -13,9 +13,9 @@
 
 .rec-menu {
   padding: 0 7px;
+  border-left: 0;
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
-  color: #ffb3c0;
 }
 
 .rec-btn.counting .dot {
@@ -23,14 +23,9 @@
   animation: pulse 0.5s infinite;
 }
 
-/* the replay buffer is running: a quiet dot, not a light show */
-.buf-dot {
-  width: 7px;
-  height: 7px;
-  margin-left: 6px;
-  border-radius: 50%;
-  background: #3ddc97;
-  opacity: 0.55;
+/* the replay buffer is running: a thin ring round the REC dot */
+.rec-btn .dot.buffer {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 55%, transparent);
 }
 
 /* the count-in over the stage */
@@ -60,7 +55,9 @@
 }
 
 .rec-panel .rp-h {
-  margin: 14px 0 2px;
+  margin: 24px 0 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
   font-family: var(--font-label);
   font-size: 13px;
   letter-spacing: 0.16em;
@@ -81,7 +78,8 @@
 }
 
 .rp-wm select {
-  max-width: 190px;
+  max-width: 220px;
+  height: var(--control-h-s);
 }
 
 .rp-toggle {
@@ -91,7 +89,51 @@
 }
 
 .rp-size {
-  color: #ffb547;
+  color: var(--muted);
+}
+
+/* the studio's form: labels in one column, controls in the next */
+.rp-rows {
+  display: grid;
+  gap: 12px;
+}
+
+.rp-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.rp-label {
+  padding-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rp-ctl {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rp-ctl > .gs-note {
+  margin: 0;
+}
+
+.rec-panel > .rp-rows + .rp-rows {
+  margin-top: 12px;
+}
+
+@media (max-width: 560px) {
+  .rp-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .rp-label {
+    padding-top: 0;
+  }
 }
 
 /* one set */
@@ -276,4 +318,174 @@
   .tr-top {
     grid-template-columns: 1fr;
   }
+}
+
+/* ------------------------------------------------------------ My Sets */
+
+.my-sets {
+  padding: 12px 16px 16px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.ms-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ms-bar .gs-chip {
+  min-height: 26px;
+  font-size: 13px;
+}
+
+.ms-bar select {
+  height: var(--control-h-s);
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  padding: 0 6px;
+}
+
+.ms-usage {
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.ms-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ms-list > .empty {
+  grid-column: 1 / -1;
+}
+
+.ms-how {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.ms-how kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-s);
+  background: var(--panel-2);
+  color: var(--text);
+  font: 600 11px var(--font-mono);
+  text-align: center;
+}
+
+.ms-card {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background: var(--panel-2);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.ms-card:hover,
+.ms-card:focus-visible {
+  border-color: var(--line-2);
+  transform: translateY(-1px);
+}
+
+.ms-pic {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #05070a;
+}
+
+.ms-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ms-badge,
+.ms-grade,
+.ms-len {
+  position: absolute;
+  padding: 2px 7px;
+  border-radius: var(--radius-s);
+  background: rgb(0 0 0 / 65%);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ms-badge {
+  left: 8px;
+  top: 8px;
+}
+
+.ms-badge.s-rec {
+  color: #ffb3c0;
+}
+
+.ms-grade {
+  right: 8px;
+  top: 8px;
+  font-family: var(--font-label);
+  font-size: 14px;
+}
+
+.ms-len {
+  right: 8px;
+  bottom: 8px;
+}
+
+.ms-info {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px 4px;
+  min-width: 0;
+}
+
+.ms-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ms-acts {
+  display: flex;
+  gap: 2px;
+  padding: 0 6px 6px;
+}
+
+.ms-acts .ms-fav {
+  margin-right: auto;
+  font-size: 14px;
+}
+
+.ms-plan {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.ms-plan-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
 }

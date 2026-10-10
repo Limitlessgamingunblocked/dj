@@ -316,7 +316,7 @@ export const dc10: VenueDef = {
   short: 'DC-10',
   place: 'Ibiza, Spain',
   kind: 'Club · main room',
-  blurb: 'The Monday institution by the airport: a low red room, orange globe lamps over the crowd, strings of warm bulbs, red laser sheets, the fan wheel on the wall and a crowd pressed right up to the booth.',
+  blurb: 'A low red room by the airport, globe lamps overhead and the crowd right at the booth.',
   palette: ['#ff2d1a', '#ff7a1a', '#ffb24d'],
   ui: '#ff5a2a',
   capacity: '1,500',

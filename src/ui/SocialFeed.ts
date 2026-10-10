@@ -16,7 +16,7 @@ export interface FeedHooks {
   watch?(recordingId: string): void;
 }
 
-const KIND_BADGE: Record<Post['kind'], string> = { fan: '', clip: '🎥', promoter: '📣', rival: '🎧', news: '📰', you: '' };
+const KIND_BADGE: Record<Post['kind'], string> = { fan: '', clip: 'Clip', promoter: 'Promoter', rival: 'DJ', news: 'News', you: '' };
 
 /** "3m", "2h", "4d" */
 export function ago(iso: string, now = Date.now()): string {
@@ -62,16 +62,16 @@ export function openFeed(o: FeedHooks): ModalHandle {
       h(
         'div',
         { class: 'sf-body' },
-        h('div', { class: 'sf-who' }, h('b', {}, p.author), h('span', {}, ` ${p.handle} · ${ago(p.date)}`), KIND_BADGE[p.kind] ? h('i', {}, ` ${KIND_BADGE[p.kind]}`) : null),
+        h('div', { class: 'sf-who' }, h('b', {}, p.author), h('span', {}, ` ${p.handle} · ${ago(p.date)}`), KIND_BADGE[p.kind] ? h('i', { class: 'sf-kind' }, KIND_BADGE[p.kind]) : null),
         h('p', {}, p.text),
         clip,
-        h('div', { class: 'sf-acts' }, like, h('span', {}, `💬 ${p.comments.length}`)),
+        h('div', { class: 'sf-acts' }, like, p.comments.length ? h('span', {}, `${p.comments.length} repl${p.comments.length > 1 ? 'ies' : 'y'}`) : null),
         ...(p.comments.length ? [h('div', { class: 'sf-comments' }, ...p.comments.slice(0, 3).map((c) => h('p', {}, h('b', {}, c.handle), ' ', c.text)))] : []),
       ),
     );
   };
   if (o.feed.posts.length) list.append(...o.feed.posts.map(post));
-  else list.append(h('p', { class: 'sf-empty' }, 'Nothing yet. Play a set and the fans will start posting. Save a clip and it goes up here too.'));
+  else list.append(h('p', { class: 'sf-empty' }, 'Nothing yet. Play a set and fans will post about it.'));
   const phone = h(
     'div',
     { class: 'sf-phone' },
@@ -79,5 +79,5 @@ export function openFeed(o: FeedHooks): ModalHandle {
     h('header', { class: 'sf-head' }, h('b', {}, 'Feed'), h('span', {}, me), h('span', { class: 'sf-fol' }, `${short(o.followers)} followers`)),
     list,
   );
-  return openModal('Your phone', h('div', { class: 'sf-wrap' }, phone));
+  return openModal('Phone', h('div', { class: 'sf-wrap' }, phone));
 }

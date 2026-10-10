@@ -42,7 +42,7 @@ function header(p: Progress): HTMLElement {
     h('div', { class: 'bk-tier' }, h('b', {}, `Tier ${p.tier}`), h('span', {}, TIER_NAMES[p.tier - 1] ?? ''), bar, h('small', {}, hi > lo ? `${p.fame.toLocaleString()} / ${hi.toLocaleString()} fame` : `${p.fame.toLocaleString()} fame`)),
     h('div', { class: 'bk-num' }, h('span', {}, 'Cash'), h('b', {}, `$${p.cash.toLocaleString()}`)),
     h('div', { class: 'bk-num' }, h('span', {}, 'Followers'), h('b', {}, p.followers.toLocaleString())),
-    h('div', { class: 'bk-num', title: rep?.blurb ?? 'Play a few sets: how you mix earns a reputation' }, h('span', {}, 'Reputation'), h('b', {}, rep ? `⭐ ${rep.label}` : '—')),
+    h('div', { class: 'bk-num', title: rep?.blurb ?? 'Play a few sets: how you mix earns a reputation' }, h('span', {}, 'Reputation'), h('b', {}, rep ? rep.label : '—')),
     h('p', { class: 'bk-next' }, 'Next: ', nextGoal(p)),
   );
 }
@@ -82,7 +82,7 @@ export function openBookings(o: BookingsHooks): ModalHandle {
       const pic = h('canvas', { width: 180, height: b.status === 'accepted' ? 240 : 90, class: b.status === 'accepted' ? 'bk-flyer' : 'bk-thumb', 'aria-hidden': 'true' }) as HTMLCanvasElement;
       if (b.status === 'accepted') drawFlyer(pic, flyerInfo(b, o.dj(), name));
       else o.thumb(b.venue, pic.getContext('2d')!, 180, 90);
-      const special = b.special === 'boat' ? h('span', { class: 'bk-special' }, '⚓ Special: opens the Boat Party') : rival ? h('span', { class: 'bk-special', style: `--rc:${rival.color}` }, `🤝 B2B with ${rival.name}`) : null;
+      const special = b.special === 'boat' ? h('span', { class: 'bk-special' }, 'Opens the Boat Party') : rival ? h('span', { class: 'bk-special', style: `--rc:${rival.color}` }, `B2B with ${rival.name}`) : null;
       const actions = h('div', { class: 'bk-actions' });
       if (b.status === 'offered') {
         const yes = h('button', { type: 'button', class: 'btn primary' }, 'Accept');
@@ -129,13 +129,13 @@ export function openBookings(o: BookingsHooks): ModalHandle {
           special,
           h('div', { class: 'bk-facts' }, h('span', {}, SLOTS[b.slot].label), h('span', {}, `${b.minutes} min`), h('b', {}, `$${b.pay.toLocaleString()}`)),
           h('p', { class: 'bk-expect' }, '“', b.expectation, '”'),
-          h('p', { class: 'bk-goal' }, h('b', {}, 'Bonus: '), b.objective, h('small', {}, ' (+25% pay and fame)')),
+          h('p', { class: 'bk-goal', title: 'Hit it for 25% more pay and fame' }, h('b', {}, 'Bonus '), b.objective, h('small', {}, ' +25%')),
           actions,
         ),
       );
     };
 
-    const free = h('button', { type: 'button', class: 'btn' }, 'Free set (no booking)…');
+    const free = h('button', { type: 'button', class: 'btn' }, 'Free set');
     free.addEventListener('click', () => {
       modal?.close();
       o.free();
@@ -144,8 +144,8 @@ export function openBookings(o: BookingsHooks): ModalHandle {
       header(p),
       week,
       ...(accepted.length ? [h('section', {}, h('h3', {}, 'Your bookings'), h('div', { class: 'bk-list' }, ...accepted.map(card)))] : []),
-      h('section', {}, h('h3', {}, 'Offers'), offers.length ? h('div', { class: 'bk-list' }, ...offers.map(card)) : h('p', { class: 'gs-note' }, 'No offers right now. Play a set and the promoters will call.')),
-      h('div', { class: 'bk-foot' }, h('span', { class: 'gs-note' }, 'A free set pays less and has no objective, but it still moves your career on.'), free),
+      h('section', {}, h('h3', {}, 'Offers'), offers.length ? h('div', { class: 'bk-list' }, ...offers.map(card)) : h('p', { class: 'gs-note' }, 'No offers right now. Play a set and promoters will call.')),
+      h('div', { class: 'bk-foot' }, h('span', { class: 'gs-note' }, 'No booking? A free set pays less but still counts.'), free),
     );
   };
 

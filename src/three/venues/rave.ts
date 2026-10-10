@@ -386,7 +386,7 @@ export const warehouseRave: VenueDef = {
   short: 'Warehouse',
   place: 'The industrial estate',
   kind: 'Warehouse rave · 1,500',
-  blurb: 'Concrete, steel trusses, shipping containers down both sides, heavy haze. Laser arrays, an LED wall, strobe banks and moving heads, and a roller door at the back.',
+  blurb: 'Concrete, containers and heavy haze. Lasers, strobes and a roller door at the back.',
   palette: ['#2ec4f1', '#ff2e88', '#b6ff3b'],
   ui: '#2ec4f1',
   capacity: '1,500',

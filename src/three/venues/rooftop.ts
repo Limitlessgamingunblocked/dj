@@ -348,7 +348,7 @@ export const rooftop: VenueDef = {
   short: 'Rooftop',
   place: 'Downtown',
   kind: 'Rooftop terrace · golden hour to night',
-  blurb: 'A terrace over the city: festoon bulbs, plants, a glass railing and the skyline all round. Golden hour at the start, night by the end.',
+  blurb: 'A terrace over the city, from golden hour to night.',
   palette: ['#ffb05a', '#ff5f8a', '#7a5cff'],
   ui: '#ffb05a',
   capacity: '250',

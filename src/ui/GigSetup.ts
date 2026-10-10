@@ -71,7 +71,7 @@ export function openGigSetup(o: SetupHooks): void {
   const cards = o.venues.map((v) => {
     const c = h('canvas', { width: 240, height: 120 }) as HTMLCanvasElement;
     v.draw(c.getContext('2d')!, 240, 120);
-    const b = h('button', { type: 'button', class: 'gs-venue', disabled: !!v.locked, title: v.locked ?? v.blurb }, c, h('b', {}, v.name), h('span', {}, v.locked ? `🔒 ${v.locked}` : v.blurb)) as HTMLButtonElement;
+    const b = h('button', { type: 'button', class: 'gs-venue', disabled: !!v.locked, title: v.locked ?? v.blurb }, c, h('b', {}, v.name), h('span', {}, v.locked ? h('span', { class: 'lock' }, v.locked) : v.blurb)) as HTMLButtonElement;
     b.addEventListener('click', () => {
       cfg.venue = v.id;
       syncVenues();
@@ -98,7 +98,7 @@ export function openGigSetup(o: SetupHooks): void {
   lookSel.addEventListener('change', () => (look = lookSel.value));
   const crateSel = h('select', { 'aria-label': 'Crate' }, h('option', { value: '' }, 'Whole collection'), ...o.crates.filter((c) => c.kind === 'crate').map((c) => h('option', { value: c.id, selected: c.id === crate }, `${c.name} (${c.trackIds.length})`))) as HTMLSelectElement;
   crateSel.addEventListener('change', () => (crate = crateSel.value || null));
-  const dress = h('button', { type: 'button', class: 'btn ghost' }, 'Dressing room…');
+  const dress = h('button', { type: 'button', class: 'btn ghost' }, 'Change look');
 
   const go = h('button', { type: 'button', class: 'btn primary gs-go' }, 'Start the set');
   const venue = o.venues.find((v) => v.id === cfg.venue);
@@ -146,5 +146,4 @@ export function openGigSetup(o: SetupHooks): void {
     m.close();
     o.dressingRoom();
   });
-  setTimeout(() => go.focus(), 30);
 }

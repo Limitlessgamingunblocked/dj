@@ -124,7 +124,6 @@ export function openBoardPicker(current: { board: string; finish: string }, choo
   const body = h('div', { style: { display: 'grid', gap: '12px' } });
   const render = () => {
     clear(body);
-    body.append(h('p', { class: 'note' }, 'Every board is fully playable: all knobs, faders, jogs, pads and buttons are live. Pick a finish to recolour the hardware.'));
     const grid = h('div', { class: 'board-cards' });
     for (const def of BOARDS) {
       const finishId = def.id === current.board ? current.finish : def.finishes[0].id;
@@ -156,5 +155,5 @@ export function openBoardPicker(current: { board: string; finish: string }, choo
     body.append(grid);
   };
   render();
-  openModal('Choose your board', body, { wide: true });
+  openModal('Board', body, { wide: true });
 }

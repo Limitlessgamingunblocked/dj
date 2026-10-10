@@ -9,7 +9,7 @@ import { DECK_COLORS, HOTCUE_COLORS, type DeckId } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText, setVar } from './dom';
 import { openLyricsEditor } from './LyricsEditor';
-import { contextMenu, openModal } from './modal';
+import { contextMenu, openModal, type MenuItem } from './modal';
 import { toast } from './toast';
 import { drawOverview, fitCanvas } from './waveform';
 import { fader, hwButton, knob, padButton, type Widget } from './widgets';
@@ -38,8 +38,8 @@ export class DeckPanel {
   private loopSize: HTMLElement;
   private jumpSize: HTMLElement;
   private keyShift: HTMLElement;
-  private layerBtn: HTMLButtonElement;
-  private lyricsBtn: HTMLButtonElement;
+  private layerBtn: HTMLElement;
+  private layerBtns: HTMLButtonElement[];
   private showRemain = true;
 
   constructor(
@@ -60,12 +60,18 @@ export class DeckPanel {
     this.art = h('div', { class: 'deck-art', title: 'Spins with the platter' }, this.disc, this.num);
     this.title = h('div', { class: 't' });
     this.artist = h('div', { class: 'a' });
-    this.layerBtn = h('button', { class: 'btn small', title: 'Switch deck layer' }) as HTMLButtonElement;
-    this.layerBtn.addEventListener('click', () => reg.press(`layer.${side}`, 'ui'));
+    // on a four-deck board each side holds two decks: which one this panel shows
+    const [a, b] = side === 'L' ? [1, 3] : [2, 4];
+    this.layerBtns = [a, b].map((n) => {
+      const btn = h('button', { class: 'btn small', type: 'button', title: `Show deck ${n}` }, String(n));
+      btn.addEventListener('click', () => {
+        if (this.deck().id !== n) reg.press(`layer.${side}`, 'ui');
+      });
+      return btn;
+    });
+    this.layerBtn = h('div', { class: 'seg layer-seg', role: 'group', 'aria-label': 'Deck on this side' }, ...this.layerBtns);
     const more = h('button', { class: 'btn small ghost icon', title: 'Deck options', 'aria-label': 'Deck options' }, '⋯');
     more.addEventListener('click', (e) => this.deckMenu(e as MouseEvent));
-    this.lyricsBtn = h('button', { class: 'btn small ghost icon lyrics-btn pro-only', title: 'Lyrics', 'aria-label': 'Lyrics' }, '🎤') as HTMLButtonElement;
-    this.lyricsBtn.addEventListener('click', () => openLyricsEditor(this.app, this.deck()));
 
     this.bpm = h('span');
     this.bpmOrig = h('small');
@@ -168,7 +174,7 @@ export class DeckPanel {
     this.el = h(
       'section',
       { class: `deck-panel ${side === 'L' ? 'left' : 'right'}`, 'aria-label': `Deck ${side === 'L' ? 'left' : 'right'}` },
-      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '2px', justifyContent: 'flex-end' } }, this.layerBtn, this.lyricsBtn, more))),
+      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '4px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
       h('div', { class: 'readouts' }, h('div', { class: 'bpm-line' }, bpmBox, this.tempoChip), this.time),
       h('div', { class: 'overview-wrap' }, ovBox, h('div', { class: 'phase', title: 'Beat within the bar' }, ...this.phase)),
       h(
@@ -233,7 +239,8 @@ export class DeckPanel {
     }
     contextMenu(e.clientX, e.clientY, [
       { label: 'Rename…', action: () => this.renameCue(i) },
-      ...HOTCUE_COLORS.map((col, k) => ({ label: `Colour ${k + 1} ${col === c.color ? '✓' : ''}`, action: () => d.updateHotCue(i, { color: col }) })),
+      { header: 'Colour' },
+      ...HOTCUE_COLORS.map((col, k): MenuItem => ({ label: `Colour ${k + 1}`, checked: col === c.color, action: () => d.updateHotCue(i, { color: col }) })),
       'sep' as const,
       { label: 'Move to playhead', action: () => d.setHotCue(i) },
       { label: 'Delete', danger: true, action: () => d.deleteHotCue(i) },
@@ -263,9 +270,7 @@ export class DeckPanel {
   private deckMenu(e: MouseEvent): void {
     const d = this.deck();
     const t = d.track;
-    const items: ({ label: string; action: () => void; danger?: boolean } | 'sep')[] = [
-      { label: d.playing ? 'Eject (pause first)' : 'Eject track', action: () => d.eject() },
-    ];
+    const items: MenuItem[] = [{ label: d.playing ? 'Eject (pause first)' : 'Eject', action: () => d.eject() }];
     if (t && d.analysis) {
       const a = d.analysis;
       const set = (patch: { bpm?: number; firstBeat?: number }) => {
@@ -274,10 +279,11 @@ export class DeckPanel {
       };
       items.push(
         'sep',
+        { header: 'Beat grid' },
         { label: 'Tap tempo…', action: () => this.tap() },
-        { label: `Double BPM → ${formatBpm(a.bpm * 2)}`, action: () => set({ bpm: a.bpm * 2 }) },
-        { label: `Halve BPM → ${formatBpm(a.bpm / 2)}`, action: () => set({ bpm: a.bpm / 2 }) },
-        { label: 'Set downbeat at playhead', action: () => set({ firstBeat: d.position() }) },
+        { label: 'Double BPM', hint: formatBpm(a.bpm * 2), action: () => set({ bpm: a.bpm * 2 }) },
+        { label: 'Halve BPM', hint: formatBpm(a.bpm / 2), action: () => set({ bpm: a.bpm / 2 }) },
+        { label: 'Downbeat here', action: () => set({ firstBeat: d.position() }) },
         { label: 'Shift grid ½ beat', action: () => set({ firstBeat: a.firstBeat + d.beatLen / 2 }) },
         'sep',
         { label: t.lyrics ? 'Edit lyrics…' : 'Add lyrics…', action: () => openLyricsEditor(this.app, d) },
@@ -339,8 +345,11 @@ export class DeckPanel {
     setText(this.num, String(id));
     const four = this.app.deckCount() === 4;
     this.layerBtn.hidden = !four;
-    setText(this.layerBtn, this.side === 'L' ? (id === 1 ? '⇄ 3' : '⇄ 1') : id === 2 ? '⇄ 4' : '⇄ 2');
-    this.layerBtn.title = `Switch to deck ${this.side === 'L' ? (id === 1 ? 3 : 1) : id === 2 ? 4 : 2}`;
+    for (const btn of this.layerBtns) {
+      const on = btn.textContent === String(id);
+      setClass(btn, 'active', on);
+      btn.setAttribute('aria-pressed', String(on));
+    }
     const t = d.track;
     const art = t?.meta.art ? `url("${t.meta.art}")` : '';
     if (this.discLabel.style.backgroundImage !== art) this.discLabel.style.backgroundImage = art;
@@ -350,11 +359,8 @@ export class DeckPanel {
       this.disc.style.transform = `rotate(${deg}deg)`;
     }
     setClass(this.art, 'spinning', d.playing);
-    setText(this.title, t ? t.meta.title : 'No track loaded');
-    this.lyricsBtn.disabled = !t;
-    setClass(this.lyricsBtn, 'has', !!t?.lyrics && t.lyrics.timing !== 'none');
-    this.lyricsBtn.title = !t ? 'Lyrics (load a track first)' : t.lyrics ? `Lyrics: ${t.lyrics.lines.length} lines${t.lyrics.timing === 'none' ? ' (not timed yet)' : ''}` : 'Add lyrics';
-    setText(this.artist, t ? t.meta.artist || t.fileName : 'Drag a track here, or use Load in the library');
+    setText(this.title, d.loading ? 'Loading…' : t ? t.meta.title : 'No track loaded');
+    setText(this.artist, t ? t.meta.artist || t.fileName : 'Drop a track here');
     setText(this.bpm, d.loaded ? formatBpm(d.bpm) : '--.-');
     setText(this.bpmOrig, 'BPM');
     this.bpmOrig.title = d.analysis ? `Track tempo ${formatBpm(d.analysis.bpm)} BPM` : '';

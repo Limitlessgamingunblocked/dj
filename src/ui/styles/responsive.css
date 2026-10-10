@@ -207,6 +207,12 @@
   .topbar .rec-btn {
     min-width: 44px;
   }
+
+  .topbar .picker-k,
+  .topbar .gig-btn,
+  .topbar .dj-name {
+    display: none !important;
+  }
 }
 
 /* touch screens: controls at least 44 px */

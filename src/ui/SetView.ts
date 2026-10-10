@@ -115,7 +115,7 @@ export function openSetView(r: Recording, o: SetViewHooks): ModalHandle {
     btn('Tracklist', () => downloadBlob(o.sets.tracklist(r, o.djName, venue), name('txt'))),
     status,
   );
-  if (o.trim && r.files.pcm) exports.prepend(btn('✂ Trim', () => (handle.close(), o.trim!(r))));
+  if (o.trim && r.files.pcm) exports.prepend(btn('Trim', () => (handle.close(), o.trim!(r))));
   const del = h('button', { class: 'btn ghost danger', type: 'button' }, 'Delete');
   del.addEventListener('click', async () => {
     if (!confirm(`Delete “${r.title}”? This can’t be undone.`)) return;

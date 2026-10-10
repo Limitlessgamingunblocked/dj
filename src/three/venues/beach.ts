@@ -311,7 +311,7 @@ export const beach: VenueDef = {
   short: 'Beach Club',
   place: 'On the coast',
   kind: 'Beach club · sunset terrace',
-  blurb: 'Wooden decking, palm trees, white sun loungers and the sea behind the booth. Sunset to night, the palms uplit after dark.',
+  blurb: 'Decking, palms and the sea behind the booth, from sunset into the night.',
   palette: ['#ff8a3a', '#ff4f7a', '#3ad7c8'],
   ui: '#ff8a3a',
   capacity: '2,000',

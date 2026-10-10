@@ -1073,8 +1073,7 @@ export const allyPally: VenueDef = {
   short: 'Ally Pally',
   place: 'London, UK',
   kind: 'Concert hall · Great Hall',
-  blurb:
-    'The Great Hall at its real size (116.6 × 55 m, 25 m to the crown of the fabric vault), with the organ and rose window at the far end. An arena production: a 23 m LED wall, live-camera LED towers, flown PA with delays, a rig of beams and strobe bars over about 8,000 people, lasers, CO2 and sparks.',
+  blurb: 'The Great Hall as an arena show: a 23 m LED wall, beams, lasers and 8,000 people.',
   palette: ['#ffffff', '#ff2a3c', '#7a3cff'],
   ui: '#ff3355',
   capacity: '10,250',
@@ -1104,8 +1103,7 @@ export const allyPallyRound: VenueDef = {
   short: 'Ally Pally ◯',
   place: 'London, UK',
   kind: 'Concert hall · in the round',
-  blurb:
-    'The Great Hall with the decks on a round riser in the middle of the floor and the crowd all the way round, under a field of 43,000 hanging lights that plays the music in 3D: ripples on the kick, sheets of light through the build, the whole room on the drop. Surround PA.',
+  blurb: 'The decks in the middle of the floor under 43,000 hanging lights that play the music.',
   palette: ['#ffd9a8', '#ffffff', '#7ab8ff'],
   ui: '#ffcf8a',
   capacity: '10,250',

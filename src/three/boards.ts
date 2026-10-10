@@ -71,8 +71,8 @@ function starterDeck(u: Unit, side: 'L' | 'R', x0: number): void {
 const starter: BoardDef = {
   id: 'starter2',
   name: 'Starter Two',
-  category: 'Entry-level 2-channel all-in-one',
-  description: 'Compact two-deck controller: capacitive jogs, 8 pads per deck with four modes plus shift layers, 3-band EQ, filter knobs and a beat FX strip. The layout of the popular first controllers.',
+  category: 'Two-deck controller',
+  description: 'Compact and simple. Where most DJs start.',
   decks: 2,
   turntable: false,
   xcurve: 0.35,
@@ -139,8 +139,8 @@ function proDeck(u: Unit, side: 'L' | 'R', cx: number): void {
 const pro: BoardDef = {
   id: 'pro4',
   name: 'Pro Four',
-  category: 'Flagship 4-channel controller',
-  description: 'Large-format four-deck controller with full-size jogs and on-jog displays, a centre waveform screen, LED filter rings, dual-layer decks, six pad modes, beat FX and a sampler strip.',
+  category: 'Four-deck controller',
+  description: 'Big jogs with screens, six pad modes and a sampler.',
   decks: 4,
   turntable: false,
   xcurve: 0.3,
@@ -248,8 +248,8 @@ function clubMixer(b: BoardBuild): void {
 const club: BoardDef = {
   id: 'club4',
   name: 'Club Standard',
-  category: 'Pro 4-channel club rig',
-  description: 'The booth standard: two flagship media players with 9-inch waveform screens, 8 hot cues and 20 cm jogs either side of a four-channel club mixer with beat FX, colour filters and dual VU meters.',
+  category: 'Club booth',
+  description: 'Two media players and a four-channel mixer. The booth standard.',
   decks: 4,
   turntable: false,
   xcurve: 0.3,
@@ -331,8 +331,8 @@ function battleMixer(b: BoardBuild): void {
 const vinyl: BoardDef = {
   id: 'vinyl2',
   name: 'Vinyl Battle',
-  category: 'Twin turntables + battle mixer',
-  description: 'Two direct-drive turntables with real platter inertia (adjustable start/brake), slip-mat scratching, needle drop by tonearm, 33/45 and adjustable record wear, plus a two-channel battle mixer with pads and a sharp cut crossfader.',
+  category: 'Turntables',
+  description: 'Two turntables and a battle mixer. Real platters, real scratching.',
   decks: 2,
   turntable: true,
   xcurve: 0.92,
@@ -355,8 +355,8 @@ const vinyl: BoardDef = {
 const quad: BoardDef = {
   id: 'quad4',
   name: 'Festival Quad',
-  category: 'Four media players + 4-channel mixer',
-  description: 'The main-stage booth: four flagship media players — decks 3 and 1 on the left, 2 and 4 on the right — around a four-channel club mixer. Every deck has its own hardware, so there is no layer switching; touch a player and the software follows it.',
+  category: 'Festival booth',
+  description: 'Four media players around a four-channel mixer.',
   decks: 4,
   turntable: false,
   fixedDecks: true,
@@ -381,8 +381,8 @@ const quad: BoardDef = {
 const hybrid: BoardDef = {
   id: 'hybrid4',
   name: 'Hybrid Booth',
-  category: '2 turntables + 2 media players + mixer',
-  description: 'The classic club booth: direct-drive turntables on decks 3 and 4 on the outside, media players on decks 1 and 2 next to the four-channel mixer. Play records and files side by side.',
+  category: 'Hybrid booth',
+  description: 'Turntables outside, media players inside. Records and files together.',
   decks: 4,
   turntable: [3, 4],
   fixedDecks: true,
@@ -441,8 +441,8 @@ function rotaryMixer(b: BoardBuild): void {
 const rotary: BoardDef = {
   id: 'rotary2',
   name: 'Rotary House',
-  category: 'Twin turntables + rotary mixer',
-  description: 'The house and disco purist setup: two direct-drive turntables either side of a walnut-cheeked rotary mixer with big chrome level knobs, 3-band EQ, filters and a send FX. No crossfader, no sync — mix it by ear.',
+  category: 'Rotary',
+  description: 'Turntables and a rotary mixer. No sync, no crossfader: mix by ear.',
   decks: 2,
   turntable: true,
   noCrossfader: true,
@@ -677,9 +677,8 @@ function aioScreen(b: BoardBuild, u: Unit): void {
 const aio: BoardDef = {
   id: 'aio2',
   name: 'All-in-One Two',
-  category: '2-channel all-in-one with a touch screen',
-  description:
-    'Modelled on the flagship two-channel all-in-ones (73 × 47 cm): a 10.1-inch touch screen that shows both decks and browses your whole library (tap a track, tap again to load), 16 cm jogs with on-jog displays, eight pads a deck, hot cue memory and call, track search, sound colour FX, beat FX and a mic section.',
+  category: 'All-in-one',
+  description: 'Two decks and a touch screen that browses your library.',
   decks: 2,
   turntable: false,
   fixedDecks: true,

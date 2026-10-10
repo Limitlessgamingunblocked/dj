@@ -25,7 +25,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'rec', label: 'Recordings' },
   { id: 'buffer', label: 'Saved mixes' },
   { id: 'clip', label: 'Clips' },
-  { id: 'fav', label: '★ Favourites' },
+  { id: 'fav', label: 'Favourites' },
 ];
 const SORTS: { id: SortKey; label: string }[] = [
   { id: 'date', label: 'Newest' },
@@ -34,7 +34,7 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: 'venue', label: 'Venue' },
   { id: 'title', label: 'Title' },
 ];
-const SOURCE: Record<Recording['source'], string> = { rec: 'REC', buffer: 'SAVED MIX', clip: 'CLIP', trim: 'CLIP' };
+const SOURCE: Record<Recording['source'], string> = { rec: 'Recording', buffer: 'Saved mix', clip: 'Clip', trim: 'Clip' };
 
 export class MySetsPanel {
   readonly el: HTMLElement;
@@ -60,7 +60,7 @@ export class MySetsPanel {
       chips.append(b);
     }
     this.usage = h('span', { class: 'ms-usage' });
-    const manage = h('button', { class: 'btn', type: 'button' }, 'Storage…');
+    const manage = h('button', { class: 'btn small', type: 'button' }, 'Storage…');
     manage.addEventListener('click', () => this.storage());
     this.list = h('div', { class: 'ms-list', role: 'list' });
     this.el = h('div', { class: 'my-sets' }, h('div', { class: 'ms-bar' }, chips, h('span', { class: 'spacer' }), sortSel, this.usage, manage), this.list);
@@ -82,7 +82,14 @@ export class MySetsPanel {
     for (const [id, u] of this.thumbs) if (!keep.has(id)) (URL.revokeObjectURL(u), this.thumbs.delete(id));
     if (!items.length) {
       this.list.replaceChildren(
-        h('div', { class: 'ms-empty' }, h('b', {}, this.o.sets.items.length ? 'Nothing here with that filter.' : 'No sets yet.'), h('p', {}, 'Press REC (Shift+R) to record, or SAVE THAT MIX (Shift+S) to keep the last few minutes from the replay buffer. CLIP IT (Shift+C) makes a vertical clip of the last 30 seconds.')),
+        this.o.sets.items.length
+          ? h('div', { class: 'empty' }, h('strong', {}, 'Nothing here'), 'Try another filter.')
+          : h(
+              'div',
+              { class: 'empty' },
+              h('strong', {}, 'No sets yet'),
+              h('div', { class: 'ms-how' }, h('span', {}, h('kbd', {}, '⇧R'), ' Record'), h('span', {}, h('kbd', {}, '⇧S'), ' Save the last few minutes'), h('span', {}, h('kbd', {}, '⇧C'), ' Clip the last 30 seconds')),
+            ),
       );
       return;
     }
@@ -101,19 +108,19 @@ export class MySetsPanel {
         this.thumbs.set(r.id, u);
         img.src = u;
       })();
-    const fav = h('button', { class: 'btn ghost ms-fav', type: 'button', title: r.favorite ? 'Favourite (kept by cleanup)' : 'Mark as favourite', 'aria-pressed': String(r.favorite) }, r.favorite ? '★' : '☆');
+    const fav = h('button', { class: 'btn small ghost ms-fav', type: 'button', title: r.favorite ? 'Favourite: never cleared' : 'Favourite', 'aria-label': 'Favourite', 'aria-pressed': String(r.favorite) }, r.favorite ? '★' : '☆');
     fav.addEventListener('click', (e) => {
       e.stopPropagation();
       this.o.sets.toggleFavorite(r.id);
     });
-    const del = h('button', { class: 'btn ghost', type: 'button', title: 'Delete', 'aria-label': `Delete ${r.title}` }, '🗑');
+    const del = h('button', { class: 'btn small ghost', type: 'button', 'aria-label': `Delete ${r.title}` }, 'Delete');
     del.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm(`Delete “${r.title}”? This can’t be undone.`)) return;
       await this.o.sets.remove([r.id]);
       toast('Set deleted');
     });
-    const trim = h('button', { class: 'btn ghost', type: 'button', title: 'Trim', 'aria-label': `Trim ${r.title}` }, '✂');
+    const trim = h('button', { class: 'btn small ghost', type: 'button', 'aria-label': `Trim ${r.title}` }, 'Trim');
     trim.disabled = !r.files.pcm;
     trim.addEventListener('click', (e) => {
       e.stopPropagation();

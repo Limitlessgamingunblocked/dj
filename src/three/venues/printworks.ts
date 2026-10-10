@@ -285,7 +285,7 @@ export const printworks: VenueDef = {
   name: 'Printworks',
   place: 'London, UK',
   kind: 'Warehouse · Press Halls',
-  blurb: 'The old print plant: a colossal hall with three levels of steel gantries, a far-wall screen, and the overhead rig of light bars and beams that lowers over the crowd through the build-up and slams down on the drop. Lasers, blinders and CO2 across the stage.',
+  blurb: 'A vast print hall with steel gantries and a light rig that slams down on the drop.',
   palette: ['#ffffff', '#27e1ff', '#ffb000'],
   ui: '#27e1ff',
   capacity: '5,000',

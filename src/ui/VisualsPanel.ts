@@ -71,7 +71,7 @@ export class VisualsPanel {
       'div',
       { class: 'vis-lyrics' },
       h('h3', {}, 'Lyrics on the screens'),
-      h('p', { class: 'note' }, 'Timed lyrics of the loudest deck become kinetic type on the LED walls: words pop in as they are sung, the type breathes with the kick, ripples with the vocal and glitches on snares. Colours follow the light show. Add lyrics with the 🎤 button on a deck (files, tags, LRC, paste or LRCLIB). The demo tracks with vocal chops already have them.'),
+      h('p', { class: 'note' }, 'Timed lyrics show word by word on the LED walls. Add lyrics from a deck’s ⋯ menu.'),
       h('div', { class: 'toggle-row' }, h('span', { class: 'label' }, 'Style'), styleRow),
       h(
         'div',
@@ -85,7 +85,7 @@ export class VisualsPanel {
     this.el = h(
       'div',
       { class: 'pane', style: { display: 'grid', gap: '14px' } },
-      h('div', {}, h('h3', {}, 'Visual player'), h('p', { class: 'note' }, 'Every mode reacts to five frequency bands (sub-bass, kick, snare, vocals, highs), locks to the sync master’s beat grid and explodes on detected drops. The same picture drives the LED wall and side screens in the club.')),
+      h('div', {}, h('h3', {}, 'Visual player'), h('p', { class: 'note' }, 'Plays on the venue screens, locked to the beat.')),
       modes,
       h('div', { class: 'toggle-row' }, viewRow, full),
       h(

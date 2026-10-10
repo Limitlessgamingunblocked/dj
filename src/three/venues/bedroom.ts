@@ -126,7 +126,8 @@ class Bedroom extends VenueBase {
     this.group.add(rug);
 
     // the desk against the front wall, the controller on it (the board); no computer
-    const desk = booth({ w: 1.6, d: 0.72, front: new THREE.MeshStandardMaterial({ color: 0xd9d4c7, roughness: 0.6 }), top: 0xe9e4d8, strip: null, z: -0.12 });
+    // a dark walnut top: a white desk under the lamp blew out the frame round the board
+    const desk = booth({ w: 1.6, d: 0.72, front: new THREE.MeshStandardMaterial({ color: 0x2c241e, roughness: 0.6 }), top: 0x4a3a2e, strip: null, z: -0.12 });
     this.group.add(desk.group);
     boothClutter(this.group, 1.6, TABLE_Y, -0.45, 33, { laptop: false });
     // little monitor speakers either side
@@ -151,14 +152,15 @@ class Bedroom extends VenueBase {
     const shade = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.11, 16, 1, true), new THREE.MeshStandardMaterial({ color: 0x1b1d22, side: THREE.DoubleSide, roughness: 0.4 }));
     shade.position.set(0, 0.38, 0.2);
     shade.rotation.x = 2.3;
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.0, 1.4), toneMapped: false }));
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.25, 0.9), toneMapped: false }));
     bulb.position.set(0, 0.36, 0.22);
     lamp.add(base, arm1, arm2, shade, bulb);
     lamp.position.set(-0.68, TABLE_Y, -0.4);
     this.group.add(lamp);
-    this.lamp = new THREE.SpotLight(0xffcf90, 3.5, 3, 0.9, 0.7, 1.4);
+    // a soft pool to the left of the board, not a hot spot on it
+    this.lamp = new THREE.SpotLight(0xffcf90, 1.3, 2.5, 0.8, 0.9, 1.6);
     this.lamp.position.set(-0.68, TABLE_Y + 0.36, -0.18);
-    this.lamp.target.position.set(-0.2, TABLE_Y, 0.1);
+    this.lamp.target.position.set(-0.55, TABLE_Y, 0.1);
     this.group.add(this.lamp, this.lamp.target);
 
     // the colour-changing LED strip along the top of the front wall and under the desk
@@ -301,7 +303,7 @@ export const bedroom: VenueDef = {
   short: 'Bedroom',
   place: 'Home',
   kind: 'Livestream',
-  blurb: 'A controller on the desk, posters, fairy lights. Where every DJ starts.',
+  blurb: 'Posters, fairy lights and a stream. Where every DJ starts.',
   palette: ['#ff2e88', '#ffb547', '#3ad7ff'],
   ui: '#ff2e88',
   capacity: '3–50 viewers',
@@ -315,7 +317,7 @@ export const bedroom: VenueDef = {
     g.fillRect(0, 4, w, 4);
     g.fillStyle = '#ffcf8a';
     for (let i = 0; i < 16; i++) g.fillRect(w * (0.05 + i * 0.06), h * 0.2 + Math.abs(Math.sin(i * 0.8)) * 8, 3, 3);
-    g.fillStyle = '#e9e4d8';
+    g.fillStyle = '#5a4636';
     g.fillRect(w * 0.3, h * 0.6, w * 0.4, h * 0.08);
   },
 };

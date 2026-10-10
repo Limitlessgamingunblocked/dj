@@ -27,13 +27,13 @@
 .brand {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
   font-family: var(--font-label);
   font-weight: 700;
-  font-size: 20px;
-  letter-spacing: 0.22em;
+  font-size: 18px;
+  letter-spacing: 0.2em;
   white-space: nowrap;
-  padding-right: 6px;
+  padding-right: 4px;
 }
 
 .brand .mark {
@@ -190,13 +190,52 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 0 8px;
+  padding: 0 6px;
   white-space: nowrap;
 }
 
 .master-readout .mono {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
+}
+
+.master-readout .label {
+  font-size: 10px;
+}
+
+/* board and venue: a small caption, the name, a chevron; not shouted */
+.btn.picker {
+  gap: 7px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0 10px;
+}
+
+.btn.picker .picker-k {
+  font-family: var(--font-label);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.btn .chev {
+  font-size: 10px;
+  color: var(--dim);
+}
+
+.more-btn {
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+/* the vibe meter is the gig's score: only during a gig */
+body:not(.gig-on) .topbar .hype-meter {
+  display: none;
 }
 
 .status-dot {
@@ -256,18 +295,17 @@
   }
 }
 
-/* the DJ's own name next to the brand */
+/* the DJ's own name next to the brand, after a thin divider */
 .topbar .dj-name {
   font-family: var(--font-label, 'Barlow Condensed', sans-serif);
-  font-weight: 900;
+  font-weight: 800;
   font-size: 15px;
   letter-spacing: 0.08em;
-  padding: 2px 10px;
-  border-radius: var(--radius);
+  padding: 2px 4px 2px 12px;
   background: linear-gradient(180deg, #fff 0%, #c9ced6 45%, #6f7a8c 52%, #e8edf4 64%, #8c96a6 100%);
   background-clip: text;
   color: transparent;
-  border: 1px solid var(--line-2);
+  border-left: 1px solid var(--line-2);
   white-space: nowrap;
   max-width: 22ch;
   overflow: hidden;

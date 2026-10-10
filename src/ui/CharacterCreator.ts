@@ -510,7 +510,7 @@ export class CharacterCreator {
     for (const v of values) {
       const lock = o.locked?.(v) ?? null;
       const name = o.name ? o.name(v) : pretty(v);
-      const b = h('button', { class: 'cchip', type: 'button', role: 'radio', 'aria-checked': String(v === current), title: lock ? `${name}: locked. ${unlockText(lock)}` : name }, o.swatch ? h('i', { class: 'creator-sw', style: { background: o.swatch(v) } }) : null, name, lock ? h('span', { class: 'creator-lock', 'aria-hidden': 'true' }, '🔒') : null) as HTMLButtonElement;
+      const b = h('button', { class: 'cchip', type: 'button', role: 'radio', 'aria-checked': String(v === current), title: lock ? `${name}: locked. ${unlockText(lock)}` : name }, o.swatch ? h('i', { class: 'creator-sw', style: { background: o.swatch(v) } }) : null, name, lock ? h('span', { class: 'creator-lock lock', 'aria-hidden': 'true' }) : null) as HTMLButtonElement;
       if (v === current) b.classList.add('active');
       if (lock) b.disabled = true;
       b.addEventListener('click', () => pick(v));
@@ -707,7 +707,7 @@ export class CharacterCreator {
     for (const s of OUTFIT_SETS) {
       const ok = owned(s.unlock, p);
       const worn = Object.entries(s.pieces).every(([slot, id]) => this.look.items[slot] === id);
-      const b = h('button', { class: `creator-set${worn ? ' active' : ''}`, type: 'button', disabled: !ok, title: ok ? `Wear ${s.label}` : `${s.label}: locked. ${unlockText(s.unlock)}` }, h('b', {}, s.label), h('span', {}, ok ? s.vibe : unlockText(s.unlock)), ok ? null : h('span', { class: 'creator-lock', 'aria-hidden': 'true' }, '🔒'));
+      const b = h('button', { class: `creator-set${worn ? ' active' : ''}`, type: 'button', disabled: !ok, title: ok ? `Wear ${s.label}` : `${s.label}: locked. ${unlockText(s.unlock)}` }, h('b', {}, s.label), h('span', {}, ok ? s.vibe : unlockText(s.unlock)), ok ? null : h('span', { class: 'creator-lock lock', 'aria-hidden': 'true' }));
       b.addEventListener('click', () => this.commit(wearSet(this.look, s)));
       sets.append(b);
     }
@@ -842,7 +842,7 @@ export class CharacterCreator {
       h('span', { class: 'creator-item-sw' }, ...i.colors.map((c) => h('i', { style: { background: c } }))),
       h('b', {}, i.label),
       h('span', {}, `${SLOT_LABEL[i.slot]} · ${i.vibes.join(', ')}`),
-      ok ? null : h('span', { class: 'creator-item-lock' }, `🔒 ${unlockText(i.unlock)}`),
+      ok ? null : h('span', { class: 'creator-item-lock lock' }, unlockText(i.unlock)),
     );
     b.addEventListener('click', () =>
       this.edit((l) => {

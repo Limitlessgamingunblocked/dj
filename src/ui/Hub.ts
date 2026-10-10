@@ -17,6 +17,7 @@ import { rivalOf } from '../game/rivals';
 import { SLOTS } from '../game/vibe';
 import * as THREE from 'three';
 import { h } from './dom';
+import { icon, type IconName } from './icons';
 import type { FlyerInfo } from './flyer';
 
 export interface HubHooks {
@@ -68,7 +69,8 @@ export class HubView {
     setHubState(this.state());
     st.setVenue(hub);
     // you, at home, grooving to whatever's on
-    st.avatarSpot = { pos: new THREE.Vector3(0.4, 0, 0.2), face: 0.5, input: () => this.input() };
+    // mid-room and right of centre, clear of the panel on the left, turned to the camera
+    st.avatarSpot = { pos: new THREE.Vector3(0.6, 0, -1.2), face: 0.3, input: () => this.input() };
     st.rig.goTo('wide', true);
     this.host.busy(true);
     document.body.classList.add('hub-open');
@@ -100,12 +102,12 @@ export class HubView {
     const c = this.host.career;
     const p = c.progress;
     const level = homeLevel(p.sandbox ? 7 : p.tier);
-    const next = level < 2 ? `${HOME_NAMES[level + 1]} at fame tier ${HOME_TIERS[level + 1]}` : 'The top floor. You made it.';
+    const next = level < 2 ? `${HOME_NAMES[level + 1]} at tier ${HOME_TIERS[level + 1]}` : null;
     const lo = TIER_FAME[p.tier - 1] ?? 0;
     const hi = TIER_FAME[p.tier] ?? lo;
     const k = hi > lo ? Math.min(1, (p.fame - lo) / (hi - lo)) : 1;
-    const station = (icon: string, label: string, sub: string, fn: () => void) => {
-      const b = h('button', { type: 'button', class: 'hub-station' }, h('span', { class: 'hub-ic', 'aria-hidden': 'true' }, icon), h('b', {}, label), h('small', {}, sub));
+    const station = (ic: IconName, label: string, sub: string, fn: () => void) => {
+      const b = h('button', { type: 'button', class: 'hub-station' }, h('span', { class: 'hub-ic' }, icon(ic)), h('span', { class: 'hub-st-text' }, h('b', {}, label), h('small', {}, sub)), icon('chevron', 16));
       b.addEventListener('click', fn);
       return b;
     };
@@ -118,6 +120,7 @@ export class HubView {
       this.close();
       fn();
     };
+    const stat = (v: string, l: string) => h('div', { class: 'hub-stat' }, h('b', {}, v), h('span', {}, l));
     return h(
       'div',
       { class: 'hub-panel', role: 'dialog', 'aria-label': 'Home' },
@@ -126,17 +129,19 @@ export class HubView {
         { class: 'hub-head' },
         h('span', { class: 'hub-kicker' }, HOME_NAMES[level]),
         h('h2', {}, nameService.text),
-        h('div', { class: 'hub-tier' }, h('b', {}, `Tier ${p.tier} · ${TIER_NAMES[p.tier - 1] ?? ''}`), h('div', { class: 'bk-bar' }, h('i', { style: `width:${(k * 100).toFixed(1)}%` })), h('small', {}, `${p.fame.toLocaleString()} fame · $${p.cash.toLocaleString()} · ${p.followers.toLocaleString()} followers`)),
-        h('p', { class: 'hub-next' }, 'Next: ', nextGoal(p), ' · Home: ', next),
+        h('div', { class: 'hub-tier' }, h('div', { class: 'hub-tier-row' }, h('b', {}, `Tier ${p.tier}`), h('span', {}, TIER_NAMES[p.tier - 1] ?? '')), h('div', { class: 'bk-bar' }, h('i', { style: `width:${(k * 100).toFixed(1)}%` }))),
+        h('div', { class: 'hub-stats' }, stat(p.fame.toLocaleString(), 'fame'), stat(`$${p.cash.toLocaleString()}`, 'cash'), stat(p.followers.toLocaleString(), 'followers')),
+        h('p', { class: 'hub-next' }, h('b', {}, 'Next '), nextGoal(p)),
+        next ? h('p', { class: 'hub-next' }, h('b', {}, 'Moving '), next) : null,
       ),
       h(
-        'div',
-        { class: 'hub-stations' },
-        station('📅', 'Bookings', nextBooked ? `Next: ${isCareerVenue(nextBooked.venue) ? CAREER[nextBooked.venue].name : nextBooked.venue}` : offers ? `${offers} offer${offers > 1 ? 's' : ''} waiting` : 'The calendar', leave(() => this.host.bookings())),
-        station('👕', 'Wardrobe', 'Dressing room', leave(() => this.host.wardrobe())),
-        station('💿', 'Crates', 'Dig through your records', leave(() => this.host.crates())),
-        station('🎞', 'My Sets', 'Recordings and clips', leave(() => this.host.mySets())),
-        station('📱', 'Phone', `${c.feed.posts.length} posts`, () => this.host.phone()),
+        'nav',
+        { class: 'hub-stations', 'aria-label': 'Stations' },
+        station('calendar', 'Bookings', nextBooked ? `Next: ${isCareerVenue(nextBooked.venue) ? CAREER[nextBooked.venue].name : nextBooked.venue}` : offers ? `${offers} offer${offers > 1 ? 's' : ''} waiting` : 'Your calendar', leave(() => this.host.bookings())),
+        station('shirt', 'Wardrobe', 'Change your look', leave(() => this.host.wardrobe())),
+        station('record', 'Crates', 'Your records', leave(() => this.host.crates())),
+        station('film', 'My Sets', 'Recordings and clips', leave(() => this.host.mySets())),
+        station('phone', 'Phone', c.feed.posts.length ? `${c.feed.posts.length} post${c.feed.posts.length > 1 ? 's' : ''}` : 'Your feed', () => this.host.phone()),
       ),
       h('div', { class: 'hub-foot' }, back),
     );

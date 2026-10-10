@@ -477,7 +477,7 @@ export const festival: VenueDef = {
   short: 'Festival',
   place: 'A field, somewhere',
   kind: 'Festival main stage',
-  blurb: 'A stage structure the size of a building, an LED wall to match, delay towers in the field and forty thousand people to the horizon. Lasers, pyro, CO2, confetti.',
+  blurb: 'A main stage the size of a building and forty thousand people to the horizon.',
   palette: ['#b6ff3b', '#ff2e88', '#3ad7ff'],
   ui: '#b6ff3b',
   capacity: '40,000',

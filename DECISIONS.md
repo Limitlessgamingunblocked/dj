@@ -215,3 +215,17 @@ Blender still wasn't reachable, so the character is built in code, made to be sw
 73. **The tutorial is gone** (you didn't like it). The first Bedroom gig is a normal set, and the Basement opens after your first set in the Bedroom, replacing decision 33's "after the tutorial". Chill assist still tips you before an outro, in the HUD.
 74. **The Bedroom has no computer**: the monitor, its webcam and the laptop are off the desk. The stream camera view is still there, as "Stream cam".
 
+
+## Polish pass (2026-10-10)
+
+You asked for the app to feel less confusing and more finished.
+
+75. **Short copy everywhere.** Help, notes and descriptions are one line where they can be, in plain words. The long paragraphs are gone: help, the venue and board pickers, the Show tab, Settings, Set Builder and the recording studio.
+76. **No emoji in the interface.** Emoji draw differently on every system. Home uses a small set of line icons (`src/ui/icons.ts`), locks are a CSS padlock, and badges are text. Fans' posts and stream chat keep their emoji, because that's how people post.
+77. **A quieter top bar.** Board and venue are pickers with a small caption and no pin emoji. The vibe meter only shows during a gig, since it is the gig's score. The master tempo only shows when a deck is master. The replay buffer shows as a thin ring on the REC dot, not a loose green dot. The duplicate "Switch to Pro layout" menu item is gone; Simple / Pro stays in the bar.
+78. **Menus carry check marks and shortcut hints** instead of "● " and "✓ " typed into labels. Escape closes them, the arrow keys move through them, and opening a dialog closes any open menu (the ⋯ menu used to stay on top of dialogs).
+79. **A clean lens on the board.** On the board angles (top, performance, booth) and when zoomed in, the lens pass adds no ghosts or stars, and streaks and dirt are cut to 15%. A lamp's ghost smeared over the decks read as a bug. The room and moving angles keep the full effect.
+80. **The Bedroom desk is dark walnut, with a softer lamp.** The white desk under the lamp blew out the frame around the board.
+81. **Home takes the whole screen.** While it's open, the decks, waveforms and library hide. Its stations are a single column, so none is cut off.
+82. **The library drops the kbps and format columns**, which don't help you pick a track. The deck numbers on each row stay faint until you're on the row. "Demo tracks" is now "Originals".
+83. **The in-gig HUD keeps Save mix, Clip and End set in view.** The assist level and the clean view move into its ⋯ menu.

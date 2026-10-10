@@ -18,10 +18,10 @@ export const FX_TYPES: FxType[] = ['echo', 'pingpong', 'reverb', 'flanger', 'pha
 export const FX_LABELS: Record<FxType, string> = {
   echo: 'ECHO',
   pingpong: 'PING PONG',
-  reverb: 'HALL REVERB',
+  reverb: 'REVERB',
   flanger: 'FLANGER',
   phaser: 'PHASER',
-  pitch: 'PITCH SHIFT',
+  pitch: 'PITCH',
   gate: 'TRANS',
 };
 export const FX_PARAM_LABELS: Record<FxType, string> = {

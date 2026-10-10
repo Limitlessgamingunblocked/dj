@@ -282,8 +282,25 @@ table.tracks .art {
 
 .load-btns .btn {
   height: 20px;
+  min-width: 22px;
   padding: 0 6px;
+  font-family: var(--font-mono);
   font-size: 10px;
+  letter-spacing: 0;
+}
+
+/* quiet until you're on the row */
+@media (hover: hover) {
+  table.tracks tbody tr .load-btns {
+    opacity: 0.3;
+    transition: opacity var(--dur-fast) var(--ease);
+  }
+
+  table.tracks tbody tr:hover .load-btns,
+  table.tracks tbody tr.selected .load-btns,
+  table.tracks tbody tr:focus-within .load-btns {
+    opacity: 1;
+  }
 }
 
 .status-pill {

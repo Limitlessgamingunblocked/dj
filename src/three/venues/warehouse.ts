@@ -152,7 +152,7 @@ export const warehouse: VenueDef = {
   short: 'Warehouse',
   place: 'Anywhere',
   kind: 'House club · stage + LED wall',
-  blurb: 'The house room: a raised stage, an 11 m LED wall running the visual player, a truss of moving heads, strobes, blinders, lasers and CO2.',
+  blurb: 'The house room: a raised stage, an 11 m LED wall and the full rig.',
   palette: ['#2ec4f1', '#ff5fcf', '#7b5cff'],
   ui: '#2ec4f1',
   capacity: '600',

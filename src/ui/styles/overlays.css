@@ -18,25 +18,48 @@
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--line-2);
-  border-radius: 10px;
-  padding: 16px;
+  border-radius: var(--radius-l);
+  padding: 0 20px 20px;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  animation: modal-in var(--dur) var(--ease);
+}
+
+.modal:focus {
+  outline: none;
+}
+
+/* movement only: if the page is busy the dialog is still there, just not animated */
+@keyframes modal-in {
+  from {
+    transform: translateY(6px) scale(0.99);
+  }
 }
 
 .modal-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin: 0 -20px 16px;
+  padding: 14px 12px 12px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
 }
 
 .modal-head h2 {
   margin: 0;
   font-family: var(--font-label);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  font-size: 18px;
+  font-size: 17px;
   flex: 1;
+}
+
+.modal-x {
+  font-size: 15px;
+  letter-spacing: 0;
 }
 
 .board-cards {
@@ -163,12 +186,19 @@ textarea.json {
   z-index: 70;
   background: var(--panel-2);
   border: 1px solid var(--line-2);
-  border-radius: 6px;
-  padding: 4px;
-  min-width: 170px;
+  border-radius: var(--radius-l);
+  padding: 5px;
+  min-width: 200px;
   max-height: calc(100dvh - 16px);
   overflow-y: auto;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  animation: menu-in var(--dur-fast) var(--ease);
+}
+
+@keyframes menu-in {
+  from {
+    transform: translateY(-3px);
+  }
 }
 
 .context-menu .cm-head {
@@ -182,18 +212,51 @@ textarea.json {
 }
 
 .context-menu button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   border: 0;
   background: none;
-  padding: 6px 10px;
-  border-radius: 4px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
   font-size: 13px;
+  white-space: nowrap;
 }
 
-.context-menu button:hover {
+.context-menu button:hover,
+.context-menu button:focus-visible {
   background: var(--panel-3);
+  outline: none;
+}
+
+.context-menu button.danger {
+  color: #ff8fa3;
+}
+
+.context-menu .cm-check {
+  width: 14px;
+  flex: none;
+  color: var(--deck1);
+  font-weight: 700;
+}
+
+.context-menu .cm-label {
+  flex: 1;
+}
+
+.context-menu .cm-hint {
+  margin-left: 16px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 11px var(--font-mono);
+  color: var(--dim);
+}
+
+.context-menu.has-checks .cm-head {
+  padding-left: 32px;
 }
 
 .context-menu .sep {
@@ -344,3 +407,32 @@ textarea.json {
   }
 }
 
+
+/* help */
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px 24px;
+}
+
+.help-grid h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-label);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.help-grid ul {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.help-keys {
+  margin: 24px 0 8px;
+}

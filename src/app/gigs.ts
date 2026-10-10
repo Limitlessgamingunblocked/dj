@@ -442,7 +442,7 @@ export class GigDirector {
     }
     if (ev.kind === 'transition' && ev.band === 'perfect' && ev.t - this.crew.cleanSaid > 90) {
       this.crew.cleanSaid = ev.t;
-      this.hud?.say('Sound engineer:', '👍 Clean.');
+      this.hud?.say('Sound engineer:', 'Clean.');
     }
   }
 

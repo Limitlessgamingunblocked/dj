@@ -286,7 +286,7 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
     progress,
     tapBox,
     h('div', { class: 'ly-cols' }, text, h('div', { class: 'ly-side' }, h('div', { class: 'label' }, 'Preview'), preview, h('div', { class: 'toggle-row' }, toStart, back5, playBtn), h('label', { class: 'field', for: 'ly-offset' }, h('span', {}, 'Offset ', offsetOut), offset), h('p', { class: 'note' }, 'Words early? Slide right. Late? Slide left.'))),
-    h('p', { class: 'note' }, 'Lyrics are read from the file’s tags (ID3 USLT/SYLT, Vorbis LYRICS, MP4) and from .lrc/.txt files with the same name dropped in with the audio. “Align to vocals” looks for centre-panned tonal energy in the voice band; it is a heuristic, not speech recognition, so check it and tap-sync where it drifts.'),
+    h('p', { class: 'note' }, 'Lyrics come from the file’s tags or a matching .lrc/.txt file. “Align to vocals” is a best guess: check it and tap-sync where it drifts.'),
     h('div', { class: 'toggle-row', style: { justifyContent: 'space-between' } }, h('div', { class: 'toggle-row' }, removeBtn, exportBtn), saveBtn),
   );
   const m = openModal('Lyrics', body, { wide: true });

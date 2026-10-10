@@ -339,7 +339,7 @@ export const basement: VenueDef = {
   short: 'Basement',
   place: 'Underneath somewhere',
   kind: 'Basement club',
-  blurb: 'Low ceiling, black walls, one red light. Eighty people close enough to touch the decks.',
+  blurb: 'Low ceiling, black walls, one red light and eighty people up close.',
   palette: ['#ff1a2e', '#ffb547', '#7a3cff'],
   ui: '#ff1a2e',
   capacity: '80',

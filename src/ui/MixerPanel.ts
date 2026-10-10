@@ -23,7 +23,7 @@ export class MixerPanel {
       const strip = h(
         'div',
         { class: 'strip' },
-        h('div', { class: 'strip-head' }, `CH ${c}`),
+        h('div', { class: 'strip-head' }, `Ch ${c}`),
         w(knob(reg, `ch.${c}.trim`, 'Trim')),
         w(knob(reg, `ch.${c}.hi`, 'Hi')),
         w(knob(reg, `ch.${c}.mid`, 'Mid')),
@@ -43,7 +43,7 @@ export class MixerPanel {
       h('div', { class: 'label' }, 'Master'),
       h('div', { style: { display: 'flex', gap: '10px', alignItems: 'stretch', height: '120px' } }, this.masterVu.el, h('div', { class: 'ctrl-block' }, w(knob(reg, 'mixer.master', 'Master', { size: 46 })), w(knob(reg, 'mixer.sampler', 'Sampler')))),
       h('div', { class: 'label' }, 'Headphones'),
-      h('div', { class: 'knob-row' }, w(knob(reg, 'mixer.cuemix', 'Cue ⇄ Mst')), w(knob(reg, 'mixer.phones', 'Level'))),
+      h('div', { class: 'knob-row' }, w(knob(reg, 'mixer.cuemix', 'Cue mix')), w(knob(reg, 'mixer.phones', 'Level'))),
       h('div', { class: 'ctrl-row' }, w(hwButton(reg, 'mixer.split', 'Split cue', { title: 'Master on the left channel, cue on the right (for a splitter cable)' }))),
     );
     const xf = h(
@@ -51,8 +51,7 @@ export class MixerPanel {
       { class: 'xfader-box' },
       h('div', { class: 'label' }, 'Crossfader'),
       w(fader(reg, 'mixer.xfader', { orientation: 'h', length: 220, label: 'Crossfader', center: true })),
-      h('div', { class: 'knob-row' }, w(knob(reg, 'mixer.xcurve', 'Curve')), w(hwButton(reg, 'mixer.hamster', 'Reverse', { title: 'Hamster (reverse) crossfader' }))),
-      h('p', { class: 'note', style: { maxWidth: '220px' } }, 'Curve left = smooth blend, right = sharp scratch cut.'),
+      h('div', { class: 'knob-row', title: 'Curve: left for a smooth blend, right for a sharp scratch cut' }, w(knob(reg, 'mixer.xcurve', 'Curve')), w(hwButton(reg, 'mixer.hamster', 'Reverse', { title: 'Reverse the crossfader' }))),
     );
     wrap.append(master, xf);
     this.el = wrap;

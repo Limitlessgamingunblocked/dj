@@ -246,7 +246,7 @@ export const sunrise: VenueDef = {
   short: 'Sunrise',
   place: 'A hillside at dawn',
   kind: 'Open air · closing set',
-  blurb: 'A minimal stage at the foot of a hill, ten thousand people up the slope and the horizon in front of them. It starts in the dark; the sunrise is the light show.',
+  blurb: 'A stage at the foot of a hill. It starts in the dark; the sunrise is the light show.',
   palette: ['#ffb070', '#ff6a8a', '#8a88ff'],
   ui: '#ffb070',
   capacity: '10,000',

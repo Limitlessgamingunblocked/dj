@@ -34,7 +34,7 @@ export class KeysEditor {
       setPrefs({ keys: {} });
       toast('Keyboard shortcuts are back to the defaults');
     });
-    this.el = h('div', { class: 'keys-editor' }, h('p', { class: 'note set-row' }, 'Click a key, then press the one you want (hold Shift for the Shift layer). Backspace leaves it without a key, Esc cancels. A key can only do one thing: taking one that is in use clears it from the other action.'), this.list, h('div', { class: 'toggle-row set-row' }, resetAll));
+    this.el = h('div', { class: 'keys-editor' }, h('p', { class: 'note set-row' }, 'Click a key, then press the new one. Backspace clears it, Esc cancels.'), this.list, h('div', { class: 'toggle-row set-row' }, resetAll));
     onPrefs((_, changed) => changed.has('keys') && this.render());
     this.render();
   }

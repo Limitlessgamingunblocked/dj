@@ -50,15 +50,15 @@ export class LibraryPanel {
     this.folderInput.addEventListener('change', onPick(this.folderInput));
 
     this.side = h('nav', { class: 'lib-side', 'aria-label': 'Library sources and crates' });
-    this.search = h('input', { class: 'search', type: 'search', placeholder: 'Search title or artist (try bpm:120-128 or key:8A)', 'aria-label': 'Search library' }) as HTMLInputElement;
+    this.search = h('input', { class: 'search', type: 'search', placeholder: 'Search', title: 'Title or artist. Also try bpm:120-128 or key:8A', 'aria-label': 'Search library' }) as HTMLInputElement;
     this.bpmMin = h('input', { type: 'number', min: 40, max: 250, placeholder: 'min', 'aria-label': 'Minimum BPM' }) as HTMLInputElement;
     this.bpmMax = h('input', { type: 'number', min: 40, max: 250, placeholder: 'max', 'aria-label': 'Maximum BPM' }) as HTMLInputElement;
     this.keyMatch = h(
       'select',
-      { 'aria-label': 'Key filter', title: 'Harmonic mixing: tracks whose key suits what is playing on the master deck' },
-      h('option', { value: 'all' }, 'All keys'),
-      h('option', { value: 'mark' }, 'Mark key matches'),
-      h('option', { value: 'only' }, 'Only key matches'),
+      { 'aria-label': 'Key filter', title: 'Tracks whose key suits the master deck' },
+      h('option', { value: 'all' }, 'Any key'),
+      h('option', { value: 'mark' }, 'Highlight key matches'),
+      h('option', { value: 'only' }, 'Key matches only'),
     ) as HTMLSelectElement;
     this.keyMatch.value = 'mark';
     this.countEl = h('span', { class: 'label' });
@@ -77,10 +77,10 @@ export class LibraryPanel {
     const moreBtn = h('button', { class: 'btn', title: 'More library actions', 'aria-label': 'More library actions' }, '⋯');
     moreBtn.addEventListener('click', (e) =>
       contextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
-        { label: 'Import a folder of music…', action: () => this.folderInput.click() },
+        { label: 'Import a folder…', action: () => this.folderInput.click() },
         'sep',
-        { label: 'Export crates & cue points (JSON)', action: () => this.exportJson() },
-        { label: 'Import crates & cue points (JSON)…', action: () => this.importJson() },
+        { label: 'Back up crates and cues', action: () => this.exportJson() },
+        { label: 'Restore crates and cues…', action: () => this.importJson() },
       ]),
     );
     this.thead = h('thead');
@@ -168,7 +168,7 @@ export class LibraryPanel {
     const all = lib.list();
     this.side.append(
       item('Collection', '◉', all.length, this.view.kind === 'all', () => this.setView({ kind: 'all' })),
-      item('Demo tracks', '♪', all.filter((t) => t.source === 'demo').length, this.view.kind === 'demo', () => this.setView({ kind: 'demo' })),
+      item('Originals', '♪', all.filter((t) => t.source === 'demo').length, this.view.kind === 'demo', () => this.setView({ kind: 'demo' })),
       item('Favourites', '★', all.filter((t) => t.fav).length, this.view.kind === 'favs', () => this.setView({ kind: 'favs' })),
       item('History', '↺', lib.history.length, this.view.kind === 'history', () => this.setView({ kind: 'history' })),
     );
@@ -398,8 +398,6 @@ export class LibraryPanel {
       ['energy', 'Energy'],
       [null, 'Tags'],
       ['time', 'Time'],
-      ['bitrate', 'kbps'],
-      ['format', 'Type'],
       [null, 'Load'],
     ];
     clear(this.thead);
@@ -422,8 +420,8 @@ export class LibraryPanel {
     if (!this.rows.length) {
       const msg =
         this.view.kind === 'crate'
-          ? h('div', { class: 'empty' }, h('strong', {}, 'This crate is empty'), 'Drag tracks from the collection onto the crate name, or drop audio files here.')
-          : h('div', { class: 'empty' }, h('strong', {}, 'No tracks match'), 'Clear the search, or drop MP3, WAV, AIFF, FLAC, OGG or M4A files anywhere to import them.');
+          ? h('div', { class: 'empty' }, h('strong', {}, 'Empty crate'), 'Drag tracks onto its name in the sidebar.')
+          : h('div', { class: 'empty' }, h('strong', {}, 'No tracks match'), 'Try a different search, or drop audio files here to import them.');
       this.tbody.append(h('tr', {}, h('td', { colspan: cols.length }, msg)));
       return;
     }
@@ -475,8 +473,6 @@ export class LibraryPanel {
         h('td', { class: 'num' }, energy),
         h('td', {}, tags),
         h('td', { class: 'num' }, a ? formatTime(a.duration) : '—'),
-        h('td', { class: 'num' }, t.meta.bitrate ? String(t.meta.bitrate) : '—'),
-        h('td', { class: 'num' }, t.meta.format),
         h('td', {}, loads),
       );
       row.addEventListener('click', () => this.app.select(t));
@@ -510,7 +506,7 @@ export class LibraryPanel {
     const R = this.app.sideDeck('R');
     const target = !e.deck(L).playing ? L : !e.deck(R).playing ? R : null;
     if (target === null) {
-      toast('Both decks are playing. Pause one, or use the numbered Load buttons.');
+      toast('Both decks are playing. Pause one first.');
       return;
     }
     void this.app.loadTrack(target, t.id);
@@ -545,7 +541,7 @@ export class LibraryPanel {
     const all = lib.list();
     const out = [
       { id: 'all', name: 'Collection', count: all.length, depth: 0, folder: false },
-      { id: 'demo', name: 'Demo tracks', count: all.filter((t) => t.source === 'demo').length, depth: 0, folder: false },
+      { id: 'demo', name: 'Originals', count: all.filter((t) => t.source === 'demo').length, depth: 0, folder: false },
       { id: 'favs', name: 'Favourites', count: all.filter((t) => t.fav).length, depth: 0, folder: false },
       { id: 'history', name: 'History', count: lib.history.length, depth: 0, folder: false },
     ];
