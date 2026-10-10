@@ -1,7 +1,7 @@
 /*
  * The hype dancers: two glam dancers on lit podiums either side of the DJ.
- * They dance on the beat, point at you, clap through the build, jump on the
- * drop and hold sparkler bottles up on a HELL YEAH. Built on the same
+ * They dance on the beat, point at you, clap through the build and jump on
+ * the drop. Built on the same
  * procedural avatar as you (Avatar's 'hype' mode); their looks come from a
  * few go-go styles (crop or halter tops, mini skirts, go-go boots, long
  * hair) with skin, hair and colours varied by seed, so each venue has its
@@ -197,11 +197,6 @@ export class HypeSquad {
     });
     this.podiums.clear();
     this.ringMats = [];
-  }
-
-  /** HELL YEAH: sparklers up */
-  cheer(): void {
-    for (const d of this.dancers) d.cheer();
   }
 
   /** every frame: dance; the rings take the palette and the kick */

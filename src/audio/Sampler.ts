@@ -42,7 +42,7 @@ export class Sampler {
 
   private extras = new Map<string, AudioBuffer>();
 
-  /** a one-shot outside the 8 slots (the HELL YEAH air horn), played into the mix like the slots */
+  /** a one-shot outside the 8 slots (the air horn pad), played into the mix like the slots */
   setExtra(name: string, pcm: PcmData): void {
     const ch = pcm.channels;
     const buf = this.ctx.createBuffer(ch.length, ch[0].length, pcm.sampleRate);

@@ -15,7 +15,6 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import type { LyricFrame } from '../lyrics/LyricsEngine';
-import type { LyricLine } from '../lyrics/lyrics';
 import type { Features } from './AudioFeatures';
 import { LyricsLayer, type LyricStyle } from './LyricsLayer';
 import { Director, TRANSITIONS, type TransitionKind } from './director';
@@ -214,8 +213,6 @@ export class Visualizer {
   private frames = 0;
   /** flashing is reduced: strobes stay under 3 a second (set by the stage from the lights desk) */
   safe = false;
-  /** a line shouted on the screens over whatever's playing (HELL YEAH!) */
-  private shouted: { line: LyricLine; at: number } | null = null;
   readonly settings: VisSettings;
 
   constructor(
@@ -287,24 +284,6 @@ export class Visualizer {
     this.director.played(id);
   }
 
-  /** put a line up on the screens in the lyrics' neon type for a couple of seconds, word by word */
-  shout(text: string, secs = 2.6): void {
-    const words = text.split(/\s+/).filter(Boolean);
-    const step = Math.min(0.3, 1 / Math.max(1, words.length));
-    this.shouted = { line: { t: 0, end: secs, text, hook: true, words: words.map((w, i) => ({ t: i * step, end: secs, text: w })) }, at: performance.now() };
-  }
-
-  private shoutFrame(): LyricFrame | null {
-    const sh = this.shouted;
-    if (!sh) return null;
-    const pos = (performance.now() - sh.at) / 1000;
-    if (pos > sh.line.end + 0.9) {
-      this.shouted = null;
-      return null;
-    }
-    return { deck: 0, title: '', lines: [sh.line], index: 0, line: pos <= sh.line.end ? sh.line : null, next: null, pos, lineStarted: false };
-  }
-
   nextMode(): void {
     const i = this.modes.indexOf(this.current);
     this.setMode(this.modes[(i + 1) % this.modes.length].id);
@@ -358,8 +337,7 @@ export class Visualizer {
     }
     this.trans.enabled = !!this.prev;
     this.current.prerender?.(r);
-    const shout = this.shoutFrame();
-    const fx = this.lyrics.draw(shout ?? (s.lyrics ? (lyric?.frame ?? null) : null), f, lyric?.colors ?? DEFAULT_COLORS, shout ? 'neon' : s.lyricStyle, dt, f.time);
+    const fx = this.lyrics.draw(s.lyrics ? (lyric?.frame ?? null) : null, f, lyric?.colors ?? DEFAULT_COLORS, s.lyricStyle, dt, f.time);
     const tu = this.text.uniforms;
     tu.uOn.value = fx.on;
     tu.uWave.value = fx.wave;

@@ -62,8 +62,6 @@ export interface ShowControls {
   laserHold: boolean;
   /** the hype dancers on podiums either side of the booth */
   dancers: boolean;
-  /** HELL YEAH fires by itself on the big moments (streaks, built drops, the encore, a raid) */
-  hellyeah: boolean;
 }
 
 export interface ShowState {
@@ -152,7 +150,6 @@ export class LightShow {
     blackoutHold: false,
     laserHold: false,
     dancers: true,
-    hellyeah: true,
   };
   readonly state: ShowState;
   private venuePalette: THREE.Color[] = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];

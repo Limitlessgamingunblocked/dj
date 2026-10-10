@@ -4,7 +4,7 @@
  *   light.strobe / light.blinder / light.lasers / light.blackout  (hold)
  *   light.co2 / light.pyro / light.confetti (hit),
  *   light.auto / light.dropfx / light.autopyro / light.autoconfetti (toggle)
- *   fun.hellyeah / fun.airhorn (the party pads, app/party.ts)
+ *   fun.airhorn (the air horn pad, app/party.ts)
  */
 import type { ControlRegistry } from '../core/controls';
 import type { LightShow } from '../three/venues/show';
@@ -99,19 +99,9 @@ export function registerLightControls(reg: ControlRegistry, show: LightShow, cha
   });
 }
 
-/** the party pads: HELL YEAH (Shift+H) and the air horn (Shift+J) */
-export function registerPartyControls(reg: ControlRegistry, party: { moment(what: 'pad'): boolean; airhorn(): void }): void {
-  let yeahAt = 0;
+/** the air horn pad (Shift+J) */
+export function registerPartyControls(reg: ControlRegistry, party: { airhorn(): void }): void {
   let hornAt = 0;
-  reg.register({
-    id: 'fun.hellyeah',
-    label: 'Party: HELL YEAH!',
-    kind: 'button',
-    press: () => {
-      if (party.moment('pad')) yeahAt = performance.now();
-    },
-    lit: () => (performance.now() - yeahAt < 1500 ? '#ff2a3c' : false),
-  });
   reg.register({
     id: 'fun.airhorn',
     label: 'Party: air horn',

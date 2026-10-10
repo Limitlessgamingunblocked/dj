@@ -22,7 +22,6 @@ export class LightsPanel {
   private confettiBtn: HTMLElement;
   private calmBtn: HTMLElement;
   private dancersBtn: HTMLElement;
-  private yeahBtn: HTMLElement;
   private palBtns = new Map<string, HTMLElement>();
   private laserBtns = new Map<string, HTMLElement>();
   private patBtns = new Map<string, HTMLElement>();
@@ -57,7 +56,6 @@ export class LightsPanel {
     this.pyroBtn = toggle('Pyro on drops', 'Flame jets (or cold-spark fountains indoors) go off on drops, then chase the next downbeats', () => c.pyro, (v) => (c.pyro = v));
     this.confettiBtn = toggle('Confetti on drops', 'The confetti cannons go off on a big drop, at most every 90 seconds so it stays special', () => c.confetti, (v) => (c.confetti = v));
     this.dancersBtn = toggle('Hype dancers', 'Two dancers on podiums either side of the booth (not in the Bedroom)', () => c.dancers, (v) => (c.dancers = v));
-    this.yeahBtn = toggle('HELL YEAH on big moments', 'Fires by itself on a built drop, every fourth clean mix in a row, the encore or a raid, at most once every 45 seconds', () => c.hellyeah, (v) => (c.hellyeah = v));
 
     const pal = h('div', { class: 'seg', role: 'group', 'aria-label': 'Colours' });
     for (const p of PALETTES) {
@@ -148,9 +146,7 @@ export class LightsPanel {
         h('p', { class: 'note' }, 'Hold a pad or its key to fire it. The rest follows the music by itself.'),
         h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn, this.pyroBtn, this.confettiBtn, this.calmBtn),
         h('h3', {}, 'Party'),
-        h('div', { class: 'light-pads party-pads' }, pad('fun.hellyeah', 'HELL YEAH!', 'yeah-pad'), pad('fun.airhorn', 'Air horn', 'airhorn')),
-        h('p', { class: 'note' }, 'HELL YEAH! sets the whole room off: air horn, sparklers, confetti, beach balls and a crowd surfer.'),
-        h('div', { class: 'toggle-row' }, this.dancersBtn, this.yeahBtn),
+        h('div', { class: 'toggle-row party-row' }, pad('fun.airhorn', 'Air horn', 'airhorn'), this.dancersBtn),
         h('div', { class: 'field' }, 'Colours', pal, customRow),
         h('div', { class: 'field' }, 'Lasers', lasers),
         h('div', { class: 'field' }, 'Laser look', pats),
@@ -169,7 +165,6 @@ export class LightsPanel {
     setClass(this.confettiBtn, 'active', c.confetti);
     setClass(this.calmBtn, 'active', c.reduceFlash);
     setClass(this.dancersBtn, 'active', c.dancers);
-    setClass(this.yeahBtn, 'active', c.hellyeah);
     for (const [id, b] of this.palBtns) setClass(b, 'active', id === c.palette);
     this.customInputs.forEach((inp, i) => {
       if (document.activeElement !== inp && inp.value !== c.custom[i]) inp.value = c.custom[i];

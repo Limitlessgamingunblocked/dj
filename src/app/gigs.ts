@@ -27,7 +27,6 @@ import { openBookings } from '../ui/BookingsPanel';
 import { GigHud } from '../ui/GigHud';
 import { openGigSetup, type GigVenue } from '../ui/GigSetup';
 import { showResults } from '../ui/Results';
-import { streakMoment } from '../game/hellyeah';
 import { StreamChat } from '../ui/StreamChat';
 import { h } from '../ui/dom';
 import { openModal } from '../ui/modal';
@@ -67,8 +66,6 @@ export interface GigHost {
   replay(): { save(): Promise<boolean>; moment(label: string): void; clear(): void } | null;
   /** a crowd reaction for the room to play (cheer, groan, boo) */
   crowd(what: 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant'): void;
-  /** a big moment that might get a HELL YEAH (app/party.ts) */
-  moment(what: 'streak' | 'drop' | 'encore' | 'raid'): void;
   /** the board on the stage (for "play five boards") */
   boardId(): string;
   /** a venue's picture, for the bookings */
@@ -244,10 +241,7 @@ export class GigDirector {
     this.toolsWatch.observe(hudEl);
     document.body.classList.add('gig-on');
     if (cfg.venue === 'bedroom') {
-      this.chat = new StreamChat(() => this.host.djName() || 'DJ', () => {
-        this.host.signature('raid');
-        this.host.moment('raid');
-      });
+      this.chat = new StreamChat(() => this.host.djName() || 'DJ', () => this.host.signature('raid'));
       this.host.stageEl.append(this.chat.el);
     }
     this.applyAssist();
@@ -356,12 +350,6 @@ export class GigDirector {
   /* -------------------------------------------------------------- */
   /* assists                                                        */
   /* -------------------------------------------------------------- */
-
-  /** a HELL YEAH line from the booth, and the stream chat losing it */
-  crewLine(text: string): void {
-    this.hud?.say('Crew:', text);
-    if (this.chat) for (let i = 0; i < 3; i++) this.chat.say(i ? 'HELL YEAH' : text);
-  }
 
   setAssist(a: Assist): void {
     if (!this.gig) return;
@@ -509,7 +497,6 @@ export class GigDirector {
   private handle(ev: VibeEvent | GigEvent): void {
     if (ev.kind === 'streak') {
       if (ev.count >= 2) this.hud?.streak(ev.count, ev.mult, ev.bonus);
-      if (streakMoment(ev.count)) this.host.moment('streak');
       return;
     }
     if (ev.kind === 'request') {
@@ -530,7 +517,6 @@ export class GigDirector {
         this.hud?.say('Crowd:', '"One more tune! One more tune!"');
         this.host.crowd('chant');
         this.host.callout({ text: 'One more tune! Play an encore', tone: 'hype' });
-        this.host.moment('encore');
       }
       return;
     }
@@ -539,7 +525,6 @@ export class GigDirector {
     if (ev.kind === 'transition') this.host.mark('transition', TRANSITION_LABEL[ev.name]);
     if (ev.kind === 'comeback') this.host.mark('vibe', 'Comeback');
     this.chat?.react(ev);
-    if (ev.kind === 'drop' && ev.built) this.host.moment('drop');
     if (!this.gig) return;
     // the room and the crew react
     if (ev.kind === 'transition' || ev.kind === 'comeback') this.host.crowd('cheer');
