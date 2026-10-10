@@ -12,6 +12,7 @@ import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, LightBar } from './details';
+import { Dresser } from './dress';
 import { block, booth, Crowd, crowdArea, HazeLayer, MovingHeads, speaker, Strobes, TABLE_Y } from './fixtures';
 import { concreteTexture, withSurface } from './tex';
 import { beams, silhouettes } from './warehouse';
@@ -181,6 +182,72 @@ class Berghain extends VenueBase {
     this.wash(V(10, 3, -20), 2, 2.2, 10, 0.3);
     // red work light grazing the booth wall, so the niche reads from the floor
     this.wash(V(0, 2.4, -3.4), 2, 2.6, 10, 0.4);
+    this.dress();
+  }
+
+  /**
+   * What's left of the power station: the crane girder and its rails, old
+   * pipes with valves and gauges, a bank of control cabinets with a few lamps
+   * still lit, a big sliding door, the balcony's brackets and mesh, a spiral
+   * stair up to it, trays and a duct overhead, fire doors at the exits.
+   */
+  private dress(): void {
+    const d = new Dresser(84);
+    const FY = -STAGE;
+    // the travelling crane: rails along both walls, the girder across the hall, its hook block and chains
+    for (const s of [-1, 1]) d.box('rust', 0.5, 0.6, 35, s * 12.7, 13.0, -14);
+    d.box('rust', 25.4, 0.9, 0.6, 0, 13.75, -20);
+    for (const s of [-1, 1]) d.box('rust', 0.9, 0.5, 1.4, s * 12.2, 13.55, -20);
+    d.rod('steel', V(-2.2, 13.3, -20), V(-2.2, 10.4, -20), 0.02, 6);
+    d.box('yellow', 0.42, 0.6, 0.3, -2.2, 10.1, -20);
+    d.put('steel', new THREE.TorusGeometry(0.14, 0.035, 6, 12, Math.PI * 1.4).rotateZ(-0.6).translate(-2.2, 9.65, -20));
+    for (const x of [3.6, 6.2]) d.chain(V(x, 13.3, -20), V(x, 13.3 - 2.6 - (x % 2), -20));
+    // old pipes on the front wall either side of the niche, valves and gauges on them; more on the back wall
+    for (const x of [7.1, 7.7]) {
+      d.pipe(V(x, FY, -1.15), V(x, 15, -1.15), x === 7.1 ? 0.16 : 0.1);
+      for (let y = 1; y < 15; y += 3) d.box('rust', 0.08, 0.06, 0.25, x, y, -1.02);
+    }
+    d.pipe(V(7.1, 3.2, -1.15), V(10.4, 3.2, -1.15), 0.12);
+    d.valve(V(7.1, 0.7, -1.32), Math.PI);
+    d.valve(V(9.2, 3.2, -1.3), Math.PI, 0.14);
+    d.gauge(V(7.7, 1.5, -1.26), Math.PI);
+    d.gauge(V(8.4, 3.55, -1.06), Math.PI, 0.12);
+    for (const x of [-9, -9.6, 9.5]) d.pipe(V(x, FY, -31.8), V(x, 14, -31.8), 0.14);
+    d.valve(V(-9.3, 0.4, -31.6), 0);
+    d.gauge(V(-9.6, 1.4, -31.62), 0);
+    // the control room's old cabinets on the front wall, left of the niche
+    d.cabinets(V(-7.4, FY, -1.21), Math.PI, 5);
+    // a big steel sliding door in the back wall, its rail over it
+    d.box('rust', 5.2, 5.2, 0.12, 5.4, FY + 2.6, -31.92);
+    for (let x = 3.0; x <= 7.8; x += 0.6) d.box('rust', 0.06, 5.1, 0.05, x, FY + 2.6, -31.84);
+    d.box('steel', 7, 0.18, 0.16, 6, FY + 5.4, -31.88);
+    // fire doors under the exit signs, extinguishers on the pillars, a call point
+    d.fireDoor(V(-12.97, FY, -29), Math.PI / 2, 1.6, 2.3, false);
+    d.fireDoor(V(12.97, FY, -20), -Math.PI / 2, 1.6, 2.3, false);
+    d.fireDoor(V(-6, FY, -31.97), 0, 1.6, 2.3, false);
+    for (const z of [-13, -21]) for (const x of [-6.5, 6.5]) d.extinguisher(V(x, FY + 0.4, z + 0.655), 0);
+    d.callPoint(V(12.95, FY + 1.4, -18.6), -Math.PI / 2);
+    // overhead: cable trays down the walls, a square duct on the right, conduit to the light bar
+    for (const s of [-1, 1]) d.tray(V(s * 12.6, 8.4, 1), V(s * 12.6, 8.4, -31), 18, 0.4);
+    for (let z = 2; z > -31; z -= 1.5) {
+      d.box('galv', 1.4, 0.9, 1.5, 10.6, 12, z - 0.75);
+      d.box('galv', 1.5, 1.0, 0.06, 10.6, 12, z);
+    }
+    d.conduit([V(-12.9, FY + 1.2, -12.2), V(-12.9, 9.4, -12.2), V(-12.4, 9.4, -12.4)], 0.02);
+    // the balcony: brackets under it, mesh behind the rail, a spiral stair up from the floor at the back
+    for (let z = -4; z >= -28; z -= 3) d.rod('steel', V(-12.95, 3.4, z), V(-9.6, 5.3, z), 0.04, 6);
+    d.fence(V(-9.05, 5.68, -3), V(-9.05, 5.68, -29), 1.0);
+    d.box('blackMetal', 2.6, 0.06, 1.0, -10.7, 5.66, -29.5);
+    d.spiralStair(V(-10.6, FY, -30.7), 5.68 - FY, 1.1, Math.PI);
+    // the niche behind the DJ: a rack, cases, a panel with conduit
+    d.ampRack(V(1.85, 0, 3.3), Math.PI, 6);
+    d.roadCase(V(-1.85, 0, 3.4), Math.PI, 1.0, 0.7, 0.6);
+    d.roadCase(V(-1.85, 0.7, 3.4), Math.PI + 0.1, 0.8, 0.45, 0.5);
+    d.panel(V(0.5, 0, 3.98), Math.PI, 0.5, 0.6, 3.6);
+    // the floor: concrete worn by years of it, a few cups and cans
+    d.wear(-12.6, 12.6, -31.6, -1.0, FY, 'berghain', 85, 'dark');
+    d.litter(-10, 10, -24, -2.4, 80, FY);
+    this.add(d.done());
   }
 }
 

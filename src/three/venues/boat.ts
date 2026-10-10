@@ -16,6 +16,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { Dresser } from './dress';
 import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
@@ -382,6 +383,60 @@ class Boat extends OpenAir {
       this.group.add(c.object);
       this.crowd.push(c);
     }
+    this.dress();
+  }
+
+  /** a working boat: life rings, nav lights, a radar mast, fenders, cleats and rope, cases at the stern */
+  private dress(): void {
+    const d = new Dresser(500);
+    const bowLen = 11;
+    // life rings on the rails
+    for (const [x, z, yaw] of [
+      [-TOP.x - 0.05, -4, -Math.PI / 2],
+      [TOP.x + 0.05, -9, Math.PI / 2],
+      [-TOP.x - 0.05, -12, -Math.PI / 2],
+      [TOP.x + 0.05, 1.5, Math.PI / 2],
+    ] as [number, number, number][])
+      d.lifebuoy(V(x, 0.75, z), yaw);
+    d.lifebuoy(V(-TOP.x * 0.62, LOWER_Y + 0.75, TOP.z0 - 5), -Math.PI / 2 + 0.25);
+    // the mast at the front of the top deck: radar, a horn, the masthead light; red and green running lights
+    const mx = -TOP.x + 0.7;
+    const mz = TOP.z0 + 0.5;
+    d.rod('white', V(mx, 0, mz), V(mx, 5.2, mz), 0.08, 8);
+    d.box('white', 1.4, 0.12, 0.25, mx, 4.2, mz);
+    d.box('black', 0.9, 0.08, 0.18, mx, 4.55, mz, 0.6);
+    d.put('steel', new THREE.ConeGeometry(0.08, 0.3, 8, 1, true).rotateZ(Math.PI / 2).translate(mx + 0.25, 3.8, mz));
+    d.put(d.glow('#ffffff', 'steady', 2.4), new THREE.SphereGeometry(0.07, 8, 6).translate(mx, 5.3, mz));
+    d.put(d.glow('#ff2a2a', 'steady', 2.4), new THREE.BoxGeometry(0.12, 0.12, 0.12).translate(-TOP.x - 0.1, 1.2, TOP.z0 + 0.3));
+    d.put(d.glow('#2aff6a', 'steady', 2.4), new THREE.BoxGeometry(0.12, 0.12, 0.12).translate(TOP.x + 0.1, 1.2, TOP.z0 + 0.3));
+    d.put(d.glow('#ffffff', 'steady', 2), new THREE.SphereGeometry(0.06, 8, 6).translate(0, 4.0, 4.4));
+    // the ensign at the stern, on a short staff over the water
+    d.flag(V(0, 0, 4.45), 2.6, 'red');
+    // fenders hanging off the hull, white
+    for (const s of [-1, 1]) for (let z = TOP.z0 - 6; z < TOP.z1; z += 3.2) {
+      const x = s * (TOP.x + 0.24) * (z < TOP.z0 ? 0.55 + 0.45 * ((z - (TOP.z0 - bowLen)) / bowLen) : 1);
+      d.put('white', new THREE.CylinderGeometry(0.13, 0.13, 0.6, 10).translate(x, LOWER_Y - 0.5, z));
+      d.cable(V(x, LOWER_Y - 0.2, z), V(x * 0.98, LOWER_Y + 1.0, z), 0.02, 0.008);
+    }
+    // cleats and a coil of rope on the bow deck, the anchor at the stem
+    for (const s of [-1, 1])
+      for (const z of [TOP.z0 - 2, TOP.z0 - 7]) {
+        const x = s * TOP.x * (0.5 + 0.45 * ((z - (TOP.z0 - bowLen)) / bowLen)) * 0.92;
+        d.box('steel', 0.08, 0.08, 0.3, x, LOWER_Y + 0.04, z);
+        d.box('steel', 0.06, 0.06, 0.06, x, LOWER_Y + 0.09, z);
+      }
+    for (let i = 0; i < 4; i++) d.put('cream', new THREE.TorusGeometry(0.22 - i * 0.03, 0.025, 6, 16).rotateX(Math.PI / 2).translate(-1.2, LOWER_Y + 0.03 + i * 0.045, TOP.z0 - bowLen + 1.6));
+    d.put('blackMetal', new THREE.TorusGeometry(0.25, 0.04, 6, 12, Math.PI).rotateZ(Math.PI).translate(0, LOWER_Y - 0.6, TOP.z0 - bowLen - 0.2));
+    d.rod('blackMetal', V(0, LOWER_Y - 0.6, TOP.z0 - bowLen - 0.2), V(0, LOWER_Y + 0.1, TOP.z0 - bowLen - 0.2), 0.04, 6);
+    // the crew's gear at the stern: cases, the amp rack, cables to the booth
+    d.roadCase(V(-3.0, 0, 3.0), 0.1, 0.9, 0.6, 0.6);
+    d.roadCase(V(-3.0, 0.6, 3.0), 0.05, 0.7, 0.4, 0.5);
+    d.ampRack(V(3.0, 0, 3.0), Math.PI - 0.15, 5);
+    d.cable(V(3.0, 0.5, 2.7), V(1.2, 0.9, 0.4), 0.4, 0.012);
+    // the deck after a few hours
+    d.wear(-TOP.x + 0.2, TOP.x - 0.2, TOP.z0 + 0.2, TOP.z1 - 0.2, 0, 'boat', 500, 'dark');
+    d.litter(-TOP.x + 0.6, TOP.x - 0.6, TOP.z0 + 0.6, -1.5, 30);
+    this.add(d.done());
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

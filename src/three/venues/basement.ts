@@ -15,6 +15,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { nameStyleFor } from '../../name/venueStyles';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { boothClutter, exitSign } from './details';
+import { Dresser } from './dress';
 import { atBar } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, mirrorBall, speaker, Strobes, TABLE_Y } from './fixtures';
 import { MirrorBallSpots } from './mirrorball';
@@ -301,6 +302,48 @@ class Basement extends VenueBase {
 
     this.drips = new Drips(drips);
     this.group.add(this.drips.object);
+    this.dress();
+  }
+
+  /** what a real basement club has on its walls, ceiling and floor */
+  private dress(): void {
+    const { x0, x1, z0, z1, h } = BASEMENT;
+    const d = new Dresser(808);
+    const warm = d.glow('#ffb36b', 'breathe', 1.5);
+    // conduit along both walls under the ceiling, a breaker panel by the booth, extinguishers
+    for (const [x, yaw] of [
+      [x0 + 0.03, Math.PI / 2],
+      [x1 - 0.03, -Math.PI / 2],
+    ] as [number, number][]) {
+      const side = Math.sign(x);
+      d.conduit([V(x - side * 0.02, h - 0.25, z1 - 0.3), V(x - side * 0.02, h - 0.25, -3), V(x - side * 0.02, h - 0.25, z0 + 0.4)]);
+      // caged lamps down the walls: low, warm, the only light that isn't the show
+      for (const z of [-1.8, -4.6, -7.4]) d.bulkhead(V(x, 2.05, z), yaw, warm);
+    }
+    d.panel(V(x1 - 0.02, 0.9, 1.0), -Math.PI / 2, 0.55, 0.75, h);
+    d.extinguisher(V(x0 + 0.02, 0.35, 1.1), Math.PI / 2);
+    d.extinguisher(V(2.6, 0.35, z0 + 0.02), 0);
+    d.callPoint(V(x1 - 0.02, 1.4, -0.9), -Math.PI / 2);
+    // a duct down the left of the ceiling over the front half, between the pipes and the wall, turning up into the slab
+    d.duct(V(x0 + 0.65, h - 0.28, -4.4), V(x0 + 0.65, h - 0.28, z1 - 0.3), 0.2, h);
+    d.rod('duct', V(x0 + 0.65, h - 0.28, -4.45), V(x0 + 0.65, h, -4.45), 0.2, 16);
+    // the fire exit under its sign, the bar's neon, flyers pasted over flyers
+    d.fireDoor(V(3.6, 0, z0 + 0.02), 0, 1.4, 2.0, false);
+    d.neon('BAR', '#ff3040', V(-2.4, 2.18, z0 + 0.05), 0, 0.3);
+    d.posters(V(x0 + 0.02, 1.35, -5.6), Math.PI / 2, 1.8, 1.1, 12);
+    d.posters(V(x1 - 0.02, 1.35, -3.6), -Math.PI / 2, 1.6, 1.0, 10);
+    d.posters(V(x1 - 0.02, 1.4, -7.8), -Math.PI / 2, 1.2, 0.9, 8);
+    // behind the DJ: road cases, the amp rack, a hazer on the floor by the speakers
+    d.roadCase(V(-1.95, 0, 1.25), 0.15, 0.9, 0.55, 0.6);
+    d.roadCase(V(-1.95, 0.55, 1.25), 0.1, 0.8, 0.45, 0.55);
+    d.ampRack(V(2.05, 0, 1.25), Math.PI + 0.1, 5);
+    d.hazer(V(x1 - 0.5, 0, -0.5), -Math.PI / 2 - 0.4);
+    d.cable(V(2.05, 0.5, 1.0), V(1.35, 0.6, 0.35), 0.35, 0.012);
+    d.cable(V(-1.95, 0.4, 1.0), V(-1.35, 0.6, 0.35), 0.3, 0.012);
+    // the floor after a few hundred nights, cups and cans underfoot
+    d.wear(x0 + 0.2, x1 - 0.2, z0 + 0.2, z1 - 0.2, 0, 'basement', 808, 'dark');
+    d.litter(x0 + 0.4, x1 - 0.4, z0 + 1.2, -0.9, 46);
+    this.add(d.done());
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

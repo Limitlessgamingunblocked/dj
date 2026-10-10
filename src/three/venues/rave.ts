@@ -19,6 +19,7 @@ import type { Features } from '../../visualizer/AudioFeatures';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { Confetti } from './confetti';
 import { barCounter, boothClutter, DustMotes, exitSign, PillarBars } from './details';
+import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
 import { atBar, crewArc, lightingTech, security, vipCrew } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, HazeLayer, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
@@ -350,6 +351,55 @@ class WarehouseRave extends VenueBase {
       jamb.position.set(s * (DOOR.w / 2 + 0.15), FL + DOOR.h / 2, Z0 + 0.15);
       this.group.add(jamb);
     }
+    this.dress();
+  }
+
+  /** the shed's working parts: lamps and ducts in the roof, cable trays, the barrier, cases, the floor */
+  private dress(): void {
+    const x0 = -W / 2;
+    const x1 = W / 2;
+    const d = new Dresser(801);
+    const sodium = d.glow('#ff9a3a', 'breathe', 1.1);
+    for (const z of [-5, -12, -19, -26, -33]) for (const x of [-7, 0, 7]) d.highBay(V(x, H - 0.3, z), 1.6, sodium);
+    for (const x of [-5.5, 5.5]) d.duct(V(x, H - 1.9, Z1 - 1.5), V(x, H - 1.9, Z0 + 1.5), 0.42, H);
+    for (const s of [-1, 1]) d.tray(V(s * (W / 2 - 0.7), FL + 7.6, Z1 - 2), V(s * (W / 2 - 0.7), FL + 7.6, Z0 + 2), H, 0.45);
+    d.sprinkler(V(0, H - 0.5, Z1 - 1), V(0, H - 0.5, Z0 + 1), H);
+    // the barrier in front of the subs, cases and racks in the wings, hazers at the back of the stage
+    d.barrier(V(9.5, FL, -2.2), V(-9.5, FL, -2.2));
+    for (const s of [-1, 1]) {
+      d.roadCase(V(s * 8.2, 0, 4.4), s * 0.1, 1.2, 0.8, 0.8);
+      d.roadCase(V(s * 8.2, 0.8, 4.4), s * 0.05, 1.0, 0.6, 0.7);
+      d.roadCase(V(s * 6.9, 0, 4.9), -s * 0.15, 0.7, 1.1, 0.6);
+      d.ampRack(V(s * 8.6, 0, 1.6), s > 0 ? -Math.PI / 2 : Math.PI / 2, 8);
+      d.hazer(V(s * 4.6, 0, 4.9), Math.PI);
+      d.cable(V(s * 8.6, 0.6, 1.6), V(s * 3.5, 0.95, 0.2), 0.6, 0.02);
+    }
+    // front of house at the back of the floor, a cable ramp to the stage
+    d.foh(V(-4.5, FL, -31.2), 0, 2.6);
+    d.cableRamp(V(-4.5, FL, -30.3), V(-4.5, FL, -12));
+    // fire doors under the exit signs, extinguishers on the columns
+    d.fireDoor(V(-W / 2 + 0.03, FL, -33), Math.PI / 2, 1.6, 2.2, false);
+    d.fireDoor(V(W / 2 - 0.03, FL, -4), -Math.PI / 2, 1.6, 2.2, false);
+    for (const [s, z] of [
+      [-1, -8],
+      [1, -20],
+      [-1, -26],
+      [1, 4],
+    ] as [number, number][])
+      d.extinguisher(V(s * (W / 2 - 0.5), FL + 0.35, z), s > 0 ? -Math.PI / 2 : Math.PI / 2);
+    // pallets by the containers, paint and flyers on the back wall
+    d.pallets(V(-(W / 2 - 1.4), FL, -17.6), 0.2, 5);
+    d.pallets(V(W / 2 - 1.4, FL, -17.4), -0.1, 3);
+    d.pallets(V(-(W / 2 - 1.6), FL, -35.5), 0.5, 4);
+    d.graffiti(V(-(DOOR.w / 2 + (W - DOOR.w) / 4), FL + 2.4, Z0 + 0.04), 0, 6.4, 2.4, 811);
+    d.graffiti(V(DOOR.w / 2 + (W - DOOR.w) / 4, FL + 2.6, Z0 + 0.04), 0, 6.4, 2.4, 812);
+    d.posters(V(-DOOR.w / 2 - 1.2, FL + 1.5, Z0 + 0.06), 0, 1.6, 1.2, 10);
+    d.posters(V(x1 - 0.06, FL + 1.6, -15), -Math.PI / 2, 2.4, 1.2, 14);
+    d.panel(V(x0 + 0.04, FL + 1, -3), Math.PI / 2, 0.8, 1.0, FL + 7.6);
+    // the floor: wear across the whole slab, the night's cups and cans in the crowd
+    d.wear(x0 + 0.3, x1 - 0.3, Z0 + 0.3, -1.6, FL, 'rave', 801, 'dark');
+    d.litter(-11, 11, -27, -2.6, 140, FL);
+    this.add(d.done());
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

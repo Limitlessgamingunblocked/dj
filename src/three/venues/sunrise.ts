@@ -17,6 +17,7 @@ import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
 import { boothClutter } from './details';
+import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
 import { crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, Globes, HazeLayer, MovingHeads, speaker, TABLE_Y } from './fixtures';
@@ -209,6 +210,135 @@ class Sunrise extends OpenAir {
     };
     this.farCrowd = new FarCrowd(scatter(-90, 90, -95, -2.4, density, 704).map((p) => ({ ...p, y: groundY(p.x, p.z) })), { seed: 705, clothes, phones: 0.05, focus: V(0, 2, 6) });
     this.group.add(this.farCrowd.object);
+    this.dress(nm.sign !== undefined);
+  }
+
+  /**
+   * The hillside after a night of it: a dressed timber stage (greenery on
+   * the frame, drapes, rugs), festoons and bunting strung up the hill, trees
+   * against the sky, hay bales round fire pits, bell tents, a bar on a deck,
+   * fences, and the trodden grass.
+   */
+  private dress(hasSign: boolean): void {
+    const d = new Dresser(711);
+    const G = (x: number, z: number) => V(x, groundY(x, z), z);
+    const slope = Math.atan(0.13);
+    const half = (z: number) => 18 + (-z - 2) * 0.7;
+    // the stage: plank seams, a fascia, steps down the side, a rail at the back where the land falls away
+    for (let z = -1.3; z < 4.6; z += 0.16) d.box('darkWood', 12, 0.003, 0.012, 0, 0.0015, z);
+    d.box('darkWood', 12.1, 0.22, 0.05, 0, -0.11, -1.43);
+    d.steps(V(-7.68, -1.1, 0.6), Math.PI / 2, 6, 1.0, 1.1 / 6, 0.28, 'wood');
+    d.rail([V(-6, 0, 4.5), V(6, 0, 4.5)], 1.0, 2);
+    // rugs under the booth, wedges for the DJ, cases at the back corners
+    d.rug(V(0, 0, 0.9), 0, 3.2, 2.2, 0);
+    d.rug(V(-3.6, 0, 2.6), 0.2, 2.0, 1.4, 2);
+    for (const s of [-1, 1]) {
+      d.wedge(V(s * 1.9, 0, 0.1), Math.atan2(-s * 1.9, 0.5));
+      d.roadCase(V(s * 4.6, 0, 3.6), 0.1 * s, 1.0, 0.7, 0.7);
+      d.roadCase(V(s * 4.6, 0.7, 3.6), -0.05 * s, 0.8, 0.5, 0.6);
+    }
+    // the frame dressed: greenery along the front beam, vines hanging, drapes tied at the front posts
+    for (let x = -5.6; x <= 5.6; x += 0.32) {
+      d.put('foliage', new THREE.IcosahedronGeometry(0.16 + d.r() * 0.14, 0).translate(x, 4.62 + (d.r() - 0.5) * 0.12, -1.2 + (d.r() - 0.5) * 0.2));
+      if (d.r() < 0.45) {
+        const len = 0.5 + d.r() * 1.1;
+        d.put('leaf', new THREE.PlaneGeometry(0.1, len, 1, 2).translate(x + (d.r() - 0.5) * 0.2, 4.55 - len / 2, -1.25));
+      }
+    }
+    for (const s of [-1, 1]) {
+      const drape = new THREE.PlaneGeometry(0.8, 4.4, 10, 1);
+      const p = drape.attributes.position as THREE.BufferAttribute;
+      for (let j = 0; j < p.count; j++) {
+        const y = p.getY(j);
+        // gathered towards the post at the bottom
+        p.setX(j, p.getX(j) * (0.45 + 0.55 * ((y + 2.2) / 4.4)));
+        p.setZ(j, Math.sin(p.getX(j) * 26) * 0.04);
+      }
+      d.put('canvas', drape.translate(s * 5.35, 2.35, -1.36));
+    }
+    // a generator on the level by the stage, its feed to the stage
+    d.generator(V(9.5, -1.1, 3.2), -Math.PI / 2);
+    d.tube('rubber', [V(8.7, -1.06, 3.2), V(7.4, -1.06, 2.6), V(6.1, -0.9, 2.4)], 0.03, 5);
+
+    // posts up the hill, festoons zig-zagging between them, bunting on the cross spans
+    const bulb = d.glow('#ffcf7a', 'breathe', 2.2);
+    const rows = [-9, -22, -36, -52];
+    const post = (s: number, z: number) => {
+      const p = G(s * (half(z) * 0.5 + 3), z);
+      d.box('wood', 0.16, 5.2, 0.16, p.x, p.y + 2.6, p.z);
+      return p.setY(p.y + 5);
+    };
+    const tops = rows.map((z) => [post(-1, z), post(1, z)]);
+    for (const s of [-1, 1]) d.festoon(V(s * 5.6, 4.6, -1.2), tops[0][s < 0 ? 0 : 1], 0.5, bulb);
+    for (let i = 0; i < tops.length; i++) {
+      d.festoon(tops[i][0], tops[i][1], 1.4, bulb);
+      d.bunting(tops[i][0].clone().setY(tops[i][0].y - 0.3), tops[i][1].clone().setY(tops[i][1].y - 0.3), 1.6);
+      if (i > 0) for (const k of [0, 1]) d.festoon(tops[i - 1][k], tops[i][k], 0.6, bulb);
+    }
+    // delay speakers on poles for the top of the hill
+    for (const s of [-1, 1]) for (const z of [-30, -58]) d.poleSpeaker(G(s * (half(z) * 0.5 + 4.5), z), Math.PI, 4.2);
+
+    // trees: behind the stage where the land drops (they stand against the sunrise), and down both sides of the hill
+    for (const [x, z, h, kind] of [
+      [-11, 9, 9, 0], [12.5, 11, 10, 0], [-16.5, 14, 11, 1], [17.5, 7.5, 8.5, 0], [-24, 18, 12, 1], [26, 16, 11, 1], [-7.5, 22, 9, 0], [9, 26, 12, 1], [-31, 10, 10, 0], [33, 22, 13, 1],
+    ] as [number, number, number, number][]) {
+      if (kind) d.pine(G(x, z), h);
+      else d.tree(G(x, z), h);
+    }
+    for (const s of [-1, 1])
+      for (const z of [-6, -20, -34, -48, -64, -80]) {
+        const x = s * (half(z) + 7 + d.r() * 6);
+        if (d.r() < 0.5) d.pine(G(x, z), 9 + d.r() * 5);
+        else d.tree(G(x, z), 7 + d.r() * 4);
+      }
+
+    // round bales at the edges, square ones round two fire pits, rugs and blankets on the grass
+    for (const [x, z, yaw] of [[-30, -8, 0.4], [-33, -11, 1.3], [29, -12, 2.1], [34, -46, 0.2], [-38, -40, 1.1]] as [number, number, number][]) d.hayBale(G(x, z), yaw, true);
+    for (const [cx, cz] of [[-24, -18], [23, -30]] as [number, number][]) {
+      d.firePit(G(cx, cz));
+      for (let k = 0; k < 6; k++) {
+        const a = (k / 6) * Math.PI * 2 + 0.3;
+        const p = G(cx + Math.cos(a) * 2.2, cz + Math.sin(a) * 2.2);
+        d.hayBale(p, -a + Math.PI / 2);
+      }
+    }
+    for (const [x, z, yaw, seed] of [[-20, -10, 0.3, 1], [-22, -24, -0.5, 3], [19, -16, 0.8, 0], [21, -40, -0.2, 2], [-27, -48, 0.4, 1], [26, -56, 1.2, 3]] as [number, number, number, number][]) {
+      d.rug(G(x, z), yaw, 1.6, 1.2, seed, slope);
+    }
+    // bell tents at the top of the hill, lamps lit inside
+    const tentLamp = d.glow('#ffb46a', 'breathe', 1.4);
+    for (const [x, z, yaw] of [[-40, -58, 0.6], [-46, -50, 0.9], [-38, -70, 0.3], [42, -66, -0.5], [48, -58, -0.8]] as [number, number, number][]) d.bellTent(G(x, z), yaw, 2.2, tentLamp);
+    d.sign('CAMP', G(-34, -48).add(V(0, 1.5, 0)), 0.5, 1.2, 0.45, '#2a2018', '#f2e6c8', groundY(-34, -48));
+
+    // a bar on a timber deck at the side of the hill, counter facing down to the stage
+    const bx = -27;
+    const bz = -30;
+    const top = groundY(bx, bz - 2.5) + 0.15;
+    const low = Math.min(groundY(bx - 6, bz + 2.5), groundY(bx + 6, bz + 2.5));
+    d.box('wood', 13, top - low + 0.1, 5.4, bx, (top + low - 0.1) / 2, bz);
+    d.barTent(V(bx, top + 0.05, bz), 0, 11);
+    d.rail([V(bx - 6.5, top + 0.05, bz + 2.7), V(bx - 3, top + 0.05, bz + 2.7)], 1.0, 1.75);
+    d.rail([V(bx + 3, top + 0.05, bz + 2.7), V(bx + 6.5, top + 0.05, bz + 2.7)], 1.0, 1.75);
+    d.wheelieBins(G(bx + 8, bz + 1), 0, 3);
+    d.portaloos(G(40, -30), -Math.PI / 2 - 0.3, 6);
+    d.sign('TOILETS', G(37, -22).add(V(0, 1.6, 0)), -Math.PI / 2, 1.6, 0.5, '#2a2018', '#f2e6c8', groundY(37, -22));
+    // a post-and-rail fence round the field
+    for (const s of [-1, 1]) {
+      const pts: THREE.Vector3[] = [];
+      for (let z = -3; z >= -96; z -= 3) pts.push(G(s * (half(z) + 3), z));
+      d.postRail(pts);
+    }
+    // the name installation stands on two posts
+    if (hasSign)
+      for (const s of [-1, 1]) {
+        const x = -11 + Math.cos(0.3) * s * 2;
+        const z = -3 - Math.sin(0.3) * s * 2;
+        d.box('wood', 0.09, 2.9 - groundY(x, z), 0.09, x, (2.9 + groundY(x, z)) / 2, z, 0.3);
+      }
+    // the grass: trodden to mud in front of the stage, cups on the slope
+    d.mud(-14, 14, -26, -2.2, 0, 71, groundY);
+    d.litter(-15, 15, -42, -2.6, 150, 0, groundY);
+    this.add(d.done());
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

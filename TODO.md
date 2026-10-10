@@ -19,6 +19,7 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 | `src/name/filter.ts`, `src/name/blocklist.json` | The name filter's matching works and is tested, but **the word list is empty**: nothing is refused yet. Fill `blocklist.json` from a vetted, maintained list (or wire a moderation service). | 2 |
 | `src/character/Avatar.ts` | **The character is built in code**, a stand-in for the Blender character, hair and outfits (Section 14.2). Bones are named like a humanoid rig and sliders like the shape keys, so a GLB can replace the meshes. Until then: 66 meshes and about 25k triangles (one skinned mesh would draw far cheaper); some items share their slot's base shape in their own colours (e.g. most headphones, jeans vs track pants); no per-move animation clips (turning knobs, pushing faders, scratching, cueing); a little clipping with big hair under hoods or long hair through jackets. | 2 (art) |
 | `src/three/venues/dressingroom.ts` | The dressing room is built in code. The mirror is a dark glossy pane, not a real reflection. | 2 (art) |
+| `src/three/venues/dress.ts` | **Set dressing is built in code** (low-poly cases, ducts, trees, trucks and so on), a stand-in for Blender props. In the real venues it fits the building type but isn't taken from photos (DECISIONS 120). Check it against reference photos: Berghain's crane, valves and cabinets; Printworks' stairs and roof ducts; Boiler Room's gazebo, truck and cars; Alexandra Palace's radiators and far-end windows. | art / verify |
 
 ## Blocked: needs a decision from you
 

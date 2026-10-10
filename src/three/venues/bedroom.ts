@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { nameStyleFor } from '../../name/venueStyles';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { boothClutter } from './details';
+import { Dresser } from './dress';
 import { booth, LedStrings, TABLE_Y } from './fixtures';
 import type { ShowState } from './show';
 import { canvasTexture, floorTexture, rng, windowsTexture } from './tex';
@@ -269,6 +270,113 @@ class Bedroom extends VenueBase {
       l.translateY(0.12);
       this.group.add(l);
     }
+    this.dress();
+  }
+
+  /** a lived-in bedroom studio: records, foam, a ring light, the chair, the clutter */
+  private dress(): void {
+    const { x0, x1, z0, h } = BEDROOM;
+    const d = new Dresser(11);
+    // a low cube shelf of records in the front-right corner, a turntable and a speaker on top
+    const sx = x1 - 0.21;
+    const sz0 = -0.92;
+    const plank = (w: number, hh: number, dd: number, x: number, y: number, z: number) => d.box('white', w, hh, dd, x, y, z);
+    plank(0.39, 0.03, 1.47, sx, 0.015, sz0 + 0.735);
+    plank(0.39, 0.03, 1.47, sx, 0.785, sz0 + 0.735);
+    plank(0.39, 0.03, 1.47, sx, 0.4, sz0 + 0.735);
+    for (let i = 0; i <= 4; i++) plank(0.39, 0.77, 0.03, sx, 0.4, sz0 + 0.015 + i * 0.36);
+    const sleeves: ('black' | 'cream' | 'red' | 'blue' | 'yellow' | 'grey')[] = ['black', 'cream', 'red', 'black', 'blue', 'yellow', 'grey', 'black'];
+    for (let row = 0; row < 2; row++)
+      for (let cube = 0; cube < 4; cube++) {
+        const n = 18 + Math.floor(d.r() * 10);
+        for (let k = 0; k < n; k++) {
+          const z = sz0 + 0.04 + cube * 0.36 + k * 0.0115;
+          if (z > sz0 + 0.03 + cube * 0.36 + 0.33) break;
+          const hh = 0.3 + d.r() * 0.02;
+          d.box(sleeves[Math.floor(d.r() * sleeves.length)], 0.3, hh, 0.008, sx + 0.02, 0.03 + row * 0.385 + hh / 2, z, 0, 0, (d.r() - 0.5) * 0.05);
+        }
+      }
+    // the turntable on top, a record on the platter, a few sleeves leaning on the wall
+    d.box('blackMetal', 0.36, 0.09, 0.45, sx, 0.845, sz0 + 0.5);
+    d.put('alu', new THREE.CylinderGeometry(0.15, 0.15, 0.02, 24).translate(sx, 0.9, sz0 + 0.48));
+    d.put('black', new THREE.CylinderGeometry(0.148, 0.148, 0.004, 24).translate(sx, 0.912, sz0 + 0.48));
+    d.rod('alu', V(sx + 0.14, 0.93, sz0 + 0.65), V(sx + 0.04, 0.93, sz0 + 0.5), 0.005, 4);
+    for (let i = 0; i < 3; i++) d.box(sleeves[i + 1], 0.31, 0.31, 0.006, sx + 0.12, 0.96, sz0 + 1.0 + i * 0.04, Math.PI / 2, 0, -0.18 - i * 0.03);
+    d.box('black', 0.16, 0.26, 0.18, sx, 0.93, sz0 + 1.3);
+    // acoustic foam behind the desk, either side of the board
+    for (const cx of [-0.95, 0.75])
+      for (let ix = 0; ix < 2; ix++)
+        for (let iy = 0; iy < 2; iy++) {
+          const x = cx + ix * 0.31;
+          const y = 1.2 + iy * 0.31;
+          d.box(ix === iy ? 'black' : 'grey', 0.3, 0.3, 0.03, x, y, z0 + 0.016);
+          for (let w = 0; w < 4; w++) d.put(ix === iy ? 'black' : 'grey', new THREE.CylinderGeometry(0.035, 0.035, 0.29, 3).rotateZ(Math.PI / 2).rotateX(ix === iy ? 0 : Math.PI / 2).translate(x, y - 0.11 + w * 0.073, z0 + 0.04));
+        }
+    // the streamer's ring light on a tripod, turned to face the desk
+    const ring = d.glow('#fff4e6', 'steady', 1.5);
+    const rp = V(-1.3, 0, -0.35);
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2 + 0.3;
+      d.rod('blackMetal', V(rp.x + Math.cos(a) * 0.28, 0, rp.z + Math.sin(a) * 0.28), V(rp.x, 0.55, rp.z), 0.01, 4);
+    }
+    d.rod('blackMetal', V(rp.x, 0.55, rp.z), V(rp.x, 1.5, rp.z), 0.012, 6);
+    d.put(ring, new THREE.TorusGeometry(0.2, 0.022, 8, 32).rotateY(0.9).translate(rp.x, 1.62, rp.z));
+    d.put('black', new THREE.TorusGeometry(0.2, 0.03, 6, 32).rotateY(0.9).translate(rp.x - Math.sin(0.9) * 0.015, 1.62, rp.z - Math.cos(0.9) * 0.015));
+    // the desk chair, pushed out of the way, a hoodie over its back
+    const cp = V(-1.25, 0, 0.85);
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2;
+      d.rod('blackMetal', V(cp.x, 0.08, cp.z), V(cp.x + Math.cos(a) * 0.3, 0.05, cp.z + Math.sin(a) * 0.3), 0.015, 4);
+      d.put('rubber', new THREE.SphereGeometry(0.03, 6, 4).translate(cp.x + Math.cos(a) * 0.3, 0.03, cp.z + Math.sin(a) * 0.3));
+    }
+    d.rod('steel', V(cp.x, 0.08, cp.z), V(cp.x, 0.45, cp.z), 0.025, 8);
+    d.box('black', 0.5, 0.08, 0.48, cp.x, 0.48, cp.z, 0.6);
+    d.box('black', 0.48, 0.62, 0.07, cp.x + Math.sin(0.6) * 0.22, 0.85, cp.z + Math.cos(0.6) * 0.22, 0.6, -0.1);
+    d.box('red', 0.5, 0.36, 0.1, cp.x + Math.sin(0.6) * 0.27, 1.02, cp.z + Math.cos(0.6) * 0.27, 0.6, 0.15);
+    // a skateboard leaning on the left wall, trainers by the bed
+    d.box('darkWood', 0.2, 0.012, 0.8, x0 + 0.1, 0.42, 2.0, 0, -1.2);
+    for (const dz of [-0.28, 0.28]) for (const dx of [-0.07, 0.07]) d.put('cream', new THREE.CylinderGeometry(0.026, 0.026, 0.03, 8).rotateZ(Math.PI / 2).translate(x0 + 0.13 + dx * 0.1, 0.42 + dz * Math.cos(1.2), 2.0 - dz * Math.sin(1.2) * 0.1 + dx));
+    for (const dx of [0, 0.14]) {
+      d.box('white', 0.11, 0.08, 0.28, 0.3 + dx, 0.04, 2.55, 0.2);
+      d.box('red', 0.112, 0.02, 0.282, 0.3 + dx, 0.01, 2.55, 0.2);
+    }
+    // a mini fridge with stickers, a can on top
+    d.box('white', 0.48, 0.82, 0.5, x1 - 0.27, 0.41, 2.25);
+    d.box('grey', 0.03, 0.25, 0.03, x1 - 0.5, 0.6, 2.05);
+    for (let i = 0; i < 5; i++) d.box((['red', 'blue', 'yellow', 'black', 'green'] as const)[i], 0.07 + d.r() * 0.05, 0.05 + d.r() * 0.05, 0.003, x1 - 0.2 - d.r() * 0.2, 0.3 + d.r() * 0.4, 1.999, 0, 0, (d.r() - 0.5) * 0.6);
+    d.put('alu', new THREE.CylinderGeometry(0.033, 0.033, 0.12, 10).translate(x1 - 0.3, 0.88, 2.3));
+    // curtains either side of the window, on a rod
+    const curtain = new THREE.MeshStandardMaterial({ color: 0x4a1e2a, roughness: 0.95, side: THREE.DoubleSide });
+    for (const dz of [-0.78, 0.78]) {
+      const g = new THREE.PlaneGeometry(0.42, 1.55, 12, 1);
+      const p = g.attributes.position as THREE.BufferAttribute;
+      for (let j = 0; j < p.count; j++) p.setZ(j, Math.sin(p.getX(j) * 38) * 0.03);
+      d.put(curtain, g.rotateY(-Math.PI / 2).translate(x1 - 0.07, 1.25, 1.4 + dz));
+    }
+    d.rod('blackMetal', V(x1 - 0.07, 2.05, 0.45), V(x1 - 0.07, 2.05, 2.35), 0.012, 6);
+    // a laptop left open on the bed, a throw at the foot
+    const screen = d.glow('#9fc2ff', 'steady', 0.9);
+    d.box('alu', 0.32, 0.015, 0.22, -0.55, 0.555, 1.75, 0.3);
+    d.put(screen, new THREE.PlaneGeometry(0.3, 0.19).rotateX(-0.25).rotateY(Math.PI + 0.3).translate(-0.55 + Math.sin(0.3) * 0.1, 0.66, 1.75 + Math.cos(0.3) * 0.1));
+    d.box('yellow', 1.48, 0.04, 0.4, -0.75, 0.59, 1.15);
+    // the door at the back of the left wall, a hoodie on its hook
+    d.box('cream', 0.05, 2.02, 0.84, x0 + 0.03, 1.01, 2.6);
+    d.box('white', 0.07, 2.1, 0.06, x0 + 0.035, 1.05, 2.15);
+    d.box('white', 0.07, 2.1, 0.06, x0 + 0.035, 1.05, 3.05);
+    d.box('white', 0.07, 0.06, 0.96, x0 + 0.035, 2.07, 2.6);
+    d.put('alu', new THREE.SphereGeometry(0.03, 8, 6).translate(x0 + 0.08, 1.0, 2.3));
+    d.box('blue', 0.08, 0.6, 0.38, x0 + 0.1, 1.45, 2.85);
+    // a paper lantern on the ceiling (off: the strip and fairy lights do the work), a smoke alarm
+    d.put('cream', new THREE.SphereGeometry(0.17, 16, 10).translate(-1.35, h - 0.36, 2.55));
+    d.rod('black', V(-1.35, h - 0.19, 2.55), V(-1.35, h, 2.55), 0.004, 3);
+    d.put('white', new THREE.CylinderGeometry(0.06, 0.06, 0.03, 14).translate(-0.8, h - 0.015, 0.6));
+    // a socket by the desk, cables to the speakers and the strip
+    d.box('white', 0.09, 0.09, 0.02, 0.9, 0.3, z0 + 0.01);
+    d.cable(V(0.9, 0.3, z0 + 0.03), V(0.6, 0.9, z0 + 0.06), 0.12, 0.006);
+    d.cable(V(0.9, 0.28, z0 + 0.03), V(-0.6, 0.9, z0 + 0.06), 0.2, 0.006);
+    // the ON AIR light by the desk
+    d.neon('ON AIR', '#ff2a3a', V(x0 + 0.02, 2.02, -0.35), Math.PI / 2, 0.16, 'steady');
+    this.add(d.done());
   }
 
   /** the raid: the strip goes full rainbow for a while */

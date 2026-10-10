@@ -15,6 +15,7 @@ import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
 import { barCounter, boothClutter } from './details';
+import { catenary, Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
 import { atBar, crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, TABLE_Y } from './fixtures';
@@ -242,6 +243,48 @@ class Beach extends OpenAir {
     const density = (x: number, z: number) => (Math.abs(x) > 14.5 ? 0 : z > -10 ? 0 : 1.9 - ((-10 - z) / 22) * 0.7);
     this.farCrowd = new FarCrowd(scatter(x0 + 1, x1 - 1, z0 + 0.5, -10, density, 405, [new THREE.Box2(new THREE.Vector2(x0, -21), new THREE.Vector2(x0 + 3, -11))]), { seed: 406, clothes, phones: 0.1, focus: V(0, 2, 0) });
     this.group.add(this.farCrowd.object);
+    this.dress();
+  }
+
+  /** torches, parasols, daybeds, the lifeguard tower, boats at anchor */
+  private dress(): void {
+    const { x0, x1, z0, z1 } = DECK;
+    const d = new Dresser(400);
+    // bamboo torches down both edges of the deck and either side of the booth
+    for (let z = z0 + 2; z < z1 - 2; z += 4) for (const x of [x0 + 0.5, x1 - 0.5]) d.torch(V(x, 0, z + (x > 0 ? 2 : 0)), 1.9);
+    for (const x of [-4.4, -3.9, 3.9, 4.4]) d.torch(V(x, 0, -0.9), 1.7);
+    // a rope rail along the deck's open sides
+    for (const x of [x0 + 0.15, x1 - 0.15]) {
+      for (let z = z0; z <= z1; z += 2.5) d.rod('wood', V(x, 0, z), V(x, 0.9, z), 0.06, 6);
+      for (let z = z0; z < z1 - 2.4; z += 2.5) d.tube('trunk', catenary(V(x, 0.82, z), V(x, 0.82, z + 2.5), 0.12), 0.02, 4);
+    }
+    // stools at the bar, daybeds down the right-hand side
+    for (let i = 0; i < 8; i++) d.stool(V(x0 + 2.35, 0, -19.8 + i * 1.1), 0.72);
+    for (const z of [-6, -14, -22, -29]) d.daybed(V(x1 - 1.4, 0, z), -Math.PI / 2);
+    // parasols over the loungers, the lifeguard tower, flags along the shore
+    for (let i = 0; i < 6; i++) {
+      const side = i < 3 ? -1 : 1;
+      const k = i % 3;
+      d.umbrella(V(side * (8.1 + k * 2.2), -0.66, 8.2), (['canvas', 'canvas', 'red'] as const)[k], 1.25);
+    }
+    d.lifeguard(V(-24, -0.9, 18), 0.3);
+    for (const x of [-30, -18, 18, 30]) d.flag(V(x, -0.85, 24), 4, x < 0 ? 'blue' : 'yellow');
+    d.rod('wood', V(13, -0.7, 14), V(13, 1.2, 14), 0.05, 6);
+    d.rod('wood', V(19, -0.7, 14), V(19, 1.2, 14), 0.05, 6);
+    d.rod('white', V(13, 1.1, 14), V(19, 1.1, 14), 0.01, 4);
+    // boats at anchor out at sea, cabins lit as the night comes in
+    for (const [x, z, yaw, len] of [
+      [-60, 90, 0.4, 14],
+      [25, 130, -0.8, 18],
+      [90, 70, 1.6, 10],
+      [-130, 160, 2.2, 22],
+      [160, 200, 0.9, 26],
+    ])
+      d.yacht(V(x, -1.05, z), yaw, len);
+    // sand blown over the deck, a few cups
+    d.wear(x0 + 0.3, x1 - 0.3, z0 + 0.3, z1 - 0.3, 0, 'beach', 400, 'light');
+    d.litter(x0 + 2, x1 - 2, z0 + 2, -1.6, 50);
+    this.add(d.done());
   }
 
   /** the sun waits just above the sea for a drop, then touches it on the drop */

@@ -29,6 +29,7 @@ import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
+import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
 import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, Hazers, LedStrings, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
 import { LightMap, ScreenAverage, useLightMap } from './lightmap';
@@ -286,10 +287,13 @@ class AllyPally extends VenueBase {
     this.toneMapping = 'agx';
     const zA = layout === 'arena' ? 13 : HALL.length / 2;
     this.lm = new LightMap(new THREE.Vector2(-HALL.width / 2, zA - HALL.length), new THREE.Vector2(HALL.width, HALL.length));
+    const d = new Dresser(layout === 'arena' ? 1991 : 2029);
     if (layout === 'arena') {
       // stage end wall 13 m behind the DJ; the hall runs 116.6 m to the organ
       this.buildHall(FL, 13);
       this.buildArena(FL);
+      this.dressHall(d, FL, 13);
+      this.dressArena(d, FL);
       this.keyLight = { color: 0xf2f4ff, intensity: 14 };
       this.grade = { tint: 0xf7f6ff, contrast: 1.12, saturation: 1.08, lift: 0 };
       this.views = {
@@ -307,6 +311,8 @@ class AllyPally extends VenueBase {
       // the booth in the middle of the floor: the hall runs 58.3 m either way
       this.buildHall(FL, HALL.length / 2);
       this.buildRound(FL);
+      this.dressHall(d, FL, HALL.length / 2);
+      this.dressRound(d, FL);
       this.keyLight = { color: 0xffe9cf, intensity: 12 };
       this.grade = { tint: 0xfff6ec, contrast: 1.12, saturation: 1.05, lift: 0 };
       this.views = {
@@ -320,6 +326,140 @@ class AllyPally extends VenueBase {
         ],
       };
     }
+    this.add(d.done());
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* set dressing                                                      */
+  /* ---------------------------------------------------------------- */
+
+  /** Both productions: skirting and a dado rail, radiators, lamps on the columns, extinguishers and signs at the doors, queue posts at the back bar. */
+  private dressHall(d: Dresser, FL: number, zA: number): void {
+    const hw = HALL.width / 2;
+    const L = HALL.length;
+    const zB = zA - L;
+    const zMid = (zA + zB) / 2;
+    for (const s of [-1, 1]) {
+      d.box('darkWood', 0.06, 0.3, L, s * (hw - 0.03), FL + 0.15, zMid);
+      d.box('darkWood', 0.06, 0.08, L, s * (hw - 0.03), FL + 1.15, zMid);
+    }
+    const sconce = d.glow('#ffc890', 'breathe', 1.3);
+    for (let i = 0; i <= BAYS; i++) {
+      const z = zA - (L * i) / BAYS;
+      for (const s of [-1, 1]) {
+        d.box('blackMetal', 0.3, 0.06, 0.06, s * (hw - 1.14), FL + 6.0, z);
+        d.put(sconce, new THREE.CylinderGeometry(0.24, 0.12, 0.32, 12, 1, true).translate(s * (hw - 1.4), FL + 6.2, z));
+      }
+    }
+    // cast-iron radiators in the bays without doors
+    for (let i = 0; i < BAYS; i += 2) {
+      const z = zA - (L * (i + 0.5)) / BAYS;
+      for (const s of [-1, 1]) for (let k = 0; k < 16; k++) d.box('grey', 0.2, 0.78, 0.07, s * (hw - 0.16), FL + 0.52, z - 1.05 + k * 0.14);
+    }
+    // at the doors: extinguishers and call points, signs over the ones without exit signs
+    const words = ['TOILETS', 'CLOAKROOM', 'BAR', 'TOILETS'];
+    for (let i = 1; i < BAYS; i += 2) {
+      const z = zA - (L * (i + 0.5)) / BAYS;
+      for (const s of [-1, 1]) {
+        d.extinguisher(V(s * (hw - 0.06), FL + 0.4, z + 2.1), (-s * Math.PI) / 2);
+        d.callPoint(V(s * (hw - 0.06), FL + 1.4, z - 2.0), (-s * Math.PI) / 2);
+        if (i % 4 !== 1) d.sign(words[(i + (s > 0 ? 1 : 0)) % words.length], V(s * (hw - 0.08), FL + 3.6, z), (-s * Math.PI) / 2, 2.0, 0.55, '#1a1714', '#f2e6c8');
+      }
+    }
+    // queue posts in front of the back bar, under the gallery
+    d.stanchions(V(-8.5, FL, zB + 7.2), V(-1.4, FL, zB + 7.2));
+    d.stanchions(V(1.4, FL, zB + 7.2), V(8.5, FL, zB + 7.2));
+  }
+
+  /** The end-stage: IMAG tower legs, monitor risers in the wings, cases and wedges, the FOH's racks and camera, the cable snake, queue lanes, a merch stand, the floor. */
+  private dressArena(d: Dresser, FL: number): void {
+    const hw = HALL.width / 2;
+    const zB = 13 - HALL.length;
+    const FOH_Z = -45;
+    for (const s of [-1, 1]) {
+      // the IMAG towers stand on ground-support legs
+      const ry = Math.PI + s * 0.32;
+      const m = new THREE.Matrix4().makeRotationY(ry).setPosition(s * 16.4, 0, 0.4);
+      for (const lx of [-2.2, 2.2]) {
+        const p = V(lx, 0, -0.35).applyMatrix4(m);
+        d.box('blackMetal', 0.3, 0.6 - FL, 0.3, p.x, (FL + 0.6) / 2, p.z, ry);
+        d.box('blackMetal', 0.9, 0.03, 0.9, p.x, FL + 0.015, p.z, ry);
+      }
+      // side of stage: a monitor riser with its desk and racks, steps up the back, cases
+      d.box('black', 6.5, -FL, 5, s * 15.25, FL / 2, 7);
+      d.foh(V(s * 15.0, 0, 6.4), (-s * Math.PI) / 2, 2.6);
+      for (let i = 0; i < 3; i++) d.ampRack(V(s * 17.8, 0, 5.4 + i * 0.75), (-s * Math.PI) / 2, 8);
+      d.steps(V(s * 17, FL, 9.5 + 10 * 0.28), Math.PI, 10, 1.2, -FL / 10, 0.28);
+      d.roadCase(V(s * 14.2, FL, 11.2), 0.1 * s, 1.2, 0.9, 0.8);
+      d.roadCase(V(s * 14.2, FL + 0.9, 11.2), -0.05 * s, 1.0, 0.6, 0.7);
+      d.roadCase(V(s * 15.6, FL, 11.4), 0, 0.8, 1.2, 0.6);
+      // on stage: wedges at the booth, cases upstage, cable out to the wing
+      d.wedge(V(s * 2.4, 0, -0.2), Math.atan2(-s * 2.4, 1.1));
+      d.roadCase(V(s * 10.6, 0, 6.2), 0.1 * s, 1.2, 0.8, 0.8);
+      d.roadCase(V(s * 10.6, 0.8, 6.2), -0.05 * s, 1.0, 0.6, 0.7);
+      d.tube('rubber', [V(s * 2.0, 0.012, 0.6), V(s * 6, 0.012, 2.4), V(s * 10.5, 0.012, 4.2), V(s * 12.4, 0.012, 5.4)], 0.014, 4);
+      // water for the front rows at the ends of the pit
+      for (let i = 0; i < 3; i++) d.box('blue', 0.4, 0.3, 0.3, s * (13.6 - i * 0.45), FL + 0.15, -3.95, 0.1 * i);
+      // queue lanes at the side bars
+      d.stanchions(V(s * (hw - 4.4), FL, -64.5), V(s * (hw - 4.4), FL, -69.2));
+      d.stanchions(V(s * (hw - 4.4), FL, -70.8), V(s * (hw - 4.4), FL, -75.5));
+    }
+    d.wear(-11.6, 11.6, -2.3, 8.6, 0, 'ally-stage', 1990, 'dark');
+    // the mix position: racks behind the desk, a long lens on the roof, the snake under ramps to the stage
+    d.ampRack(V(-3.6, FL + 0.6, FOH_Z - 2.2), 0, 8);
+    d.ampRack(V(-2.9, FL + 0.6, FOH_Z - 2.2), 0, 8);
+    d.roadCase(V(3.2, FL + 0.6, FOH_Z - 2.2), 0, 1.2, 0.9, 0.8);
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2;
+      d.rod('blackMetal', V(0.4 + Math.cos(a) * 0.4, FL + 3.77, -44 + Math.sin(a) * 0.4), V(0.4, FL + 4.25, -44), 0.015, 4);
+    }
+    d.box('black', 0.22, 0.24, 0.5, 0.4, FL + 4.4, -44);
+    d.rod('black', V(0.4, FL + 4.4, -43.75), V(0.4, FL + 4.4, -43.1), 0.08, 12);
+    d.cableRamp(V(0.6, FL, FOH_Z + 3.4), V(0.6, FL, -5.2));
+    // merch at the back of the hall
+    const mz = zB + 14;
+    d.foldingTable(V(-hw + 3.4, FL, mz - 1.1), Math.PI / 2, 1.8);
+    d.foldingTable(V(-hw + 3.4, FL, mz + 1.1), Math.PI / 2, 1.8);
+    d.garmentRail(V(-hw + 1.6, FL, mz - 1.2), Math.PI / 2, 1.6);
+    d.garmentRail(V(-hw + 1.6, FL, mz + 1.2), Math.PI / 2, 1.6);
+    d.sign('MERCH', V(-hw + 0.1, FL + 3.0, mz), Math.PI / 2, 2.2, 0.7, '#14161a', '#ff3355');
+    d.box('cream', 0.05, 0.03, 0.4, -hw + 3.4, FL + 0.775, mz - 1.4);
+    // the floor: wear and the night's cups in front of the stage and round the mix
+    d.wear(-14, 14, -40, -4.6, FL, 'ally', 1992, 'dark');
+    d.litter(-14, 14, -36, -4.8, 200, FL);
+    d.litter(-hw + 2, hw - 2, -80, -36, 140, FL);
+  }
+
+  /** In the round: the cable to the mix position, its racks, the far end wall's doors and high windows, queue lanes, the floor. */
+  private dressRound(d: Dresser, FL: number): void {
+    const hw = HALL.width / 2;
+    const zA = HALL.length / 2;
+    const FOH_Z = 34;
+    d.cableRamp(V(0.5, FL, 3.9), V(0.5, FL, FOH_Z - 2.7));
+    d.ampRack(V(-3.2, FL + 0.6, FOH_Z + 1.8), Math.PI, 8);
+    d.ampRack(V(-2.5, FL + 0.6, FOH_Z + 1.8), Math.PI, 8);
+    d.roadCase(V(2.8, FL + 0.6, FOH_Z + 1.8), Math.PI, 1.2, 0.9, 0.8);
+    const screens = d.glow('#5a8cff', 'steady', 1.0);
+    for (const x of [-1.8, 0, 1.8]) d.put(screens, new THREE.PlaneGeometry(0.9, 0.55).rotateX(-0.25).translate(x, FL + 1.9, FOH_Z - 1.12));
+    // the far end: three sets of doors, a row of tall arched windows high up, night outside
+    for (const x of [-14, 0, 14]) d.fireDoor(V(x, FL, zA - 0.04), Math.PI, 2.6, 3.2, x === 0);
+    const night = d.glow('#1c2a52', 'steady', 0.6);
+    for (const x of [-18, -9, 0, 9, 18]) {
+      const g = new THREE.PlaneGeometry(2.6, 4.4).translate(0, 2.2, 0);
+      const arch = new THREE.CircleGeometry(1.3, 16, 0, Math.PI).translate(0, 4.4, 0);
+      for (const geo of [g, arch]) d.put(night, geo.rotateY(Math.PI).translate(x, FL + 7.4, zA - 0.06));
+      d.box('cream', 2.9, 0.2, 0.2, x, FL + 7.3, zA - 0.1);
+      for (const dx of [-1.38, 1.38]) d.box('cream', 0.14, 4.5, 0.14, x + dx, FL + 9.6, zA - 0.1);
+      d.box('cream', 0.06, 5.6, 0.06, x, FL + 10.2, zA - 0.08);
+      for (let y = 8.5; y < 12; y += 1.1) d.box('cream', 2.6, 0.05, 0.06, x, FL + y, zA - 0.08);
+    }
+    for (const s of [-1, 1]) {
+      d.stanchions(V(s * (hw - 4.4), FL, 34.5), V(s * (hw - 4.4), FL, 39.2));
+      d.stanchions(V(s * (hw - 4.4), FL, 40.8), V(s * (hw - 4.4), FL, 45.5));
+    }
+    d.wear(-11, 11, -11, 11, FL, 'ally-round', 2030, 'dark');
+    d.litter(-11, 11, -11, 11, 180, FL);
+    d.litter(-hw + 2, hw - 2, -45, 45, 160, FL);
   }
 
   /* ---------------------------------------------------------------- */
@@ -746,6 +886,8 @@ class AllyPally extends VenueBase {
       new THREE.Box2(new THREE.Vector2(-6, FOH_Z - 4), new THREE.Vector2(6, FOH_Z + 4)),
       new THREE.Box2(new THREE.Vector2(-hw, -78), new THREE.Vector2(-hw + 4.5, -62)),
       new THREE.Box2(new THREE.Vector2(hw - 4.5, -78), new THREE.Vector2(hw, -62)),
+      // the merch stand
+      new THREE.Box2(new THREE.Vector2(-hw, zB + 10), new THREE.Vector2(-hw + 6, zB + 18)),
     ];
     const front = -4.95;
     const backZ = zB + 7.5;

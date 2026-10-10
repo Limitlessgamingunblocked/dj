@@ -15,6 +15,7 @@ import { MirrorBallSpots } from './mirrorball';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
+import { Dresser } from './dress';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, Globes, HazeLayer, Lasers, LedStrings, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y } from './fixtures';
 import { canvasTexture, concreteTexture, floorTexture, rng, withSurface } from './tex';
 import { laserLines, silhouettes } from './warehouse';
@@ -301,6 +302,55 @@ class DC10 extends VenueBase {
     this.wash(V(3, 4, -8.5), 0, 4.5, 12);
     this.wash(V(0, 4.4, -13), 1, 3.5, 12);
     this.wash(V(0, 3.2, 1.6), 0, 2.5, 6, 0.5);
+    this.dress();
+  }
+
+  /** the room's working parts: black ducts and the pipe grid overhead, fill speakers, ledges, the fire door, the booth's clutter, the floor */
+  private dress(): void {
+    const d = new Dresser(1013);
+    const FY = -STAGE;
+    // overhead: black spiral ducts down both walls (it's a hot room), the pipe grid the heads hang from, a sprinkler main
+    for (const s of [-1, 1]) d.duct(V(s * 7.85, CEIL - 0.5, 2.0), V(s * 7.85, CEIL - 0.5, -15.4), 0.3, CEIL, 'blackMetal');
+    for (const z of [-0.9, -4, -9, -13.5]) {
+      d.rod('blackMetal', V(-4.6, CEIL - 0.22, z), V(4.6, CEIL - 0.22, z), 0.024, 6);
+      for (let x = -4.5; x <= 4.6; x += 1.8) d.rod('blackMetal', V(x, CEIL - 0.22, z), V(x, CEIL, z), 0.012, 4);
+    }
+    d.sprinkler(V(-0.9, CEIL - 0.12, 2.2), V(-0.9, CEIL - 0.12, -16.5), CEIL);
+    // fill speakers on the side walls, angled down at the floor
+    for (const z of [-5.4, -11.6, -15.4]) d.wallSpeaker(V(-8.45, 3.35, z), Math.PI / 2);
+    for (const z of [-4.8, -9.4]) d.wallSpeaker(V(8.45, 3.35, z), -Math.PI / 2);
+    // drink ledges along the walls and round the columns, cups left on them
+    d.ledge(V(-8.5, FY, -1.6), V(-8.5, FY, -6.5));
+    d.ledge(V(-8.5, FY, -9.6), V(-8.5, FY, -11.8));
+    d.ledge(V(8.5, FY, -10.9), V(8.5, FY, -3.8));
+    for (const [x, z] of [[-5.2, -7], [5.2, -7], [-5.2, -12.5], [5.2, -12.5]]) {
+      for (const [dx, dz, ry] of [[0, 0.355, 0], [0, -0.355, 0], [0.355, 0, Math.PI / 2], [-0.355, 0, Math.PI / 2]]) d.box('darkWood', 0.86, 0.04, 0.16, x + dx, FY + 1.1, z + dz, ry);
+    }
+    // the fire door near the front on the right, an extinguisher by it and by the doorway, a call point, a panel behind the booth
+    d.fireDoor(V(8.47, FY, -2.6), -Math.PI / 2, 1.4, 2.1);
+    d.extinguisher(V(8.45, FY + 0.4, -1.4), -Math.PI / 2);
+    d.extinguisher(V(-8.45, FY + 0.4, -11.7), Math.PI / 2);
+    d.callPoint(V(8.45, FY + 1.4, -3.75), -Math.PI / 2);
+    d.panel(V(-3.6, 0, 2.58), Math.PI, 0.6, 0.8, CEIL);
+    d.sign('WC', V(-8.46, FY + 2.55, -11.6), Math.PI / 2, 0.5, 0.3, '#14100e', '#ffd9a8');
+    d.neon('BAR', '#ff3a1a', V(8.44, 2.75, -14.5), -Math.PI / 2, 0.42, 'flicker');
+    // pots either side of the old doorway, the finca's terrace beyond
+    d.plant(V(-8.05, FY, -12.95), 1.5);
+    d.plant(V(-8.05, FY, -15.45), 1.3);
+    // the booth: a lit edge on the riser, cases, a cooler, a table for the friends, steps up the side
+    for (const s of [-1, 1]) d.put(d.glow('#ffffff', 'palette', 1.3, 1), new THREE.BoxGeometry(2.5, 0.025, 0.02).translate(s * 3.0, -0.03, -0.66));
+    d.roadCase(V(3.6, 0, 2.15), 0.05, 1.1, 0.7, 0.7);
+    d.roadCase(V(3.6, 0.7, 2.15), -0.08, 0.8, 0.5, 0.6);
+    d.box('white', 0.6, 0.42, 0.4, -3.7, 0.21, 2.25, 0.2);
+    d.box('blue', 0.62, 0.06, 0.42, -3.7, 0.45, 2.25, 0.2);
+    d.table(V(-3.55, 0, 1.25), 1.05);
+    d.hazer(V(2.9, 0, 2.35), Math.PI);
+    d.steps(V(5.4, FY, 1.8), -Math.PI / 2, 4, 0.9, STAGE / 4, 0.28);
+    d.tube('rubber', [V(1.6, 0.01, 0.3), V(2.8, 0.01, 0.1), V(3.6, 0.01, -0.4), V(3.6, -0.2, -0.66)], 0.012, 4);
+    // the floor: worn and sticky, cups and cans underfoot
+    d.wear(-8.3, 8.3, -16.8, -0.75, FY, 'dc10', 1014, 'dark');
+    d.litter(-8, 8, -16.2, -1.5, 90, FY);
+    this.add(d.done());
   }
 
   update(...args: Parameters<VenueBase['update']>): void {

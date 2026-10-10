@@ -12,6 +12,7 @@ import { MirrorBallSpots } from './mirrorball';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, PillarBars } from './details';
+import { Dresser } from './dress';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import { concreteTexture, floorTexture, withSurface } from './tex';
@@ -143,6 +144,50 @@ class Warehouse extends VenueBase {
     this.wash(V(-2.5, 2.4, -2.5), 0, 6, 10);
     this.wash(V(2.5, 2.4, -2.5), 1, 6, 10);
     this.wash(V(0, 3.2, -6), 2, 5, 12);
+    this.dress();
+  }
+
+  /** the room's working parts: a star-cloth drape behind the stage, ducts and trays overhead, fire doors, the bar's stools, ledges and tables, the stage's cases, the floor */
+  private dress(): void {
+    const d = new Dresser(24);
+    const FY = -STAGE;
+    // behind the stage: a pleated black drape with a star cloth twinkling in it
+    const drape = new THREE.PlaneGeometry(13, 5.6, 64, 1);
+    const p = drape.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 9) * 0.06);
+    d.put('cloth', drape.rotateY(Math.PI).translate(0, 2.8, 4.38));
+    for (let i = 0; i < 70; i++) d.put(d.glow('#f4f0ff', 'blink', 1.8), new THREE.SphereGeometry(0.018, 6, 4).translate(-6.2 + d.r() * 12.4, 0.4 + d.r() * 5.2, 4.3));
+    // overhead: ducts down the room, a sprinkler main, cable trays on the side walls
+    for (const s of [-1, 1]) d.duct(V(s * 3.8, 5.9, 4.2), V(s * 3.8, 5.9, -7.0), 0.3, 6.4);
+    d.sprinkler(V(1.3, 6.25, 4.3), V(1.3, 6.25, -9.3), 6.4);
+    for (const s of [-1, 1]) d.tray(V(s * 9.25, 5.0, 4.2), V(s * 9.25, 5.0, -9.2), 6.4, 0.35);
+    // fire doors under the exit signs, extinguishers and a call point by them
+    d.fireDoor(V(-9.47, FY, -8.6), Math.PI / 2, 1.4, 2.1, false);
+    d.fireDoor(V(9.47, FY, -8.6), -Math.PI / 2, 1.4, 2.1, false);
+    d.fireDoor(V(9.47, FY, -1.4), -Math.PI / 2, 1.4, 2.1, false);
+    d.extinguisher(V(-9.45, FY + 0.4, -7.4), Math.PI / 2);
+    d.extinguisher(V(9.45, FY + 0.4, -2.7), -Math.PI / 2);
+    d.callPoint(V(9.45, FY + 1.4, -7.3), -Math.PI / 2);
+    // the bar's stools, a drink ledge and tables down the right-hand side, flyers by the door
+    for (let i = 0; i < 5; i++) d.stool(V(-7.25, FY, -7.4 + i * 1.0));
+    d.ledge(V(9.5, FY, -7.6), V(9.5, FY, -2.4));
+    d.table(V(8.6, FY, -4.1));
+    d.table(V(8.6, FY, -6.7));
+    d.posters(V(9.47, FY + 1.6, -0.1), -Math.PI / 2, 1.6, 1.1, 10);
+    // the stage: a lit edge, cases at the back corners, a hazer, steps up the side, cable to the stacks
+    d.put(d.glow('#ffffff', 'palette', 1.4, 0), new THREE.BoxGeometry(12, 0.025, 0.02).translate(0, -0.03, -0.91));
+    for (const s of [-1, 1]) {
+      d.roadCase(V(s * 5.2, 0, 3.6), 0.1 * s, 1.0, 0.7, 0.6);
+      d.roadCase(V(s * 5.2, 0.7, 3.6), -0.05 * s, 0.8, 0.5, 0.55);
+      d.tube('rubber', [V(s * 1.6, 0.012, 0.4), V(s * 3.4, 0.012, 0.2), V(s * 4.6, 0.012, -0.5), V(s * 4.6, -0.3, -0.92)], 0.012, 4);
+    }
+    d.ampRack(V(-3.4, 0, 3.7), Math.PI, 6);
+    d.hazer(V(3.0, 0, 3.9), Math.PI);
+    d.steps(V(6 + 3 * 0.28, FY, 3.2), -Math.PI / 2, 3, 1.0, STAGE / 3, 0.28);
+    // the floor: polished concrete with a night's wear on it, cups and cans
+    d.wear(-9.2, 9.2, -9.2, -1.0, FY, 'deckhouse', 25, 'dark');
+    d.litter(-7, 7, -7.6, -2.3, 70, FY);
+    this.add(d.done());
   }
 }
 

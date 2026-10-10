@@ -17,6 +17,7 @@ import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
 import { barCounter, boothClutter } from './details';
+import { Dresser } from './dress';
 import { atBar, crewArc, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, TABLE_Y } from './fixtures';
 import { moments, setClock } from './moments';
@@ -281,6 +282,53 @@ class Rooftop extends OpenAir {
       clothes: ['#f2efe8', '#a9c4de', '#1c2a44', '#d8c8a8', '#111214', '#5a1e2a', '#e8e2d4', '#3a4a5a', '#c9a07a', '#2a2a2e'],
     });
     this.group.add(this.crowd.object);
+    this.dress();
+  }
+
+  /** a working roof: plant on the tower, a curb under the glass, heaters, stools, a door */
+  private dress(): void {
+    const { x0, x1, z0, z1 } = T;
+    const d = new Dresser(260);
+    // a concrete curb under the glass railing
+    d.box('grey', 0.28, 0.14, z1 - z0, x0 + 0.02, 0.07, (z0 + z1) / 2);
+    d.box('grey', 0.28, 0.14, z1 - z0, x1 - 0.02, 0.07, (z0 + z1) / 2);
+    d.box('grey', x1 - x0, 0.14, 0.28, 0, 0.07, z0 + 0.02);
+    // on the tower roof: AC units, a water tank on legs, an aerial with its red light, a rail round the edge
+    const ty = 3.8;
+    d.acUnit(V(-2.2, ty, z1 + 2.6), 0);
+    d.acUnit(V(0.6, ty, z1 + 3.0), Math.PI);
+    d.tank(V(3.0, ty, z1 + 2.6), 0.7, 1.3);
+    d.rod('galv', V(-3.8, ty, z1 + 3.4), V(-3.8, ty + 4.2, z1 + 3.4), 0.035, 6);
+    for (const y of [1.5, 2.6, 3.5]) d.rod('galv', V(-4.3, ty + y, z1 + 3.4), V(-3.3, ty + y, z1 + 3.4), 0.012, 4);
+    d.put(d.glow('#ff2a1a', 'blink', 2.4), new THREE.SphereGeometry(0.06, 8, 6).translate(-3.8, ty + 4.25, z1 + 3.4));
+    d.rail([V(-4.45, ty, z1 + 0.05), V(4.45, ty, z1 + 0.05), V(4.45, ty, z1 + 3.95), V(-4.45, ty, z1 + 3.95), V(-4.45, ty, z1 + 0.05)], 1.0, 2.2);
+    d.rod('galv', V(-1.0, ty + 0.4, z1 + 2.6), V(-1.0, ty + 0.4, z1 + 0.2), 0.05, 8);
+    // the door into the stair tower, beside the booth, under its exit sign
+    d.fireDoor(V(-3.55, 0, z1 - 0.02), Math.PI, 1.2, 2.1);
+    d.panel(V(3.6, 0.9, z1 - 0.02), Math.PI, 0.5, 0.6);
+    d.conduit([V(3.6, 1.5, z1 - 0.05), V(3.6, 3.6, z1 - 0.05), V(-3.0, 3.6, z1 - 0.05)]);
+    d.extinguisher(V(-2.6, 0.35, z1 - 0.02), Math.PI);
+    // patio heaters glowing over the crowd, stools along the bar, a few lounge benches by the glass
+    for (const [x, z] of [
+      [-7.5, -4.5],
+      [7.6, -6],
+      [-3.5, -12.5],
+      [4.5, -12],
+    ])
+      d.heater(V(x, 0, z));
+    for (let i = 0; i < 6; i++) d.stool(V(x0 + 2.4, 0, -12.8 + i * 0.9));
+    d.bench(V(x1 - 0.9, 0, -12.4), -Math.PI / 2, 2.2);
+    d.bench(V(x1 - 0.9, 0, -1.2), -Math.PI / 2, 2.2);
+    d.neon('BAR', '#ffcf8a', V(x0 + 0.3, 2.2, -10.5), Math.PI / 2, 0.36, 'steady');
+    // skylights in the deck at the front corners
+    for (const x of [-8.6, 8.6]) {
+      d.box('grey', 1.4, 0.3, 1.4, x, 0.15, z0 + 2.6);
+      d.put(new THREE.MeshStandardMaterial({ color: 0x9ab8c8, roughness: 0.08, metalness: 0.3, transparent: true, opacity: 0.6 }), new THREE.SphereGeometry(0.65, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.4, 1).translate(x, 0.3, z0 + 2.6));
+    }
+    // the terrace after a few hours: light wear, the odd cup
+    d.wear(x0 + 0.4, x1 - 0.4, z0 + 0.4, z1 - 0.2, 0, 'rooftop', 260, 'light');
+    d.litter(x0 + 1.5, x1 - 1.5, z0 + 2, -1.5, 18);
+    this.add(d.done());
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

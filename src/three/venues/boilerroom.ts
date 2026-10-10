@@ -13,6 +13,7 @@ import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { boothClutter } from './details';
+import { Dresser } from './dress';
 import { booth, boxUV, Crowd, crowdArea, floor, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
 import { floorTexture, foliageTexture, rng, skyTexture, windowsTexture, withSurface } from './tex';
 import { silhouettes } from './warehouse';
@@ -251,6 +252,55 @@ class BoilerRoom extends VenueBase {
     this.wash(V(-3.6, 3.2, -2.6), 1, 4, 9);
     this.wash(V(3.6, 3.2, -2.6), 0, 4, 9);
     this.wash(V(0, 4, -6.5), 2, 3, 10, 0.5);
+    this.dress(ta, tb);
+  }
+
+  /** the plaza round the session: truss ballast and cables, the production gazebo, palms and steps behind, a truck, parked cars, the litter */
+  private dress(ta: THREE.Vector3, tb: THREE.Vector3): void {
+    const d = new Dresser(2027);
+    // the truss towers stand on plates weighed down with sandbags; cables out from the booth
+    for (const t of [ta, tb]) {
+      d.box('galv', 1.0, 0.02, 1.0, t.x, 0.01, t.z);
+      d.sandbags(V(t.x, 0.02, t.z), 4, 0.42);
+    }
+    d.tube('rubber', [V(0.6, 0.012, 0.45), V(1.6, 0.012, 1.2), V(ta.x - 0.4, 0.012, ta.z - 0.2)], 0.014, 4);
+    d.tube('rubber', [V(-0.6, 0.012, 0.45), V(-2.0, 0.012, -0.4), V(tb.x + 0.3, 0.012, tb.z + 0.3)], 0.014, 4);
+    d.tube('rubber', [V(-0.4, 0.012, -0.3), V(-0.8, 0.012, -0.9), V(-1.0, 0.012, -1.2)], 0.01, 4);
+    d.tube('rubber', [V(0.8, 0.012, 0.5), V(3, 0.012, 2.6), V(4.6, 0.012, 5.2), V(6, 0.012, 6.6)], 0.014, 4);
+    d.wear(-3.2, 3.2, -2.6, 2.6, 0, 'br', 2028, 'dark');
+    // production: a gazebo behind the crowd with the stream desk, cases, a rack; barriers between it and the guests
+    d.gazebo(V(6.6, 0, 7.0), 0, 3.2);
+    d.foldingTable(V(6.6, 0, 6.8), Math.PI, 1.8, 2);
+    d.roadCase(V(7.7, 0, 7.9), 0, 1.0, 0.7, 0.6);
+    d.roadCase(V(5.5, 0, 8.0), 0.1, 0.8, 0.5, 0.6);
+    d.ampRack(V(7.9, 0, 6.0), -Math.PI / 2, 4);
+    d.bikeRack(V(4.4, 0, 5.0), V(9.0, 0, 5.0));
+    d.bikeRack(V(4.4, 0, 5.0), V(4.4, 0, 9.4));
+    d.generator(V(10.2, 0, 9.0), -Math.PI / 2);
+    // City Hall's side of the plaza: broad steps up to a terrace, palms along it, benches and bins
+    d.steps(V(-4, 0, 15), 0, 4, 20, 0.17, 0.4, 'stone');
+    d.box('stone', 20, 0.68, 14, -4, 0.34, 23.6);
+    for (let x = -13; x <= 5; x += 4.5) d.palm(V(x + d.r(), 0.68, 21 + d.r() * 2), 13 + d.r() * 4, 0.04);
+    for (const x of [-11, -4, 3]) d.bench(V(x, 0.68, 17.4), Math.PI, 1.8);
+    d.bin(V(-7.5, 0.68, 17.2));
+    d.bin(V(0.5, 0.68, 17.2));
+    // palms down the street on both sides
+    for (const [x, z] of [[-24, -8], [-26, 4], [-22, 14], [24, -10], [27, 2], [22, 15], [-14, -22], [12, -24]] as [number, number][]) d.palm(V(x, 0, z), 12 + d.r() * 5, 0.05);
+    // a taco truck on the plaza, cars parked along the kerb, planters, a hydrant, manholes
+    d.foodTruck(V(-4.5, 0, 11.5), Math.PI, 3);
+    d.box('stone', 0.3, 0.15, 30, 10.6, 0.075, 6);
+    for (const [z, k] of [[13.6, 'grey'], [19.2, 'red'], [-4, 'white']] as [number, 'grey' | 'red' | 'white'][]) d.car(V(11.8, 0, z), 0, k);
+    d.planter(V(-7.4, 0, 5.4));
+    d.planter(V(7.8, 0, 11.6));
+    d.planter(V(-7.8, 0, -6.5));
+    d.put('red', new THREE.CylinderGeometry(0.11, 0.13, 0.6, 10).translate(10.2, 0.3, 12.6));
+    d.put('red', new THREE.SphereGeometry(0.12, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(10.2, 0.6, 12.6));
+    for (const [x, z] of [[3.6, -5.6], [-5.2, 8.4]]) d.put('blackMetal', new THREE.CircleGeometry(0.34, 16).rotateX(-Math.PI / 2).translate(x, 0.004, z));
+    d.bin(V(3.4, 0, 9.6));
+    d.bin(V(-9.2, 0, 12.4));
+    // the night's cups and cans
+    d.litter(-6, 6, -8, 5.2, 70, 0);
+    this.add(d.done());
   }
 
   update(...args: Parameters<VenueBase['update']>): void {

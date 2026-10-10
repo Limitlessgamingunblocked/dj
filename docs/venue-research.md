@@ -235,3 +235,16 @@ Each ranked gap above, as of the end of the October 2026 overhaul. **Done** mean
 - real edges: bars, exits, DC-10's doorway, and booth clutter (laptop, drinks, cables, gaffer tape)
 - contact shadows under every dancer
 - no club logos or wordmarks anywhere, venue cards included
+
+---
+
+## What the detail pass added (October 2026)
+
+Set dressing in every venue, from one kit (`src/three/venues/dress.ts`, DECISIONS 117–121). In the real venues it fits the building type but **isn't verified against photos**:
+
+- **DC-10:** black ducts down the walls, a pipe grid for the heads, fill speakers, drink ledges, a fire door, and plants by the doorway. The terrace is still not modelled.
+- **Boiler Room LA:** trees, **partly** (gap 4): palms down the streets and along City Hall's terrace, with steps up to it. Ground, **partly** (gap 5): a kerb with parked cars, planters and manholes, but still no light pools. There's also a production gazebo behind barriers, and sandbagged truss feet.
+- **Berghain:** a crane girder and rails, old pipes with valves and gauges, control cabinets, a sliding steel door, brackets and mesh on the balcony, and a spiral stair up to it. The balcony is still unverified.
+- **Printworks:** gantry kick plates and cross beams, stairs and caged ladders, crane rails and girders, roof ducts, and racks and cases in the wings. Pods and stacks are still not done.
+- **Alexandra Palace:** skirting and dado rail, radiators, column lamps, door signs and extinguishers, monitor risers in the wings, queue lanes and a merch stand. In the round, the far end wall gets doors and high windows (invented).
+- **Deckhouse Warehouse:** a star-cloth drape behind the stage, ducts and trays, fire doors, stools, a ledge and tables.

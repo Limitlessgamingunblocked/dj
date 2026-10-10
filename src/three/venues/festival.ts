@@ -19,6 +19,7 @@ import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
 import { Confetti } from './confetti';
 import { boothClutter } from './details';
+import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
 import { crewArc, lightingTech, security, vipCrew } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, HazeLayer, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
@@ -34,6 +35,9 @@ const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 /** the field is this far below the stage deck */
 const FL = -2.4;
 const FIELD_BACK = -230;
+const ROOF_Y = 24;
+/** half the field's width at z: it widens towards the back */
+const fieldHalf = (z: number) => 26 + (z / FIELD_BACK) * 70;
 
 export const FESTIVAL_SKY: SkyKey[] = [
   { k: 0, zenith: '#16205a', horizon: '#c8603a', ground: '#140e14', sun: -2, sunColor: '#ff6a3a', light: 0.3, ambSky: '#5a4a7a', ambGround: '#1a1218', amb: 0.4, stars: 0.05, night: 0.5 },
@@ -305,7 +309,7 @@ class Festival extends OpenAir {
     const deck = new THREE.Mesh(new THREE.BoxGeometry(44, -FL, 16), black);
     deck.position.set(0, FL / 2, 6);
     this.group.add(deck);
-    const roofY = 24;
+    const roofY = ROOF_Y;
     for (const x of [-23, 23]) for (const z of [-1.5, 13.5]) this.group.add(truss(V(x, FL, z), V(x, roofY, z), 1.0));
     for (const z of [-1.5, 5.5, 13.5]) this.group.add(truss(V(-23, roofY, z), V(23, roofY, z), 1.0));
     for (const x of [-23, -11.5, 0, 11.5, 23]) this.group.add(truss(V(x, roofY, -1.5), V(x, roofY, 13.5), 0.8));
@@ -350,14 +354,7 @@ class Festival extends OpenAir {
         this.group.add(arr);
       }
     }
-    const tent = new THREE.Mesh(new THREE.BoxGeometry(12, 4.2, 8), new THREE.MeshStandardMaterial({ color: 0x1a1a1e, roughness: 0.9 }));
-    tent.position.set(0, FL + 2.1, -42);
-    this.group.add(tent);
-    // the barrier and the pit
-    const fence = new THREE.MeshStandardMaterial({ color: 0x6a6c70, metalness: 0.7, roughness: 0.4 });
-    const barrier = new THREE.Mesh(new THREE.BoxGeometry(50, 1.2, 0.5), fence);
-    barrier.position.set(0, FL + 0.6, -4.2);
-    this.group.add(barrier);
+    // (the mix tent, the barrier and the rest of the site: dress())
 
     // the booth, front and centre; your name on it in pixels
     const nm = nameStyleFor('festival');
@@ -432,12 +429,10 @@ class Festival extends OpenAir {
     this.add(security([-13, -7, 7, 13].map((x) => ({ x, z: -3.3, y: FL })), 609));
     this.add(lightingTech({ x: 1.2, z: -40.6, y: FL + 0.2, face: 0 }, 610));
     this.group.add(this.crowd.object);
-    const avoid = [new THREE.Box2(new THREE.Vector2(-7, -47), new THREE.Vector2(7, -37)), ...[-70, -140].flatMap((z) => [-1, 1].map((s) => new THREE.Box2(new THREE.Vector2(s * 16 - 1.5, z - 1.5), new THREE.Vector2(s * 16 + 1.5, z + 1.5))))];
+    const avoid = [new THREE.Box2(new THREE.Vector2(-11.5, -47), new THREE.Vector2(7, -37)), ...[-70, -140].flatMap((z) => [-1, 1].map((s) => new THREE.Box2(new THREE.Vector2(s * 16 - 2.7, z - 2.7), new THREE.Vector2(s * 16 + 2.7, z + 2.7))))];
     const density = (x: number, z: number) => {
       if (z > -12.5 && Math.abs(x) < 17) return 0;
-      // the field widens towards the back
-      const half = 26 + (-z / -FIELD_BACK) * 70;
-      if (Math.abs(x) > half) return 0;
+      if (Math.abs(x) > fieldHalf(z)) return 0;
       const t = (z - FIELD_BACK) / -FIELD_BACK;
       return 0.55 + 1.7 * t * t;
     };
@@ -450,6 +445,128 @@ class Festival extends OpenAir {
     this.flags = new Flags(flagSpots, 607);
     this.group.add(this.flags.object);
     this.group.add(this.drones.object);
+    this.dress();
+  }
+
+  /** the site round the stage: the pit, the wings, backstage, the mix tent, towers, food, a bar, toilets, fences, the trodden field */
+  private dress(): void {
+    const d = new Dresser(611);
+    const edge = Math.atan(70 / -FIELD_BACK);
+    // the pit: steel barrier, trackway for security, water for the front rows
+    d.barrier(V(25, FL, -4.2), V(-25, FL, -4.2));
+    d.trackway(V(-24.5, FL, -3.1), V(24.5, FL, -3.1), 1.9);
+    for (const s of [-1, 1]) {
+      d.roadCase(V(s * 23.6, FL, -3.3), 0.1 * s, 1.0, 0.7, 0.6);
+      for (let i = 0; i < 4; i++) d.box('blue', 0.4, 0.3, 0.3, s * (21.8 - i * 0.46), FL + 0.15 + (i === 3 ? 0.3 : 0), -2.55, 0.1 * i);
+    }
+    // the stage lip: an LED edge in the show's colours, white tape on the edge
+    d.put(d.glow('#ffffff', 'palette', 1.6, 0), new THREE.BoxGeometry(44, 0.05, 0.03).translate(0, -0.06, -2.02));
+    d.box('white', 44, 0.004, 0.05, 0, 0.002, -1.93);
+    for (const s of [-1, 1]) {
+      // side of stage: a desk looking at the booth, amp racks, cases, hazers upstage
+      d.foh(V(s * 16.5, 0, 3.2), (-s * Math.PI) / 2, 2.6);
+      for (let i = 0; i < 3; i++) d.ampRack(V(s * 20.6, 0, 5.6 + i * 0.75), (-s * Math.PI) / 2, i === 2 ? 6 : 8);
+      d.roadCase(V(s * 18.2, 0, 8.7), 0.05 * s, 1.2, 0.8, 0.8);
+      d.roadCase(V(s * 18.2, 0.8, 8.7), -0.04 * s, 1.0, 0.6, 0.7);
+      d.roadCase(V(s * 16.5, 0, 9.1), 0.2 * s, 0.8, 1.2, 0.6);
+      d.roadCase(V(s * 19.8, 0, 10.2), 0, 1.6, 0.9, 0.8);
+      d.hazer(V(s * 10, 0, 10.0), Math.PI);
+      d.hazer(V(s * 3, 0, 10.4), Math.PI);
+      // cable from the booth out to the wing, and a loom down the downstage leg
+      d.tube('rubber', [V(s * 1.8, 0.012, 0.5), V(s * 6, 0.012, 1.5), V(s * 11, 0.012, 2.1), V(s * 15.2, 0.012, 3.1)], 0.012, 4);
+      d.tube('rubber', [V(s * 23.45, ROOF_Y - 0.6, -1.1), V(s * 23.45, 1.4, -1.1), V(s * 22.8, 0.05, -0.4), V(s * 21.5, 0.05, 0.6)], 0.045, 6);
+      d.put('rubber', new THREE.TorusGeometry(0.35, 0.04, 5, 16).rotateX(Math.PI / 2).translate(s * 21.2, 0.04, 1.4));
+      // chain motors and their chains over the hangs
+      for (const dz of [-0.5, 0.5]) {
+        d.box('black', 0.3, 0.36, 0.3, s * 19.5, ROOF_Y - 0.3, -1.2 + dz);
+        d.rod('steel', V(s * 19.5, ROOF_Y - 0.48, -1.2 + dz), V(s * 19.5, ROOF_Y - 1.15, -1.2 + dz), 0.012, 4);
+      }
+      // stairs up the back of the stage
+      d.steps(V(s * 19.5, FL, 14 + 13 * 0.28), Math.PI, 13, 1.2, -FL / 13, 0.28);
+      // ballast at the screen towers
+      for (const x of [26, 34]) for (const dz of [-1.25, 1.25]) d.ibc(V(s * x, FL, 3.5 + dz));
+    }
+
+    // backstage: production cabins with lit windows, generators, the trucks, a mast
+    const lit = d.glow('#dfe8ff', 'steady', 0.9);
+    for (const x of [-30, -23, -16]) d.cabin(V(x, FL, 22), Math.PI, 6, lit);
+    d.festoon(V(-33, FL + 2.8, 20.6), V(-13, FL + 2.8, 20.6), 0.5, d.glow('#ffcf7a', 'breathe', 2), 0.6);
+    d.bench(V(-26.5, FL, 18.6), Math.PI, 1.8);
+    d.bench(V(-19.5, FL, 18.4), Math.PI + 0.1, 1.8);
+    d.wheelieBins(V(-11.5, FL, 22.4), Math.PI, 3);
+    d.generator(V(16, FL, 21), Math.PI);
+    d.generator(V(21.5, FL, 21), Math.PI);
+    for (const x of [16, 21.5]) d.tube('rubber', [V(x - 1, FL + 0.04, 20.2), V(x - 3, FL + 0.04, 17), V(x - 6, FL + 0.04, 14.6), V(x - 7, FL + 0.6, 14.05)], 0.035, 5);
+    d.lorry(V(6, FL, 31), -Math.PI / 2, 13.6, 'blue');
+    d.lorry(V(6, FL, 35.5), -Math.PI / 2, 13.6, 'red');
+    d.lightMast(V(0, FL, 26), Math.PI, 7);
+    d.trackway(V(-8, FL, 15), V(-8, FL, 40), 3);
+
+    // front of house: a black scaffold tent on a low deck, open to the stage; both desks, racks behind, a camera riser beside
+    const fz = -42;
+    d.box('black', 12, 0.2, 8, 0, FL + 0.1, fz);
+    for (const x of [-6, 0, 6]) for (const z of [fz - 4, fz + 4]) d.rod('galv', V(x, FL + 0.2, z), V(x, FL + 4.2, z), 0.04, 6);
+    for (const s of [-1, 1]) d.box('black', 12.4, 0.05, 4.4, 0, FL + 4.5, fz + s * 2.05, 0, s * 0.16);
+    d.box('black', 12, 4.0, 0.05, 0, FL + 2.2, fz - 4);
+    for (const s of [-1, 1]) d.box('black', 0.05, 4.0, 4, s * 6, FL + 2.2, fz - 2);
+    d.rail([V(-6, FL + 0.2, fz + 4.05), V(6, FL + 0.2, fz + 4.05)], 1.0, 2);
+    d.foh(V(-2.2, FL + 0.2, -39.7), 0, 3.0);
+    d.foh(V(1.5, FL + 0.2, -39.7), 0, 2.8);
+    d.ampRack(V(-4.6, FL + 0.2, fz - 3.3), 0, 8);
+    d.ampRack(V(-3.9, FL + 0.2, fz - 3.3), 0, 6);
+    d.roadCase(V(4.4, FL + 0.2, fz - 3.3), 0, 1.2, 0.9, 0.8);
+    d.roadCase(V(4.4, FL + 1.1, fz - 3.3), 0.1, 0.9, 0.5, 0.6);
+    const work = d.glow('#ffe2b0', 'steady', 1.6);
+    for (const x of [-3, 3]) d.put(work, new THREE.SphereGeometry(0.08, 8, 6).translate(x, FL + 3.85, fz));
+    d.cableRamp(V(0.6, FL, -37.6), V(0.6, FL, -4.8));
+    d.scaffold(V(-9.5, FL, -41), 3, 3, 3, 1.5);
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2;
+      d.rod('blackMetal', V(-9.5 + Math.cos(a) * 0.35, FL + 3.04, -41 + Math.sin(a) * 0.35), V(-9.5, FL + 4.4, -41), 0.015, 4);
+    }
+    d.box('black', 0.4, 0.34, 0.7, -9.5, FL + 4.6, -41, 0.15);
+    d.rod('black', V(-9.45, FL + 4.6, -40.6), V(-9.42, FL + 4.6, -40.25), 0.09, 10);
+    d.sign('FOH', V(0, FL + 3.85, fz + 4.1), 0, 1.4, 0.5);
+
+    // the delay towers: water ballast and a fence round each, the feed down the leg
+    for (const z of [-70, -140])
+      for (const s of [-1, 1]) {
+        const x = s * 16;
+        for (const [dx, dz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) d.ibc(V(x + dx, FL, z + dz));
+        const c = [V(x - 2.4, FL, z - 2.4), V(x + 2.4, FL, z - 2.4), V(x + 2.4, FL, z + 2.4), V(x - 2.4, FL, z + 2.4)];
+        for (let i = 0; i < 4; i++) d.fence(c[i], c[(i + 1) % 4], 2.0);
+        d.tube('rubber', [V(x + 0.5, FL + 13, z + 0.5), V(x + 0.5, FL + 0.6, z + 0.5), V(x + 1.6, FL + 0.04, z + 2.6), V(x + 2, FL + 0.04, z + 6)], 0.03, 5);
+      }
+
+    // food down the left side, a bar on the right, toilets further back, all facing the field
+    const left = Math.PI / 2 + edge;
+    const right = -Math.PI / 2 - edge;
+    [-46, -56, -66, -76, -86].forEach((z, i) => d.foodTruck(V(-(fieldHalf(z) + 5), FL, z), left, i));
+    for (const z of [-51, -71]) d.wheelieBins(V(-(fieldHalf(z) + 3.2), FL, z), left, 3);
+    d.barTent(V(fieldHalf(-44) + 5, FL, -44), right, 12);
+    d.barTent(V(fieldHalf(-62) + 5, FL, -62), right, 10);
+    d.wheelieBins(V(fieldHalf(-53) + 3, FL, -53), right, 3);
+    for (const [s, z] of [[-1, -122], [1, -126]] as [number, number][]) {
+      d.portaloos(V(s * (fieldHalf(z) + 4.5), FL, z), s < 0 ? left : right, 8);
+      d.sign('TOILETS', V(s * (fieldHalf(z + 7) + 3), FL + 2.6, z + 7), s < 0 ? left : right, 1.8, 0.55, '#14161a', '#3ad7ff', FL);
+    }
+    d.sign('FOOD', V(-(fieldHalf(-38) + 3), FL + 2.8, -38), left, 1.6, 0.55, '#14161a', '#ffd23f', FL);
+    d.sign('WATER', V(fieldHalf(-34) + 2.5, FL + 2.6, -34), right, 1.6, 0.55, '#14161a', '#3ad7ff', FL);
+    // a service road behind the stalls, light masts, the perimeter fence
+    for (const s of [-1, 1]) {
+      d.trackway(V(s * (fieldHalf(-20) + 9.5), FL, -20), V(s * (fieldHalf(-200) + 9.5), FL, -200), 3);
+      for (const z of [-30, -105, -175]) d.lightMast(V(s * (fieldHalf(z) + 12.5), FL, z), s < 0 ? left : right, 7);
+      d.fence(V(s * (fieldHalf(-6) + 14), FL, -6), V(s * (fieldHalf(-215) + 14), FL, -215), 2.2);
+      d.fence(V(s * 34.6, FL, -1), V(s * (fieldHalf(-6) + 14), FL, -6), 2.2);
+    }
+    // the field after a day of it: mud where people stand and walk, cups and cans underfoot
+    d.mud(-27, 27, -62, -4.6, FL, 61);
+    d.mud(-13, 9, -49, -35, FL, 62);
+    d.mud(-(fieldHalf(-90) + 4), -(fieldHalf(-40) - 5), -90, -40, FL, 63);
+    d.mud(fieldHalf(-40) - 5, fieldHalf(-68) + 4, -68, -38, FL, 64);
+    d.litter(-24, 24, -48, -4.8, 260, FL);
+    d.litter(-60, 60, -110, -48, 160, FL);
+    this.add(d.done());
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

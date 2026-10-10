@@ -14,6 +14,7 @@ import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, pressLine } from './details';
+import { Dresser } from './dress';
 import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import type { ShowState } from './show';
@@ -238,6 +239,65 @@ class Printworks extends VenueBase {
     this.wash(V(5, 7, -32), 2, 4, 16, 0.6);
     // warm work light on the presses and the back of the hall
     this.wash(V(0, 6, -62), 2, 3.5, 30, 0.3);
+    this.dress();
+  }
+
+  /**
+   * The hall's ironwork and the production round the stage: kick plates and
+   * cross beams on the gantries, stairs and caged ladders up them, crane rails
+   * and girders, roof ducts, wing cases and racks, steps up to the stage, fire
+   * doors and extinguishers, and the floor after five thousand people.
+   */
+  private dress(): void {
+    const d = new Dresser(97);
+    const FY = -STAGE;
+    const gLen = -3 - (FAR + 4);
+    const gMid = -3 - gLen / 2;
+    for (const y of [4.5, 8.5, 12.5])
+      for (const s of [-1, 1]) {
+        d.box('blackMetal', 0.03, 0.15, gLen, s * 10.1, y + 0.2, gMid);
+        d.rod('steel', V(s * 10.1, y + 0.6, -3), V(s * 10.1, y + 0.6, FAR + 4), 0.015, 4);
+        for (let z = -5; z > FAR + 4; z -= 4) d.box('blackMetal', 5.6, 0.3, 0.16, s * 12.9, y - 0.27, z);
+      }
+    // stairs up to the first gantry in the front corners, caged ladders on up
+    for (const s of [-1, 1]) {
+      d.stairFlight(V(s * 15.9, FY, 3.4), V(s * 15.9, 4.625, -3.2), 1.0);
+      d.box('blackMetal', 1.7, 0.25, 1.6, s * 16.05, 4.5, -4.0);
+      d.box('blackMetal', 1.7, 0.25, 0.9, s * 16.05, 8.5, -4.35);
+      d.box('blackMetal', 1.7, 0.25, 0.7, s * 16.05, 12.5, -3.55);
+      d.ladder(V(s * 16.4, 4.625, -3.55), 4.0, (-s * Math.PI) / 2);
+      d.ladder(V(s * 16.4, 8.625, -4.45), 4.0, (-s * Math.PI) / 2);
+    }
+    // overhead: crane rails along the walls, two girders across the far hall, big ducts in the roof
+    for (const s of [-1, 1]) d.box('rust', 0.5, 0.6, 111, s * 16.6, 17.8, -52);
+    for (const z of [-46, -84]) {
+      d.box('rust', 33.2, 1.0, 0.7, 0, 18.6, z);
+      for (const s of [-1, 1]) d.box('rust', 0.9, 0.5, 1.6, s * 16.2, 18.3, z);
+    }
+    for (const s of [-1, 1]) d.duct(V(s * 5.2, 19.2, 3), V(s * 5.2, 19.2, FAR + 2), 0.65, 20.5);
+    d.sign('HALL 1', V(0, 17.2, 3.95), Math.PI, 3.2, 1.2, '#16181c', '#e8e4da');
+    // the stage: racks behind the booth, cases in the wings, hazers upstage, steps up from the floor, cable to the wings
+    for (const s of [-1, 1]) {
+      d.ampRack(V(s * 7.6, 0, 3.4), Math.PI, 8);
+      d.ampRack(V(s * 6.9, 0, 3.4), Math.PI, 8);
+      d.roadCase(V(s * 8.2, 0, 1.6), (-s * Math.PI) / 2, 1.2, 0.8, 0.8);
+      d.roadCase(V(s * 8.2, 0.8, 1.6), (-s * Math.PI) / 2 + 0.1, 1.0, 0.5, 0.7);
+      d.hazer(V(s * 5.5, 0, 3.9), Math.PI);
+      d.steps(V(s * (9 + 8 * 0.28), FY, 3.2), s > 0 ? -Math.PI / 2 : Math.PI / 2, 8, 1.1, STAGE / 8, 0.28);
+      d.tube('rubber', [V(s * 1.9, 0.012, 0.5), V(s * 4, 0.012, 1.4), V(s * 6.6, 0.012, 3.0)], 0.014, 4);
+    }
+    // fire doors at the exits, extinguishers on the columns, toilets signed
+    for (const s of [-1, 1]) {
+      d.fireDoor(V(s * 16.97, FY, FAR + 10), (-s * Math.PI) / 2, 1.6, 2.2, false);
+      d.sign('TOILETS', V(s * 16.94, FY + 2.4, FAR + 16), (-s * Math.PI) / 2, 1.6, 0.5, '#14161a', '#ffd23f');
+      for (const z of [-12, -36, -60, -84]) d.extinguisher(V(s * 9.34, FY + 0.4, z), (-s * Math.PI) / 2);
+    }
+    d.fireDoor(V(0, FY, FAR + 0.03), 0, 1.8, 2.2, false);
+    // the floor: worn concrete, cups and cans thickest at the front
+    d.wear(-9.4, 9.4, -76, -2.4, FY, 'printworks', 98, 'dark');
+    d.litter(-9, 9, -40, -2.6, 220, FY);
+    d.litter(-9, 9, -74, -40, 80, FY);
+    this.add(d.done());
   }
 
   update(...args: Parameters<VenueBase['update']>): void {

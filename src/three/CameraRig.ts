@@ -43,6 +43,8 @@ export const VIEW_LABELS: Record<ViewId, string> = {
 export const LIVE_VIEWS: ViewId[] = ['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo'];
 
 const DRONE_FOV = 94;
+/** how far you can zoom out from what the camera looks at (preset shots may sit further out) */
+const MAX_ZOOM_OUT = 45;
 /** the OS asks for less motion, or camera motion is off in Settings: no idle sway, no beat shake */
 const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 const reducedMotion = () => !!motionQuery?.matches || !prefs.cameraMotion;
@@ -132,7 +134,7 @@ export class CameraRig {
     c.zoomSpeed = 0.8;
     c.panSpeed = 0.7;
     c.minDistance = 0.18;
-    c.maxDistance = 45;
+    c.maxDistance = MAX_ZOOM_OUT;
     c.maxPolarAngle = Math.PI * 0.56;
     c.screenSpacePanning = true;
     c.addEventListener('start', () => {
@@ -386,7 +388,17 @@ export class CameraRig {
     if (this.base) this.setGoal(this.base.pos, this.base.target, false);
   }
 
+  /**
+   * Let the orbit reach this shot: a venue's far angles (up the hill at the
+   * sunrise, from the organ gallery) sit further from what they look at than
+   * the 45 m you can zoom out to, and the controls would pull them in.
+   */
+  private reach(pos: THREE.Vector3, target: THREE.Vector3): void {
+    this.controls.maxDistance = Math.max(MAX_ZOOM_OUT, pos.distanceTo(target) + 0.5, this.camera.position.distanceTo(this.controls.target) + 0.5);
+  }
+
   private setGoal(pos: THREE.Vector3, target: THREE.Vector3, instant: boolean): void {
+    this.reach(pos, target);
     if (instant) {
       this.camera.position.copy(pos);
       this.controls.target.copy(target);
@@ -543,6 +555,7 @@ export class CameraRig {
         this.goalPos = null;
         this.goalTarget = null;
         this.goalSpeed = 5.5;
+        this.controls.maxDistance = Math.max(MAX_ZOOM_OUT, this.camera.position.distanceTo(this.controls.target) + 0.5);
       }
     }
     // live angles: follow their path; the fly-in from the last angle comes from the same easing
