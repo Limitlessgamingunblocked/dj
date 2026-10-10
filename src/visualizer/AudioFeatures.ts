@@ -2,12 +2,15 @@
  * Real-time audio features for the visual player, from the master output
  * AnalyserNode FFT:
  *   bands  sub (20–60 Hz), kick (60–150), snare (180–450 + 2–5 kHz),
- *          vocal (300 Hz–3 kHz), highs (6–16 kHz)
+ *          highs (6–16 kHz)
  *   onsets adaptive-threshold kick / snare hits
  *   beat   phase locked to the sync master's beat grid (falls back to kicks)
  *   drop   low end returning hard after a breakdown
+ *   parts  the drums, bass, melody and vocal pulled apart (parts.ts): hits,
+ *          the melody's note and height, whether someone's singing
  */
 import type { AudioEngine } from '../audio/AudioEngine';
+import { PartTracker, type Parts } from './parts';
 
 export interface Features {
   spectrum: Float32Array; // 256 log-spaced bins, 0..1
@@ -42,6 +45,8 @@ export interface Features {
   shake: number;
   /** 1 when flashing is reduced: strobes stay under 3 a second (set by the visual player) */
   safe?: number;
+  /** the drums, melody and vocal, pulled apart */
+  parts?: Parts;
 }
 
 interface Band {
@@ -59,7 +64,7 @@ export class AudioFeatures {
   readonly f: Features;
   private freq: Float32Array<ArrayBuffer>;
   private time: Float32Array<ArrayBuffer>;
-  private bands: Record<'sub' | 'kick' | 'snareLo' | 'snareHi' | 'vocal' | 'high', Band>;
+  private bands: Record<'sub' | 'kick' | 'snareLo' | 'snareHi' | 'high', Band>;
   private binHz: number;
   private logMap: Int32Array;
   private levelMax = 0.05;
@@ -69,6 +74,8 @@ export class AudioFeatures {
   private lastBeatIdx = -1;
   private fallbackPhase = 0;
   private kickTimes: number[] = [];
+  private parts: PartTracker;
+  private side: Float32Array<ArrayBuffer> | null = null;
   intensity = 1;
 
   constructor(
@@ -78,13 +85,14 @@ export class AudioFeatures {
     this.freq = new Float32Array(analyser.frequencyBinCount);
     this.time = new Float32Array(analyser.fftSize);
     this.binHz = analyser.context.sampleRate / analyser.fftSize;
+    this.parts = new PartTracker(this.binHz, analyser.frequencyBinCount);
+    if (engine.visSide) this.side = new Float32Array(engine.visSide.frequencyBinCount);
     const band = (lo: number, hi: number): Band => ({ lo, hi, val: 0, max: 1e-4, prev: 0, mean: 0, varc: 0, lastHit: -10 });
     this.bands = {
       sub: band(20, 60),
       kick: band(60, 150),
       snareLo: band(180, 450),
       snareHi: band(2000, 5000),
-      vocal: band(300, 3000),
       high: band(6000, 16000),
     };
     this.logMap = new Int32Array(257);
@@ -190,13 +198,15 @@ export class AudioFeatures {
     const kf = this.track(B.kick, dt);
     const s1 = this.track(B.snareLo, dt);
     const s2 = this.track(B.snareHi, dt);
-    this.track(B.vocal, dt);
     this.track(B.high, dt);
     f.sub = B.sub.val;
     f.kick = B.kick.val;
     f.snare = (B.snareLo.val + B.snareHi.val) / 2;
-    f.vocal = B.vocal.val;
     f.high = B.high.val;
+    // the parts: the vocal is the separated one (centred, harmonic, in the voice range)
+    if (this.side) this.engine.visSide.getFloatFrequencyData(this.side);
+    f.parts = this.parts.update(this.freq, this.side, dt, now);
+    f.vocal = f.parts.vocal;
     const silent = rms < 0.003;
     f.kickHit = !silent && this.onset(B.kick, kf, now, 0.22, 1.4);
     f.snareHit = !silent && this.onset(B.snareHi, (s1 + s2) / 2, now, 0.15, 1.6);

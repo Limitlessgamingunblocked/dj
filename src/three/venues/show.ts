@@ -22,9 +22,10 @@ import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
 import { autoLook, type LaserPattern } from './laserlooks';
 
-export type PaletteId = 'venue' | 'rainbow' | 'red' | 'amber' | 'ice' | 'uv' | 'white' | 'custom';
+export type PaletteId = 'venue' | 'song' | 'rainbow' | 'red' | 'amber' | 'ice' | 'uv' | 'white' | 'custom';
 export const PALETTES: { id: PaletteId; name: string; colors: [string, string, string] | null }[] = [
   { id: 'venue', name: 'Venue', colors: null },
+  { id: 'song', name: 'Song', colors: null },
   { id: 'rainbow', name: 'Rainbow', colors: null },
   { id: 'red', name: 'Red', colors: ['#ff1a1a', '#ff5a1f', '#ff2a6a'] },
   { id: 'amber', name: 'Amber', colors: ['#ffb000', '#ff7a1a', '#fff1d6'] },
@@ -218,6 +219,12 @@ export class LightShow {
     this.venuePalette = colors.map((c) => new THREE.Color(c));
   }
 
+  private songPalette: THREE.Color[] | null = null;
+  /** the playing song's colours (its look on the screens), for the Song palette */
+  setSongPalette(colors: string[]): void {
+    this.songPalette = colors.map((c) => new THREE.Color(c));
+  }
+
   /** manual CO2 hit from the lighting desk */
   fireCo2(): void {
     this.co2Queued = true;
@@ -257,14 +264,18 @@ export class LightShow {
     s.kick = react ? f.kickPulse : 0;
     s.snare = react ? f.snarePulse : 0;
     s.high = react ? f.high : 0.2;
-    // hats: each lift in the highs flicks the pin spots, then dies away fast
+    // hats flick the pin spots, then die away fast: the hi-hat hits themselves when the mix
+    // has been pulled apart (parts.ts), else each lift in the highs
     const lift = Math.max(0, f.high - this.prevHigh);
     this.prevHigh = f.high;
-    s.hat = react ? Math.max(s.hat * Math.exp(-dt * 18), Math.min(1, lift * 6)) : 0;
+    const hit = f.parts ? f.parts.hatPulse : Math.min(1, lift * 6);
+    s.hat = react ? Math.max(s.hat * Math.exp(-dt * 18), hit) : 0;
     s.bass += ((react ? (f.sub + f.kick) / 2 : 0) - s.bass) * Math.min(1, dt * 6);
-    // a vocal stands out from its own average (and from the drums under it)
+    // the vocal: the separated one while someone's singing; without the parts, a vocal band
+    // standing out from its own average (and from the drums under it)
     this.vocalAvg += (f.vocal - this.vocalAvg) * Math.min(1, dt * 0.2);
-    const vTarget = react ? Math.max(0, Math.min(1, (f.vocal - this.vocalAvg * 0.85) * 4 + (f.vocal - f.kick * 0.6) * 0.8)) : 0;
+    const sung = f.parts ? Math.min(1, f.parts.vocal * 1.2) * f.parts.vocalPresence : Math.max(0, Math.min(1, (f.vocal - this.vocalAvg * 0.85) * 4 + (f.vocal - f.kick * 0.6) * 0.8));
+    const vTarget = react ? sung : 0;
     s.vocal += (vTarget - s.vocal) * Math.min(1, dt * 2.5);
     s.level = f.level;
     s.energy = f.energy;
@@ -426,7 +437,7 @@ export class LightShow {
       for (let i = 0; i < 3; i++) s.colors[i].setHSL((f.hue + i * 0.33 + (s.peak > 0.5 ? (Math.floor(s.beat) % 4) * 0.25 : 0)) % 1, 1, 0.5);
       return;
     }
-    const src = c.palette === 'venue' ? this.venuePalette : c.palette === 'custom' ? this.customPalette(c.custom) : this.fixedPalette(c.palette);
+    const src = c.palette === 'venue' ? this.venuePalette : c.palette === 'song' ? (this.songPalette ?? this.venuePalette) : c.palette === 'custom' ? this.customPalette(c.custom) : this.fixedPalette(c.palette);
     // before the first beat the bar count is negative: keep the index positive
     const k = Number.isFinite(shift) ? shift : 0;
     for (let i = 0; i < 3; i++) s.colors[i].copy(src[(((i + k) % src.length) + src.length) % src.length]);

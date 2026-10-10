@@ -27,9 +27,23 @@ export interface VisMode {
   dispose(): void;
 }
 
+/*
+ * Every mode's colours. The rainbow cosine palette, blended towards the
+ * playing song's three colours (uSongMix, set by the visual player: 0 leaves
+ * the rainbow); uSongShift moves along them with the melody's note.
+ */
 export const PALETTE = /* glsl */ `
+uniform vec3 uSongA, uSongB, uSongC;
+uniform float uSongMix, uSongShift;
+vec3 songGrad(float t) {
+  t = fract(t) * 3.0;
+  if (t < 1.0) return mix(uSongA, uSongB, smoothstep(0.0, 1.0, t));
+  if (t < 2.0) return mix(uSongB, uSongC, smoothstep(1.0, 2.0, t));
+  return mix(uSongC, uSongA, smoothstep(2.0, 3.0, t));
+}
 vec3 palette(float t, float hue) {
-  return 0.5 + 0.5 * cos(6.28318 * (t + hue + vec3(0.0, 0.33, 0.67)));
+  vec3 c = 0.5 + 0.5 * cos(6.28318 * (t + hue + vec3(0.0, 0.33, 0.67)));
+  return mix(c, songGrad(t + hue + uSongShift), uSongMix);
 }
 `;
 

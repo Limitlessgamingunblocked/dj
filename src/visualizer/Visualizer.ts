@@ -1,9 +1,13 @@
 /*
  * Visual player (28 modes): renders the active mode through its own post chain
  *   RenderPass → transition pass (the outgoing mode, faded, irised, sliced,
- *   zoomed or pixelled away over a beat) → lyrics pass (kinetic typography:
+ *   zoomed or pixelled away over a beat) → music layers (the drums, melody and
+ *   vocal over the picture, layers.ts) → lyrics pass (kinetic typography:
  *   wave / glitch / RGB split) → UnrealBloomPass → final pass (chromatic
  *   aberration, palette shift, vignette, grain) → output texture.
+ * Each song has its own look (songLook.ts): its colours flow into every
+ * mode's palette, the auto VJ plays the modes that suit it, and the layers
+ * take its styles. When the lead track changes, all of it eases over.
  * The texture feeds the LED wall / projection screens in the club scene and
  * the full-screen Visuals view. The auto VJ (director.ts) picks modes to fit
  * the music; shaders compile a few at a time in the background so the first
@@ -19,10 +23,12 @@ import type { Features } from './AudioFeatures';
 import { LyricsLayer, type LyricStyle } from './LyricsLayer';
 import { Director, TRANSITIONS, type TransitionKind } from './director';
 import type { ModeInfo } from './kit';
+import { MusicLayers, LayersShader } from './layers';
 import { MODE_FACTORIES, MODE_INFO, type VisMode } from './modes';
 import { MORE_INFO, MORE_MODES } from './modes2';
 import { INFO3, MODES3 } from './modes3';
 import { INFO4, MODES4 } from './modes4';
+import type { SongLook } from './songLook';
 
 const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES, ...MODES3, ...MODES4];
 const DEFAULT_COLORS = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
@@ -180,6 +186,12 @@ export interface VisSettings {
   lyricHooks: boolean;
   /** the current line as a subtitle over the booth view */
   lyricHud: boolean;
+  /** each song gets its own colours, modes and layer styles */
+  songLooks: boolean;
+  /** the music's layers over the picture */
+  layerDrums: boolean;
+  layerMelody: boolean;
+  layerVocals: boolean;
 }
 
 export interface LyricInput {
@@ -201,6 +213,19 @@ export class Visualizer {
   private w = 960;
   private h = 540;
   private trans: ShaderPass;
+  private layersPass: ShaderPass;
+  private layers = new MusicLayers();
+  /** the playing song's look, and its colours as they ease in */
+  look: SongLook | null = null;
+  private following = true;
+  private target = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
+  private readonly song = {
+    uSongA: { value: new THREE.Color('#2ec4f1') },
+    uSongB: { value: new THREE.Color('#ff5fcf') },
+    uSongC: { value: new THREE.Color('#7b5cff') },
+    uSongMix: { value: 0 },
+    uSongShift: { value: 0 },
+  };
   /** the outgoing mode while a transition runs, and where it draws */
   private prev: VisMode | null = null;
   private prevRT: THREE.WebGLRenderTarget;
@@ -219,8 +244,27 @@ export class Visualizer {
     private renderer: THREE.WebGLRenderer,
     settings: Partial<VisSettings>,
   ) {
-    this.settings = { mode: 'warp', intensity: 1, bloom: true, aberration: true, shake: true, palette: true, autoCycle: false, lyrics: true, lyricStyle: 'auto', lyricHooks: true, lyricHud: true, ...settings };
+    this.settings = {
+      mode: 'warp',
+      intensity: 1,
+      bloom: true,
+      aberration: true,
+      shake: true,
+      palette: true,
+      autoCycle: true,
+      lyrics: true,
+      lyricStyle: 'auto',
+      lyricHooks: true,
+      lyricHud: true,
+      songLooks: true,
+      layerDrums: true,
+      layerMelody: true,
+      layerVocals: true,
+      ...settings,
+    };
     this.modes = FACTORIES.map((f) => f());
+    // every mode's palette reads the song's colours (the same uniforms, shared)
+    for (const m of this.modes) for (const sc of [m.scene, ...(m.warm ?? [])]) this.shareSong(sc);
     this.current = this.modes.find((m) => m.id === this.settings.mode) ?? this.modes[0];
     const rt = new THREE.WebGLRenderTarget(this.w, this.h, { type: THREE.HalfFloatType, samples: 0 });
     this.composer = new EffectComposer(renderer, rt);
@@ -230,17 +274,46 @@ export class Visualizer {
     this.trans = new ShaderPass(TransitionShader);
     this.trans.uniforms.tPrev.value = this.prevRT.texture;
     this.trans.enabled = false;
+    this.layersPass = new ShaderPass(LayersShader);
+    Object.assign(this.layersPass.uniforms, this.song);
+    this.layersPass.uniforms.tMel.value = this.layers.tex;
     this.bloom = new UnrealBloomPass(new THREE.Vector2(this.w, this.h), 0.6, 0.5, 0.32);
     this.final = new ShaderPass(FinalShader);
     this.text = new ShaderPass(TextShader);
     this.text.uniforms.tText.value = this.lyrics.texture;
     this.composer.addPass(this.renderPass);
     this.composer.addPass(this.trans);
+    this.composer.addPass(this.layersPass);
     this.composer.addPass(this.text);
     this.composer.addPass(this.bloom);
     this.composer.addPass(this.final);
     for (const m of this.modes) m.resize(this.w, this.h);
     this.toWarm = this.modes.filter((m) => m !== this.current);
+  }
+
+  /** hand a scene's shader materials the shared song-colour uniforms */
+  private shareSong(scene: THREE.Object3D): void {
+    scene.traverse((o) => {
+      const mats = (o as THREE.Mesh).material;
+      for (const mat of Array.isArray(mats) ? mats : mats ? [mats] : []) {
+        const sm = mat as THREE.ShaderMaterial;
+        if (sm.isShaderMaterial && (sm.fragmentShader.includes('uSongMix') || sm.vertexShader.includes('uSongMix'))) Object.assign(sm.uniforms, this.song);
+      }
+    });
+  }
+
+  /**
+   * The lead track changed (or null: nothing playing). Its colours ease in
+   * over a few seconds, the layers crossfade to its styles, and the auto VJ
+   * moves to its modes at the next bar.
+   */
+  setSong(look: SongLook | null): void {
+    if (look?.id === this.look?.id) return;
+    this.look = look;
+    if (!look) return;
+    look.colors.forEach((c, i) => this.target[i].set(c));
+    this.layers.setLook(look);
+    if (this.settings.songLooks) this.director.song(look.pool, look.first);
   }
 
   static modeInfo(): ModeInfo[] {
@@ -272,7 +345,8 @@ export class Visualizer {
       const kind = how.kind ?? TRANSITIONS[Math.floor(Math.random() * TRANSITIONS.length)];
       this.prev = old;
       this.fadeT = 0;
-      this.fadeDur = Math.min(1.6, Math.max(0.3, (60 / this.bpm) * (how.beats ?? 1)));
+      // a song change takes its time (up to 4 s); other changes stay quick
+      this.fadeDur = Math.min((how.beats ?? 1) >= 4 ? 4 : 1.6, Math.max(0.3, (60 / this.bpm) * (how.beats ?? 1)));
       const tu = this.trans.uniforms;
       tu.uKind.value = TRANSITIONS.indexOf(kind);
       tu.uSeed.value = Math.random() * 100;
@@ -309,6 +383,7 @@ export class Visualizer {
     f.shake = s.shake ? 1 : 0;
     f.safe = this.safe ? 1 : 0;
     this.bpm = f.bpm || 124;
+    this.updateSong(f, dt);
     if (s.autoCycle) {
       const cut = this.director.tick(this.current.id, f);
       if (cut) this.setMode(cut.id, { kind: cut.kind, beats: cut.beats });
@@ -337,7 +412,14 @@ export class Visualizer {
     }
     this.trans.enabled = !!this.prev;
     this.current.prerender?.(r);
-    const fx = this.lyrics.draw(s.lyrics ? (lyric?.frame ?? null) : null, f, lyric?.colors ?? DEFAULT_COLORS, s.lyricStyle, dt, f.time);
+    const on: [boolean, boolean, boolean] = [s.layerDrums, s.layerMelody, s.layerVocals];
+    this.layers.update(this.layersPass.uniforms, f, dt, on);
+    this.layersPass.uniforms.uAsp.value = this.w / this.h;
+    this.layersPass.enabled = on.some(Boolean);
+    // the lyrics take the song's colours when the visuals follow the song, else the lights'
+    const song = this.song;
+    const colors = s.songLooks && this.look ? [song.uSongA.value, song.uSongB.value, song.uSongC.value] : (lyric?.colors ?? DEFAULT_COLORS);
+    const fx = this.lyrics.draw(s.lyrics ? (lyric?.frame ?? null) : null, f, colors, s.lyricStyle, dt, f.time);
     const tu = this.text.uniforms;
     tu.uOn.value = fx.on;
     tu.uWave.value = fx.wave;
@@ -359,6 +441,24 @@ export class Visualizer {
     r.setRenderTarget(prevTarget);
   }
 
+  /** the song's colours ease in; the melody's note moves along them */
+  private updateSong(f: Features, dt: number): void {
+    const u = this.song;
+    const follow = this.settings.songLooks && !!this.look;
+    // "Follow each song" switched: the auto VJ takes the song's modes, or all of them
+    if (this.settings.songLooks !== this.following) {
+      this.following = this.settings.songLooks;
+      this.director.song(this.following && this.look ? this.look.pool : null, null);
+    }
+    const k = Math.min(1, dt * 0.8);
+    [u.uSongA, u.uSongB, u.uSongC].forEach((c, i) => c.value.lerp(this.target[i], k));
+    u.uSongMix.value += ((follow ? 0.85 : 0) - u.uSongMix.value) * Math.min(1, dt * 0.6);
+    const shift = follow && this.settings.layerMelody ? (f.parts?.melodyHue ?? 0) * 0.5 * (this.look?.melodyAmt ?? 0.7) : 0;
+    let d = shift - u.uSongShift.value;
+    d -= Math.round(d);
+    u.uSongShift.value += d * Math.min(1, dt * 2);
+  }
+
   /** compile one more mode's shaders every half second or so, ahead of their first use */
   private warmUp(): void {
     if (!this.toWarm.length || ++this.frames % 30 !== 0) return;
@@ -374,6 +474,7 @@ export class Visualizer {
   dispose(): void {
     for (const m of this.modes) m.dispose();
     this.prevRT.dispose();
+    this.layers.dispose();
     this.lyrics.texture.dispose();
     this.composer.dispose();
   }

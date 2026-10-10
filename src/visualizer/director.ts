@@ -5,6 +5,8 @@
  *   - a drop gets a peak mode on the hit
  *   - otherwise mostly groove modes, leaning calm or peak with the energy
  *   - never one of the last few it played
+ *   - with a song's look, only that song's modes, and on a new song a change
+ *     to its opening mode at the next bar, faded over four beats
  * Pure: the visual player feeds it the beat grid each frame and does the switching.
  */
 import type { Energy, ModeInfo } from './kit';
@@ -41,6 +43,8 @@ export class Director {
   private lastBar = Number.NaN;
   private bars = 0;
   private recent: string[] = [];
+  private pool: Set<string> | null = null;
+  private pending: string | null = null;
 
   constructor(
     private modes: ModeInfo[],
@@ -61,10 +65,19 @@ export class Director {
     return this.modes.find((m) => m.id === id)?.energy ?? 'mid';
   }
 
-  /** a mode of this energy that hasn't played lately */
+  /** a new song: the modes to play for it (null: all), and the one to open on at the next bar */
+  song(pool: string[] | null, first: string | null): void {
+    this.pool = pool?.length ? new Set(pool) : null;
+    this.pending = first;
+  }
+
+  /** a mode of this energy that hasn't played lately (from the song's modes, if it has some of that energy) */
   pick(energy: Energy, current: string): string {
     const fresh = (m: ModeInfo) => m.id !== current && !this.recent.includes(m.id);
-    let pool = this.modes.filter((m) => m.energy === energy && fresh(m));
+    const song = this.pool ? this.modes.filter((m) => this.pool!.has(m.id)) : this.modes;
+    let pool = song.filter((m) => m.energy === energy && fresh(m));
+    if (!pool.length) pool = song.filter((m) => m.energy === energy && m.id !== current);
+    if (!pool.length) pool = this.modes.filter((m) => m.energy === energy && fresh(m));
     if (!pool.length) pool = this.modes.filter((m) => m.energy === energy && m.id !== current);
     if (!pool.length) pool = this.modes.filter((m) => m.id !== current);
     if (!pool.length) return current;
@@ -91,6 +104,12 @@ export class Director {
     this.lastBar = bar;
     if (first || !i.playing) return null;
     this.bars++;
+    // a new song: over to its opening mode on this bar line
+    if (this.pending) {
+      const id = this.pending;
+      this.pending = null;
+      if (id !== current) return this.cut(id, 'fade', 4);
+    }
     const now = this.energyOf(current);
     // the music turned: a breakdown under a loud mode
     if (i.breakdown > 0.5 && now !== 'calm' && this.bars >= MIN_BARS) return this.cut(this.pick('calm', current), 'fade', 2);

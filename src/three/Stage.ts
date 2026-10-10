@@ -75,6 +75,8 @@ export class Stage {
   readonly camera: THREE.PerspectiveCamera;
   readonly rig: CameraRig;
   readonly visualizer: Visualizer;
+  /** the song whose colours the lights' Song palette has */
+  private songLookId = '';
   readonly show = new LightShow();
   venue: VenueScene | null = null;
   venueDef: VenueDef | null = null;
@@ -957,6 +959,11 @@ export class Stage {
     if (needVis && visFrame) {
       this.visualizer.safe = this.show.controls.reduceFlash;
       this.visualizer.render(f, dt, { frame: lyric, colors: show.colors });
+      const look = this.visualizer.look;
+      if (look && look.id !== this.songLookId) {
+        this.songLookId = look.id;
+        this.show.setSongPalette(look.colors);
+      }
       const tex = this.visualizer.texture;
       if (venue) {
         for (const m of venue.visMaterials) {

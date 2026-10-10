@@ -3,7 +3,8 @@ import type { Stage, StageView } from '../three/Stage';
 import { LYRIC_STYLES } from '../visualizer/LyricsLayer';
 import { Visualizer } from '../visualizer/Visualizer';
 import type { Energy } from '../visualizer/kit';
-import { h, setClass } from './dom';
+import { describeLook } from '../visualizer/songLook';
+import { clear, h, setClass } from './dom';
 
 const GROUPS: [Energy, string, string][] = [
   ['calm', 'Calm', 'Breakdowns and warm-ups'],
@@ -16,6 +17,8 @@ export class VisualsPanel {
   private modeBtns = new Map<string, HTMLElement>();
   private viewBtns = new Map<StageView, HTMLElement>();
   private styleBtns = new Map<string, HTMLElement>();
+  private lookLine: HTMLElement;
+  private lookId = '';
 
   constructor(
     private stage: Stage,
@@ -79,6 +82,23 @@ export class VisualsPanel {
       this.styleBtns.set(st.id, b);
       styleRow.append(b);
     }
+    // each song's look, and the music's layers over the picture
+    this.lookLine = h('div', { class: 'vis-look note' }, 'Play a track and its look shows here.');
+    const songBox = h(
+      'div',
+      { class: 'vis-song' },
+      h('h3', {}, 'Follow the music'),
+      h('p', { class: 'note' }, 'Every song gets its own colours and its own set of modes, picked from its key and genre. Over any mode, the drums, the melody and the vocal each light up the picture their own way.'),
+      h(
+        'div',
+        { class: 'toggle-row' },
+        toggle('Follow each song', () => s.songLooks, (v) => (s.songLooks = v), 'vis-song', 'Each song’s colours flow into every mode, and the auto VJ plays the modes that suit it'),
+        toggle('Drums', () => s.layerDrums, (v) => (s.layerDrums = v), 'vis-l-drums', 'Kicks, snares and hats: punches, rings, light bars or a shatter, with sparkles on the hats'),
+        toggle('Melody', () => s.layerMelody, (v) => (s.layerMelody = v), 'vis-l-melody', 'A ribbon, an aurora or an orbit that follows the notes, in the colour of the note'),
+        toggle('Vocals', () => s.layerVocals, (v) => (s.layerVocals = v), 'vis-l-vocals', 'A halo, a wave or light rays while someone sings'),
+      ),
+      this.lookLine,
+    );
     const lyricsBox = h(
       'div',
       { class: 'vis-lyrics' },
@@ -107,10 +127,11 @@ export class VisualsPanel {
         toggle('Chromatic aberration', () => s.aberration, (v) => (s.aberration = v), 'vis-ab'),
         toggle('Camera shake', () => s.shake, (v) => (s.shake = v), 'vis-shake'),
         toggle('Palette shift on drops', () => s.palette, (v) => (s.palette = v), 'vis-pal'),
-        toggle('Auto VJ', () => s.autoCycle, (v) => (s.autoCycle = v), 'vis-cycle', 'Picks modes to fit the music: a change every 8 bars, calm ones in breakdowns, a peak mode on the drop'),
+        toggle('Auto VJ', () => s.autoCycle, (v) => (s.autoCycle = v), 'vis-cycle', 'Picks modes to fit the music: the song’s own modes, a change every 8 bars, calm ones in breakdowns, a peak mode on the drop'),
         toggle('Reactive club lights', () => stage.reactiveLights, (v) => (stage.reactiveLights = v), 'vis-lights'),
       ),
       h('label', { class: 'field', for: 'vis-intensity', style: { maxWidth: '360px' } }, 'Reaction intensity', intensity),
+      songBox,
       lyricsBox,
     );
   }
@@ -119,5 +140,11 @@ export class VisualsPanel {
     for (const [id, b] of this.modeBtns) setClass(b, 'active', id === this.stage.visualizer.modeId);
     for (const [v, b] of this.viewBtns) setClass(b, 'active', v === this.stage.view);
     for (const [id, b] of this.styleBtns) setClass(b, 'active', id === this.stage.visualizer.settings.lyricStyle);
+    const look = this.stage.visualizer.look;
+    if (look && look.id !== this.lookId) {
+      this.lookId = look.id;
+      clear(this.lookLine);
+      this.lookLine.append(...look.colors.map((c) => h('i', { class: 'vis-swatch', style: { background: c } })), h('span', {}, describeLook(look)));
+    }
   }
 }

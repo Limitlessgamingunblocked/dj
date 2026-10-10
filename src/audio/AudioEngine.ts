@@ -34,6 +34,8 @@ export class AudioEngine {
   readonly crowd: CrowdAudio;
   /** analyser on the master output for the visual player */
   readonly visAnalyser: AnalyserNode;
+  /** left minus right, for the visual player: what's in the middle of the mix (vocals) has little here */
+  readonly visSide: AnalyserNode;
   readonly wasmAvailable: boolean;
 
   explicitMaster: Deck | null = null;
@@ -99,6 +101,22 @@ export class AudioEngine {
     this.visAnalyser.fftSize = 4096;
     this.visAnalyser.smoothingTimeConstant = 0;
     this.mixer.masterOut.connect(this.visAnalyser);
+    this.visSide = ctx.createAnalyser();
+    this.visSide.fftSize = 4096;
+    this.visSide.smoothingTimeConstant = 0;
+    const lr = ctx.createChannelSplitter(2);
+    // (L − R) / 2, on the same scale as the analyser's mono (L + R) / 2
+    const halfL = ctx.createGain();
+    halfL.gain.value = 0.5;
+    const minusR = ctx.createGain();
+    minusR.gain.value = -0.5;
+    const side = ctx.createGain();
+    side.channelCount = 1;
+    side.channelCountMode = 'explicit';
+    this.mixer.masterOut.connect(lr);
+    lr.connect(halfL, 0).connect(side);
+    lr.connect(minusR, 1).connect(side);
+    side.connect(this.visSide);
   }
 
   async resume(): Promise<void> {

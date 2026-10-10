@@ -117,3 +117,7 @@ Accessibility (flashing warning, colour-blind modes, high contrast, subtitles, v
 - [ ] Pad colours on the REV5: the list says pads take a colour number (1–127) but not which colour each number is.
 - [ ] REV5 features with nothing behind them yet: BPM transition, the STEMS button's solo combinations, fader start, the SHIFT layer of most buttons.
 
+## Visuals that follow the song
+
+- [ ] Check the drums / melody / vocals split on a range of real songs (it is tuned and tested on synthetic beats, tones and vibrato voices, and the test tracks). Vocal detection is the part most likely to need tuning: a heavily auto-tuned voice holds its pitch like a synth.
+

@@ -382,3 +382,30 @@
     display: none;
   }
 }
+
+/* Show → Visuals: following each song */
+.vis-song {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.vis-song h3 {
+  margin: 0;
+}
+
+.vis-look {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.vis-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  flex: none;
+}

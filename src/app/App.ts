@@ -23,6 +23,9 @@ import type { LyricLine } from '../lyrics/lyrics';
 import { LyricsEngine } from '../lyrics/LyricsEngine';
 import { MidiManager } from '../midi/MidiManager';
 import { presetFor } from '../midi/rev5';
+import { songLook } from '../visualizer/songLook';
+import { Visualizer } from '../visualizer/Visualizer';
+import { genreOf } from '../library/genres';
 import { restoreSoundCard } from './soundCard';
 import { boardById, isTurntable, type BoardDef } from '../three/boards';
 import { venueById, VENUES } from '../three/venues';
@@ -419,7 +422,10 @@ export class App implements AppContext {
         }
       },
     });
-    Object.assign(this.stage.visualizer.settings, this.settings.vis);
+    // settings saved before songs had their own looks: the auto VJ comes on with them, once
+    const vis = { ...this.settings.vis } as Record<string, unknown>;
+    if (vis.songLooks === undefined) delete vis.autoCycle;
+    Object.assign(this.stage.visualizer.settings, vis);
     this.stage.visualizer.setMode(this.stage.visualizer.settings.mode, { kind: 'cut' });
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
@@ -1335,6 +1341,16 @@ export class App implements AppContext {
     this.save();
   }
 
+  /** the lead track (the sync master, or else whatever's playing) sets the visuals' look */
+  private followSong(): void {
+    const e = this.engine;
+    const m = e.masterDeck;
+    const lead = m?.playing && m.track ? m : e.decks.find((d) => d.playing && d.track);
+    const t = lead?.track;
+    if (!lead || !t || t.id === this.stage.visualizer.look?.id) return;
+    this.stage.visualizer.setSong(songLook({ id: t.id, title: t.meta.title, bpm: lead.analysis?.bpm, key: lead.analysis?.key ?? null, genre: genreOf(t).genre }, Visualizer.modeInfo()));
+  }
+
   /** MIDI allowed on an earlier visit: connect straight away, so a plugged-in board just works */
   private async reconnectMidi(): Promise<void> {
     try {
@@ -1559,6 +1575,7 @@ export class App implements AppContext {
       const lib = this.tabs.get('library');
       if (lib?.count && this.frame % 30 === 0) setText(lib.count, String(this.library.tracks.size));
       if (this.frame % 3 === 0) this.midi.updateLeds();
+      if (this.frame % 15 === 0) this.followSong();
       this.audioBanner.hidden = this.engine.running;
     } catch (err) {
       console.error(err);
