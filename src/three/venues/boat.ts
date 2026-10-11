@@ -26,7 +26,8 @@ import { crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { moments, setClock } from './moments';
 import { OpenAir } from './openair';
-import { Water, type SkyKey } from './outdoor';
+import type { SkyKey } from './outdoor';
+import { Water, type WaterLight } from './water';
 import type { ShowState } from './show';
 import { canvasTexture, rng, windowsTexture } from './tex';
 
@@ -172,6 +173,11 @@ class Boat extends OpenAir {
     extra: { cctv: { pos: V(4.3, 3.2, 3.6), target: V(0, 0.4, -8) }, crane: { radius: 4, low: 1.2, high: 3.4 } },
   };
   private world = new THREE.Group();
+  private fill = new THREE.Color();
+  private lampGlow = new THREE.Color();
+  private windowGlow = new THREE.Color();
+  private travelled = 0;
+  private waterLights: WaterLight[] = [-1, 1].flatMap((sx) => [-22, -10, 2].map((z) => ({ pos: V(sx * (TOP.x + 0.4), LOWER_Y + 0.4, z), color: new THREE.Color(), reach: 14 })));
   private water: Water;
   private banks: THREE.Group[] = [];
   private bankLamps: THREE.Points;
@@ -190,7 +196,14 @@ class Boat extends OpenAir {
   private echoBridge = false;
 
   constructor() {
-    super({ fog: 0x1a1830, fogDensity: 0.004, hemiSky: 0x2a3260, hemiGround: 0x0c0c14, hemi: 0.3, flashAt: V(0, 4, -6), flashRange: 18, sunYaw: Math.PI, skyRadius: 800 }, BOAT_SKY);
+    super({ fog: 0x1a1830, fogDensity: 0.004, hemiSky: 0x2a3260, hemiGround: 0x0c0c14, hemi: 0.3, flashAt: V(0, 4, -6), flashRange: 18, sunYaw: Math.PI, skyRadius: 800 }, BOAT_SKY, {
+      // sea air, broken cloud; the moon rising astern
+      air: { turbidity: 1.3 },
+      clouds: { cover: 0.35, cirrus: 0.25, wind: [0.35, 0.05] },
+      moon: { yaw: 0, el0: 2, el1: 24 },
+      albedo: '#203038',
+      groundTint: '#4a6070',
+    });
     this.keyLight = { color: 0xffe2c8, intensity: 10 };
     this.grade = { tint: 0xf4f2ff, contrast: 1.1, saturation: 1.1, lift: 0.004 };
     this.toneMapping = 'agx';
@@ -198,9 +211,22 @@ class Boat extends OpenAir {
     this.group.add(this.world);
 
     // the river, flowing past
-    this.water = new Water(1600, { chop: 0.45, deep: '#05101a', flow: [0, -SPEED] });
+    this.water = new Water(1100, {
+      swells: [
+        { dir: [0, 1], length: 4, amp: 0.05, steep: 0.5 },
+        { dir: [0.6, 0.8], length: 2.3, amp: 0.03, steep: 0.4 },
+        { dir: [-0.7, 0.7], length: 1.4, amp: 0.015, steep: 0.3 },
+      ],
+      deep: '#05101a',
+      shallow: '#1a4a50',
+      ripple: 0.08,
+      rippleScale: 4,
+      flow: [0, -SPEED],
+      // the hull: stern at the booth end, bow 29.5 m forward
+      wake: { stern: TOP.z1, beam: TOP.x + 0.15, length: 29.5 },
+    });
     this.water.mesh.position.y = WATER_Y;
-    this.water.u.uGlintAmt.value = 0.9;
+    this.water.useSky(this.sky);
     this.world.add(this.water.mesh);
     // the banks: stretches of city that loop round as the boat goes
     const lampPts: THREE.Vector3[] = [];
@@ -447,8 +473,17 @@ class Boat extends OpenAir {
     const t = this.time;
     if (setClock.progress < this.lastProgress - 0.2) this.momentDone = false;
     this.lastProgress = setClock.progress;
-    this.water.update(t, this.look, this.sky.sunDir, this.fog);
-    (this.water.u.uGlints.value as THREE.Color).setRGB(1, 0.66, 0.36).lerp(s.colors[0], 0.25);
+    this.water.update(t, this.look, this.fog, this.fill.copy(this.look.ambSky).multiplyScalar(this.look.amb));
+    // the deck's LEDs glittering alongside, and the lamps on both banks smeared down the river
+    this.waterLights.forEach((w, i) => w.color.copy(s.colors[i % 2]).multiplyScalar((0.7 + s.kick * 1.2 + s.peak * 0.5) * (0.3 + 0.7 * s.master)));
+    this.water.setLights(this.waterLights);
+    this.travelled += SPEED * dt;
+    const lamp = this.lampGlow.setRGB(2.4, 1.5, 0.7).multiplyScalar(0.35);
+    this.water.setRows([
+      { n: [1, 0], d: BANK_X + 0.6, y0: WATER_Y + 4.8, y1: WATER_Y + 6.4, color: lamp, spacing: 12, offset: -this.travelled },
+      { n: [-1, 0], d: BANK_X + 0.6, y0: WATER_Y + 4.8, y1: WATER_Y + 6.4, color: lamp, spacing: 12, offset: this.travelled },
+      { n: [1, 0], d: BANK_X + 16, y0: WATER_Y + 4, y1: WATER_Y + 26, color: this.windowGlow.setRGB(1, 0.75, 0.45).multiplyScalar(0.05), spacing: 0 },
+    ]);
     // the city goes by
     const move = SPEED * dt;
     const pos = this.bankLamps.geometry.attributes.position as THREE.BufferAttribute;

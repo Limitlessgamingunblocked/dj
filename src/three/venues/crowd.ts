@@ -38,6 +38,7 @@ import type { ShowState } from './show';
 import { blobTexture } from './details';
 import { useLightMap, type LightMap } from './lightmap';
 import { rng } from './tex';
+import { CrowdSteam, sweatStep } from './airlife';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender';
 const ROLE_CODE: Record<CrowdRole, number> = { dancer: 0, sign: 1, vip: 2, dj: 3, marathon: 4, filmer: 5, towel: 6, barlean: 7, rider: 8, security: 9, bartender: 10 };
@@ -77,6 +78,8 @@ export interface CrowdOptions {
   lightMap?: LightMap;
   /** share of people in shorts (more at the warm outdoor venues) */
   shorts?: number;
+  /** body heat rising off the crowd at the peak (0 for none; default on for 40 or more people) */
+  steam?: number;
 }
 
 let shadowGeo: THREE.BufferGeometry | null = null;
@@ -453,7 +456,7 @@ export const VERT_HEAD = /* glsl */ `
 
 const FRAG_HEAD = /* glsl */ `
   uniform sampler2D uSigns;
-  uniform float uSignGlow, uTime, uPhotos, uShorts;
+  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat;
   uniform vec3 uRim, uRimFrom;
   float crowdHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   varying float vMat;
@@ -556,6 +559,7 @@ export class Crowd implements Fixture {
     uSignGlow: { value: 1 },
     uPhotos: { value: 0 },
     uShorts: { value: 0.1 },
+    uSweat: { value: 0 },
     uRim: { value: new THREE.Color(0, 0, 0) },
     uRimFrom: { value: new THREE.Vector3(0, 3.5, 1.5) },
   };
@@ -647,6 +651,8 @@ export class Crowd implements Fixture {
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>\n${FRAG_HEAD}`)
         .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`)
+        // sweat: skin goes glossy over a long peak
+        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nif (vMat > 1.5 && vMat < 2.5) roughnessFactor = mix(roughnessFactor, 0.3, uSweat);`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${FRAG_RIM}`);
     };
     mat.customProgramCacheKey = () => 'crowd';
@@ -712,7 +718,18 @@ export class Crowd implements Fixture {
       this.object.add(sh);
       this.shadows.push(sh);
     }
+    this.steamGain = o.steam ?? (n >= 40 ? 1 : 0);
+    if (this.steamGain > 0 && n) {
+      this.steam = new CrowdSteam(spots.filter((s) => (s.role ?? o.role ?? 'dancer') !== 'dj'), Math.min(260, Math.round(n * 0.8)), (o.seed ?? 11) + 5);
+      this.object.add(this.steam.object);
+    }
   }
+
+  /** the room's steam (built in the constructor for a big enough crowd) */
+  private steam: CrowdSteam | null = null;
+  private steamGain = 1;
+  private sweat = 0;
+  private steamLight = new THREE.Color();
 
   /** dancers in total */
   get count(): number {
@@ -728,6 +745,10 @@ export class Crowd implements Fixture {
         g.dispose();
       }
       c.mesh.dispose();
+    }
+    if (this.steam) {
+      this.steam.object.geometry.dispose();
+      (this.steam.object.material as THREE.Material).dispose();
     }
     // the shadow quad and material are shared by every crowd: keep them, drop only the instances
     for (const sh of this.shadows) {
@@ -786,6 +807,13 @@ export class Crowd implements Fixture {
     const rim = u.uRim.value;
     rim.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.3)).lerp(RIM_WHITE, 0.25 + s.flash * 0.5);
     rim.multiplyScalar(((0.25 + s.wash * 0.5 + s.kick * 0.25 + s.peak * 0.2) * s.master + s.flash * 0.8) * 0.9);
+    // body heat: steam over the heads and sweat on the skin, built over a long peak
+    this.sweat = sweatStep(this.sweat, dt, s.hype, s.peak, s.playing);
+    u.uSweat.value = this.sweat;
+    if (this.steam) {
+      this.steamLight.copy(rim).multiplyScalar(this.steamGain);
+      this.steam.update(dt, s.hype, s.peak, s.playing, this.steamLight, u.uRimFrom.value);
+    }
   }
 }
 

@@ -130,7 +130,14 @@ class Rooftop extends OpenAir {
   private lastProgress = 0;
 
   constructor() {
-    super({ fog: 0x7a6070, fogDensity: 0.0011, hemiSky: 0xffd8a8, hemiGround: 0x4a3a40, hemi: 1, flashAt: V(0, 3.5, -5), flashRange: 18, sunYaw: Math.PI - 0.45, skyRadius: 900 }, ROOFTOP_SKY);
+    super({ fog: 0x7a6070, fogDensity: 0.0011, hemiSky: 0xffd8a8, hemiGround: 0x4a3a40, hemi: 1, flashAt: V(0, 3.5, -5), flashRange: 18, sunYaw: Math.PI - 0.45, skyRadius: 900 }, ROOFTOP_SKY, {
+      // city haze, a few clouds going gold; the full moon coming up opposite the sunset
+      air: { turbidity: 2.6 },
+      clouds: { cover: 0.3, cirrus: 0.35, wind: [0.25, 0.1] },
+      moon: { yaw: -0.45, el0: 0, el1: 22 },
+      albedo: '#5a5a60',
+      groundTint: '#4a4a55',
+    });
     this.keyLight = { color: 0xffe2c0, intensity: 9 };
     this.grade = { tint: 0xfff2e6, contrast: 1.06, saturation: 1.08, lift: 0.002 };
     this.toneMapping = 'agx';

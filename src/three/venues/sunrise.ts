@@ -68,11 +68,18 @@ class Sunrise extends OpenAir {
   private amb = new THREE.Color();
 
   constructor() {
-    super({ fog: 0x0e1020, fogDensity: 0.006, hemiSky: 0x121838, hemiGround: 0x060608, hemi: 0.16, flashAt: V(0, 4, -8), flashRange: 26, sunYaw: 0.18, skyRadius: 900 }, SUNRISE_SKY);
+    super({ fog: 0x0e1020, fogDensity: 0.006, hemiSky: 0x121838, hemiGround: 0x060608, hemi: 0.16, flashAt: V(0, 4, -8), flashRange: 26, sunYaw: 0.18, skyRadius: 900 }, SUNRISE_SKY, {
+      // mist in the valley, high cirrus that turns pink before the sun is up, and the old moon a thin crescent over the dawn
+      air: { turbidity: 1.8 },
+      clouds: { cover: 0.18, cirrus: 0.5, wind: [0.15, 0.1] },
+      moon: { yaw: 0.78, el0: 18, el1: 28 },
+      albedo: '#5a6a38',
+      groundTint: '#4a5040',
+    });
     this.keyLight = { color: 0xffe8d0, intensity: 9 };
     this.grade = { tint: 0xfff4ec, contrast: 1.06, saturation: 1.1, lift: 0.003 };
     this.toneMapping = 'agx';
-    this.hazeFromSky = 0.95;
+    this.hazeFromSky = 0.7;
 
     // the land: the hill, the stage's level, the fall to the valley
     const land = new THREE.PlaneGeometry(420, 420, 140, 140).rotateX(-Math.PI / 2);

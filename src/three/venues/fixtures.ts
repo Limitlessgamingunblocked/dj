@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { nameService, type NameStyle } from '../../name/NameService';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { BeamDust, type BeamState } from './airlife';
 import { fxTier } from '../fx';
 import { HAZE_GLSL } from './atmos';
 import { BEAM_FRAG, BEAM_VERT, GOBO_GLSL, goboFor, prismFacets } from './beams';
@@ -117,6 +118,9 @@ export class MovingHeads implements Fixture {
   private yq = new THREE.Quaternion();
   private down = new THREE.Vector3(0, -1, 0);
   private yAxis = new THREE.Vector3(0, 1, 0);
+  /** the specks the beams light up, and what each beam is doing for them */
+  private dust: BeamDust;
+  private beamStates: BeamState[];
 
   constructor(
     private specs: HeadSpec[],
@@ -140,7 +144,6 @@ export class MovingHeads implements Fixture {
         uTime: { value: 0 },
         uHaze: { value: 1 },
         uSmoke: { value: 0.5 },
-        uDust: { value: 1 },
         uBand: { value: new THREE.Vector2(...(o.haze ?? [-100, 100])) },
         uLen: { value: len },
         uR0: { value: 0.05 },
@@ -175,6 +178,16 @@ export class MovingHeads implements Fixture {
       this.lenses.setColorAt(i, this.c);
     });
     this.object.add(base, this.heads, this.lenses, this.beams);
+    // dust in the air the beams pass through: a box round the rig, down to the floor
+    const box = new THREE.Box3();
+    for (const sp of specs) box.expandByPoint(sp.pos);
+    const reach = len * 0.6;
+    box.min.set(box.min.x - reach, o.floorY ?? box.min.y - len * 0.85, box.min.z - reach);
+    box.max.set(box.max.x + reach, box.max.y + (specs.some((x) => x.up) ? len * 0.8 : 0.3), box.max.z + reach);
+    const vol = box.getSize(this.s).x * this.s.y * this.s.z;
+    this.dust = new BeamDust(box, Math.round(THREE.MathUtils.clamp(vol * 0.5, 300, 1600)), (rad - 0.05) / len, len, n * 7 + 3);
+    this.object.add(this.dust.object);
+    this.beamStates = specs.map(() => ({ pos: new THREE.Vector3(), dir: new THREE.Vector3(0, -1, 0), color: new THREE.Color() }));
     if (o.floorY !== undefined) {
       this.floorY = o.floorY + 0.012;
       // the gobo lands on the floor with the light
@@ -199,7 +212,6 @@ export class MovingHeads implements Fixture {
     this.beamMat.uniforms.uSmoke.value = s.smoke;
     this.beamMat.uniforms.uHaze.value = 1.05;
     const tier = fxTier();
-    this.beamMat.uniforms.uDust.value = tier === 'low' ? 0 : 1;
     // steps through each beam: one on low (no wisps), four on medium, seven on high
     this.beamMat.uniforms.uSteps.value = tier === 'low' ? 1 : tier === 'medium' ? 4 : 7;
     // an energy budget: a big rig's beams each run lower, so thirty of them don't add up to a white frame
@@ -272,9 +284,13 @@ export class MovingHeads implements Fixture {
       this.beams.setColorAt(i + 2 * n, gp.prism ? this.c.copy(col).multiplyScalar(level * this.gain * share) : this.c.setRGB(0, 0, 0));
       this.poolGobo?.setXY(i, gp.prism ? 0 : gp.gobo, gp.spin);
       this.lenses.setColorAt(i, this.c.copy(col).multiplyScalar(0.3 + level * 4));
+      const bs = this.beamStates[i];
+      bs.dir.copy(this.down).applyQuaternion(this.q);
+      bs.pos.copy(this.specs[i].pos).addScaledVector(bs.dir, 0.16);
+      bs.color.copy(col).multiplyScalar(level * this.gain);
       if (this.pools) {
         const pos = this.specs[i].pos;
-        const dir = this.dir.copy(this.down).applyQuaternion(this.q);
+        const dir = this.dir.copy(bs.dir);
         const t = dir.y < -0.08 ? (this.floorY - pos.y) / dir.y : -1;
         if (t > 0 && t < this.len * 1.05) {
           const r = 0.05 + (this.rad - 0.05) * Math.min(1, t / this.len);
@@ -299,6 +315,7 @@ export class MovingHeads implements Fixture {
       this.pools.instanceColor!.needsUpdate = true;
       this.poolGobo!.needsUpdate = true;
     }
+    this.dust.update(this.beamStates, dt, tier === 'low' ? 0 : 0.55 + s.smoke * 0.3);
     this.goboAttr.needsUpdate = true;
     this.beams.instanceMatrix.needsUpdate = true;
     this.heads.instanceMatrix.needsUpdate = true;

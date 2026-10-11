@@ -99,6 +99,8 @@ export class Stage {
   quality: Quality = 'medium';
   readonly keyLight: THREE.SpotLight;
   private fill: THREE.DirectionalLight;
+  /** the studio light the indoor venues reflect */
+  private roomEnv!: THREE.Texture;
   /** the lighting rules every room shares (Section 2.3): a spotlight on you when a vocal carries the track, the low end glowing on the floor under the booth */
   private djSpot: THREE.SpotLight;
   private underGlow: THREE.PointLight;
@@ -225,7 +227,8 @@ export class Stage {
     this.renderer.shadowMap.autoUpdate = false;
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environment = this.roomEnv;
     this.scene.environmentIntensity = 0.45;
     pmrem.dispose();
 
@@ -304,6 +307,8 @@ export class Stage {
       browser: null,
     };
     this.bindPointer();
+    // whatever moves a control (the mouse, a key, MIDI, the Auto DJ), your hand goes to it
+    reg.on('activity', ({ id }) => this.handTo(id));
     this.rig.onManualMove(() => {
       this.focusedZone = null;
       this.zoneCandidate = null;
@@ -315,6 +320,16 @@ export class Stage {
   /** what you look like (rebuilds the avatar) */
   setLook(look: Look, djName?: string): void {
     this.avatar.setLook(look, djName);
+  }
+
+  /** the part on the board for a control that just moved, and your hand to it */
+  private handTo(id: string): void {
+    if (!this.board || this.avatarSpot) return;
+    const reg = this.ctx.reg;
+    const part = this.board.parts.find((p) => (p.id !== null && reg.resolveId(p.id) === id) || (p.alt !== null && reg.resolveId(p.alt) === id));
+    if (!part) return;
+    const at = new THREE.Vector3();
+    this.avatar.touch(() => (part.object.parent ? part.grip(at) : null));
   }
 
   /** you at the decks, facing the room, or where a scene has put you */
@@ -969,6 +984,8 @@ export class Stage {
       this.underGlow.color.copy(show.colors[1]);
       this.underGlow.intensity = atBooth ? 3.2 * show.bass * show.master * Math.min(1.2, show.intensity) : 0;
       const amb = venue?.ambient ?? 1;
+      // outside, things reflect the sky; inside, the studio light
+      this.scene.environment = venue?.environment ?? this.roomEnv;
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;
       this.placeAvatar(show, dt);

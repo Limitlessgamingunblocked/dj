@@ -20,7 +20,8 @@
  *            velvet) and pattern, recoloured by the 3 zones
  *   moves    grooves locked to the beat (head nod, shoulder bounce, two-step,
  *            full body, still), hands on the decks, the signature drop move,
- *            a between-mix habit every 32 bars, blinking, sweat building up
+ *            a between-mix habit every 32 bars, blinking, sweat building up;
+ *            a hand goes to whatever control you touch (two-bone reach)
  *   hype     the dancers by the booth: a new move every two bars (sway, wave,
  *            hair flip, point at the DJ, body roll, clap in the build), and a
  *            jump on the drop
@@ -123,6 +124,47 @@ function handGeometry(armR: number, k: number): THREE.BufferGeometry {
   return mergeGeometries(parts.map((g) => g.toNonIndexed()))!;
 }
 
+/**
+ * Two-bone reach for a limb hanging along −Y from its joint, bending at the
+ * elbow about its own X axis (towards +Z): the joint's rotation and the elbow
+ * bend that put the end on `t` (in the joint's parent space, relative to the
+ * joint), with the elbow out towards `pole`. Out of reach, the arm points
+ * straight at it.
+ */
+export function twoBoneIK(t: THREE.Vector3, a: number, b: number, pole: THREE.Vector3, outQ = new THREE.Quaternion()): { q: THREE.Quaternion; bend: number } {
+  const D = THREE.MathUtils.clamp(t.length(), Math.abs(a - b) + 1e-4, a + b - 1e-4);
+  const dh = t.lengthSq() > 1e-10 ? t.clone().normalize() : new THREE.Vector3(0, -1, 0);
+  // the angle at the shoulder between the upper arm and the line to the target, and the elbow's inside angle
+  const alpha = Math.acos(THREE.MathUtils.clamp((a * a + D * D - b * b) / (2 * a * D), -1, 1));
+  const inner = Math.acos(THREE.MathUtils.clamp((a * a + b * b - D * D) / (2 * a * b), -1, 1));
+  // swing the upper arm off the line, towards the pole
+  const pp = pole.clone().addScaledVector(dh, -pole.dot(dh));
+  if (pp.lengthSq() < 1e-8) pp.set(1, 0, 0).addScaledVector(dh, -dh.x);
+  pp.normalize();
+  const u = dh.clone().multiplyScalar(Math.cos(alpha)).addScaledVector(pp, Math.sin(alpha));
+  // the forearm's direction, and the bone's frame: −Y down the upper arm, +Z where the forearm bends to
+  const f = dh.clone().multiplyScalar(D).addScaledVector(u, -a).normalize();
+  const Y = u.clone().negate();
+  const Z = f.clone().addScaledVector(u, -f.dot(u));
+  if (Z.lengthSq() < 1e-8) Z.copy(pp).negate();
+  Z.normalize();
+  const X = new THREE.Vector3().crossVectors(Y, Z).normalize();
+  outQ.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
+  return { q: outQ, bend: Math.PI - inner };
+}
+
+/** a hand on its way to a control, or holding it */
+interface Reach {
+  get: () => THREE.Vector3 | null;
+  /** seconds since the control last moved */
+  age: number;
+  /** how far the hand has come (0 at its own pose, 1 on the control) */
+  w: number;
+}
+
+/** how long a hand stays on a control after it last moved */
+const REACH_HOLD = 0.75;
+
 export class Avatar {
   readonly object = new THREE.Group();
   readonly bones = {} as Record<BoneName, THREE.Object3D>;
@@ -152,6 +194,9 @@ export class Avatar {
   private lastHead = new THREE.Vector3();
   private blinkAt = 2;
   private djName: string;
+  private reaching: { l: Reach | null; r: Reach | null } = { l: null, r: null };
+  private ikQ = new THREE.Quaternion();
+  private ikT = new THREE.Vector3();
 
   constructor(look: Look, o: { djName?: string } = {}) {
     this.look = look;
@@ -1271,6 +1316,59 @@ export class Avatar {
     this.prop = g;
   }
 
+  /**
+   * A control just moved (from the mouse, a key, MIDI or the Auto DJ): the
+   * hand on that side goes to it and stays while it keeps moving. `get`
+   * gives where it is now, in world space.
+   */
+  touch(get: () => THREE.Vector3 | null): void {
+    const at = get();
+    if (!at) return;
+    const side: 'l' | 'r' = this.object.worldToLocal(this.ikT.copy(at)).x >= 0 ? 'l' : 'r';
+    const cur = this.reaching[side];
+    if (cur) {
+      cur.get = get;
+      cur.age = 0;
+    } else this.reaching[side] = { get, age: 0, w: 0 };
+  }
+
+  /** the hands that are on controls, laid over the pose */
+  private applyReach(dt: number): void {
+    const b = this.bones;
+    let updated = false;
+    for (const side of ['l', 'r'] as const) {
+      const r = this.reaching[side];
+      if (!r) continue;
+      r.age += dt;
+      const want = r.age < REACH_HOLD ? 1 : 0;
+      r.w += (want - r.w) * Math.min(1, dt * (want > r.w ? 9 : 3.5));
+      if (want === 0 && r.w < 0.01) {
+        this.reaching[side] = null;
+        continue;
+      }
+      const at = r.get();
+      if (!at) continue;
+      if (!updated) {
+        this.object.updateMatrixWorld(true);
+        updated = true;
+      }
+      const k = side === 'l' ? 1 : -1;
+      const local = b[`shoulder_${side}`].worldToLocal(this.ikT.copy(at));
+      // the wrist a hand's length short of the control, a little above it
+      const len = local.length();
+      if (len > 1e-4) local.multiplyScalar(Math.max(0.05, len - 0.07) / len);
+      local.y += 0.03;
+      const { q, bend } = twoBoneIK(local, this.d.upperArm, this.d.foreArm, new THREE.Vector3(k * 0.9, -0.55, -0.45), this.ikQ);
+      const ua = b[`upper_arm_${side}`];
+      ua.quaternion.slerp(q, r.w);
+      const fa = b[`forearm_${side}`];
+      fa.rotation.x += (-bend - fa.rotation.x) * r.w;
+      // fingers down onto it, and a glance down at what the hand's doing
+      b[`hand_${side}`].rotation.x += (-0.45 - b[`hand_${side}`].rotation.x) * r.w;
+      b.neck.rotation.x += 0.08 * r.w;
+    }
+  }
+
   update(s: AvatarInput, dt: number): void {
     const b = this.bones;
     const l = this.look;
@@ -1414,6 +1512,7 @@ export class Avatar {
       this.habitAt = bar;
     } else if (this.prop) this.holdProp(null);
 
+    if (dj) this.applyReach(dt);
     this.settle(dt);
   }
 

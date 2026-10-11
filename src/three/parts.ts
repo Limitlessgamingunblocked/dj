@@ -75,6 +75,12 @@ export abstract class Part {
   }
 
   update(_c: PartCtx): void {}
+
+  /** where a hand takes hold of this part (world space): a little above it, by default */
+  grip(out: THREE.Vector3): THREE.Vector3 {
+    return this.object.localToWorld(out.set(0, 0.025, 0));
+  }
+
   down?(p: PointerInfo, c: PartCtx): void;
   move?(p: PointerInfo, c: PartCtx): void;
   up?(p: PointerInfo, c: PartCtx): void;
@@ -268,6 +274,11 @@ export class KnobPart extends Part {
 
 export class FaderPart extends Part {
   private cap: THREE.Mesh;
+
+  /** the cap, where it is now */
+  grip(out: THREE.Vector3): THREE.Vector3 {
+    return this.cap.localToWorld(out.set(0, this.capTop * 0.5, 0));
+  }
   private grab = 0;
   private capTop: number;
 
@@ -543,6 +554,11 @@ function formatClock(sec: number): string {
 }
 
 export class JogPart extends Part {
+  /** the hand on the near side of the wheel, towards the DJ */
+  grip(out: THREE.Vector3): THREE.Vector3 {
+    return this.object.localToWorld(out.set(this.r * 0.15, this.topY + 0.01, this.r * 0.55));
+  }
+
   private top = new THREE.Group();
   private ringLed: THREE.MeshStandardMaterial;
   private lastAngle = 0;
@@ -775,6 +791,11 @@ const artImages = new Map<string, HTMLImageElement>();
 /* ------------------------------------------------------------------ */
 
 export class PlatterPart extends Part {
+  /** the hand on the record, near side */
+  grip(out: THREE.Vector3): THREE.Vector3 {
+    return this.object.localToWorld(out.set(0.03, this.topY + 0.01, 0.1));
+  }
+
   private platter = new THREE.Group();
   private record = new THREE.Group();
   private labelTex: THREE.CanvasTexture;

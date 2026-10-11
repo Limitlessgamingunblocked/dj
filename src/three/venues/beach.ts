@@ -22,7 +22,8 @@ import { atBar, crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, TABLE_Y } from './fixtures';
 import { moments, setClock } from './moments';
 import { OpenAir } from './openair';
-import { lounger, palmTree, Water, type SkyKey, type SkyLook } from './outdoor';
+import { lounger, palmTree, type SkyKey, type SkyLook } from './outdoor';
+import { Water, type WaterLight } from './water';
 import type { ShowState } from './show';
 import { canvasTexture, rng, withSurface } from './tex';
 
@@ -104,9 +105,30 @@ class Beach extends OpenAir {
   private lastProgress = 0;
   private cheered = false;
   private dayAmb = new THREE.Color();
+  private fill = new THREE.Color();
+  private townGlow = new THREE.Color();
+  private waterLights: WaterLight[] = [
+    { pos: V(0, 3.2, 1.6), color: new THREE.Color(), reach: 30 },
+    { pos: V(-3.4, 2.4, 0.6), color: new THREE.Color(), reach: 24 },
+    { pos: V(3.4, 2.4, 0.6), color: new THREE.Color(), reach: 24 },
+    ...[
+      [-60, 90],
+      [25, 130],
+      [90, 70],
+      [-130, 160],
+      [160, 200],
+    ].map(([x, z]) => ({ pos: V(x, 1.4, z), color: new THREE.Color(), reach: 30 })),
+  ];
 
   constructor() {
-    super({ fog: 0xf6d8a8, fogDensity: 0.0016, hemiSky: 0xbcd4ee, hemiGround: 0xc8a878, hemi: 0.7, flashAt: V(0, 4, -6), flashRange: 24, sunYaw: 0.22, skyRadius: 900 }, BEACH_SKY);
+    super({ fog: 0xf6d8a8, fogDensity: 0.0016, hemiSky: 0xbcd4ee, hemiGround: 0xc8a878, hemi: 0.7, flashAt: V(0, 4, -6), flashRange: 24, sunYaw: 0.22, skyRadius: 900 }, BEACH_SKY, {
+      // clear sea air, fair-weather cloud and cirrus that lights up at sunset; the moon comes up over the land behind
+      air: { turbidity: 1.4 },
+      clouds: { cover: 0.22, cirrus: 0.45, wind: [0.2, -0.15] },
+      moon: { yaw: 0.22 + Math.PI, el0: -2, el1: 18 },
+      albedo: '#d8c09a',
+      groundTint: '#5a8090',
+    });
     this.keyLight = { color: 0xffe0c0, intensity: 9 };
     this.grade = { tint: 0xfff0e0, contrast: 1.05, saturation: 1.12, lift: 0.002 };
     this.toneMapping = 'agx';
@@ -122,17 +144,27 @@ class Beach extends OpenAir {
     // the sand behind, down to the sea
     const st = sand();
     st.repeat.set(30, 12);
-    const beach = new THREE.Mesh(new THREE.PlaneGeometry(120, 40).rotateX(-Math.PI / 2 - 0.03), new THREE.MeshStandardMaterial({ map: st, roughness: 0.95 }));
+    // sloping down into the sea: it meets the water about 28 m past the deck
+    const beach = new THREE.Mesh(new THREE.PlaneGeometry(120, 40).rotateX(-Math.PI / 2 + 0.03), new THREE.MeshStandardMaterial({ map: st, roughness: 0.95 }));
     beach.position.set(0, -0.75, z1 + 18);
     this.group.add(beach);
-    this.water = new Water(1800, { chop: 0.55, deep: '#0a3a4a', flow: [0, -0.4] });
-    this.water.mesh.position.set(0, -1.05, 400);
+    // the bay: swells rolling in to the shore, surf where they break
+    this.water = new Water(1300, {
+      swells: [
+        { dir: [0, -1], length: 11, amp: 0.16, steep: 0.6 },
+        { dir: [0.3, -1], length: 6.5, amp: 0.07, steep: 0.5 },
+        { dir: [-0.5, -1], length: 3.7, amp: 0.035, steep: 0.4 },
+        { dir: [1, -0.2], length: 2.1, amp: 0.015, steep: 0.3 },
+      ],
+      deep: '#0a3a4a',
+      shallow: '#2a9a8a',
+      ripple: 0.07,
+      rippleScale: 5,
+      shore: { n: [0, 1], d: z1 + 28 },
+    });
+    this.water.mesh.position.set(0, -1.05, 0);
+    this.water.useSky(this.sky);
     this.group.add(this.water.mesh);
-    // foam where the waves break
-    const foam = new THREE.Mesh(new THREE.PlaneGeometry(120, 1.2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xf4f0e8, transparent: true, opacity: 0.55, depthWrite: false }));
-    foam.position.set(0, -0.98, z1 + 27);
-    foam.name = 'foam';
-    this.group.add(foam);
 
     // the booth: a whitewashed riser with a timber front, a sail over it
     const nm = nameStyleFor('beach');
@@ -324,9 +356,6 @@ class Beach extends OpenAir {
       const t = Math.min(1, this.sunsetT / 9);
       const e = t * t * (3 - 2 * t);
       l.sun = Math.min(l.sun, this.sunFrom + (-1.4 - this.sunFrom) * e);
-      // the sky flares as it goes
-      const flare = Math.exp(-Math.pow(this.sunsetT - 4, 2) / 8) * 0.6;
-      l.horizon.lerp(l.sunColor, flare * 0.5);
     }
   }
 
@@ -334,9 +363,14 @@ class Beach extends OpenAir {
     super.update(s, f, dt, camera);
     const l = this.look;
     const night = l.night;
-    this.water.update(this.time, l, this.sky.sunDir, this.fog);
-    this.water.u.uGlintAmt.value = night * 0.5;
-    (this.water.u.uGlints.value as THREE.Color).copy(s.colors[0]).lerp(new THREE.Color(1, 0.75, 0.45), 0.5);
+    this.water.update(this.time, l, this.fog, this.fill.copy(l.ambSky).multiplyScalar(l.amb));
+    // on the water after dark: the booth's lights, the cabins of the boats at anchor, the town across the bay
+    this.waterLights.forEach((w, i) => {
+      if (i < 3) w.color.copy(s.colors[i]).multiplyScalar((1.2 + s.kick * 0.8) * s.master * (0.3 + 0.7 * night));
+      else w.color.setRGB(1, 0.72, 0.42).multiplyScalar(0.5 * night);
+    });
+    this.water.setLights(this.waterLights);
+    this.water.setRows([{ n: [0, 1], d: 600, y0: -1.05 + 6, y1: -1.05 + 16, color: this.townGlow.setRGB(1, 0.7, 0.4).multiplyScalar(0.18 * night), spacing: 7 }]);
     // palms uplit in the show's colours after dark
     for (const p of this.palms) p.trunk.emissive.copy(s.colors[p.i % 3]).multiplyScalar(night * 0.12 * (0.6 + 0.4 * s.master));
     this.uplights.forEach((u, i) => {

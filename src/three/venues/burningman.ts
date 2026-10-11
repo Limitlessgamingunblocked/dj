@@ -510,11 +510,18 @@ class BurningMan extends OpenAir {
   private amb = new THREE.Color();
 
   constructor() {
-    super({ fog: 0x141022, fogDensity: 0.0011, hemiSky: 0x1a1e3a, hemiGround: 0x0a0a0e, hemi: 0.16, flashAt: V(0, 6, -10), flashRange: 40, sunYaw: -0.61, skyRadius: 900 }, PLAYA_SKY);
+    super({ fog: 0x141022, fogDensity: 0.0011, hemiSky: 0x1a1e3a, hemiGround: 0x0a0a0e, hemi: 0.16, flashAt: V(0, 6, -10), flashRange: 40, sunYaw: -0.61, skyRadius: 900 }, PLAYA_SKY, {
+      // dust in the desert air, a clear sky (thin streaks at dawn), and a fine crescent low in the east before sunrise, so the Milky Way stays
+      air: { turbidity: 3 },
+      clouds: { cover: 0, cirrus: 0.12, wind: [0.4, 0] },
+      moon: { yaw: -0.26, el0: 8, el1: 20 },
+      albedo: '#c8c0b0',
+      groundTint: '#a89c8c',
+    });
     this.keyLight = { color: 0xffe8d0, intensity: 10 };
     this.grade = { tint: 0xfff2e8, contrast: 1.08, saturation: 1.12, lift: 0.002 };
     this.toneMapping = 'agx';
-    this.hazeFromSky = 0.9;
+    this.hazeFromSky = 0.66;
     // the city's glow on the horizon
     this.glow.setRGB(0.55, 0.32, 0.4).multiplyScalar(0.08);
     const night = () => this.look.night;

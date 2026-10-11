@@ -81,7 +81,6 @@ export const BEAM_FRAG = (haze: string) => /* glsl */ `
   uniform float uTime;
   uniform float uHaze;
   uniform float uSmoke;
-  uniform float uDust;
   uniform vec2 uBand;
   uniform float uLen;
   uniform float uR0;
@@ -196,10 +195,8 @@ export const BEAM_FRAG = (haze: string) => /* glsl */ `
     float hE = max(1e-3, dot(pa - A, vAxis));
     float apparent = (hE * tanA) / max(0.25, tIn);
     near /= 1.0 + apparent * 4.0;
-    // dust drifting through the light, on the near surface
-    vec3 cell = floor(pa * 6.0 + vec3(0.0, uTime * 0.5, 0.0));
-    float dust = step(0.9965, fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453)) * uDust;
-    vec3 col = vColor * (acc * phase * uGain * near + dust * 0.6) * uHaze;
+    // (dust in the light is its own cloud of specks: airlife.ts)
+    vec3 col = vColor * (acc * phase * uGain * near) * uHaze;
     // one beam never fills the frame on its own
     gl_FragColor = vec4(min(col, vec3(1.6)), 1.0);
   }`;
