@@ -276,18 +276,22 @@ export function fxSection(u: Unit, cx: number, cz: number, w: number, withScreen
   u.face.section(cx, cz, w, 0.062, 'BEAT FX');
   const top = cz - 0.02;
   if (withScreen) {
-    u.screen(cx, top - 0.001, w * 0.62, 0.012, 256, 64, (g, W, H, c) => {
+    u.screen(cx, top - 0.001, w * 0.62, 0.016, 512, 128, (g, W, H, c) => {
       const fx = c.engine.fx;
       g.fillStyle = '#02070a';
       g.fillRect(0, 0, W, H);
-      g.fillStyle = fx.on ? '#ff5f7a' : '#8fe3ff';
-      g.font = '700 26px "JetBrains Mono", monospace';
+      // lit along the bottom while the effect is on
+      g.fillStyle = fx.on ? '#ff5f7a' : '#1a2430';
+      g.fillRect(0, H * 0.86, W * (fx.on ? 0.35 + 0.65 * fx.depth : 1), H * 0.14);
+      g.fillStyle = fx.on ? '#ff8aa0' : '#8fe3ff';
+      g.font = `700 ${H * 0.52}px "JetBrains Mono", monospace`;
       g.textBaseline = 'middle';
-      g.fillText(fxShort[fx.type], 8, H / 2);
+      g.fillText(fxShort[fx.type], W * 0.03, H * 0.43);
       g.textAlign = 'right';
-      g.font = '700 22px "JetBrains Mono", monospace';
+      g.fillStyle = '#ffffff';
+      g.font = `700 ${H * 0.46}px "JetBrains Mono", monospace`;
       const b = fx.beats;
-      g.fillText(b >= 1 ? `${b}` : `1/${Math.round(1 / b)}`, W - 8, H / 2);
+      g.fillText(b >= 1 ? `${b}` : `1/${Math.round(1 / b)}`, W * 0.97, H * 0.43);
       g.textAlign = 'left';
     }, 0, 3);
   }

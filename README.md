@@ -145,19 +145,22 @@ Everything you can change is on the Settings tab, in sections with a search box 
 ### Boards (3D, Three.js)
 | Board | Class | Decks |
 |---|---|---|
-| Starter Two | Entry-level 2-channel all-in-one controller | 2 |
-| All-in-One Two | Flagship 2-channel all-in-one (73 × 47 cm) with a 10.1-inch touch screen that browses your library | 2 |
-| Pro Four | Flagship 4-channel controller with on-jog displays, centre screen, LED filter rings | 4 (layers) |
-| Club Standard | Two media players with waveform screens + 4-channel club mixer | 4 (layers) |
-| Vinyl Battle | Twin direct-drive turntables + 2-channel battle mixer | 2 |
+| Starter Two | Entry-level 2-channel controller, with a laptop on a stand running the DJ software | 2 |
+| All-in-One Two | Flagship 2-channel all-in-one (73 × 47 cm) with an 11.6-inch touch screen that browses your library | 2 |
+| Pro Four | Flagship 4-channel controller with on-jog displays, a raised 9-inch centre display (both decks' waveforms, overviews, BPM, key and time), LED filter rings | 4 (layers) |
+| Club Standard | Two media players with 11-inch waveform screens + 4-channel club mixer | 4 (layers) |
+| Vinyl Battle | Twin direct-drive turntables + 2-channel battle mixer, with a laptop on a stand running the DJ software | 2 |
 | Festival Quad | Four media players (decks 3·1 · mixer · 2·4) + 4-channel mixer | 4 (one unit each) |
 | Hybrid Booth | Turntables on decks 3/4 outside media players on decks 1/2 + 4-channel mixer | 4 (one unit each) |
-| Rotary House | Twin turntables + walnut-cheeked 2-channel rotary mixer (no crossfader, no sync) | 2 |
+| Rotary House | Twin turntables + walnut-cheeked 2-channel rotary mixer (no crossfader, no sync), with a laptop on a stand | 2 |
 
 - PBR materials with a room environment map, real-time shadows from the booth light, bloom on LEDs and screens, printed faceplates.
+- **Screens:** every screen is lit about 40 % above paper white, so it reads as a backlit display in a dark booth (kept under the lens's flare threshold). Each sits behind glass that picks up a soft glint of the room. The screens are drawn at higher resolution: 1024×576 on the media players, 1280×720 on the Pro Four, 512×512 on the jog displays and 1280×800 on the All-in-One. Raised screens sit on a housing.
+  - The jog displays read upright from the DJ's side. They show the deck number, BPM, time left, a progress ring and four beat dots.
+  - The boards with no screen of their own (Starter Two, Vinyl Battle and Rotary House) have a laptop on a stand behind them, running the DJ software: both decks, their waveforms and the library, with what's loaded marked.
 - Each board comes in several finishes, and every board carries old stickers and gaffer tape — drawn procedurally and aged (sun-faded, scratched, torn and peeling corners), placed only in free space so they never cover a control. Switch them off in Settings.
 - On the one-unit-per-deck boards the software deck panels follow whichever player or turntable you touch.
-- **All-in-One Two's touch screen** works like the real one. Tap its tabs:
+- **All-in-One Two's 11.6-inch touch screen** works like the real one. Tap its tabs:
   - **DECKS:** both decks' scrolling waveforms, title, BPM, key, tempo and time, beat FX, and an overview per deck. Tap an overview to jump there.
   - **BROWSE:** your library, the same list as the Library tab. Tap a track to pick it and tap it again to load it, or use LOAD ▶ DECK 1 / 2. Drag or scroll to move through the list, tap a column to sort, and use ★ TAG for favourites. Tracks that suit the master deck's key get a green dot.
   - **PLAYLISTS:** the collection, favourites, history and your crates.

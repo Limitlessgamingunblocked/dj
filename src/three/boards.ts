@@ -7,14 +7,14 @@
  *   quad4    – festival booth: four media players around a 4-channel mixer
  *   hybrid4  – two turntables outside two media players + 4-channel mixer
  *   rotary2  – two turntables + a walnut-cheeked 2-channel rotary mixer
- *   aio2     – flagship 2-channel all-in-one: 728 × 470 mm, a 10.1-inch
+ *   aio2     – flagship 2-channel all-in-one: 728 × 470 mm, an 11.6-inch
  *              touch screen that browses the library, 16 cm jogs
  */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { BoardBuild, channelStrip, crossfader, finish, fxSection, loopRow, masterSection, padGrid, padModes, transport, type Finish, type Unit } from './builder';
-import { PlatterPart, TonearmPart, type DeckRef } from './parts';
-import { drawDualScreen, drawPlayerScreen } from './screens';
+import { PlatterPart, ScreenPart, TonearmPart, type DeckRef } from './parts';
+import { drawCentreScreen, drawLaptopScreen, drawPlayerScreen } from './screens';
 import { TouchScreenPart } from './deviceScreen';
 import type { FaceStyle } from './Faceplate';
 import { applyStickers } from './stickers';
@@ -68,6 +68,58 @@ function starterDeck(u: Unit, side: 'L' | 'R', x0: number): void {
   u.face.text(jx, -0.035 + 0.064 + 0.009, side === 'L' ? 'DECK 1' : 'DECK 2', { size: 0.0032, color: u.finish.face.accent });
 }
 
+/**
+ * A laptop on an aluminium stand behind a board that has no screen of its
+ * own, running the DJ software: both decks, their waveforms and the library.
+ * `z` is where the stand's front edge sits.
+ */
+function laptopStand(b: BoardBuild, x: number, z: number): void {
+  const W = 0.31;
+  const D = 0.215;
+  const g = new THREE.Group();
+  g.position.set(x, 0, z - D / 2);
+  b.root.add(g);
+  const alu = new THREE.MeshStandardMaterial({ color: '#a3a9b1', metalness: 0.85, roughness: 0.3 });
+  const shell = new THREE.MeshStandardMaterial({ color: '#2a2d33', metalness: 0.7, roughness: 0.35 });
+  const keys = new THREE.MeshStandardMaterial({ color: '#0d0e10', roughness: 0.6 });
+  // the stand: two side plates, higher at the back, and a bar across
+  const back = 0.12;
+  const front = 0.075;
+  const plate = new THREE.Shape([new THREE.Vector2(D / 2, 0), new THREE.Vector2(-D / 2, 0), new THREE.Vector2(-D / 2, back), new THREE.Vector2(D / 2, front)]);
+  for (const s of [-1, 1]) {
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(plate, { depth: 0.005, bevelEnabled: false }).rotateY(-Math.PI / 2), alu);
+    m.position.x = s * (W / 2 - 0.035) + 0.0025;
+    m.castShadow = true;
+    g.add(m);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, W - 0.07, 10).rotateZ(Math.PI / 2), alu);
+  bar.position.set(0, 0.02, -D / 2 + 0.01);
+  g.add(bar);
+  // the base, tilted towards you, with its keyboard and trackpad
+  const slope = Math.atan2(back - front, D);
+  const base = new THREE.Group();
+  base.position.set(0, (back + front) / 2 + 0.008, 0);
+  base.rotation.x = slope;
+  g.add(base);
+  const body = new THREE.Mesh(new RoundedBoxGeometry(W, 0.016, D, 2, 0.006), shell);
+  body.castShadow = true;
+  base.add(body);
+  const kb = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.86, D * 0.42).rotateX(-Math.PI / 2), keys);
+  kb.position.set(0, 0.0082, -D * 0.14);
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.32, D * 0.26).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#33363d', roughness: 0.25, metalness: 0.5 }));
+  pad.position.set(0, 0.0082, D * 0.27);
+  base.add(kb, pad);
+  // the lid: a 13-inch 16:10 screen opened to about 105°
+  const sw = 0.286;
+  const sd = 0.179;
+  const tilt = 1.31;
+  const lid = new ScreenPart(sw, sd, 1280, 800, (gg, w, h, c) => drawLaptopScreen(gg, w, h, c), tilt, 3, { housing: false, back: shell });
+  const hingeY = back + 0.018;
+  lid.object.position.set(0, hingeY - 0.002, -D / 2 + 0.004 - (sd / 2) * Math.cos(tilt));
+  g.add(lid.object);
+  b.register(lid);
+}
+
 const starter: BoardDef = {
   id: 'starter2',
   name: 'Starter Two',
@@ -104,6 +156,7 @@ const starter: BoardDef = {
     crossfader(u, 0, 0.118, 0.055);
     starterDeck(u, 'L', -0.26);
     starterDeck(u, 'R', 0.09);
+    laptopStand(b, 0, -0.165);
   },
 };
 
@@ -151,8 +204,8 @@ const pro: BoardDef = {
   ],
   build(b) {
     const u = b.unit(0, 0, 0.74, 0.4, 0.058, { radius: 0.014 });
-    // centre screen + browse
-    u.screen(0, -0.158, 0.2, 0.062, 720, 224, (g, W, H, c) => drawDualScreen(g, W, H, c), 0.18, 2);
+    // the raised 9-inch centre display + browse
+    u.screen(0, -0.163, 0.2, 0.1125, 1280, 720, (g, W, H, c) => drawCentreScreen(g, W, H, c), 0.95, 2);
     u.knob('browse', -0.118, -0.176, { label: 'Browse library', r: 0.0075, encoder: true, print: 'BROWSE', printAbove: false });
     u.button('deck.L.load', -0.118, -0.142, { label: 'Load to left deck', w: 0.014, d: 0.007, print: 'LOAD ◀', printAt: 'below', led: '#ffffff' });
     u.button('deck.R.load', 0.118, -0.142, { label: 'Load to right deck', w: 0.014, d: 0.007, print: 'LOAD ▶', printAt: 'below', led: '#ffffff' });
@@ -184,11 +237,12 @@ const pro: BoardDef = {
 /* 3. Club standard: two media players + 4-channel mixer               */
 /* ------------------------------------------------------------------ */
 
-function player(b: BoardBuild, side: DeckRef, x: number): void {
+function player(b: BoardBuild, side: DeckRef, x: number, every = 2): void {
   const u = b.unit(x, 0, 0.32, 0.43, 0.1, { radius: 0.012 });
   const D = `deck.${side}`;
   const fixed = typeof side === 'number';
-  u.screen(0, -0.14, 0.215, 0.125, 800, 464, (g, W, H, c) => drawPlayerScreen(g, W, H, c.deck(side), c), 0.28, 2);
+  // an 11-inch screen, as wide as the unit allows between the browse and deck buttons
+  u.screen(0, -0.1375, 0.24, 0.135, 1024, 576, (g, W, H, c) => drawPlayerScreen(g, W, H, c.deck(side), c), 0.28, every);
   u.knob('browse', 0.135, -0.19, { label: 'Browse library', r: 0.0075, encoder: true, print: 'BROWSE', printAbove: false });
   u.button(`${D}.load`, 0.135, -0.15, { label: 'Load selected track', w: 0.016, d: 0.008, print: 'LOAD', printAt: 'below', led: '#ffffff' });
   if (fixed) u.face.text(-0.135, -0.19, `DECK ${side}`, { size: 0.0052, color: u.finish.face.accent });
@@ -345,6 +399,7 @@ const vinyl: BoardDef = {
     turntable(b, 'L', -0.39);
     battleMixer(b);
     turntable(b, 'R', 0.39);
+    laptopStand(b, 0, -0.195);
   },
 };
 
@@ -366,11 +421,12 @@ const quad: BoardDef = {
     finish({ id: 'white', name: 'Limited white', swatch: '#e9eaec', body: '#d9dbde', bodyMetal: 0.2, bodyRough: 0.45, face: face('#eceef0', '#16181c', '#7c838e', '#e0344d', 'matte'), accent: '#ff3b5c', knobCap: '#f1f2f4', cueColor: '#ff9f1c', playColor: '#3ddc97' }),
   ],
   build(b) {
-    player(b, 3, -0.665);
-    player(b, 1, -0.335);
+    // four screens: each redraws every third frame
+    player(b, 3, -0.665, 3);
+    player(b, 1, -0.335, 3);
     clubMixer(b);
-    player(b, 2, 0.335);
-    player(b, 4, 0.665);
+    player(b, 2, 0.335, 3);
+    player(b, 4, 0.665, 3);
   },
 };
 
@@ -455,6 +511,7 @@ const rotary: BoardDef = {
     turntable(b, 'L', -0.39);
     rotaryMixer(b);
     turntable(b, 'R', 0.39);
+    laptopStand(b, 0, -0.195);
   },
 };
 
@@ -465,7 +522,7 @@ const rotary: BoardDef = {
 /*
  * Laid out from the flagship two-channel all-in-ones (728 × 470 mm, 9.3 kg):
  * two identical decks (not mirrored) either side of a two-channel mixer, a
- * 10.1-inch touch screen standing up behind the mixer with the browse
+ * 11.6-inch touch screen standing up behind the mixer with the browse
  * encoder, BACK, TAG and LOAD 1 / 2 beside it, a mic section top left and the
  * USB slots top right. Positions are measured off the top view.
  */
@@ -617,9 +674,9 @@ function aioScreen(b: BoardBuild, u: Unit): void {
   const tilt = 1.13; // about 65° up from the faceplate, facing you
   const z0 = -0.128;
   const housing = new THREE.MeshStandardMaterial({ color: '#0e0f12', roughness: 0.42, metalness: 0.35 });
-  // the 10.1-inch panel: 217 × 136 mm of 16:10 picture in a black glass front
-  const W = 0.217;
-  const H = 0.136;
+  // an 11.6-inch panel: 250 × 156 mm of 16:10 picture in a black glass front
+  const W = 0.25;
+  const H = 0.156;
   const bez = 0.011;
   const len = H + bez * 2 + 0.008;
   const panel = tiltedPanel(u, 0, z0, W + bez * 2, len, tilt, housing);

@@ -303,3 +303,17 @@ You asked for every venue to be more detailed, going all out.
 120. **The real venues' dressing fits the building type but isn't documented.** For example: Berghain's crane girder, valves and control cabinets; Printworks' stairs, ladders and roof ducts; Boiler Room's gazebo, truck and parked cars; Alexandra Palace's radiators and far-end windows. All of it was invented to suit the building, not traced from photos. Signs are generic words (BAR, TOILETS, FOOD, WATER, CAMP, MERCH, FOH, WC, HALL 1) and flyers are made-up nights. There are no logos, brands or promoters.
 121. **The festival's placeholder boxes are now built pieces.** The mix tent is an open black scaffold tent with both desks, racks and a camera riser. The barrier is a steel crowd barrier, its footplate on the crowd's side, with trackway in the pit.
 122. **A venue's far camera angles now reach their spot.** You can only zoom out 45 m from what the camera looks at, and the orbit controls were pulling in every preset shot set further out than that. Sunrise's "Up the hill" (87 m from its aim point) ended up on the stage. Alexandra Palace's "From the stage" (60 m) and "From the organ gallery" (53 m) were pulled forward over the crowd, and the festival's field shot moved in a few metres. Going to an angle now lifts the limit to fit that shot, and the limit drops back to 45 m once the camera arrives somewhere closer.
+
+## Board screens (2026-10-11)
+
+You asked for better, brighter, larger screens on the boards.
+
+123. **Screens are lit above paper white (×1.4) and sit behind glass.** The frame is tone-mapped at the end, so a screen drawn at plain white read as grey in a dark booth. At 1.4× it reads as a backlit display while staying under the lens's flare threshold (1.6), so screens don't throw streaks or ghosts. The glass is a black, additive, slightly rough layer: it only adds a soft glint of the room, and never a hard hotspot over the waveform.
+124. **Larger where each board's layout has room.**
+    - The media players' screens grow from 9.7 to 11 inches, as wide as the gap between the browse and deck buttons allows.
+    - The Pro Four's centre strip (0.2 × 0.06 m) becomes a raised 9-inch 16:9 display on a housing behind the mixer, with a new layout: both decks stacked, each with title, BPM, tempo, key, time, a wide waveform and an overview.
+    - The All-in-One's screen grows from 10.1 to 11.6 inches.
+    - The jog displays stay the size of the jog.
+125. **Sharper, but with the upload cost in mind.** The resolutions are 1024×576 on players, 1280×720 on the Pro Four, 512² on jogs and 1.25× on the All-in-One (its layout stays in its 1024×640 units). The four-player Festival Quad redraws each screen every third frame instead of every second, so it uploads about as much per second as before.
+126. **The boards with no screen get a laptop on a stand behind them**, running the DJ software (Starter Two, Vinyl Battle and Rotary House). That's how those setups are played in real life, and the laptop shows both decks, their waveforms and your library. The booth's own laptop at the side stays.
+127. **The jog displays now read upright from the DJ's side.** Their texture lay a quarter turn round, so the BPM read sideways. The drawing is turned back, and the position marker still tracks the platter.

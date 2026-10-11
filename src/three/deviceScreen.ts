@@ -1,5 +1,5 @@
 /*
- * The all-in-one's 10.1-inch touch screen (16:10), working like the real
+ * The all-in-one's 11.6-inch touch screen (16:10), working like the real
  * thing:
  *   DECKS      both decks' scrolling waveforms, title, BPM, key, tempo and
  *              time, beat FX, and an overview per deck: tap it to jump there
@@ -19,7 +19,7 @@ import { camelotColor, compatibility, formatKey } from '../analysis/keys';
 import { DECK_COLORS, type DeckId, type LibraryTrack } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { drawOverview, drawZoomed } from '../ui/waveform';
-import { Part, type PartCtx, type PointerInfo } from './parts';
+import { Part, SCREEN_GAIN, screenGlass, type PartCtx, type PointerInfo } from './parts';
 
 /** what the screen needs from the library (the app supplies the Library panel's list) */
 export interface LibraryBrowser {
@@ -39,6 +39,8 @@ export type ScreenPage = 'decks' | 'browse' | 'playlists' | 'search';
 
 export const SCREEN_W = 1024;
 export const SCREEN_H = 640;
+/** the canvas is this many real pixels per layout pixel (layout stays in SCREEN_W × SCREEN_H) */
+const SCREEN_SCALE = 1.25;
 export const TABS: { page: ScreenPage; label: string }[] = [
   { page: 'decks', label: 'DECKS' },
   { page: 'browse', label: 'BROWSE' },
@@ -219,20 +221,23 @@ export class TouchScreenPart extends Part {
     super();
     this.label = 'Touch screen: tap the tabs; tap a track to pick it and again to load it; tap a waveform to jump; drag or scroll the list';
     this.canvas = document.createElement('canvas');
-    this.canvas.width = SCREEN_W;
-    this.canvas.height = SCREEN_H;
+    this.canvas.width = Math.round(SCREEN_W * SCREEN_SCALE);
+    this.canvas.height = Math.round(SCREEN_H * SCREEN_SCALE);
     this.g = this.canvas.getContext('2d')!;
     this.tex = new THREE.CanvasTexture(this.canvas);
     this.tex.colorSpace = THREE.SRGBColorSpace;
-    this.tex.anisotropy = 8;
-    this.glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false }));
+    this.tex.anisotropy = 16;
+    this.glass = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false, color: new THREE.Color(SCREEN_GAIN, SCREEN_GAIN, SCREEN_GAIN) }));
     this.glass.rotation.x = -Math.PI / 2;
     this.object.add(this.glass);
     this.addHit(this.glass);
+    const sheen = screenGlass(w, h);
+    sheen.position.y = 0.0003;
+    this.object.add(sheen);
     for (let i = 0; i < 2; i++) {
       const c = document.createElement('canvas');
-      c.width = DECK_PANEL.w;
-      c.height = DECK_PANEL.ovH;
+      c.width = Math.round(DECK_PANEL.w * SCREEN_SCALE);
+      c.height = Math.round(DECK_PANEL.ovH * SCREEN_SCALE);
       this.ov.push(c);
     }
   }
@@ -405,6 +410,8 @@ export class TouchScreenPart extends Part {
 
   private draw(c: PartCtx): void {
     const g = this.g;
+    // laid out in SCREEN_W × SCREEN_H, drawn at the canvas's resolution
+    g.setTransform(SCREEN_SCALE, 0, 0, SCREEN_SCALE, 0, 0);
     g.fillStyle = BG;
     g.fillRect(0, 0, SCREEN_W, SCREEN_H);
     this.drawTabs(c);
@@ -522,7 +529,7 @@ export class TouchScreenPart extends Part {
     // overview, with hot cues; tap to jump
     const ov = this.ov[i];
     drawOverview(ov.getContext('2d')!, d, ov.width, ov.height, 1);
-    g.drawImage(ov, x0, DECK_PANEL.ovTop);
+    g.drawImage(ov, x0, DECK_PANEL.ovTop, DECK_PANEL.w, DECK_PANEL.ovH);
     g.strokeStyle = LINE;
     g.lineWidth = 2;
     g.strokeRect(x0 + 1, DECK_PANEL.ovTop, W - 2, DECK_PANEL.ovH);

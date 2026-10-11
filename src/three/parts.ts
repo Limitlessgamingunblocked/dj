@@ -536,6 +536,12 @@ export class PadPart extends Part {
 
 export type JogStyle = 'cdj' | 'controller' | 'pro';
 
+/** m:ss for a jog display */
+function formatClock(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export class JogPart extends Part {
   private top = new THREE.Group();
   private ringLed: THREE.MeshStandardMaterial;
@@ -584,10 +590,11 @@ export class JogPart extends Part {
       topMat = M.aluminium;
     } else {
       this.screenCanvas = document.createElement('canvas');
-      this.screenCanvas.width = this.screenCanvas.height = 256;
+      this.screenCanvas.width = this.screenCanvas.height = 512;
       this.screen = new THREE.CanvasTexture(this.screenCanvas);
       this.screen.colorSpace = THREE.SRGBColorSpace;
-      topMat = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 0.12, metalness: 0.2, emissive: '#ffffff', emissiveMap: this.screen, emissiveIntensity: 1 });
+      this.screen.anisotropy = 16;
+      topMat = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 0.1, metalness: 0.2, emissive: '#ffffff', emissiveMap: this.screen, emissiveIntensity: SCREEN_GAIN });
     }
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR, 0.004, 96), [M.jogRing, topMat, M.jogRing]);
     plate.position.y = ringH + 0.002;
@@ -626,11 +633,18 @@ export class JogPart extends Part {
 
   private drawScreen(d: Deck, angle: number, touched: boolean): void {
     const g = this.screenCanvas!.getContext('2d')!;
+    // drawn in a 256-unit square, at the canvas's real resolution
     const S = 256;
-    g.fillStyle = '#000';
-    g.fillRect(0, 0, S, S);
     const cx = S / 2;
     const cy = S / 2;
+    // the plate's texture lies a quarter turn round: turn the drawing back so it reads upright from the DJ's side
+    const k = this.screenCanvas!.width / S;
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, S, S);
+    g.translate(cx, cy);
+    g.rotate(-Math.PI / 2);
+    g.translate(-cx, -cy);
     // art in the centre
     const art = d.track?.meta.art;
     if (art) {
@@ -667,19 +681,39 @@ export class JogPart extends Part {
       g.arc(cx, cy, 108, -Math.PI / 2, -Math.PI / 2 + f * Math.PI * 2);
       g.stroke();
     }
-    // rotating position marker (clockwise in board space)
-    const a = -angle - Math.PI / 2;
+    // rotating position marker (clockwise in board space; the drawing is already turned a quarter)
+    const a = -angle;
     g.strokeStyle = touched ? '#ffffff' : '#e7ecf3';
     g.lineWidth = 6;
     g.beginPath();
     g.moveTo(cx + Math.cos(a) * 72, cy + Math.sin(a) * 72);
     g.lineTo(cx + Math.cos(a) * 96, cy + Math.sin(a) * 96);
     g.stroke();
-    // tempo text
-    g.fillStyle = '#9fe7ff';
-    g.font = '700 22px "JetBrains Mono", monospace';
+    // the beat: four dots round the top, the one we're on lit
+    if (d.loaded) {
+      const beat = ((Math.floor(d.beatPosition(d.displayPosition())) % 4) + 4) % 4;
+      for (let i = 0; i < 4; i++) {
+        const ba = -Math.PI / 2 + (i - 1.5) * 0.2;
+        g.fillStyle = i === beat && d.playing ? this.accent : '#2a313c';
+        g.beginPath();
+        g.arc(cx + Math.cos(ba) * 122, cy + Math.sin(ba) * 122, 4.5, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    // the deck, the tempo, the time left
     g.textAlign = 'center';
-    if (d.loaded) g.fillText(d.bpm.toFixed(1), cx, cy + 88);
+    g.textBaseline = 'alphabetic';
+    g.fillStyle = this.accent;
+    g.font = '700 17px "Barlow Condensed", sans-serif';
+    g.fillText(`DECK ${d.id}`, cx, cy - 76);
+    if (d.loaded) {
+      g.fillStyle = '#ffffff';
+      g.font = '700 24px "JetBrains Mono", monospace';
+      g.fillText(d.bpm.toFixed(1), cx, cy + 86);
+      g.fillStyle = nearEnd(d) && d.playing ? '#ff3b5c' : '#9fe7ff';
+      g.font = '600 15px "JetBrains Mono", monospace';
+      g.fillText(`-${formatClock(d.remaining)}`, cx, cy + 104);
+    }
     this.screen!.needsUpdate = true;
   }
 
@@ -1018,6 +1052,21 @@ export class TonearmPart extends Part {
 /* screens, meters, indicators, switches                                */
 /* ------------------------------------------------------------------ */
 
+/** how much brighter than paper white a screen's picture is, so it reads as lit after the frame is tone-mapped (kept under the lens's flare threshold) */
+export const SCREEN_GAIN = 1.4;
+
+/** the glass over a screen: black, so it only adds the room's reflections on top of the picture */
+export function screenGlass(w: number, d: number): THREE.Mesh {
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(w, d),
+    // soft and faint, so a lamp over the booth glints across it without washing the picture out
+    new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.24, metalness: 0, specularIntensity: 0.45, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, envMapIntensity: 0.9 }),
+  );
+  m.rotation.x = -Math.PI / 2;
+  m.renderOrder = 2;
+  return m;
+}
+
 export class ScreenPart extends Part {
   readonly canvas: HTMLCanvasElement;
   private tex: THREE.CanvasTexture;
@@ -1031,6 +1080,7 @@ export class ScreenPart extends Part {
     private drawFn: (g: CanvasRenderingContext2D, W: number, H: number, c: PartCtx) => void,
     tilt = 0,
     private every = 2,
+    o: { housing?: boolean; gain?: number; back?: THREE.Material } = {},
   ) {
     super();
     this.canvas = document.createElement('canvas');
@@ -1039,16 +1089,35 @@ export class ScreenPart extends Part {
     this.g = this.canvas.getContext('2d')!;
     this.tex = new THREE.CanvasTexture(this.canvas);
     this.tex.colorSpace = THREE.SRGBColorSpace;
-    this.tex.anisotropy = 4;
+    this.tex.anisotropy = 16;
+    const gain = o.gain ?? SCREEN_GAIN;
     const bezel = new THREE.Mesh(new RoundedBoxGeometry(w + 0.008, 0.004, d + 0.008, 2, 0.002), mats().plasticDark);
-    const glass = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false }));
-    glass.rotation.x = -Math.PI / 2;
-    glass.position.y = 0.0021;
+    const picture = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: this.tex, toneMapped: false, color: new THREE.Color(gain, gain, gain) }));
+    picture.rotation.x = -Math.PI / 2;
+    picture.position.y = 0.0021;
+    const glass = screenGlass(w, d);
+    glass.position.y = 0.0023;
     const holder = new THREE.Group();
-    holder.add(bezel, glass);
+    holder.add(bezel, picture, glass);
+    if (o.back) {
+      // a lid's shell behind the panel (a laptop's)
+      const shell = new THREE.Mesh(new RoundedBoxGeometry(w + 0.014, 0.004, d + 0.014, 2, 0.003), o.back);
+      shell.position.y = -0.0032;
+      shell.castShadow = true;
+      holder.add(shell);
+    }
     holder.rotation.x = tilt;
     holder.position.y = 0.002 + Math.abs(Math.sin(tilt)) * d * 0.5;
     this.object.add(holder);
+    // a raised screen sits on a wedge of housing, not on air
+    if (tilt > 0.05 && o.housing !== false) {
+      const c = Math.cos(tilt) * (d / 2);
+      const top = 0.002 + Math.sin(tilt) * d - 0.003;
+      const shape = new THREE.Shape([new THREE.Vector2(c - 0.004, 0), new THREE.Vector2(-c + 0.002, 0), new THREE.Vector2(-c + 0.002, top), new THREE.Vector2(c - 0.004, 0.001)]);
+      const wedge = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: w + 0.004, bevelEnabled: false }).rotateY(-Math.PI / 2).translate((w + 0.004) / 2, 0, 0), mats().plasticDark);
+      wedge.castShadow = true;
+      this.object.add(wedge);
+    }
   }
 
   update(c: PartCtx): void {
