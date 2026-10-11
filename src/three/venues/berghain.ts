@@ -13,6 +13,7 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, LightBar } from './details';
 import { Dresser } from './dress';
+import { atBar } from './crew';
 import { block, booth, Crowd, crowdArea, HazeLayer, MovingHeads, speaker, Strobes, TABLE_Y } from './fixtures';
 import { concreteTexture, withSurface } from './tex';
 import { beams, silhouettes } from './warehouse';
@@ -143,6 +144,7 @@ class Berghain extends VenueBase {
     bar.position.set(11.9, -STAGE, -27.5);
     bar.rotation.y = -Math.PI / 2;
     this.group.add(bar);
+    this.add(atBar(bar, 6.5, 86, { staff: 2, leaners: 1, clothes: ['#0b0b0d', '#141417', '#1c1c20'] }));
     this.group.add(exitSign(V(-12.92, 2.3, -29), Math.PI / 2), exitSign(V(12.92, 2.3, -20), -Math.PI / 2), exitSign(V(-6, 2.3, -31.9), 0));
 
     // work lamps on the pillars

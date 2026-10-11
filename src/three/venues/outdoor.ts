@@ -292,6 +292,9 @@ export function skyline(o: { seed: number; inner: number; outer: number; from: n
   const c = o.center ?? new THREE.Vector3();
   const y0 = o.y ?? 0;
   const win = windowsTexture(`skyline:${o.seed}`, o.lit ?? '#ffd9a0', o.density ?? 0.6);
+  // what's on the roofs: setbacks, plant rooms, water towers, masts (one dark mesh for the lot)
+  const roofs: THREE.BufferGeometry[] = [];
+  const roof = (g: THREE.BufferGeometry, yaw: number, x: number, y: number, z: number) => roofs.push(g.rotateY(yaw).translate(x, y, z).toNonIndexed());
   for (let b = 0; b < o.blocks; b++) {
     const a0 = o.from + ((o.to - o.from) * b) / o.blocks;
     const a1 = o.from + ((o.to - o.from) * (b + 1)) / o.blocks;
@@ -316,10 +319,35 @@ export function skyline(o: { seed: number; inner: number; outer: number; from: n
         }
         const x = c.x + Math.sin(a) * rad;
         const z = c.z + Math.cos(a) * rad;
-        g.rotateY(a + (r() - 0.5) * 0.3);
+        const yaw = a + (r() - 0.5) * 0.3;
+        g.rotateY(yaw);
         g.translate(x, y0 + h / 2, z);
         geos.push(g.toNonIndexed());
-        if (tall) beacons.push(new THREE.Vector3(x, y0 + h + 1, z));
+        const top = y0 + h;
+        // a setback, a plant room, a water tower on legs; a mast on the tall ones
+        let crown = top;
+        if (r() < 0.4) {
+          const sh = h * (0.08 + r() * 0.1);
+          roof(new THREE.BoxGeometry(w * (0.5 + r() * 0.2), sh, d * (0.5 + r() * 0.2)).translate(0, sh / 2, 0), yaw, x, top, z);
+          crown = top + sh;
+        }
+        if (r() < 0.45) roof(new THREE.BoxGeometry(w * 0.25, 2.6, d * 0.3).translate(w * (r() - 0.5) * 0.4, 1.3, d * (r() - 0.5) * 0.4), yaw, x, crown, z);
+        if (r() < 0.3) {
+          const tr = 1.4 + r();
+          const tx = w * (r() - 0.5) * 0.5;
+          const tz = d * (r() - 0.5) * 0.5;
+          roof(new THREE.CylinderGeometry(tr, tr, 3.2, 10).translate(tx, 4.6, tz), yaw, x, crown, z);
+          roof(new THREE.ConeGeometry(tr * 1.05, 1.0, 10).translate(tx, 6.7, tz), yaw, x, crown, z);
+          for (let k = 0; k < 4; k++) {
+            const la = (k / 4) * Math.PI * 2 + 0.78;
+            roof(new THREE.CylinderGeometry(0.12, 0.12, 3, 4).translate(tx + Math.cos(la) * tr * 0.7, 1.5, tz + Math.sin(la) * tr * 0.7), yaw, x, crown, z);
+          }
+        }
+        if (tall) {
+          const mh = 8 + r() * 12;
+          roof(new THREE.CylinderGeometry(0.25, 0.5, mh, 6).translate(0, mh / 2, 0), yaw, x, crown, z);
+          beacons.push(new THREE.Vector3(x, crown + mh + 0.6, z));
+        }
         a += (w * 1.15) / rad + r() * 0.01;
         if (span <= 0) break;
       }
@@ -330,6 +358,7 @@ export function skyline(o: { seed: number; inner: number; outer: number; from: n
     group.add(mesh);
     blocks.push({ mesh, mat, angle: (a0 + a1) / 2 });
   }
+  if (roofs.length) group.add(new THREE.Mesh(mergeGeometries(roofs)!, new THREE.MeshStandardMaterial({ color: new THREE.Color(o.body ?? '#2b303a').multiplyScalar(0.7), roughness: 0.9, metalness: 0.2 })));
   return { group, blocks, beacons };
 }
 

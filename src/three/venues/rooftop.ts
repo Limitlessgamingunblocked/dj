@@ -23,6 +23,7 @@ import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, T
 import { moments, setClock } from './moments';
 import { OpenAir } from './openair';
 import { beaconLights, skyline, type SkyKey, type SkylineBlock } from './outdoor';
+import { Aircraft } from './landmarks';
 import type { ShowState } from './show';
 import { canvasTexture, concreteTexture, rng, withSurface } from './tex';
 
@@ -159,6 +160,9 @@ class Rooftop extends OpenAir {
     this.blocks = sky.blocks;
     this.beacons = beaconLights(sky.beacons);
     this.group.add(this.beacons.object);
+    // the flight path into the city's airport: one coming in low over the towers every couple of minutes, another higher up
+    this.add(new Aircraft({ from: V(-700, 260, 520), to: V(640, 150, -420), period: 110, offset: 20, night: () => this.look.night }));
+    this.add(new Aircraft({ from: V(600, 520, 600), to: V(-600, 480, -300), period: 170, offset: 95, night: () => this.look.night, scale: 1.2 }));
 
     // the glass railing round the edge, a steel handrail on top
     const glass = new THREE.MeshStandardMaterial({ color: 0xcfe6ee, transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0.2, depthWrite: false });

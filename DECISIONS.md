@@ -317,3 +317,31 @@ You asked for better, brighter, larger screens on the boards.
 125. **Sharper, but with the upload cost in mind.** The resolutions are 1024×576 on players, 1280×720 on the Pro Four, 512² on jogs and 1.25× on the All-in-One (its layout stays in its 1024×640 units). The four-player Festival Quad redraws each screen every third frame instead of every second, so it uploads about as much per second as before.
 126. **The boards with no screen get a laptop on a stand behind them**, running the DJ software (Starter Two, Vinyl Battle and Rotary House). That's how those setups are played in real life, and the laptop shows both decks, their waveforms and your library. The booth's own laptop at the side stays.
 127. **The jog displays now read upright from the DJ's side.** Their texture lay a quarter turn round, so the BPM read sideways. The drawing is turned back, and the position marker still tracks the platter.
+
+## Venue detail, second pass (2026-10-11)
+
+You asked again for more detailed venues, going all out.
+
+128. **The open-air venues get landmarks in the distance that move** (`landmarks.ts`), so the world carries on past the crowd:
+    - The festival has a funfair past the left-hand fence with a 40 m big wheel turning. Its gondolas hang level, and its bulbs run through three patterns (a rainbow rolling round the rim, pulses out along the spokes, alternate spokes trading places). Food stalls and festoons stand round its foot. It sits where the drone's outbound run and a free camera look; every fixed angle at the festival faces the stage, which hides anything behind it.
+    - The sunrise valley has six hot-air balloons drifting on the wind. Their burners roar every so often, the envelope glowing from inside (brighter in the dark), and they climb as it gets light. Two flocks of birds loop over the stage and the valley once dawn breaks, and the audio already has the birdsong.
+    - The beach bay has a headland running out to sea on the left, with a lighthouse on its point. After dark its two beams sweep the bay, and the lantern blazes as one swings past the camera. A town lines the far shore, its hotel windows and streets lighting up through the dusk. Gulls fly over the shore by day.
+    - Airliners cross the sky over the festival, the beach and the rooftop: a dark shape by day, nav lights and a strobe by night. Over the rooftop, one comes in low on the approach.
+129. **The landmarks follow the flash rules.**
+    - The wheel's bulbs change at most 1.2 times a second, or 0.35 with Reduce flashing on.
+    - Burners glow up and die away over a quarter of a second, or about a second with Reduce flashing.
+    - The lighthouse blazes twice per 12-second turn.
+    - The aircraft strobe pulses every 1.3 s, or every 2.2 s with Reduce flashing.
+130. **Distant landmarks see through the haze more than the rest of the scene.** At sunrise the haze is thick enough that a balloon 200 m off went flat grey. The balloons, the wheel and its bulbs now take 40–60% of the fog (`thinFog`), so their colours read while they still sit back in the air. At night they darken towards silhouettes, because the venue's key light is aimed at the stage and lit them as if it were day; the burners and bulbs carry them after dark. The wheel's bulbs are kept under full brightness, because brighter than that the tone curve turned every colour to white.
+131. **Each landmark costs one to seven draw calls.** The wheel's frame, bulbs and gondolas are one mesh each, the gondolas instanced. Each balloon is one mesh, with all the burner flames in one point cloud. A flock is one mesh rebuilt each frame from preallocated buffers. The town's lights are one point cloud. The legs, platforms, the lighthouse masonry and the hotels go into the venue's merged set.
+132. **More life at the bars and on the skylines.**
+    - Bar counters get a smoked mirror, lit fridge doors, a tap tower, a till with its screen, cups and a drinks board (generic drinks, made-up prices).
+    - Bar staff and drinkers now work the bars at DC-10, Berghain, Printworks, the Warehouse and Alexandra Palace.
+    - The booth laptop in the venues shows the DJ software rather than a blank glow.
+    - City skylines have roof structures: setbacks, plant rooms, water towers and masts, with the red beacons on the mast tops.
+    - Boiler Room's downtown towers get the same: parapets, plant rooms and condensers, water tanks and antenna masts.
+133. **The small rooms get the details that make them lived in.**
+    - The bedroom window looks out on a night city (moon, two rows of rooftops with lit windows, a red light on a mast) instead of a grid of windows.
+    - Photos are pegged on a string over the bed, and a laundry basket stands by the fridge.
+    - The basement has tags sprayed low on its walls (generic words only).
+    - The Warehouse's far wall stays as it is: the LED wall and side screens already fill it.

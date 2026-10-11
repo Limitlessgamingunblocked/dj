@@ -16,7 +16,7 @@ import { boothClutter } from './details';
 import { Dresser } from './dress';
 import { booth, LedStrings, TABLE_Y } from './fixtures';
 import type { ShowState } from './show';
-import { canvasTexture, floorTexture, rng, windowsTexture } from './tex';
+import { canvasTexture, floorTexture, rng } from './tex';
 import type { Features } from '../../visualizer/AudioFeatures';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -77,6 +77,58 @@ function poster(seed: number): THREE.CanvasTexture {
     g.fillText(['WAREHOUSE 92', 'ACID SUMMER', 'ALL NIGHT', 'SUNDAY SERVICE', 'BASS CULTURE', 'NORTHERN SOUL'][seed % 6], w / 2, h * 0.8);
     g.font = '600 12px "Barlow Condensed", sans-serif';
     g.fillText('HOUSE · GARAGE · DISCO', w / 2, h * 0.88);
+  });
+}
+
+/** the view from the window: a night sky going orange at the bottom with city glow, the moon, two rows of rooftops with lit windows, a red light on a mast */
+function nightView(): THREE.CanvasTexture {
+  return canvasTexture('bedroom-view', 384, 320, (g, w, h) => {
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#060818');
+    sky.addColorStop(0.55, '#1a1838');
+    sky.addColorStop(0.85, '#5a3448');
+    sky.addColorStop(1, '#8a4a3a');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, w, h);
+    const r = rng(907);
+    for (let i = 0; i < 70; i++) {
+      g.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.6})`;
+      g.fillRect(r() * w, r() * h * 0.5, 1, 1);
+    }
+    const moon = g.createRadialGradient(w * 0.74, h * 0.2, 0, w * 0.74, h * 0.2, 40);
+    moon.addColorStop(0, 'rgba(255,248,230,1)');
+    moon.addColorStop(0.3, 'rgba(255,248,230,0.9)');
+    moon.addColorStop(0.36, 'rgba(200,210,255,0.25)');
+    moon.addColorStop(1, 'rgba(200,210,255,0)');
+    g.fillStyle = moon;
+    g.fillRect(0, 0, w, h);
+    // far rooftops, then nearer ones, each with lit windows
+    for (const [base, tone, wh, step] of [
+      [0.66, '#141526', 0.18, 5],
+      [0.8, '#0b0b14', 0.3, 8],
+    ] as [number, string, number, number][]) {
+      let x = -10;
+      while (x < w) {
+        const bw = 24 + r() * 46;
+        const bh = h * (0.08 + r() * wh);
+        const top = h * base - bh;
+        g.fillStyle = tone;
+        g.fillRect(x, top, bw, h - top);
+        for (let wy = top + 6; wy < h - 4; wy += step)
+          for (let wx = x + 4; wx < x + bw - 4; wx += step) {
+            if (r() > 0.32) continue;
+            g.fillStyle = r() < 0.8 ? 'rgba(255,214,150,0.9)' : 'rgba(190,220,255,0.85)';
+            g.fillRect(wx, wy, step * 0.5, step * 0.45);
+          }
+        if (r() < 0.25) {
+          g.fillStyle = tone;
+          g.fillRect(x + bw * 0.5, top - 22, 2, 22);
+          g.fillStyle = '#ff3a2a';
+          g.fillRect(x + bw * 0.5 - 1.5, top - 25, 5, 4);
+        }
+        x += bw + 2 + r() * 10;
+      }
+    }
   });
 }
 
@@ -210,7 +262,7 @@ class Bedroom extends VenueBase {
     this.group.add(bed);
     // the window on the right wall, the city at night outside
     const win = new THREE.Group();
-    const night = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.9), new THREE.MeshBasicMaterial({ map: windowsTexture('bedroom-night', '#ffd9a0', 0.35), color: new THREE.Color(0.55, 0.55, 0.7) }));
+    const night = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.9), new THREE.MeshBasicMaterial({ map: nightView(), color: new THREE.Color(0.85, 0.85, 0.95) }));
     const sill = new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.6 });
     win.add(night);
     for (const [w, hh, x, y] of [
@@ -376,6 +428,27 @@ class Bedroom extends VenueBase {
     d.cable(V(0.9, 0.28, z0 + 0.03), V(-0.6, 0.9, z0 + 0.06), 0.2, 0.006);
     // the ON AIR light by the desk
     d.neon('ON AIR', '#ff2a3a', V(x0 + 0.02, 2.02, -0.35), Math.PI / 2, 0.16, 'steady');
+    // photos pegged on a string over the bed
+    const { z1 } = BEDROOM;
+    const string = [V(-1.6, 1.62, z1 - 0.02), V(-0.75, 1.52, z1 - 0.02), V(0.05, 1.62, z1 - 0.02)];
+    d.tube('rubber', string, 0.002, 3);
+    const pics: ('blue' | 'red' | 'yellow' | 'green' | 'terracotta' | 'canvas')[] = ['blue', 'terracotta', 'yellow', 'green', 'red', 'canvas', 'blue', 'terracotta'];
+    pics.forEach((k, i) => {
+      const t = (i + 0.5) / pics.length;
+      const x = -1.6 + t * 1.65;
+      const y = 1.62 - Math.sin(t * Math.PI) * 0.1 - 0.065;
+      const tilt = (d.r() - 0.5) * 0.25;
+      d.box('white', 0.09, 0.11, 0.003, x, y, z1 - 0.025, 0, 0, tilt);
+      d.box(k, 0.074, 0.074, 0.003, x - Math.sin(tilt) * 0.008, y + 0.008, z1 - 0.028, 0, 0, tilt);
+      d.box('darkWood', 0.012, 0.03, 0.008, x, y + 0.06, z1 - 0.03);
+    });
+    // a laundry basket by the fridge, clothes on top and one on the floor
+    d.put('canvas', new THREE.CylinderGeometry(0.21, 0.18, 0.46, 14, 1, true).translate(1.12, 0.23, 2.85));
+    d.put('canvas', new THREE.CircleGeometry(0.18, 14).rotateX(-Math.PI / 2).translate(1.12, 0.01, 2.85));
+    d.put('blue', new THREE.SphereGeometry(0.17, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1).translate(1.12, 0.42, 2.85));
+    d.box('red', 0.3, 0.05, 0.22, 1.08, 0.5, 2.82, 0.5, 0.2, 0.1);
+    d.box('grey', 0.42, 0.03, 0.3, 0.82, 0.015, 2.62, 0.9);
+
     this.add(d.done());
   }
 

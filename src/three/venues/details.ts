@@ -86,6 +86,73 @@ export function exitSign(pos: THREE.Vector3, yaw = 0): THREE.Group {
  * A bar counter `len` long, front facing +Z, centred on the origin (place
  * and rotate the returned group). `glow` tints the under-counter light.
  */
+/** a bar fridge's glass door, lit from inside: rows of cans and bottles */
+function fridgeTexture(): THREE.CanvasTexture {
+  return canvasTexture('bar-fridge', 128, 192, (g, w, h) => {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#dff2ff');
+    grad.addColorStop(1, '#9fc6e6');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, w, h);
+    const r = rng(41);
+    const cols = ['#c8202a', '#f2f2ee', '#1f5fd0', '#2a8a3a', '#e8b020', '#7a2a8a', '#202226'];
+    for (let row = 0; row < 4; row++) {
+      const y0 = 10 + row * 45;
+      g.fillStyle = 'rgba(40,60,80,0.5)';
+      g.fillRect(4, y0 + 36, w - 8, 3);
+      for (let x = 8; x < w - 12; x += 14 + r() * 4) {
+        const tall = r() < 0.4;
+        g.fillStyle = cols[Math.floor(r() * cols.length)];
+        g.fillRect(x, y0 + (tall ? 2 : 14), 11, tall ? 34 : 22);
+      }
+    }
+    g.strokeStyle = 'rgba(30,40,50,0.9)';
+    g.lineWidth = 6;
+    g.strokeRect(0, 0, w, h);
+  });
+}
+
+/** the drinks board over a bar: generic drinks, made-up prices */
+function drinksBoardTexture(): THREE.CanvasTexture {
+  return canvasTexture('bar-board', 256, 128, (g, w, h) => {
+    g.fillStyle = '#0d0f12';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#ffd23f';
+    g.font = '800 22px "Barlow Condensed", "Arial Narrow", sans-serif';
+    g.textBaseline = 'top';
+    g.fillText('DRINKS', 12, 8);
+    const items: [string, string][] = [
+      ['BEER', '6.50'],
+      ['CIDER', '6.50'],
+      ['HOUSE MIX', '9.00'],
+      ['SHOT', '5.00'],
+      ['WATER', '2.50'],
+    ];
+    g.font = '600 15px "Barlow Condensed", "Arial Narrow", sans-serif';
+    items.forEach(([n, p], i) => {
+      g.fillStyle = '#e8e4da';
+      g.textAlign = 'left';
+      g.fillText(n, 12, 36 + i * 17);
+      g.textAlign = 'right';
+      g.fillText(p, w - 12, 36 + i * 17);
+    });
+  });
+}
+
+/** the till's screen */
+function tillTexture(): THREE.CanvasTexture {
+  return canvasTexture('bar-till', 64, 48, (g, w, h) => {
+    g.fillStyle = '#0b1a2a';
+    g.fillRect(0, 0, w, h);
+    const r = rng(43);
+    for (let y = 6; y < h - 6; y += 10)
+      for (let x = 4; x < w - 8; x += 15) {
+        g.fillStyle = ['#2ec4f1', '#3ddc97', '#ffd23f', '#ff5f7a'][Math.floor(r() * 4)];
+        g.fillRect(x, y, 12, 7);
+      }
+  });
+}
+
 export function barCounter(len: number, o: { glow?: string; top?: number; body?: number; seed?: number } = {}): THREE.Group {
   const g = new THREE.Group();
   const r = rng(o.seed ?? 9);
@@ -123,6 +190,42 @@ export function barCounter(len: number, o: { glow?: string; top?: number; body?:
     const bottleMat = new THREE.MeshStandardMaterial({ color: 0x3a5a3a, roughness: 0.15, metalness: 0.1, emissive: glowCol, emissiveIntensity: 0.35, transparent: true, opacity: 0.85 });
     g.add(new THREE.Mesh(mergeGeometries(bottles)!, bottleMat));
   }
+  // a smoked mirror behind the bottles, catching the room
+  const mirror = new THREE.Mesh(new THREE.PlaneGeometry(len - 0.3, 0.9), new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.08, metalness: 1, envMapIntensity: 1.2 }));
+  mirror.position.set(0, 1.62, -1.098);
+  g.add(mirror);
+  // under-counter fridges along the back, lit through their glass doors
+  const nf = Math.max(1, Math.min(4, Math.floor(len / 1.6)));
+  const fridge = new THREE.MeshBasicMaterial({ map: fridgeTexture(), color: new THREE.Color(1.15, 1.15, 1.15), toneMapped: false });
+  const doors: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < nf; i++) doors.push(new THREE.PlaneGeometry(0.56, 0.8).translate((i - (nf - 1) / 2) * 0.66, 0.5, -1.098));
+  g.add(new THREE.Mesh(mergeGeometries(doors)!, fridge));
+  // beer taps and a till on the counter, a stack of cups, the drinks board over the back
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd0d4da, roughness: 0.18, metalness: 1 });
+  const metal: THREE.BufferGeometry[] = [];
+  const handles: THREE.BufferGeometry[] = [];
+  const tx = -len / 2 + 0.9;
+  metal.push(new THREE.CylinderGeometry(0.035, 0.04, 0.38, 12).translate(tx, 1.29, -0.08));
+  metal.push(new THREE.BoxGeometry(0.5, 0.06, 0.07).translate(tx, 1.46, -0.08));
+  for (let i = 0; i < 4; i++) {
+    const x = tx - 0.19 + i * 0.125;
+    metal.push(new THREE.CylinderGeometry(0.012, 0.012, 0.08, 8).translate(x, 1.4, -0.03));
+    handles.push(new THREE.CylinderGeometry(0.014, 0.01, 0.12, 8).translate(x, 1.55, -0.07));
+  }
+  metal.push(new THREE.BoxGeometry(0.62, 0.012, 0.16).translate(tx, 1.106, -0.05));
+  const till = len / 2 - 0.6;
+  metal.push(new THREE.CylinderGeometry(0.02, 0.03, 0.18, 8).translate(till, 1.19, -0.12));
+  g.add(new THREE.Mesh(mergeGeometries(metal)!, chrome));
+  g.add(new THREE.Mesh(mergeGeometries(handles)!, new THREE.MeshStandardMaterial({ color: glowCol, emissive: glowCol, emissiveIntensity: 0.4, roughness: 0.4 })));
+  const tillBody = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.03).rotateX(-0.35).translate(till, 1.34, -0.12), new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.4, metalness: 0.4 }));
+  const tillScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.26, 0.16).rotateY(Math.PI).rotateX(0.35).translate(till, 1.34, -0.137), new THREE.MeshBasicMaterial({ map: tillTexture(), color: new THREE.Color(1.2, 1.2, 1.2), toneMapped: false }));
+  g.add(tillBody, tillScreen);
+  const cups: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 3; i++) cups.push(new THREE.CylinderGeometry(0.045, 0.034, 0.28, 10, 1, true).translate(len / 2 - 1.1 + i * 0.11, 1.24, 0.05));
+  g.add(new THREE.Mesh(mergeGeometries(cups)!, new THREE.MeshStandardMaterial({ color: 0xd9e4ea, roughness: 0.3, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })));
+  const board = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshBasicMaterial({ map: drinksBoardTexture(), color: new THREE.Color(1.1, 1.1, 1.1), toneMapped: false }));
+  board.position.set(len / 2 - 0.9, 2.45, -1.095);
+  if (len > 3) g.add(board);
   return g;
 }
 
@@ -149,6 +252,60 @@ function gafferTexture(): THREE.CanvasTexture {
   return tapeTex;
 }
 
+/** the booth laptop's screen: the DJ software, two decks over the library (a still picture) */
+function djAppTexture(): THREE.CanvasTexture {
+  return canvasTexture('booth-laptop-app', 512, 320, (g, w, h) => {
+    g.fillStyle = '#05070b';
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = '#10141c';
+    g.fillRect(0, 0, w, 16);
+    const r = rng(52);
+    const deckCols = ['#2ec4f1', '#ff9f1c'];
+    for (let d = 0; d < 2; d++) {
+      const x0 = 6 + d * 253;
+      g.fillStyle = deckCols[d];
+      g.fillRect(x0, 22, 18, 18);
+      g.fillStyle = '#e7ecf3';
+      g.fillRect(x0 + 24, 24, 90 + r() * 40, 6);
+      g.fillStyle = '#8a94a6';
+      g.fillRect(x0 + 24, 33, 60 + r() * 30, 4);
+      g.fillStyle = '#ffffff';
+      g.fillRect(x0 + 190, 23, 50, 14);
+      // the overview
+      for (let x = 0; x < 245; x += 2) {
+        const a = 3 + r() * 9;
+        g.fillStyle = r() < 0.5 ? '#2a5ad8' : '#f08a1a';
+        g.fillRect(x0 + x, 54 - a, 2, a * 2);
+      }
+    }
+    // the parallel waveforms
+    for (let d = 0; d < 2; d++) {
+      const y = 80 + d * 46;
+      for (let x = 0; x < w; x += 3) {
+        const beat = (x + d * 17) % 42 < 6;
+        const a = (beat ? 16 : 5) + r() * 5;
+        g.fillStyle = beat ? '#f08a1a' : '#2a5ad8';
+        g.fillRect(x, y + 20 - a, 2, a * 2);
+      }
+    }
+    g.fillStyle = '#ffffff';
+    g.fillRect(w / 2, 78, 2, 92);
+    // the library
+    for (let i = 0; i < 9; i++) {
+      const y = 180 + i * 15;
+      g.fillStyle = i === 3 ? '#1b2a3c' : i % 2 ? '#080b10' : '#05070b';
+      g.fillRect(0, y, w, 15);
+      g.fillStyle = '#c8d0dc';
+      g.fillRect(14, y + 5, 80 + r() * 90, 5);
+      g.fillStyle = '#8a94a6';
+      g.fillRect(220, y + 5, 50 + r() * 50, 5);
+      g.fillRect(380, y + 5, 26, 5);
+      g.fillStyle = ['#ff6b9a', '#b36bff', '#3ddc97', '#ffd23f'][i % 4];
+      g.fillRect(430, y + 5, 18, 5);
+    }
+  });
+}
+
 /** a laptop on a stand, screen facing the DJ (+Z), the DJ's name on the lid */
 function laptopOnStand(group: THREE.Group, x: number, top: number, z: number, ry: number): void {
   const metal = new THREE.MeshStandardMaterial({ color: 0x9a9da3, roughness: 0.35, metalness: 0.8 });
@@ -158,7 +315,7 @@ function laptopOnStand(group: THREE.Group, x: number, top: number, z: number, ry
   base.rotation.x = -0.25;
   const lid = new THREE.Group();
   const lidBody = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.21, 0.01), metal);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.29, 0.18), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 0.45, 0.7), toneMapped: false }));
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.29, 0.18), new THREE.MeshBasicMaterial({ map: djAppTexture(), color: new THREE.Color(1.3, 1.3, 1.3), toneMapped: false }));
   screen.position.z = 0.006;
   // the DJ name as a sticker on the back of the lid, facing the floor
   const nameSticker = nameService.surface('sticker', 0.15, 0.075, { px: 256 });

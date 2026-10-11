@@ -30,6 +30,7 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
 import { Dresser } from './dress';
+import { atBar } from './crew';
 import { FarCrowd, scatter } from './farcrowd';
 import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, Hazers, LedStrings, MovingHeads, Strobes, TABLE_Y, truss } from './fixtures';
 import { LightMap, ScreenAverage, useLightMap } from './lightmap';
@@ -606,6 +607,7 @@ class AllyPally extends VenueBase {
     const bar = barCounter(16, { glow: '#ffb46a', seed: 1875 });
     bar.position.set(0, FL, zB + 2.4);
     this.group.add(bar);
+    this.add(atBar(bar, 16, 1876, { staff: 3, leaners: 2 }));
     for (const s of [-1, 1]) this.group.add(exitSign(V(s * 13, FL + 2.7, zB + 0.06), 0));
   }
 
@@ -866,6 +868,7 @@ class AllyPally extends VenueBase {
       sb.position.set(s * (hw - 1.4), FL, -70);
       sb.rotation.y = -s * (Math.PI / 2);
       this.group.add(sb);
+      this.add(atBar(sb, 13, s < 0 ? 1981 : 1989, { staff: 3, leaners: 0 }));
     }
 
     // the crowd: jointed dancers packed at the front, ~7,000 more out to the back of the hall
@@ -1037,6 +1040,7 @@ class AllyPally extends VenueBase {
       sb.position.set(s * (hw - 1.4), FL, 40);
       sb.rotation.y = -s * (Math.PI / 2);
       this.group.add(sb);
+      this.add(atBar(sb, 13, s < 0 ? 2020 : 2024, { staff: 3, leaners: 0 }));
     }
 
     // the crowd all the way round: dancers near the riser, thousands more out to the walls

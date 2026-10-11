@@ -248,3 +248,14 @@ Set dressing in every venue, from one kit (`src/three/venues/dress.ts`, DECISION
 - **Printworks:** gantry kick plates and cross beams, stairs and caged ladders, crane rails and girders, roof ducts, and racks and cases in the wings. Pods and stacks are still not done.
 - **Alexandra Palace:** skirting and dado rail, radiators, column lamps, door signs and extinguishers, monitor risers in the wings, queue lanes and a merch stand. In the round, the far end wall gets doors and high windows (invented).
 - **Deckhouse Warehouse:** a star-cloth drape behind the stage, ducts and trays, fire doors, stools, a ledge and tables.
+
+## The second detail pass (October 2026)
+
+Landmarks in the distance for the open-air venues (`src/three/venues/landmarks.ts`, DECISIONS 128–131). These are fictional sites, so there's nothing to verify. The career venues aren't real places.
+
+- **Festival:** a funfair big wheel past the left fence.
+- **Sunrise:** balloons and birds over the valley.
+- **Beach:** a headland and lighthouse, and a town on the far shore.
+- **Rooftop:** aircraft on the approach.
+
+The real venues got more life at the bar, with staff and drinkers at DC-10, Berghain, Printworks and Alexandra Palace. Boiler Room LA's downtown towers got parapets, roof plant, water tanks and masts. This takes gap 3 (a skyline with more depth and variation) a step further, but **isn't verified** against the real skyline.

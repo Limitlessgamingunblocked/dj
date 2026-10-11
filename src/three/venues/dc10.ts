@@ -16,6 +16,7 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
 import { Dresser } from './dress';
+import { atBar } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, Globes, HazeLayer, Lasers, LedStrings, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y } from './fixtures';
 import { canvasTexture, concreteTexture, floorTexture, rng, withSurface } from './tex';
 import { laserLines, silhouettes } from './warehouse';
@@ -220,6 +221,7 @@ class DC10 extends VenueBase {
     bar.position.set(7.75, -STAGE, -14.5);
     bar.rotation.y = -Math.PI / 2;
     this.group.add(bar);
+    this.add(atBar(bar, 5.5, 1015, { staff: 2, leaners: 2, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114'] }));
 
     // the fan wheels on the walls
     for (const [x, z, rad] of [

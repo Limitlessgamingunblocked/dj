@@ -15,6 +15,7 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, pressLine } from './details';
 import { Dresser } from './dress';
+import { atBar } from './crew';
 import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import type { ShowState } from './show';
@@ -120,6 +121,7 @@ class Printworks extends VenueBase {
       const bar = barCounter(7, { glow: '#ffc27a', seed: s < 0 ? 93 : 94 });
       bar.position.set(s * 7.5, -STAGE, FAR + 2.2);
       this.group.add(bar);
+      this.add(atBar(bar, 7, s < 0 ? 97 : 98, { staff: 2, leaners: 3 }));
       this.group.add(exitSign(V(s * 16.92, -STAGE + 2.4, FAR + 10), s < 0 ? Math.PI / 2 : -Math.PI / 2));
     }
     this.group.add(exitSign(V(0, -STAGE + 2.6, FAR + 0.05), 0));

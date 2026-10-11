@@ -333,6 +333,9 @@ class Basement extends VenueBase {
     d.posters(V(x0 + 0.02, 1.35, -5.6), Math.PI / 2, 1.8, 1.1, 12);
     d.posters(V(x1 - 0.02, 1.35, -3.6), -Math.PI / 2, 1.6, 1.0, 10);
     d.posters(V(x1 - 0.02, 1.4, -7.8), -Math.PI / 2, 1.2, 0.9, 8);
+    // tags sprayed over the black paint, low on the walls where the posters don't reach
+    d.graffiti(V(x0 + 0.03, 1.05, -7.9), Math.PI / 2, 2.4, 1.2, 813);
+    d.graffiti(V(x1 - 0.03, 1.0, -5.6), -Math.PI / 2, 2.0, 1.0, 814);
     // behind the DJ: road cases, the amp rack, a hazer on the floor by the speakers
     d.roadCase(V(-1.95, 0, 1.25), 0.15, 0.9, 0.55, 0.6);
     d.roadCase(V(-1.95, 0.55, 1.25), 0.1, 0.8, 0.45, 0.55);

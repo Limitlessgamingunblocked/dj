@@ -21,6 +21,7 @@ import { Confetti } from './confetti';
 import { boothClutter } from './details';
 import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
+import { Aircraft, FerrisWheel } from './landmarks';
 import { crewArc, lightingTech, security, vipCrew } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, HazeLayer, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
@@ -566,7 +567,16 @@ class Festival extends OpenAir {
     d.mud(fieldHalf(-40) - 5, fieldHalf(-68) + 4, -68, -38, FL, 64);
     d.litter(-24, 24, -48, -4.8, 260, FL);
     d.litter(-60, 60, -110, -48, 160, FL);
+
+    // a funfair past the fence on the left, out where the drone flies: the big wheel turning, stalls round its foot
+    const night = () => this.look.night;
+    this.add(new FerrisWheel(V(-112, FL, -152), 0.8, { radius: 18, night, d }));
+    for (const [x, z, i] of [[-96, -128, 1], [-90, -140, 3], [-128, -132, 0], [-134, -168, 2]]) d.foodTruck(V(x, FL, z), Math.atan2(-112 - x, -152 - z), i);
+    d.festoon(V(-96, FL + 3, -128), V(-128, FL + 3, -132), 1.2, d.glow('#ffcf7a', 'breathe', 2), 1.2);
+    d.lightMast(V(-100, FL, -170), 0.8, 7);
     this.add(d.done());
+    // an airliner high over the site now and then
+    this.add(new Aircraft({ from: V(-700, 420, -620), to: V(650, 360, 380), period: 140, offset: 30, night }));
   }
 
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void {

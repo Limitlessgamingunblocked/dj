@@ -252,12 +252,45 @@ class BoilerRoom extends VenueBase {
     this.wash(V(-3.6, 3.2, -2.6), 1, 4, 9);
     this.wash(V(3.6, 3.2, -2.6), 0, 4, 9);
     this.wash(V(0, 4, -6.5), 2, 3, 10, 0.5);
-    this.dress(ta, tb);
+    this.dress(ta, tb, towers);
   }
 
   /** the plaza round the session: truss ballast and cables, the production gazebo, palms and steps behind, a truck, parked cars, the litter */
-  private dress(ta: THREE.Vector3, tb: THREE.Vector3): void {
+  private dress(ta: THREE.Vector3, tb: THREE.Vector3, towers: [number, number, number, number, number][]): void {
     const d = new Dresser(2027);
+    // the towers' roofs against the sky: a parapet, plant rooms and condensers, a water tank on some, masts off to one side of the beacon
+    towers.forEach(([x, z, w, h, dp], i) => {
+      for (const s of [-1, 1]) {
+        d.box('grey', w, 1.1, 0.3, x, h + 0.55, z + s * (dp / 2 - 0.15));
+        d.box('grey', 0.3, 1.1, dp, x + s * (w / 2 - 0.15), h + 0.55, z);
+      }
+      const px = x + w * (0.12 + d.r() * 0.12);
+      const pz = z - dp * (0.1 + d.r() * 0.15);
+      d.box('stone', w * 0.34, 3, dp * 0.3, px, h + 1.5, pz);
+      d.box('blackMetal', w * 0.36, 0.2, dp * 0.32, px, h + 3.1, pz);
+      for (let k = 0; k < 2 + (i % 2); k++) {
+        const cx = x - w * 0.3 + k * 2.3;
+        const cz = z + dp * 0.22;
+        d.box('grey', 2, 1.4, 1.4, cx, h + 0.7, cz);
+        d.put('blackMetal', new THREE.CylinderGeometry(0.55, 0.55, 0.06, 14).translate(cx, h + 1.43, cz));
+      }
+      if (i % 3 === 0) {
+        const tx = x - w * 0.25;
+        const tz = z - dp * 0.28;
+        d.put('darkWood', new THREE.CylinderGeometry(1.6, 1.6, 3.4, 12).translate(tx, h + 4.4, tz));
+        d.put('darkWood', new THREE.ConeGeometry(1.7, 1.1, 12).translate(tx, h + 6.65, tz));
+        for (let k = 0; k < 4; k++) {
+          const a = (k / 4) * Math.PI * 2 + 0.78;
+          d.rod('blackMetal', V(tx + Math.cos(a) * 1.2, h, tz + Math.sin(a) * 1.2), V(tx + Math.cos(a) * 1.2, h + 2.7, tz + Math.sin(a) * 1.2), 0.08, 4);
+        }
+      }
+      const mh = 5 + d.r() * 6;
+      const mx = x + w * 0.32;
+      const mz = z + dp * 0.3;
+      d.rod('blackMetal', V(mx, h, mz), V(mx, h + mh, mz), 0.09, 5);
+      for (let k = 1; k < 4; k++) d.rod('blackMetal', V(mx - 0.6, h + (mh * k) / 4, mz), V(mx + 0.6, h + (mh * k) / 4, mz), 0.03, 3);
+      d.box('white', 0.25, 1.1, 0.12, mx + 0.25, h + mh * 0.8, mz);
+    });
     // the truss towers stand on plates weighed down with sandbags; cables out from the booth
     for (const t of [ta, tb]) {
       d.box('galv', 1.0, 0.02, 1.0, t.x, 0.01, t.z);

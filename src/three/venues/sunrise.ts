@@ -19,6 +19,7 @@ import type { VenueDef, VenueViews } from './base';
 import { boothClutter } from './details';
 import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
+import { Balloons, Birds } from './landmarks';
 import { crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, Globes, HazeLayer, MovingHeads, speaker, TABLE_Y } from './fixtures';
 import { moments, setClock } from './moments';
@@ -211,6 +212,26 @@ class Sunrise extends OpenAir {
     this.farCrowd = new FarCrowd(scatter(-90, 90, -95, -2.4, density, 704).map((p) => ({ ...p, y: groundY(p.x, p.z) })), { seed: 705, clothes, phones: 0.05, focus: V(0, 2, 6) });
     this.group.add(this.farCrowd.object);
     this.dress(nm.sign !== undefined);
+
+    // over the valley: balloons up for the dawn, burners glowing in the dark, climbing as it gets light
+    const night = () => this.look.night;
+    this.add(
+      new Balloons(
+        [
+          { pos: V(30, 10, 150), size: 20, colors: ['#e8402a', '#f6c445'] },
+          { pos: V(-60, 17, 200), size: 22, colors: ['#2a6ad8', '#f2efe8'] },
+          { pos: V(95, 5, 230), size: 19, colors: ['#3aa05a', '#f2d23a'] },
+          { pos: V(-15, 23, 260), size: 23, colors: ['#8a3ad8', '#ff9a3a'] },
+          { pos: V(140, 18, 175), size: 19, colors: ['#f2efe8', '#e83a6a'] },
+          { pos: V(-120, 8, 160), size: 18, colors: ['#f2a03a', '#2a3a8a'] },
+        ],
+        { night, wind: V(1, 0, 0), span: 320, climb: 16 },
+      ),
+    );
+    // birds as it gets light: a flock looping over the stage and the valley, a smaller one further out
+    const dawn = () => THREE.MathUtils.smoothstep(1 - this.look.night, 0.25, 0.6);
+    this.add(new Birds({ count: 24, center: V(10, 22, 70), radius: V(70, 4, 30), speed: 9, size: 0.9, color: '#16120e', seed: 721, visible: dawn }));
+    this.add(new Birds({ count: 13, center: V(-40, 34, 160), radius: V(90, 6, 40), speed: 8, size: 1.0, color: '#1a1612', seed: 722, glide: 0.45, visible: dawn }));
   }
 
   /**

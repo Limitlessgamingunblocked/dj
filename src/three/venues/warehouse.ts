@@ -13,6 +13,7 @@ import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { barCounter, boothClutter, DustMotes, exitSign, PillarBars } from './details';
 import { Dresser } from './dress';
+import { atBar } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import { concreteTexture, floorTexture, withSurface } from './tex';
@@ -52,6 +53,7 @@ class Warehouse extends VenueBase {
     bar.position.set(-8.2, -STAGE, -5.4);
     bar.rotation.y = Math.PI / 2;
     this.group.add(bar);
+    this.add(atBar(bar, 5, 26, { staff: 2, leaners: 2 }));
     this.group.add(exitSign(V(-9.46, -STAGE + 2.4, -8.6), Math.PI / 2), exitSign(V(9.46, -STAGE + 2.4, -8.6), -Math.PI / 2), exitSign(V(9.46, -STAGE + 2.4, -1.4), -Math.PI / 2));
     // stage riser under the booth
     const conc = concreteTexture(34);

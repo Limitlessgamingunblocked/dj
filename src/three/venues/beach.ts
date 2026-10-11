@@ -17,6 +17,7 @@ import type { VenueDef, VenueViews } from './base';
 import { barCounter, boothClutter } from './details';
 import { catenary, Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
+import { Aircraft, Birds, headland, Lighthouse, TownLights } from './landmarks';
 import { atBar, crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, TABLE_Y } from './fixtures';
 import { moments, setClock } from './moments';
@@ -281,10 +282,25 @@ class Beach extends OpenAir {
       [160, 200, 0.9, 26],
     ])
       d.yacht(V(x, -1.05, z), yaw, len);
+
+    // the bay: a headland running out to sea on the left with the lighthouse on its point; a town along the far shore
+    const night = () => this.look.night;
+    const SEA = -1.05;
+    const ridge = (t: number) => 4 + 14 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.15)), 0.7) + 8 * t;
+    const point = [new THREE.Vector2(95, 70), new THREE.Vector2(135, 150), new THREE.Vector2(165, 230), new THREE.Vector2(180, 310)];
+    this.group.add(headland(point, 50, ridge, { y0: SEA, seed: 431, color: '#3a3a30' }));
+    const lh = new THREE.SplineCurve(point).getPointAt(0.9);
+    this.add(new Lighthouse(V(lh.x, SEA + ridge(0.9) * 0.85, lh.y), { height: 26, night, d, period: 12 }));
+    const shore = [new THREE.Vector2(-300, 500), new THREE.Vector2(-160, 560), new THREE.Vector2(-50, 610), new THREE.Vector2(55, 640)];
+    this.group.add(headland(shore.map((p) => p.clone().add(new THREE.Vector2(0, 30))), 140, (t) => 7 + 3 * Math.sin(t * 9), { y0: SEA, seed: 432, color: '#2e3230' }));
+    this.add(new TownLights(shore, { y0: SEA + 8, depth: 70, count: 900, seed: 433, night, d }));
     // sand blown over the deck, a few cups
     d.wear(x0 + 0.3, x1 - 0.3, z0 + 0.3, z1 - 0.3, 0, 'beach', 400, 'light');
     d.litter(x0 + 2, x1 - 2, z0 + 2, -1.6, 50);
     this.add(d.done());
+    // gulls over the shore by day, a plane across the sky now and then
+    this.add(new Birds({ count: 9, center: V(0, 13, 42), radius: V(50, 3, 18), speed: 6, size: 1.1, color: '#e8e6e0', seed: 434, glide: 0.65, visible: () => 1 - THREE.MathUtils.smoothstep(night(), 0.45, 0.85) }));
+    this.add(new Aircraft({ from: V(-700, 430, 650), to: V(700, 380, 240), period: 150, offset: 60, night }));
   }
 
   /** the sun waits just above the sea for a drop, then touches it on the drop */
