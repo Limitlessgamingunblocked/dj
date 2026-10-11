@@ -442,3 +442,11 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - The date seeds everything, with #1 on 1 January 2026, and it uses your local date.
 155. **Any stage, locked or not.** The daily is the one way a new player gets a set on the festival main stage or at sunrise before their career opens it. That's a taste of what's ahead, once a day. The first finish is the result and moves the streak; replays are practice. Rewards are the normal set rewards, and the once-a-day result keeps that from being a farm.
 156. **Built on what was there.** Objectives come from the bookings' list (an encore is left out, since it's down to luck). The set runs through the normal gig flow, its twist nudges the room's starting vibe, and the results screen gets a Daily block. The save is checked field by field, so an old or edited save can't break it.
+
+## Easier tiers (2026-10-11)
+157. **Fame tiers come about three times sooner.**
+    - The thresholds are roughly halved: 80, 300, 700, 1,400, 2,600 and 4,500 fame, where they were 150, 550, 1,300, 2,700, 5,200 and 9,500.
+    - Every grade pays more fame. A B pays 45 where it paid 30, and a D pays 12 where it paid 5, so a rough night still moves you on.
+    - At a steady B on 10-minute sets, the first tier comes after 3 sets (was 6), and the sunrise after 29 (was 87). At a C it's 46 sets (was 172).
+    - Grades themselves are unchanged.
+    - A saved career moves straight up to the tier its fame has now earned when the game loads.

@@ -24,7 +24,7 @@ export interface ResultsHooks {
   replay?(label: string): void;
   /** the screen closed (the buffer is cleared after this) */
   closed?(): void;
-  /** what's next on the career path ("Rooftop Bar at fame 150: 40 to go") */
+  /** what's next on the career path ("Rooftop Bar at fame 80: 40 to go") */
   next?: string;
   /** the booking's bonus objective, and whether you hit it */
   objective?: { text: string; met: boolean } | null;

@@ -5,12 +5,12 @@
  *
  *   tier  fame   opens
  *   1     0      Bedroom → Basement (after your first set)
- *   2     150    Rooftop Bar
- *   3     550    Warehouse Rave
- *   4     1300   Beach Club Terrace
- *   5     2700   Boat Party offers, B2B with rivals
- *   6     5200   Main-Stage Festival
- *   7     9500   Sunrise Closing Set ("max": the ending, replayable forever)
+ *   2     80     Rooftop Bar
+ *   3     300    Warehouse Rave
+ *   4     700    Beach Club Terrace
+ *   5     1400   Boat Party offers, B2B with rivals
+ *   6     2600   Main-Stage Festival
+ *   7     4500   Sunrise Closing Set ("max": the ending, replayable forever)
  *
  * Everything here is plain data in, plain data out: the gig director calls
  * applySet() at the end of a set and saves what comes back.
@@ -48,7 +48,7 @@ const FREE_PLAY_PAY = { fame: 1.5, cash: 1.5, followers: 1.5 };
 export const isCareerVenue = (id: string): id is CareerVenue => (CAREER_VENUES as readonly string[]).includes(id);
 
 /** fame needed for each tier (index = tier − 1) */
-export const TIER_FAME = [0, 150, 550, 1300, 2700, 5200, 9500];
+export const TIER_FAME = [0, 80, 300, 700, 1400, 2600, 4500];
 export const TIER_NAMES = ['Bedroom DJ', 'Local', 'Rising', 'Club regular', 'Resident', 'Headliner', 'Legend'];
 
 export function tierFor(fame: number): number {
@@ -145,7 +145,8 @@ export function summarize(o: { venue: string; slot: SlotId; minutes: number; gra
 /* rewards                                                              */
 /* ------------------------------------------------------------------ */
 
-const GRADE_FAME: Record<Grade, number> = { S: 70, A: 48, B: 30, C: 15, D: 5 };
+// a rough set still moves you on: even a D is worth a few sets' worth of a C before
+const GRADE_FAME: Record<Grade, number> = { S: 90, A: 65, B: 45, C: 28, D: 12 };
 const GRADE_PAY: Record<Grade, number> = { S: 1.3, A: 1.15, B: 1, C: 0.85, D: 0.6 };
 
 export interface Rewards {
@@ -407,7 +408,7 @@ export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): Se
   return { patch, rewards, milestones, tierUp: tier > p.tier ? tier : null, unlocked: news, reputation, story };
 }
 
-/** what's coming next, for the results screen and the hub ("Rooftop Bar at 150 fame: 40 to go") */
+/** what's coming next, for the results screen and the hub ("Rooftop Bar at fame 80: 40 to go") */
 export function nextGoal(p: Progress): string {
   const next = toNextTier(p);
   if (next === null) return 'You’re a legend. Every venue is yours.';

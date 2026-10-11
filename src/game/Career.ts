@@ -10,6 +10,7 @@ import { Emitter } from '../core/emitter';
 import { ALL_SPECS, BOOKINGS, FEED, LOOKS, PROFILE, PROGRESS, type BookingsSave, type FeedSave, type Look, type Profile, type Progress } from '../core/models';
 import { SaveSystem } from '../core/SaveSystem';
 import { refreshOffers, seeded } from './bookings';
+import { tierFor } from './progression';
 
 export class Career {
   profile: Profile;
@@ -31,7 +32,8 @@ export class Career {
     const f = saves.load(FEED);
     for (const r of [p, g, l, b, f]) if (r.problem) this.problems.push(r.problem);
     this.profile = p.data;
-    this.progress = g.data;
+    // the tiers got easier (October 2026): a saved career moves up to the tier its fame has earned
+    this.progress = g.data.tier < tierFor(g.data.fame) ? { ...g.data, tier: tierFor(g.data.fame) } : g.data;
     this.looks = l.data;
     this.bookings = b.data;
     this.feed = f.data;

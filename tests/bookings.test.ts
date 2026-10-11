@@ -181,4 +181,16 @@ describe('the career keeps the calendar', () => {
     again.erase();
     expect(again.bookings).toEqual(BOOKINGS.defaults());
   });
+
+  it('moves a saved career up to the tier its fame has earned (the tiers got easier)', async () => {
+    const { Career } = await import('../src/game/Career');
+    const kv = memoryStore();
+    const c = new Career(new SaveSystem(kv));
+    // an old save: 600 fame was still tier 2 before; now it's tier 3
+    c.setProgress({ fame: 600, tier: 2 });
+    c.saves.flush();
+    const again = new Career(new SaveSystem(kv));
+    expect(again.progress.tier).toBe(3);
+    expect(again.progress.fame).toBe(600);
+  });
 });

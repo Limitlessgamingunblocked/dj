@@ -117,9 +117,9 @@ describe('pacing (Section 9.8)', () => {
     expect(p.tier).toBe(7);
     // never more than one set in a row without something new
     expect(worst).toBeLessThanOrEqual(1);
-    // a full career at a steady B, 20-minute sets: long, but not endless
-    expect(n).toBeGreaterThan(30);
-    expect(n).toBeLessThan(90);
+    // a full career at a steady B, 20-minute sets: about twenty sets, a new tier every three or four
+    expect(n).toBeGreaterThan(12);
+    expect(n).toBeLessThan(30);
     expect(CAREER.sunrise.tier).toBe(7);
   });
 });
