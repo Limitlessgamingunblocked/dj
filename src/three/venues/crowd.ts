@@ -263,7 +263,7 @@ function drawSigns(): void {
   signTex.needsUpdate = true;
 }
 
-const VERT_HEAD = /* glsl */ `
+export const VERT_HEAD = /* glsl */ `
   attribute float aBone;
   attribute float aMat;
   attribute vec4 iSeed;
@@ -367,7 +367,7 @@ const VERT_HEAD = /* glsl */ `
     float kL = max(0.0, k + stepW);
     float kR = max(0.0, k - stepW);
     // and the body leans into the beat
-    float lean = (0.04 + 0.08 * E) * hit * dancer;
+    float beatLean = (0.04 + 0.08 * E) * hit * dancer;
     float sway = sin(uBeat * 1.5708 + iSeed.x * 6.283) * (0.04 + 0.06 * vip + 0.03 * E);
     float twist = sin(uBeat * 0.7854 + iSeed.w * 6.283) * (0.12 + 0.1 * vip) * (1.0 - dj * 0.7);
     float shiftX = sin(uBeat * 1.5708 + iSeed.x * 6.283) * 0.035 * (1.0 - dj);
@@ -382,7 +382,7 @@ const VERT_HEAD = /* glsl */ `
     jump += marathon * max(0.0, sin(fract(uBeat * 0.5) * 6.283)) * 0.05;
     vec3 P = vec3(0.0, 0.95, 0.0);
     // the bar-leaner's lean over the counter
-    mat3 Ru = rotY(twist) * rotZ(sway) * rotX(0.28 * leaning + lean);
+    mat3 Ru = rotY(twist) * rotZ(sway) * rotX(0.28 * leaning + beatLean);
     vec3 S = vec3(shiftX, 0.0, 0.0);
     float b = aBone;
     mat3 R = mat3(1.0);

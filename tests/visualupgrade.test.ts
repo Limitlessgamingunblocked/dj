@@ -177,3 +177,15 @@ describe('the crowd model', () => {
     expect(px[at(2, 2) + 3]).toBe(255);
   });
 });
+
+describe('the crowd shader', () => {
+  it('declares each of its pose variables once (a clash fails to compile and the crowd vanishes)', async () => {
+    const { VERT_HEAD } = await import('../src/three/venues/crowd');
+    const body = VERT_HEAD.slice(VERT_HEAD.indexOf('void computePose()'));
+    // top-level statements of computePose sit at four spaces; inner blocks are deeper
+    const names = [...body.matchAll(/^ {4}(?:float|vec2|vec3|vec4|mat3)\s+(\w+)\s*[=;]/gm)].map((m) => m[1]);
+    expect(names.length).toBeGreaterThan(20);
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    expect(dupes).toEqual([]);
+  });
+});
