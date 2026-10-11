@@ -11,6 +11,8 @@ import { goalMet, played, seeded } from '../game/bookings';
 import { addPosts, postsForSet } from '../game/social';
 import { ASSISTS, Gig, isVibeEvent, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
+import { cleanDaily, dailyFor, dailyMet, liveStreak, recordDaily, shareText, vibeSquares, type DailyRecord, type DailySave, type DailySpec } from '../game/daily';
+import { loadSetting, saveSetting } from '../core/settings';
 import { CHEMISTRY_UNLOCK, INTROS, RIVALS, rivalOf, type RivalId } from '../game/rivals';
 import type { ControlRegistry } from '../core/controls';
 import { B2B } from './b2b';
@@ -30,6 +32,17 @@ import { showResults } from '../ui/Results';
 import { StreamChat } from '../ui/StreamChat';
 import { h } from '../ui/dom';
 import { openModal } from '../ui/modal';
+
+/** a daily challenge's result, for the results screen */
+export interface DailyOut {
+  number: number;
+  goals: { text: string; met: boolean }[];
+  /** the day's first finish (later ones are practice) */
+  official: boolean;
+  streak: number;
+  /** the result as text to paste anywhere */
+  share: string;
+}
 
 export interface Callout {
   text: string;
@@ -121,6 +134,8 @@ export class GigDirector {
   private coach: Suggestion | null = null;
   private coachAt = -1e9;
   private heard = new Set<string>();
+  /** the running set is today's daily challenge */
+  private daily: DailySpec | null = null;
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
@@ -156,21 +171,64 @@ export class GigDirector {
       thumb: (id, g, w, h) => this.host.venueThumb(id, g, w, h),
       play: (b) => this.openPreGig(b),
       free: () => this.openPreGig(null),
+      daily: (() => {
+        const d = this.dailyToday();
+        return { number: d.spec.number, venueName: this.host.venueName(d.spec.venue), slotLabel: SLOTS[d.spec.slot].label, twist: d.spec.twist.label, goals: d.spec.goals.map((g) => g.text), streak: d.streak, played: d.played ? `${d.played.grade} · ${d.played.met}/3 · ${d.played.score.toLocaleString()} pts` : null, play: () => this.openDaily() };
+      })(),
     });
+  }
+
+  /** today's daily challenge, what's saved, today's result if it's been played, the streak */
+  dailyToday(): { spec: DailySpec; save: DailySave; played: DailyRecord | null; streak: number } {
+    const spec = dailyFor(new Date());
+    const save = cleanDaily(loadSetting<unknown>('daily', null));
+    return { spec, save, played: save.history.find((x) => x.key === spec.key) ?? null, streak: liveStreak(save, spec.key) };
+  }
+
+  /** the daily challenge's pre-gig screen: today's venue, slot and objectives, fixed */
+  openDaily(): void {
+    if (!this.hasMusic()) return;
+    const { spec, played } = this.dailyToday();
+    const c = this.host.career;
+    openGigSetup({
+      venues: this.host.gigVenues(),
+      looks: c.looks.items.length ? c.looks.items : [c.look],
+      currentLook: c.look.id,
+      crates: this.host.library.crates,
+      currentCrate: this.host.currentCrate(),
+      progress: c.progress,
+      assist: this.lastCfg?.assist ?? 'club',
+      booking: {
+        venue: spec.venue,
+        venueName: this.host.venueName(spec.venue),
+        slot: spec.slot,
+        minutes: spec.minutes,
+        pay: 0,
+        promoter: '',
+        expectation: '',
+        objective: '',
+        daily: { number: spec.number, twist: spec.twist.label, goals: spec.goals.map((g) => g.text), note: played ? `You played today's: ${played.grade}, ${played.met}/3 objectives. This one's practice.` : 'The same set for everyone today, on any stage, locked or not. Your first finished set counts.' },
+      },
+      start: (cfg, o) => this.start(cfg, o.look, o.crate, null, spec),
+      dressingRoom: () => this.host.openCreator(),
+    });
+  }
+
+  /** a set needs music to mix: at least two of your tracks */
+  private hasMusic(): boolean {
+    if (this.host.library.list().filter((t) => t.status !== 'error').length >= 2) return true;
+    const go = h('button', { class: 'btn primary', type: 'button' }, 'Open the library');
+    const m = openModal('Add music first', h('div', { class: 'gig-setup' }, h('p', {}, 'A set needs at least two tracks. Import your music or a playlist, then come back.'), h('div', { class: 'gs-actions' }, go)));
+    go.addEventListener('click', () => {
+      m.close();
+      this.host.openLibrary();
+    });
+    return false;
   }
 
   /** the pre-gig screen: a booking's terms, or a free choice */
   openPreGig(b: Booking | null): void {
-    // a set needs music to mix: at least two of your tracks
-    if (this.host.library.list().filter((t) => t.status !== 'error').length < 2) {
-      const go = h('button', { class: 'btn primary', type: 'button' }, 'Open the library');
-      const m = openModal('Add music first', h('div', { class: 'gig-setup' }, h('p', {}, 'A set needs at least two tracks. Import your music or a playlist, then come back.'), h('div', { class: 'gs-actions' }, go)));
-      go.addEventListener('click', () => {
-        m.close();
-        this.host.openLibrary();
-      });
-      return;
-    }
+    if (!this.hasMusic()) return;
     const c = this.host.career;
     const rival = rivalOf(b?.special);
     openGigSetup({
@@ -187,7 +245,7 @@ export class GigDirector {
     });
   }
 
-  start(cfg: GigConfig, look?: string, crate?: string | null, booking: Booking | null = null): void {
+  start(cfg: GigConfig, look?: string, crate?: string | null, booking: Booking | null = null, daily: DailySpec | null = null): void {
     if (this.gig) this.teardown();
     const e = this.host.engine;
     this.host.autoDJOff();
@@ -198,6 +256,7 @@ export class GigDirector {
     if (crate !== undefined) this.host.showCrate(crate);
     this.lastCfg = cfg;
     this.booking = booking;
+    this.daily = daily;
     this.moment = null;
     this.b2b?.stop();
     this.b2b = null;
@@ -253,6 +312,9 @@ export class GigDirector {
       const b2b = this.b2b;
       this.hud.say(`${b2b.name}:`, INTROS[b2b.rival].replace('{name}', dj).replace('{NAME}', dj.toUpperCase()));
       setTimeout(() => this.b2b === b2b && this.hud?.say('Promoter:', `Back to back with ${b2b.name}. You open: play a track, they answer, then it’s you again.`), 4200);
+    } else if (daily) {
+      this.hud.say(`Daily #${daily.number}:`, `${slot.label}, ${cfg.minutes} minutes. ${daily.twist.label}.`);
+      setTimeout(() => this.gig && this.daily === daily && this.hud?.say('Objectives:', daily.goals.map((g) => g.text).join(' · ')), 3200);
     } else if (booking) {
       this.hud.say(`${booking.promoter}:`, `${promoterHello(this.host.career.progress.tier, booking.expectation)} ${cfg.minutes} minutes.`);
       setTimeout(() => this.gig && this.booking === booking && this.hud?.say('Bonus:', booking.objective), 3200);
@@ -263,6 +325,8 @@ export class GigDirector {
       this.gig.meter.vibe += dc.bonus;
       setTimeout(() => this.hud?.say('Door:', `Dressed for the room. The crowd starts warmer (+${Math.round(dc.bonus * 100)}%).`), 4800);
     }
+    // the daily's twist: a cold room or a hometown crowd
+    if (daily) this.gig.meter.vibe = Math.min(1, Math.max(0, this.gig.meter.vibe + daily.twist.vibe));
   }
 
   private teardown(): void {
@@ -316,9 +380,21 @@ export class GigDirector {
     const dj = this.host.djName() || 'DJ';
     const posts = postsForSet({ summary: r.summary, dj, venueName: this.host.venueName(gig.config.venue), venue: gig.config.venue, followers: c.progress.followers, story: r.outcome.story?.replace(/\{name\}/g, dj) ?? null, moment: this.moment }, seeded(c.progress.setsPlayed * 31 + 7));
     c.setFeed(addPosts(c.feed, posts, new Date()));
+    // the daily challenge: the first finish of the day is the result; the streak moves on
+    const daily = this.daily;
+    let dailyOut: DailyOut | null = null;
+    if (daily) {
+      const met = dailyMet(daily, r.summary);
+      const res = { grade: r.grade, score: r.score, met, squares: vibeSquares(r.timeline, gig.config.minutes * 60) };
+      const rec = recordDaily(cleanDaily(loadSetting<unknown>('daily', null)), daily, res);
+      if (rec.official) saveSetting('daily', rec.save);
+      const streak = liveStreak(rec.save, daily.key);
+      dailyOut = { number: daily.number, goals: daily.goals.map((g, i) => ({ text: g.text, met: met[i] })), official: rec.official, streak, share: shareText(daily, res, streak) };
+    }
     this.teardown();
     this.gig = null;
     this.booking = null;
+    this.daily = null;
     this.free.vibe = gig.meter.vibe;
     this.host.finished(r.grade);
     const rp = this.host.replay();
@@ -327,11 +403,12 @@ export class GigDirector {
       next: nextGoal(c.progress),
       objective: b ? { text: b.objective, met } : null,
       chemistry,
+      daily: dailyOut,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
       closed: () => rp?.clear(),
       // after a booking, "play again" goes back to the calendar for the next one
-      again: () => (b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
+      again: () => (daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
   }

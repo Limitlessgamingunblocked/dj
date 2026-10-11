@@ -96,6 +96,21 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
   - Click a genre (or right-click the track) to set your own. Your pick wins over the tag and the guess, and goes in the crates-and-cues backup.
 - **Spotify and SoundCloud** can't be connected. Spotify's developer policy rules out DJ apps and mixing its content, and SoundCloud's API rules out modifying or mixing tracks. Both deliver their audio in a form a browser mixer can't process. Bring the track list and your own files instead.
 
+### The daily challenge
+One gig a day, the same for everyone who plays it that day.
+- **What it is:** a 10-minute set on any of the career's stages (locked or not: a guest slot), in a given slot, with a twist on the crowd (a cold room, a hometown crowd, a restless one) and three objectives from the bookings' list.
+- **One result a day:** the first finished set is your result for the day. Play again as much as you like, but later sets are practice.
+- **Streak:** a 🔥 streak counts the days in a row you've played.
+- **Share it:** the results screen has a **Copy result** button that copies a few lines to paste anywhere, like this:
+  ```
+  Deckhouse Daily #284 · Basement Club
+  A · ✅❌✅ · 12,450 pts
+  🟥🟨🟨🟩🟩
+  🔥 3-day streak
+  ```
+  The squares are the room's vibe, one per two minutes.
+- **Where to find it:** a dot on **Play a gig** shows while today's challenge is waiting. It's at the top of the bookings, and on Home.
+
 ### Gigs: streaks, requests and the coach
 - **Live score** in the gig HUD.
 - **Streak:** clean transitions, built drops and comebacks in a row multiply their points (×1.25, ×1.5 … up to ×2). A trainwreck, a key clash, dead air, redlining, too many drops or a repeat breaks it.

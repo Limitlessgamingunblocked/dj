@@ -24,6 +24,8 @@ export interface BookingsHooks {
   play(b: Booking): void;
   /** a set with no booking: choose any open venue */
   free(): void;
+  /** today's daily challenge */
+  daily?: { number: number; venueName: string; slotLabel: string; twist: string; goals: string[]; streak: number; played: string | null; play(): void };
 }
 
 export function flyerInfo(b: Booking, dj: string, venueName: string): FlyerInfo {
@@ -140,8 +142,28 @@ export function openBookings(o: BookingsHooks): ModalHandle {
       modal?.close();
       o.free();
     });
+    const d = o.daily;
+    let daily: HTMLElement | null = null;
+    if (d) {
+      const go = h('button', { type: 'button', class: 'btn primary' }, d.played ? 'Play again (practice)' : 'Play today’s challenge');
+      go.addEventListener('click', () => {
+        modal?.close();
+        d.play();
+      });
+      daily = h(
+        'section',
+        { class: `bk-daily${d.played ? ' done' : ''}` },
+        h('div', { class: 'bk-daily-head' }, h('span', { class: 'bk-daily-k' }, `Daily #${d.number}`), d.streak > 0 ? h('span', { class: 'bk-daily-streak' }, `🔥 ${d.streak}`) : null),
+        h('h4', {}, `${d.venueName} · ${d.slotLabel} · 10 min`),
+        h('p', { class: 'bk-expect' }, d.twist),
+        h('ul', { class: 'bk-daily-goals' }, ...d.goals.map((g) => h('li', {}, g))),
+        d.played ? h('p', { class: 'gs-note' }, `Today: ${d.played}`) : h('p', { class: 'gs-note' }, 'The same set for everyone today, on any stage. Your first finish counts.'),
+        h('div', { class: 'bk-actions' }, go),
+      );
+    }
     body.replaceChildren(
       header(p),
+      ...(daily ? [daily] : []),
       week,
       ...(accepted.length ? [h('section', {}, h('h3', {}, 'Your bookings'), h('div', { class: 'bk-list' }, ...accepted.map(card)))] : []),
       h('section', {}, h('h3', {}, 'Offers'), offers.length ? h('div', { class: 'bk-list' }, ...offers.map(card)) : h('p', { class: 'gs-note' }, 'No offers right now. Play a set and promoters will call.')),

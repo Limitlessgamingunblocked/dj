@@ -10,6 +10,8 @@ import { MILESTONE_LABEL, type GigResults } from '../game/Gig';
 import { SLOTS, TRANSITION_LABEL } from '../game/vibe';
 import { h } from './dom';
 import { openModal } from './modal';
+import { toast } from './toast';
+import type { DailyOut } from '../app/gigs';
 
 export interface ResultsHooks {
   /** the headline: your name, as the room knew it tonight */
@@ -28,6 +30,8 @@ export interface ResultsHooks {
   objective?: { text: string; met: boolean } | null;
   /** a B2B: the chemistry you built with the rival */
   chemistry?: { name: string; value: number; unlocked: boolean } | null;
+  /** today's daily challenge: the objectives, the streak, the result to share */
+  daily?: DailyOut | null;
 }
 
 const NEW_KIND: Record<string, string> = { venue: 'Venue', item: 'Wardrobe', set: 'Outfit', hair: 'Hair', title: 'Title', reputation: 'Reputation', story: 'Story' };
@@ -112,6 +116,26 @@ function graph(r: GigResults): HTMLCanvasElement {
   return c;
 }
 
+/** the daily challenge's result: each objective ticked or not, the streak, and the result to copy and share */
+function dailyBlock(d: DailyOut): HTMLElement {
+  const copy = h('button', { class: 'btn primary small', type: 'button', title: 'Copy the result to paste anywhere' }, 'Copy result');
+  copy.addEventListener('click', () => {
+    navigator.clipboard?.writeText(d.share).then(
+      () => toast('Result copied'),
+      () => toast('Couldn’t copy: select the text instead'),
+    );
+  });
+  const met = d.goals.filter((g) => g.met).length;
+  return h(
+    'div',
+    { class: 'res-daily' },
+    h('div', { class: 'res-daily-head' }, h('b', {}, `Daily #${d.number}`), h('span', {}, d.official ? `${met}/3 objectives` : `Practice · ${met}/3`), d.streak > 1 ? h('span', { class: 'res-streak' }, `🔥 ${d.streak}-day streak`) : null),
+    h('ul', {}, ...d.goals.map((g) => h('li', { class: g.met ? 'met' : 'missed' }, g.met ? '✓ ' : '✗ ', g.text))),
+    h('pre', { class: 'res-share mono' }, d.share),
+    h('div', { class: 'res-daily-acts' }, copy, h('small', {}, d.official ? 'Your result for today. Play again for practice.' : 'Today’s result is already in. This was practice.')),
+  );
+}
+
 /** a number counting up to its value */
 function countUp(el: HTMLElement, to: number, prefix = ''): void {
   const t0 = performance.now();
@@ -160,6 +184,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
       h('div', { class: 'res-card res-earned' }, h('span', {}, 'You earned'), h('div', { class: 'res-earn' }, h('div', {}, fame, h('small', {}, 'fame')), h('div', {}, cash, h('small', {}, 'cash')), h('div', {}, fol, h('small', {}, 'followers'))), r.tierUp ? h('small', { class: 'res-tier' }, `Fame tier ${r.tierUp} reached. New gear in the wardrobe.`) : null),
     ),
     hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? 'Bonus hit: ' : 'Bonus missed: '), hooks.objective.text, hooks.objective.met ? ' (+25%)' : '') : null,
+    hooks.daily ? dailyBlock(hooks.daily) : null,
     hooks.chemistry ? h('div', { class: `res-objective ${hooks.chemistry.value >= 0.75 ? 'met' : ''}` }, h('b', {}, `Chemistry with ${hooks.chemistry.name}: ${Math.round(hooks.chemistry.value * 100)}%`), hooks.chemistry.unlocked ? ' · their pieces are in your wardrobe' : hooks.chemistry.value >= 0.75 ? '' : ' · 75% unlocks their pieces') : null,
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
     news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_KIND[n.kind] ? h('small', {}, NEW_KIND[n.kind]) : null, n.label.replace(/\{name\}/g, hooks.dj)))) : null,

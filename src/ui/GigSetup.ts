@@ -29,7 +29,7 @@ export interface SetupHooks {
   progress: Progress;
   assist: Assist;
   /** playing a booking: its terms are fixed */
-  booking?: { venue: string; venueName: string; slot: SlotId; minutes: number; pay: number; promoter: string; expectation: string; objective: string; extra?: string } | null;
+  booking?: { venue: string; venueName: string; slot: SlotId; minutes: number; pay: number; promoter: string; expectation: string; objective: string; extra?: string; daily?: { number: number; twist: string; goals: string[]; note: string } } | null;
   start(cfg: GigConfig, o: { look: string; crate: string | null }): void;
   dressingRoom(): void;
 }
@@ -110,16 +110,27 @@ export function openGigSetup(o: SetupHooks): void {
           'section',
           { class: 'gs-booking' },
           c,
-          h(
-            'div',
-            {},
-            h('span', { class: 'gs-note' }, `${bk.promoter} presents`),
-            h('h3', {}, bk.venueName),
-            bk.extra ? h('p', { class: 'gs-extra' }, bk.extra) : null,
-            h('p', {}, h('b', {}, `${SLOTS[bk.slot].label} · ${bk.minutes} min · $${bk.pay.toLocaleString()}`)),
-            h('p', { class: 'gs-brief' }, h('b', {}, 'The promoter says: '), bk.expectation),
-            h('p', { class: 'gs-brief' }, h('b', {}, 'Bonus objective: '), bk.objective),
-          ),
+          bk.daily
+            ? h(
+                'div',
+                {},
+                h('span', { class: 'gs-note' }, `Daily challenge #${bk.daily.number}`),
+                h('h3', {}, bk.venueName),
+                h('p', {}, h('b', {}, `${SLOTS[bk.slot].label} · ${bk.minutes} min`)),
+                h('p', { class: 'gs-brief' }, h('b', {}, 'Tonight: '), bk.daily.twist),
+                h('ul', { class: 'gs-daily-goals' }, ...bk.daily.goals.map((g) => h('li', {}, g))),
+                h('p', { class: 'gs-note' }, bk.daily.note),
+              )
+            : h(
+                'div',
+                {},
+                h('span', { class: 'gs-note' }, `${bk.promoter} presents`),
+                h('h3', {}, bk.venueName),
+                bk.extra ? h('p', { class: 'gs-extra' }, bk.extra) : null,
+                h('p', {}, h('b', {}, `${SLOTS[bk.slot].label} · ${bk.minutes} min · $${bk.pay.toLocaleString()}`)),
+                h('p', { class: 'gs-brief' }, h('b', {}, 'The promoter says: '), bk.expectation),
+                h('p', { class: 'gs-brief' }, h('b', {}, 'Bonus objective: '), bk.objective),
+              ),
         );
       })()
     : null;
@@ -137,7 +148,7 @@ export function openGigSetup(o: SetupHooks): void {
     h('div', { class: 'gs-actions' }, go),
   );
   updateBrief();
-  const m = openModal(bk ? 'Play the booking' : 'Free set', content, { wide: true });
+  const m = openModal(bk?.daily ? 'Daily challenge' : bk ? 'Play the booking' : 'Free set', content, { wide: true });
   go.addEventListener('click', () => {
     m.close();
     o.start(cfg, { look, crate });

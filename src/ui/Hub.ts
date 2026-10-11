@@ -28,6 +28,8 @@ export interface HubHooks {
   venueName(id: string): string;
   music(): { playing: boolean; beat: number; kick: number };
   bookings(): void;
+  /** today's daily challenge: what it is and whether it's played, and to play it */
+  daily(): { label: string; done: boolean; play(): void };
   wardrobe(): void;
   crates(): void;
   mySets(): void;
@@ -137,6 +139,12 @@ export class HubView {
       h(
         'nav',
         { class: 'hub-stations', 'aria-label': 'Stations' },
+        (() => {
+          const d = this.host.daily();
+          const b = station('calendar', d.done ? 'Daily challenge ✓' : 'Daily challenge', d.label, leave(() => d.play()));
+          b.classList.toggle('hub-daily', !d.done);
+          return b;
+        })(),
         station('calendar', 'Bookings', nextBooked ? `Next: ${isCareerVenue(nextBooked.venue) ? CAREER[nextBooked.venue].name : nextBooked.venue}` : offers ? `${offers} offer${offers > 1 ? 's' : ''} waiting` : 'Your calendar', leave(() => this.host.bookings())),
         station('shirt', 'Wardrobe', 'Change your look', leave(() => this.host.wardrobe())),
         station('record', 'Crates', 'Your records', leave(() => this.host.crates())),

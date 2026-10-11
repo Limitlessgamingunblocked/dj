@@ -435,3 +435,10 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - the drop's all-band flash drops to a quarter;
     - the gauze doesn't flash on the drop;
     - the kinetic balls pulse on the kick at 40 % of their usual depth.
+
+## The daily challenge (2026-10-11)
+154. **A daily challenge, to give people a reason to come back and something to share.** It's the same set for everyone each day, and the result copies as a few lines of text, so it pastes into any chat.
+    - The game ships no music and has no server. So the challenge fixes the stage, slot, twist and objectives, and you play it with your own tracks. Scores aren't compared on a leaderboard; the shared text is the comparison.
+    - The date seeds everything, with #1 on 1 January 2026, and it uses your local date.
+155. **Any stage, locked or not.** The daily is the one way a new player gets a set on the festival main stage or at sunrise before their career opens it. That's a taste of what's ahead, once a day. The first finish is the result and moves the streak; replays are practice. Rewards are the normal set rewards, and the once-a-day result keeps that from being a farm.
+156. **Built on what was there.** Objectives come from the bookings' list (an encore is left out, since it's down to luck). The set runs through the normal gig flow, its twist nudges the room's starting vibe, and the results screen gets a Daily block. The save is checked field by field, so an old or edited save can't break it.

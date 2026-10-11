@@ -14,6 +14,129 @@ body.gig-on .gig-btn {
   display: none;
 }
 
+/* today's daily challenge hasn't been played: a dot on the button */
+.gig-btn.daily-due {
+  position: relative;
+}
+
+.gig-btn.daily-due::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b6ff3b;
+  box-shadow: 0 0 0 2px var(--bg, #07080b);
+}
+
+/* ---------------------------------------------------------- daily challenge */
+
+.hub-station.hub-daily {
+  border-color: rgb(182 255 59 / 55%);
+  background: rgb(182 255 59 / 8%);
+}
+
+.bk-daily {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid rgb(182 255 59 / 45%);
+  border-radius: 10px;
+  background: linear-gradient(120deg, rgb(182 255 59 / 10%), rgb(255 46 136 / 8%));
+}
+
+.bk-daily.done {
+  border-color: var(--line);
+  background: rgb(255 255 255 / 3%);
+}
+
+.bk-daily-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bk-daily-k {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b6ff3b;
+}
+
+.bk-daily-streak {
+  font-weight: 700;
+}
+
+.bk-daily h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.bk-daily-goals,
+.gs-daily-goals,
+.res-daily ul {
+  margin: 2px 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.res-daily {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgb(182 255 59 / 45%);
+  border-radius: 8px;
+  background: rgb(182 255 59 / 6%);
+}
+
+.res-daily-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.res-daily ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.res-daily li.met {
+  color: #3ddc97;
+}
+
+.res-daily li.missed {
+  color: var(--muted);
+}
+
+.res-share {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 35%);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  user-select: all;
+}
+
+.res-daily-acts {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.res-daily-acts small {
+  color: var(--muted);
+}
+
 /* ---------------------------------------------------------------- HUD */
 
 .gig-hud {

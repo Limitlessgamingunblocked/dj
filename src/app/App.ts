@@ -502,7 +502,10 @@ export class App implements AppContext {
       openCreator: () => this.creator?.show(),
       recording: () => this.desk.recording.on,
       mark: (kind, label) => this.desk.mark(kind, label),
-      finished: (grade) => this.desk.gigFinished(grade),
+      finished: (grade) => {
+        this.desk.gigFinished(grade);
+        this.markDaily();
+      },
       replay: () => (this.desk.replay.on ? { save: async () => !!(await this.desk.saveMix()), moment: (label) => void this.desk.replayMoment(label), clear: () => this.desk.replay.clear() } : null),
       djName: () => nameService.text,
       autoDJOff: () => this.setAutoDJ(false),
@@ -601,6 +604,11 @@ export class App implements AppContext {
       venueName: (id) => venueById(id).name,
       music: () => ({ playing: this.clock.playing, beat: this.clock.position, kick: this.kick }),
       bookings: () => this.gigs.openSetup(),
+      daily: () => {
+        const d = this.gigs.dailyToday();
+        const where = `#${d.spec.number} · ${venueById(d.spec.venue).name}`;
+        return { label: d.played ? `${where} · ${d.played.grade}${d.streak > 1 ? ` · 🔥 ${d.streak}` : ''}` : `${where}${d.streak ? ` · 🔥 ${d.streak}` : ''}`, done: !!d.played, play: () => this.gigs.openDaily() };
+      },
       wardrobe: () => this.creator?.show(),
       crates: () => this.showTab('library'),
       mySets: () => this.showTab('mysets'),
@@ -734,6 +742,7 @@ export class App implements AppContext {
       midiConnected: () => !!this.midi.access && this.midi.devices().length > 0,
       recording: () => this.desk.recording,
     });
+    this.markDaily();
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
     this.stage.el.append(this.buildStageHud());
@@ -1480,6 +1489,15 @@ export class App implements AppContext {
     const sec = sectionOf({ playing: this.clock.playing, build: s.build, peak: s.peak });
     const want = sec === 'breakdown' || sec === 'build' ? Math.min(1, s.build * 1.3) : 0;
     this.stage.rig.orbit += (want - this.stage.rig.orbit) * 0.04;
+  }
+
+  /** a dot on Play a gig while today's daily challenge is waiting */
+  private markDaily(): void {
+    const btn = this.topbar?.el.querySelector<HTMLElement>('.gig-btn');
+    if (!btn) return;
+    const due = !this.gigs.dailyToday().played;
+    btn.classList.toggle('daily-due', due);
+    btn.title = due ? 'Today’s daily challenge is waiting · your bookings, or a free set' : 'Your bookings, the daily challenge, or a free set';
   }
 
   private setFpsMeter(on: boolean): void {
