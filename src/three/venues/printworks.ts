@@ -8,6 +8,7 @@
  * and the visual player on a screen across the far wall.
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Confetti } from './confetti';
@@ -32,6 +33,11 @@ const BARS = 14;
 const FAR = -108;
 
 class Printworks extends VenueBase {
+  // the press hall's concrete, worn smooth in places
+  readonly reflect: FloorReflect[] = [
+    { y: -STAGE, strength: 0.45, rough: 0.5 },
+    { y: 0, strength: 0.35, rough: 0.45 },
+  ];
   readonly views: VenueViews = {
     wide: { pos: V(-10.3, 10.4, -4.6), target: V(1.5, 3.5, -30) },
     wideLabel: 'Gantry',

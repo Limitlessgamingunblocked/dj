@@ -13,6 +13,7 @@
  * TODO: procedural stand-in for the Blender rooftop set (Section 14).
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
@@ -107,6 +108,8 @@ function olive(seed: number): THREE.Group {
 }
 
 class Rooftop extends OpenAir {
+  // glazed roof tiles
+  readonly reflect: FloorReflect = { y: 0, strength: 0.18, rough: 0.7 };
   readonly views: VenueViews = {
     // from the railing at the front corner, back at the booth and the tower, the city behind
     wide: { pos: V(10.4, 4.6, -16.2), target: V(-0.8, 1.4, 1.2) },

@@ -8,6 +8,7 @@
  * and the ring carries no lettering (no branding).
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
@@ -42,6 +43,8 @@ function tree(r: () => number, scale: number): THREE.Group {
 }
 
 class BoilerRoom extends VenueBase {
+  // paving after a hosed-down evening: a faint sheen
+  readonly reflect: FloorReflect = { y: 0, strength: 0.15, rough: 0.85 };
   readonly views: VenueViews = {
     wide: { pos: V(-0.55, 1.52, -2.2), target: V(0.25, 2.0, 1.0) },
     wideLabel: 'Stream cam',

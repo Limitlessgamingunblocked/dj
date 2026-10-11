@@ -11,6 +11,7 @@
  * TODO: procedural stand-in for the Blender basement set (Section 14).
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { nameStyleFor } from '../../name/venueStyles';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
@@ -165,6 +166,8 @@ class Drips {
 }
 
 class Basement extends VenueBase {
+  // a painted concrete floor
+  readonly reflect: FloorReflect = { y: 0, strength: 0.35, rough: 0.55 };
   readonly views: VenueViews = {
     // the back corner, looking over heads at the booth
     wide: { pos: V(-4.1, 2.2, -8.6), target: V(0.4, 1.2, 0.2) },

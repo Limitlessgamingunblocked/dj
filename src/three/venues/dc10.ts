@@ -9,6 +9,7 @@
  * of the old finca. No club lettering: the promoter's wordmark stays out.
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { MirrorBallSpots } from './mirrorball';
@@ -26,6 +27,11 @@ const STAGE = 0.7;
 const CEIL = 4.8;
 
 class DC10 extends VenueBase {
+  // tiles, worn and sticky
+  readonly reflect: FloorReflect[] = [
+    { y: -STAGE, strength: 0.3, rough: 0.65 },
+    { y: 0, strength: 0.25, rough: 0.6 },
+  ];
   readonly views: VenueViews = {
     wide: { pos: V(-1.45, 2.3, 1.75), target: V(0.9, 1.3, -5.5) },
     wideLabel: 'Over the shoulder',

@@ -11,6 +11,8 @@ import type { LibraryBrowser } from './deviceScreen';
 import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { AOPass, DepthTap } from './ao';
+import { ReflectPass, tagBright } from './reflect';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { AudioEngine } from '../audio/AudioEngine';
@@ -67,6 +69,11 @@ interface Zone {
   mixer: boolean;
 }
 
+/** the composer's buffers: half float for the glow, multisampled, with the depth kept for the ambient occlusion */
+function composerTarget(samples: number): THREE.WebGLRenderTarget {
+  return new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples, depthTexture: new THREE.DepthTexture(1, 1) });
+}
+
 export class Stage {
   readonly el: HTMLElement;
   readonly canvas: HTMLCanvasElement;
@@ -107,6 +114,10 @@ export class Stage {
   avatarSpot: { pos: THREE.Vector3; face: number; input: () => AvatarInput } | null = null;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
+  /** ambient occlusion (public for the debug menu's view of it) */
+  readonly ao: AOPass;
+  /** reflective floors (public for the debug menu) */
+  readonly reflect: ReflectPass;
   private lens: LensOutputPass;
   /** steps the render load down (and back up) when frames run long */
   readonly adaptive = new AdaptiveQuality();
@@ -247,8 +258,17 @@ export class Stage {
     this.scene.add(this.dancers.group);
     this.rig = new CameraRig(this.camera, this.canvas);
 
-    this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.msaa }));
+    this.composer = new EffectComposer(this.renderer, composerTarget(this.msaa));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
+    // the scene's depth, for the two passes after it
+    const tap = new DepthTap();
+    this.composer.addPass(tap);
+    // the room's light in a polished floor
+    this.reflect = new ReflectPass(this.scene, this.camera, tap);
+    this.composer.addPass(this.reflect);
+    // contact shadow where things meet, from the frame's depth
+    this.ao = new AOPass(this.camera, tap);
+    this.composer.addPass(this.ao);
     // measures the scene for auto exposure (leaves the picture alone)
     this.composer.addPass(this.exposure);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
@@ -355,6 +375,9 @@ export class Stage {
       for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
     });
     this.scene.add(v.group);
+    // the floor's reflection shows the bright things: the screens, beams, lasers, lamps and neon
+    this.reflect.floor = v.reflect ?? null;
+    if (v.reflect) tagBright(v.group);
     this.scene.background = v.background;
     this.scene.fog = v.fog;
     this.keyLight.color.set(v.keyLight.color);
@@ -627,7 +650,7 @@ export class Stage {
     const samples = q === 'low' ? 0 : 4;
     if (samples !== this.msaa) {
       this.msaa = samples;
-      this.composer.reset(new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples }));
+      this.composer.reset(composerTarget(samples));
     }
     this.adaptive.reset(0);
     this.applyAdaptive();
@@ -989,6 +1012,10 @@ export class Stage {
       return;
     }
     this.bloom.enabled = this.quality !== 'low';
+    // contact shadow: not on Low, and not when the adaptive step drops it
+    this.ao.enabled = this.quality !== 'low' && this.adaptive.step.surfaces;
+    // the floor's reflection: not on Low, not when the adaptive step drops it, and not looking down on the board
+    this.reflect.enabled = this.ao.enabled && this.reflect.planes.length > 0 && this.rig.view !== 'top';
     // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky
     this.bloom.strength = 0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1;
     // cinematic lens: streaks and ghosts off the brightest fixtures, the drone's wide lens and speed blur

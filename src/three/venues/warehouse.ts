@@ -6,6 +6,7 @@
  * concrete floor, a bar along one wall and exit signs, so the room has edges.
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { MirrorBallSpots } from './mirrorball';
@@ -23,6 +24,12 @@ const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const STAGE = 0.6; // DJ riser height above the dance floor
 
 class Warehouse extends VenueBase {
+  // polished concrete: the LED wall and the beams skid across it
+  readonly reflect: FloorReflect[] = [
+    { y: -STAGE, strength: 0.6, rough: 0.35 },
+    // the stage deck: the LED wall in its gloss
+    { y: 0, strength: 0.4, rough: 0.45 },
+  ];
   readonly views: VenueViews = {
     wide: { pos: V(2.6, 2.3, 3.3), target: V(0, 1.4, -3.2) },
     wideLabel: 'Club',

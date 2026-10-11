@@ -23,6 +23,7 @@
  * descriptions; nothing is traced from photos, and nothing carries a logo.
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Confetti } from './confetti';
@@ -264,6 +265,8 @@ type Layout = 'arena' | 'round';
 
 class AllyPally extends VenueBase {
   readonly views: VenueViews;
+  // the hall's dark sealed concrete, smooth enough to pick up the light
+  readonly reflect: FloorReflect[];
   private rose!: THREE.MeshBasicMaterial;
   private field: LightField | null = null;
   private fieldLights: THREE.PointLight[] = [];
@@ -287,6 +290,11 @@ class AllyPally extends VenueBase {
     const FL = layout === 'arena' ? -1.8 : -1.5;
     super({ fog: 0x04050a, fogDensity: 0.0125, hemiSky: 0x2c3242, hemiGround: 0x16130f, hemi: 0.15, flashAt: V(0, 14, layout === 'arena' ? -30 : 0), flashRange: 90 });
     this.toneMapping = 'agx';
+    // the floor, and the stage deck (the riser in the round): the LED wall and the field in their gloss
+    this.reflect = [
+      { y: FL, strength: 0.5, rough: 0.4 },
+      { y: 0, strength: 0.4, rough: 0.4 },
+    ];
     const zA = layout === 'arena' ? 13 : HALL.length / 2;
     this.lm = new LightMap(new THREE.Vector2(-HALL.width / 2, zA - HALL.length), new THREE.Vector2(HALL.width, HALL.length));
     const d = new Dresser(layout === 'arena' ? 1991 : 2029);

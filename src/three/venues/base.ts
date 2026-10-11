@@ -82,6 +82,8 @@ export interface VenueScene {
    * red smear.
    */
   readonly lensGhost?: number;
+  /** a polished or wet floor: its height and how strongly it mirrors the room's light (three/reflect.ts) */
+  readonly reflect?: import('../reflect').FloorReflect | import('../reflect').FloorReflect[];
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
   prerender?(renderer: THREE.WebGLRenderer, dt: number): void;

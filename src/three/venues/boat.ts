@@ -15,6 +15,7 @@
  * TODO: procedural stand-in for the Blender boat set (Section 14).
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Dresser } from './dress';
 import { nameStyleFor } from '../../name/venueStyles';
@@ -160,6 +161,8 @@ class PassingBoat {
 }
 
 class Boat extends OpenAir {
+  // a wet deck
+  readonly reflect: FloorReflect = { y: 0, strength: 0.25, rough: 0.6 };
   readonly views: VenueViews = {
     // from the bow, low on the lower deck: both decks packed, the booth at the top
     wide: { pos: V(2.2, LOWER_Y + 1.7, -23.5), target: V(0, 1.4, 0) },

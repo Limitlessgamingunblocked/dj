@@ -11,12 +11,13 @@
 import * as THREE from 'three';
 import { nameService, type NameStyle } from '../../name/NameService';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { fxTier } from '../fx';
 import { HAZE_GLSL } from './atmos';
 import { BEAM_FRAG, BEAM_VERT, GOBO_GLSL, goboFor, prismFacets } from './beams';
 import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
 import type { ShowState } from './show';
-import { grilleTexture, mirrorBallTexture, rng, smokeTexture, trussTexture } from './tex';
+import { grilleTexture, mirrorBallTexture, rng, smokeTexture } from './tex';
 
 export const TABLE_Y = 0.9;
 
@@ -984,58 +985,201 @@ export { Crowd, crowdArea, type CrowdRole, type CrowdSpot } from './crowd';
 /* scenery helpers                                                      */
 /* ------------------------------------------------------------------ */
 
-let trussMat: THREE.MeshStandardMaterial | null = null;
-/** Square box truss between two points. */
+/** a run of box truss along +Y, centred: four chord tubes, zigzag bracing on each face, couplers every 3 m (cached by size) */
+const trussGeoCache = new Map<string, THREE.BufferGeometry>();
+function trussGeometry(len: number, size: number): THREE.BufferGeometry {
+  const key = `${len.toFixed(2)}:${size.toFixed(2)}`;
+  const hit = trussGeoCache.get(key);
+  if (hit) return hit;
+  const parts: THREE.BufferGeometry[] = [];
+  const h = size / 2 - size * 0.06;
+  const chordR = size * 0.075;
+  const braceR = size * 0.035;
+  const up = new THREE.Vector3(0, 1, 0);
+  const tube = (a: THREE.Vector3, b: THREE.Vector3, r: number, seg: number) => {
+    const l = a.distanceTo(b);
+    if (l < 1e-4) return;
+    const g = new THREE.CylinderGeometry(r, r, l, seg, 1, true);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, b.clone().sub(a).normalize()));
+    g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+    parts.push(g);
+  };
+  const corners: [number, number][] = [
+    [-h, -h],
+    [h, -h],
+    [h, h],
+    [-h, h],
+  ];
+  const y0 = -len / 2;
+  const y1 = len / 2;
+  for (const [x, z] of corners) tube(new THREE.Vector3(x, y0, z), new THREE.Vector3(x, y1, z), chordR, 7);
+  // the bracing: a zigzag up each face, a bay as long as the truss is wide
+  const bays = Math.max(1, Math.round(len / size));
+  const bay = len / bays;
+  for (let f = 0; f < 4; f++) {
+    const [ax, az] = corners[f];
+    const [bx, bz] = corners[(f + 1) % 4];
+    for (let i = 0; i < bays; i++) {
+      const ya = y0 + i * bay;
+      const yb = ya + bay;
+      const flip = (i + f) % 2 === 0;
+      tube(new THREE.Vector3(flip ? ax : bx, ya, flip ? az : bz), new THREE.Vector3(flip ? bx : ax, yb, flip ? bz : az), braceR, 4);
+    }
+  }
+  // couplers: a thicker collar on each chord where the 3 m sections bolt together, and end plates
+  const joints = Math.max(1, Math.round(len / 3));
+  for (let j = 0; j <= joints; j++) {
+    const y = y0 + (j * len) / joints;
+    for (const [x, z] of corners) {
+      const c = new THREE.CylinderGeometry(chordR * 1.45, chordR * 1.45, size * 0.16, 7);
+      c.translate(x, Math.min(y1 - size * 0.08, Math.max(y0 + size * 0.08, y)), z);
+      parts.push(c);
+    }
+  }
+  const g = mergeGeometries(parts.map((x) => x.toNonIndexed()));
+  for (const x of parts) x.dispose();
+  g.computeVertexNormals();
+  trussGeoCache.set(key, g);
+  return g;
+}
+
+let trussMat: THREE.MeshStandardMaterial | undefined;
+/** a run of box truss from a to b, `size` metres square */
 export function truss(a: THREE.Vector3, b: THREE.Vector3, size = 0.3): THREE.Mesh {
-  trussMat ??= new THREE.MeshStandardMaterial({ map: trussTexture(), alphaTest: 0.5, metalness: 0.85, roughness: 0.35, color: 0xb9bdc5, side: THREE.DoubleSide });
+  trussMat ??= new THREE.MeshStandardMaterial({ color: 0xc4c8cf, metalness: 0.9, roughness: 0.32 });
   const len = a.distanceTo(b);
-  const geo = new THREE.BoxGeometry(size, len, size);
-  const uv = geo.attributes.uv;
-  for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * (len / size / 4));
-  const m = new THREE.Mesh(geo, trussMat);
+  const m = new THREE.Mesh(trussGeometry(len, size), trussMat);
   m.position.copy(a).add(b).multiplyScalar(0.5);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
   return m;
 }
 
-const speakerBody = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.75, metalness: 0.1 });
+const speakerBody = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.62, metalness: 0.1 });
+const grilleMats = new Map<string, THREE.MeshStandardMaterial>();
+function grilleMat(layout: 'mid' | 'sub' | 'monitor' | 'top', aspect: number): THREE.MeshStandardMaterial {
+  const t = grilleTexture(layout, aspect);
+  let mat = grilleMats.get(t.uuid);
+  if (!mat) grilleMats.set(t.uuid, (mat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.55, metalness: 0.45 })));
+  return mat;
+}
+
+/**
+ * A speaker cabinet's geometry, front facing +Z: a rounded shell (group 0)
+ * with steel handles on the sides and, on a flown box, its rigging plates,
+ * and the grille set into the front (group 1).
+ */
+export function speakerGeometry(w: number, h: number, d: number, layout: 'mid' | 'sub' | 'monitor' | 'top'): THREE.BufferGeometry {
+  const r = Math.min(w, h, d) * 0.07;
+  const shell: THREE.BufferGeometry[] = [new RoundedBoxGeometry(w, h, d, 2, r).toNonIndexed()];
+  const metal = (bw: number, bh: number, bd: number, x: number, y: number, z: number) => shell.push(new THREE.BoxGeometry(bw, bh, bd).translate(x, y, z).toNonIndexed());
+  if (layout === 'top') {
+    // rigging plates down both sides at the back, and the link bar
+    for (const s of [-1, 1]) metal(0.012, h * 0.96, d * 0.42, s * (w / 2 + 0.004), 0, -d * 0.22);
+    metal(w * 0.5, 0.014, 0.03, 0, h / 2 + 0.005, -d * 0.4);
+  } else if (layout !== 'monitor') {
+    // bar handles on both sides
+    for (const s of [-1, 1]) {
+      metal(0.018, 0.022, d * 0.32, s * (w / 2 + 0.012), h * 0.28, 0);
+      for (const e of [-1, 1]) metal(0.018, 0.022, 0.02, s * (w / 2 + 0.006), h * 0.28, e * d * 0.15);
+    }
+  }
+  // the grille, set 8 mm into the front, inside a 2.5 cm rim
+  const rim = Math.min(w, h) * 0.06;
+  const front = new THREE.PlaneGeometry(w - 2 * rim, h - 2 * rim).translate(0, 0, d / 2 - 0.004).toNonIndexed();
+  // shell normals keep their own; strip uvs/normals to a common layout for the merge
+  for (const g of [...shell, front]) {
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+  }
+  const body = mergeGeometries(shell)!;
+  const merged = mergeGeometries([body, front], true)!;
+  for (const g of shell) g.dispose();
+  body.dispose();
+  front.dispose();
+  return merged;
+}
+
 /** Speaker cabinet with its front (+Z) showing the grille. */
 export function speaker(w: number, h: number, d: number, layout: 'mid' | 'sub' | 'monitor' | 'top', bodyColor?: number): THREE.Mesh {
-  const body = bodyColor !== undefined ? new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.6, metalness: 0.1 }) : speakerBody;
-  const front = new THREE.MeshStandardMaterial({ map: grilleTexture(layout), roughness: 0.85 });
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [body, body, body, body, front, body]);
+  const body = bodyColor !== undefined ? new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.55, metalness: 0.1 }) : speakerBody;
+  const rim = Math.min(w, h) * 0.06;
+  const m = new THREE.Mesh(speakerGeometry(w, h, d, layout), [body, grilleMat(layout, (w - 2 * rim) / (h - 2 * rim))]);
   m.castShadow = false;
   return m;
 }
 
-/** Hanging line array: `n` boxes curving downwards, front facing +Z (rotate the group to aim). */
+/** Hanging line array: `n` boxes curving downwards, front facing +Z (rotate the group to aim). One mesh for the lot. */
 export function lineArray(n: number, w = 0.9, h = 0.32, d = 0.6): THREE.Group {
   const g = new THREE.Group();
+  const parts: THREE.BufferGeometry[] = [];
   let y = 0;
   let a = 0;
+  const m4 = new THREE.Matrix4();
   for (let i = 0; i < n; i++) {
-    const box = speaker(w, h, d, 'top');
-    box.position.set(0, y - h / 2, 0);
-    box.rotation.x = a;
-    g.add(box);
+    const box = speakerGeometry(w, h, d, 'top');
+    m4.makeRotationX(a).setPosition(0, y - h / 2, 0);
+    parts.push(box.applyMatrix4(m4));
     y -= h * 0.98;
     a += 0.05 + i * 0.012;
   }
+  const geo = mergeGeometries(parts, false)!;
+  // keep the two groups (shell, grille) across all the boxes: sort the triangles into them
+  const shellTris: number[] = [];
+  const frontTris: number[] = [];
+  let base = 0;
+  for (const p of parts) {
+    const groups = p.groups;
+    for (const gr of groups) for (let k = gr.start; k < gr.start + gr.count; k += 3) (gr.materialIndex === 0 ? shellTris : frontTris).push(base + k);
+    base += p.attributes.position.count;
+  }
+  const order = [...shellTris, ...frontTris];
+  const out = new THREE.BufferGeometry();
+  for (const name of Object.keys(geo.attributes)) {
+    const src = geo.attributes[name] as THREE.BufferAttribute;
+    const arr = new Float32Array(order.length * 3 * src.itemSize);
+    let o = 0;
+    for (const t of order) for (let v = 0; v < 3; v++) for (let c = 0; c < src.itemSize; c++) arr[o++] = src.array[(t + v) * src.itemSize + c];
+    out.setAttribute(name, new THREE.BufferAttribute(arr, src.itemSize));
+  }
+  out.addGroup(0, shellTris.length * 3, 0);
+  out.addGroup(shellTris.length * 3, frontTris.length * 3, 1);
+  for (const p of parts) p.dispose();
+  geo.dispose();
+  const rim = Math.min(w, h) * 0.06;
+  const mesh = new THREE.Mesh(out, [speakerBody, grilleMat('top', (w - 2 * rim) / (h - 2 * rim))]);
+  mesh.castShadow = false;
+  g.add(mesh);
   return g;
 }
 
+let trimMat: THREE.MeshStandardMaterial | undefined;
+let kickMat: THREE.MeshStandardMaterial | undefined;
 /** DJ booth table (top at TABLE_Y), front panel facing the room (−Z). */
 export function booth(o: { w?: number; d?: number; front?: THREE.Material; top?: number; strip?: string | null; z?: number; name?: NameStyle }): { group: THREE.Group; strip: THREE.MeshBasicMaterial | null } {
   const w = o.w ?? 2.9;
   const d = o.d ?? 1.0;
   const g = new THREE.Group();
   const bodyMat = o.front ?? new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.6, metalness: 0.3 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(w, TABLE_Y - 0.04, d), bodyMat);
-  body.position.set(0, (TABLE_Y - 0.04) / 2, o.z ?? 0);
+  const z = o.z ?? 0;
+  const bh = TABLE_Y - 0.04;
+  // the carcass, soft-edged
+  const carcass = new RoundedBoxGeometry(w, bh, d, 2, 0.012).translate(0, bh / 2, z);
+  const body = new THREE.Mesh(carcass, bodyMat);
   body.receiveShadow = true;
   g.add(body);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.04, d + 0.08), new THREE.MeshStandardMaterial({ color: o.top ?? 0x15161a, roughness: 0.42, metalness: 0.15 }));
-  top.position.set(0, TABLE_Y - 0.02, o.z ?? 0);
+  // the front framed in brushed aluminium, a rubber kick plate under it, a cable cut-out at the side
+  trimMat ??= new THREE.MeshStandardMaterial({ color: 0x9aa0a8, metalness: 0.9, roughness: 0.35 });
+  kickMat ??= new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.9 });
+  const fz = z - d / 2;
+  const trims: THREE.BufferGeometry[] = [
+    new THREE.BoxGeometry(w + 0.004, 0.018, 0.02).translate(0, bh - 0.012, fz - 0.004),
+    new THREE.BoxGeometry(w + 0.004, 0.012, 0.016).translate(0, 0.11, fz - 0.003),
+    ...[-1, 1].map((sx) => new THREE.BoxGeometry(0.016, bh - 0.12, 0.016).translate(sx * (w / 2 - 0.006), (bh + 0.11) / 2, fz - 0.003)),
+  ].map((x) => x.toNonIndexed());
+  g.add(new THREE.Mesh(mergeGeometries(trims)!, trimMat));
+  const kick = [new THREE.BoxGeometry(w - 0.01, 0.1, 0.012).translate(0, 0.055, fz - 0.002), new THREE.BoxGeometry(0.14, 0.05, 0.012).translate(w / 2 - 0.2, bh - 0.08, fz - 0.004)].map((x) => x.toNonIndexed());
+  g.add(new THREE.Mesh(mergeGeometries(kick)!, kickMat));
+  // the top: a slab with a soft edge, a little proud of the carcass
+  const top = new THREE.Mesh(new RoundedBoxGeometry(w + 0.1, 0.045, d + 0.08, 2, 0.015).translate(0, TABLE_Y - 0.02, z), new THREE.MeshStandardMaterial({ color: o.top ?? 0x15161a, roughness: 0.32, metalness: 0.15 }));
   top.receiveShadow = true;
   g.add(top);
   let strip: THREE.MeshBasicMaterial | null = null;

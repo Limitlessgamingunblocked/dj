@@ -7,6 +7,7 @@
  * mirrors, no VIP area, no phones. The steel balcony is unverified.
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameStyleFor } from '../../name/venueStyles';
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
@@ -22,6 +23,11 @@ const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const STAGE = 1.0;
 
 class Berghain extends VenueBase {
+  // bare concrete worn by years of it: a dull sheen
+  readonly reflect: FloorReflect[] = [
+    { y: -STAGE, strength: 0.3, rough: 0.75 },
+    { y: 0, strength: 0.2, rough: 0.7 },
+  ];
   readonly views: VenueViews = {
     wide: { pos: V(-9.2, 7.4, -11), target: V(0, 0.6, -1.5) },
     wideLabel: 'Balcony',

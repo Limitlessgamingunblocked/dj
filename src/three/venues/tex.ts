@@ -37,73 +37,80 @@ export function hashString(s: string): number {
   return h >>> 0;
 }
 
-/** Box truss side: two chords along the length (v) and a zig-zag lattice (alpha-tested). */
-export function trussTexture(): THREE.CanvasTexture {
-  return canvasTexture(
-    'truss',
-    64,
-    256,
-    (g, w, h) => {
-      g.clearRect(0, 0, w, h);
-      g.strokeStyle = '#d7dbe2';
-      g.lineCap = 'round';
-      g.lineWidth = 7;
-      g.beginPath();
-      g.moveTo(5, 0);
-      g.lineTo(5, h);
-      g.moveTo(w - 5, 0);
-      g.lineTo(w - 5, h);
-      g.stroke();
-      g.lineWidth = 4;
-      g.beginPath();
-      for (let i = 0; i <= 4; i++) {
-        const y = (i / 4) * h;
-        g.moveTo(5, y);
-        g.lineTo(w - 5, y + h / 8);
-        g.lineTo(5, y + h / 4);
-      }
-      g.stroke();
-    },
-    { repeat: true },
-  );
-}
-
-/** Speaker front: grille mesh with the cone layout showing through. */
-export function grilleTexture(layout: 'mid' | 'sub' | 'monitor' | 'top'): THREE.CanvasTexture {
-  return canvasTexture(`grille:${layout}`, 256, 256, (g, w, h) => {
-    g.fillStyle = '#0b0b0d';
+/**
+ * Speaker front: a perforated steel grille with the drivers behind it showing
+ * through (cones with their surrounds and dust caps, a horn's waveguide).
+ * Drawn for the front's aspect (width / height), so the cones stay round.
+ */
+export function grilleTexture(layout: 'mid' | 'sub' | 'monitor' | 'top', aspect = 1): THREE.CanvasTexture {
+  const a = Math.round(Math.min(4, Math.max(0.25, aspect)) * 4) / 4;
+  const W = a >= 1 ? 512 : Math.round(512 * a);
+  const H = a >= 1 ? Math.round(512 / a) : 512;
+  return canvasTexture(`grille:${layout}:${a}`, W, H, (g, w, h) => {
+    const m = Math.min(w, h);
+    g.fillStyle = '#08080a';
     g.fillRect(0, 0, w, h);
     const cone = (x: number, y: number, r: number) => {
-      const grad = g.createRadialGradient(x, y, r * 0.1, x, y, r);
-      grad.addColorStop(0, '#2a2b30');
-      grad.addColorStop(0.25, '#101114');
-      grad.addColorStop(0.8, '#1b1c20');
-      grad.addColorStop(0.95, '#333439');
-      grad.addColorStop(1, '#0b0b0d');
+      // the surround, the cone, the dust cap
+      const grad = g.createRadialGradient(x, y - r * 0.08, r * 0.05, x, y, r);
+      grad.addColorStop(0, '#3a3b41');
+      grad.addColorStop(0.18, '#1e1f23');
+      grad.addColorStop(0.22, '#0d0e10');
+      grad.addColorStop(0.78, '#1d1e22');
+      grad.addColorStop(0.86, '#2c2d32');
+      grad.addColorStop(0.93, '#121316');
+      grad.addColorStop(1, '#060607');
       g.fillStyle = grad;
       g.beginPath();
       g.arc(x, y, r, 0, Math.PI * 2);
       g.fill();
     };
-    if (layout === 'sub') cone(w / 2, h / 2, w * 0.42);
-    else if (layout === 'mid') {
-      cone(w * 0.3, h * 0.62, w * 0.2);
-      cone(w * 0.7, h * 0.62, w * 0.2);
-      g.fillStyle = '#16171b';
-      g.fillRect(w * 0.18, h * 0.12, w * 0.64, h * 0.22);
+    const horn = (x: number, y: number, hw: number, hh: number) => {
+      const grad = g.createLinearGradient(x - hw, y, x + hw, y);
+      grad.addColorStop(0, '#1b1c20');
+      grad.addColorStop(0.5, '#050506');
+      grad.addColorStop(1, '#1b1c20');
+      g.fillStyle = grad;
+      g.fillRect(x - hw, y - hh, hw * 2, hh * 2);
+      g.strokeStyle = '#2a2b30';
+      g.lineWidth = Math.max(1, m * 0.008);
+      g.strokeRect(x - hw, y - hh, hw * 2, hh * 2);
+    };
+    if (layout === 'sub') {
+      if (w > h * 1.6) {
+        cone(w * 0.28, h / 2, m * 0.4);
+        cone(w * 0.72, h / 2, m * 0.4);
+      } else cone(w / 2, h / 2, m * 0.42);
+    } else if (layout === 'mid') {
+      cone(w / 2, h * 0.64, m * 0.28);
+      horn(w / 2, h * 0.22, m * 0.3, m * 0.09);
     } else if (layout === 'monitor') {
-      cone(w / 2, h * 0.64, w * 0.3);
-      cone(w / 2, h * 0.22, w * 0.1);
+      cone(w / 2, h / 2, m * 0.4);
+      cone(w / 2, h / 2, m * 0.12);
     } else {
-      cone(w * 0.28, h / 2, w * 0.17);
-      cone(w * 0.72, h / 2, w * 0.17);
-      g.fillStyle = '#16171b';
-      g.fillRect(w * 0.45, h * 0.3, w * 0.1, h * 0.4);
+      cone(w * 0.2, h / 2, m * 0.36);
+      cone(w * 0.8, h / 2, m * 0.36);
+      horn(w / 2, h / 2, m * 0.16, m * 0.4);
     }
-    g.globalAlpha = 0.35;
-    g.fillStyle = '#000';
-    for (let y = 0; y < h; y += 4) for (let x = (y / 4) % 2 ? 2 : 0; x < w; x += 4) g.fillRect(x, y, 2, 2);
-    g.globalAlpha = 1;
+    // the perforated steel over it: a fine hex of holes, the metal catching a little light
+    const pitch = Math.max(3, Math.round(m / 64));
+    g.fillStyle = 'rgba(42, 43, 48, 0.72)';
+    for (let y = 0, row = 0; y < h + pitch; y += pitch * 0.866, row++) {
+      for (let x = row % 2 ? pitch / 2 : 0; x < w + pitch; x += pitch) {
+        g.beginPath();
+        g.arc(x, y, pitch * 0.32, 0, Math.PI * 2);
+        g.rect(x - pitch / 2, y - pitch / 2, pitch, pitch);
+        g.fill('evenodd');
+      }
+    }
+    // the frame's shadow round the edge
+    const edge = g.createLinearGradient(0, 0, 0, h);
+    edge.addColorStop(0, 'rgba(0,0,0,0.55)');
+    edge.addColorStop(0.06, 'rgba(0,0,0,0)');
+    edge.addColorStop(0.94, 'rgba(0,0,0,0)');
+    edge.addColorStop(1, 'rgba(0,0,0,0.5)');
+    g.fillStyle = edge;
+    g.fillRect(0, 0, w, h);
   });
 }
 

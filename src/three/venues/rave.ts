@@ -13,6 +13,7 @@
  * TODO: procedural stand-in for the Blender warehouse set (Section 14).
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
@@ -96,6 +97,11 @@ function container(color: string, seed: number): THREE.Mesh {
 }
 
 class WarehouseRave extends VenueBase {
+  // an industrial slab, damp with condensation by the peak
+  readonly reflect: FloorReflect[] = [
+    { y: FL, strength: 0.45, rough: 0.55 },
+    { y: 0, strength: 0.35, rough: 0.5 },
+  ];
   readonly views: VenueViews = {
     // from the back of the floor, by the roller door
     wide: { pos: V(5, FL + 5.2, -33), target: V(0, 2.6, 3) },

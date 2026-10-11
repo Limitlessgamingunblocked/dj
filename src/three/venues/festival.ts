@@ -13,6 +13,7 @@
  * TODO: procedural stand-in for the Blender festival set (Section 14).
  */
 import * as THREE from 'three';
+import type { FloorReflect } from '../reflect';
 import { nameService } from '../../name/NameService';
 import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
@@ -206,6 +207,8 @@ class Flags {
 }
 
 class Festival extends OpenAir {
+  // the stage deck's black gloss mirrors the LED wall (the field is grass: no reflection)
+  readonly reflect: FloorReflect = { y: 0, strength: 0.45, rough: 0.4 };
   readonly views: VenueViews = {
     // out in the crowd, the whole stage and the screens
     wide: { pos: V(9, FL + 7, -46), target: V(0, 7, 4) },
