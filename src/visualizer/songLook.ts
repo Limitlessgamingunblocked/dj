@@ -10,6 +10,8 @@
  *     with calm, groove and peak ones so the auto VJ can follow the track
  *   - layers: a drum style, a melody style and a vocal style, and how strong
  *     each is (an ambient track barely shows its drums)
+ *   - pace: how often the screens move to the next mode, by the song's feel
+ *     and tempo (a chill track drifts every 16 bars, bass music cuts every 4)
  * Pure; the visual player asks for one whenever the lead track changes.
  */
 import type { ModeInfo } from './kit';
@@ -38,6 +40,8 @@ export interface SongLook {
   /** the modes the auto VJ plays for this song, and the one it opens on */
   pool: string[];
   first: string;
+  /** bars each mode plays before the next: 4, 8 or 16 */
+  pace: number;
   drum: DrumStyle;
   melody: MelodyStyle;
   vocal: VocalStyle;
@@ -90,6 +94,18 @@ const STYLE: Record<Family, { drum: DrumStyle[]; melody: MelodyStyle[]; vocal: V
   chill: { drum: ['rings', 'punch'], melody: ['aurora', 'orbit'], vocal: ['halo', 'rays'], amt: [0.35, 0.9, 0.8], sat: 0.6, light: 0.6 },
   any: { drum: DRUM_STYLES, melody: MELODY_STYLES, vocal: VOCAL_STYLES, amt: [0.8, 0.75, 0.85], sat: 0.85, light: 0.55 },
 };
+
+/** about how long a mode stays up, in seconds, by the feel of the music: chill drifts, bass and urban cut quick */
+const HOLD: Record<Family, number> = { chill: 40, trance: 16, house: 15, techno: 15, any: 15, bass: 7, urban: 8 };
+
+/** bars per mode for a song: the family's hold time at its tempo, to the nearest phrase length (4, 8 or 16) */
+export function songPace(family: Family, bpm = 120): number {
+  const bar = 240 / Math.max(60, Math.min(200, bpm));
+  const bars = HOLD[family] / bar;
+  let best = 8;
+  for (const n of [4, 8, 16]) if (Math.abs(Math.log2(n / bars)) < Math.abs(Math.log2(best / bars)) - 1e-9) best = n;
+  return best;
+}
 
 /** colour schemes round the base hue */
 const SCHEMES: number[][] = [
@@ -185,6 +201,7 @@ export function songLook(s: SongInput, modes: ModeInfo[]): SongLook {
     colors,
     pool,
     first,
+    pace: songPace(family, bpm),
     drum,
     melody,
     vocal,

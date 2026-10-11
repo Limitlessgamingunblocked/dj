@@ -345,3 +345,14 @@ You asked again for more detailed venues, going all out.
     - Photos are pegged on a string over the bed, and a laundry basket stands by the fridge.
     - The basement has tags sprayed low on its walls (generic words only).
     - The Warehouse's far wall stays as it is: the LED wall and side screens already fill it.
+
+## Big-screen visuals always rotating (2026-10-11)
+
+You asked for the visuals on the big screens to always rotate to the vibe of the song.
+
+134. **The auto VJ is always on; its switch is gone.** Every venue screen shows the visual player, and it now always moves through modes. Picking a mode by hand puts it up straight away, and the rotation carries on from it at the next change. Saved settings that had the auto VJ off are ignored.
+135. **Each song sets its own pace** (`songPace`, on the song's look): about 40 s a mode for chill tracks, 15–16 s for house, techno and trance, and 7–8 s for bass music and hip hop, pop and R&B. That time is turned into bars at the song's tempo and rounded to a phrase length (4, 8 or 16 bars), so changes still land on phrase lines.
+    - On a drop it cuts to a peak mode, then rotates twice as fast for the next 16 bars.
+    - In a breakdown it goes to a calm mode.
+    - With "Follow each song" off, or a track with no look, it changes every 8 bars.
+136. **Between tracks the screens drift on slowly**, through calm and groove modes, every 16 bars of the beat the player keeps on its own (about half a minute). An empty room no longer leaves one picture frozen on the wall.

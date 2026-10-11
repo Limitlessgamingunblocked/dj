@@ -9,8 +9,8 @@
  * mode's palette, the auto VJ plays the modes that suit it, and the layers
  * take its styles. When the lead track changes, all of it eases over.
  * The texture feeds the LED wall / projection screens in the club scene and
- * the full-screen Visuals view. The auto VJ (director.ts) picks modes to fit
- * the music; shaders compile a few at a time in the background so the first
+ * the full-screen Visuals view. The auto VJ (director.ts) keeps it rotating
+ * through modes that fit the music, always; shaders compile a few at a time in the background so the first
  * switch to a mode never stalls.
  */
 import * as THREE from 'three';
@@ -177,8 +177,6 @@ export interface VisSettings {
   aberration: boolean;
   shake: boolean;
   palette: boolean;
-  /** the auto VJ picks modes to fit the music */
-  autoCycle: boolean;
   /** lyrics as kinetic typography on the screens */
   lyrics: boolean;
   lyricStyle: LyricStyle;
@@ -251,7 +249,6 @@ export class Visualizer {
       aberration: true,
       shake: true,
       palette: true,
-      autoCycle: true,
       lyrics: true,
       lyricStyle: 'auto',
       lyricHooks: true,
@@ -313,7 +310,7 @@ export class Visualizer {
     if (!look) return;
     look.colors.forEach((c, i) => this.target[i].set(c));
     this.layers.setLook(look);
-    if (this.settings.songLooks) this.director.song(look.pool, look.first);
+    if (this.settings.songLooks) this.director.song(look.pool, look.first, look.pace);
   }
 
   static modeInfo(): ModeInfo[] {
@@ -384,10 +381,9 @@ export class Visualizer {
     f.safe = this.safe ? 1 : 0;
     this.bpm = f.bpm || 124;
     this.updateSong(f, dt);
-    if (s.autoCycle) {
-      const cut = this.director.tick(this.current.id, f);
-      if (cut) this.setMode(cut.id, { kind: cut.kind, beats: cut.beats });
-    }
+    // the screens always rotate: a mode picked by hand plays until the next change
+    const cut = this.director.tick(this.current.id, f);
+    if (cut) this.setMode(cut.id, { kind: cut.kind, beats: cut.beats });
     this.warmUp();
     this.current.update(f, dt);
     // the outgoing mode keeps playing under the transition
@@ -448,7 +444,7 @@ export class Visualizer {
     // "Follow each song" switched: the auto VJ takes the song's modes, or all of them
     if (this.settings.songLooks !== this.following) {
       this.following = this.settings.songLooks;
-      this.director.song(this.following && this.look ? this.look.pool : null, null);
+      this.director.song(this.following && this.look ? this.look.pool : null, null, this.following && this.look ? this.look.pace : undefined);
     }
     const k = Math.min(1, dt * 0.8);
     [u.uSongA, u.uSongB, u.uSongC].forEach((c, i) => c.value.lerp(this.target[i], k));

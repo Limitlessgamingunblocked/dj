@@ -117,7 +117,12 @@ export class VisualsPanel {
     this.el = h(
       'div',
       { class: 'pane', style: { display: 'grid', gap: '14px' } },
-      h('div', {}, h('h3', {}, 'Visual player'), h('p', { class: 'note' }, 'Plays on the venue screens, locked to the beat. Modes change over on the beat; turn on Auto VJ and it picks them for you.')),
+      h(
+        'div',
+        {},
+        h('h3', {}, 'Visual player'),
+        h('p', { class: 'note' }, 'Plays on the venue screens, locked to the beat, always rotating through modes that fit the song: at its own pace, quicker after a drop, calm in a breakdown, drifting slowly between tracks. Pick a mode to put it up now; the rotation carries on from it.'),
+      ),
       modes,
       h('div', { class: 'toggle-row' }, viewRow, full),
       h(
@@ -127,7 +132,6 @@ export class VisualsPanel {
         toggle('Chromatic aberration', () => s.aberration, (v) => (s.aberration = v), 'vis-ab'),
         toggle('Camera shake', () => s.shake, (v) => (s.shake = v), 'vis-shake'),
         toggle('Palette shift on drops', () => s.palette, (v) => (s.palette = v), 'vis-pal'),
-        toggle('Auto VJ', () => s.autoCycle, (v) => (s.autoCycle = v), 'vis-cycle', 'Picks modes to fit the music: the song’s own modes, a change every 8 bars, calm ones in breakdowns, a peak mode on the drop'),
         toggle('Reactive club lights', () => stage.reactiveLights, (v) => (stage.reactiveLights = v), 'vis-lights'),
       ),
       h('label', { class: 'field', for: 'vis-intensity', style: { maxWidth: '360px' } }, 'Reaction intensity', intensity),

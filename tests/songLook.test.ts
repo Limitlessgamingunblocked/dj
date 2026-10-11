@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Director } from '../src/visualizer/director';
 import type { ModeInfo } from '../src/visualizer/kit';
-import { describeLook, songLook } from '../src/visualizer/songLook';
+import { describeLook, songLook, songPace } from '../src/visualizer/songLook';
 
 const IDS: [string, ModeInfo['energy']][] = [
   ['warp', 'mid'], ['matrix', 'mid'], ['galaxy', 'peak'], ['grid', 'calm'], ['crt', 'calm'], ['lasers', 'peak'], ['kaleido', 'mid'],
@@ -64,6 +64,30 @@ describe('song looks', () => {
       return ((h * 60) + 360) % 360;
     };
     expect(Math.abs(hue(c1) - hue(c2))).toBeLessThan(15);
+  });
+});
+
+describe('a song’s pace on the screens', () => {
+  it('drifts on chill tracks, cuts quick on bass music and hip hop, in phrase lengths', () => {
+    expect(songLook({ id: 'a', genre: 'Ambient', bpm: 75 }, MODES).pace).toBe(16);
+    expect(songLook({ id: 'b', genre: 'House', bpm: 124 }, MODES).pace).toBe(8);
+    expect(songLook({ id: 'c', genre: 'Techno', bpm: 132 }, MODES).pace).toBe(8);
+    expect(songLook({ id: 'd', genre: 'Trance', bpm: 138 }, MODES).pace).toBe(8);
+    expect(songLook({ id: 'e', genre: 'Drum & Bass', bpm: 174 }, MODES).pace).toBe(4);
+    expect(songLook({ id: 'f', genre: 'Dubstep', bpm: 140 }, MODES).pace).toBe(4);
+    expect(songLook({ id: 'g', genre: 'Hip Hop', bpm: 90 }, MODES).pace).toBe(4);
+    // no genre, no tempo: a phrase
+    expect(songLook({ id: 'h' }, MODES).pace).toBe(8);
+    for (const fam of ['techno', 'house', 'trance', 'bass', 'urban', 'chill', 'any'] as const)
+      for (let bpm = 60; bpm <= 200; bpm += 5) expect([4, 8, 16]).toContain(songPace(fam, bpm));
+    // in seconds, at the tempos each kind of music plays at: chill holds longest, bass music shortest
+    const secs = (fam: Parameters<typeof songPace>[0], bpm: number) => (songPace(fam, bpm) * 240) / bpm;
+    for (let bpm = 60; bpm <= 110; bpm += 5) expect(secs('chill', bpm)).toBeGreaterThanOrEqual(20);
+    for (let bpm = 110; bpm <= 145; bpm += 5) {
+      expect(secs('house', bpm)).toBeGreaterThanOrEqual(10);
+      expect(secs('house', bpm)).toBeLessThanOrEqual(22);
+    }
+    for (let bpm = 130; bpm <= 180; bpm += 5) expect(secs('bass', bpm)).toBeLessThanOrEqual(10);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Director, MIN_BARS, PHRASE, type DirectorInput } from '../src/visualizer/director';
+import { Director, IDLE_BARS, MIN_BARS, PEAK_RUN, PHRASE, type DirectorInput } from '../src/visualizer/director';
 import type { ModeInfo } from '../src/visualizer/kit';
 
 const MODES: ModeInfo[] = [
@@ -46,9 +46,26 @@ describe('the auto VJ', () => {
     expect(cut?.kind).toBe('fade');
   });
 
-  it('holds while paused and doesn’t repeat what it just played', () => {
+  it('drifts slowly through calm and groove modes between tracks', () => {
+    const d = new Director(MODES, () => 0.3);
+    const cuts: { beat: number; id: string; kind: string }[] = [];
+    let cur = 'p1';
+    for (let b = 0; b <= 4 * IDLE_BARS * 3; b++) {
+      const c = d.tick(cur, at(b, { playing: false }));
+      if (c) {
+        cuts.push({ beat: b, id: c.id, kind: c.kind });
+        cur = c.id;
+      }
+    }
+    expect(cuts.map((c) => c.beat)).toEqual([4 * IDLE_BARS, 8 * IDLE_BARS, 12 * IDLE_BARS]);
+    for (const c of cuts) {
+      expect(energy(c.id)).not.toBe('peak');
+      expect(c.kind).toBe('fade');
+    }
+  });
+
+  it('doesn’t repeat what it just played', () => {
     const d = new Director(MODES, () => 0);
-    for (let b = 0; b < 4 * PHRASE * 3; b++) expect(d.tick('m1', at(b, { playing: false }))).toBeNull();
     const seen: string[] = [];
     let cur = 'm1';
     for (let b = 0; b < 4 * PHRASE * 3 + 1; b++) {
@@ -61,6 +78,32 @@ describe('the auto VJ', () => {
     // with three groove modes it cycles through them all before coming back
     expect(new Set(seen).size).toBe(Math.min(seen.length, 3));
     expect(seen.every((id) => energy(id) === 'mid')).toBe(true);
+  });
+
+  it('rotates at the song’s pace, twice as fast for a while after a drop', () => {
+    const changes = (pace: number, bars: number, dropAtBar = -1) => {
+      const d = new Director(MODES, () => 0.99);
+      d.song(null, null, pace);
+      const beats: number[] = [];
+      let cur = 'm1';
+      for (let b = 0; b <= bars * 4; b++) {
+        const c = d.tick(cur, at(b, b === dropAtBar * 4 ? { dropHit: true, drop: 1 } : {}));
+        if (c) {
+          beats.push(b);
+          cur = c.id;
+        }
+      }
+      return beats.map((b) => b / 4);
+    };
+    expect(changes(4, 16)).toEqual([4, 8, 12, 16]);
+    expect(changes(16, 48)).toEqual([16, 32, 48]);
+    // pace 8 with a drop on bar 10: the hit, then every 4 bars through the peak run, then back to 8
+    const bars = changes(8, 10 + PEAK_RUN + 16, 10);
+    expect(bars.slice(0, 2)).toEqual([8, 10]);
+    expect(bars.slice(2, 6)).toEqual([14, 18, 22, 26]);
+    expect(bars.slice(6)).toEqual([34, 42]);
+    // a pace out of range is held to 4..16 bars
+    expect(changes(1, 12)).toEqual([4, 8, 12]);
   });
 
   it('doesn’t throw over a fresh peak mode for every drop', () => {

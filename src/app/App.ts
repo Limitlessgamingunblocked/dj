@@ -422,9 +422,9 @@ export class App implements AppContext {
         }
       },
     });
-    // settings saved before songs had their own looks: the auto VJ comes on with them, once
+    // the auto VJ is always on now: drop the old switch from saved settings
     const vis = { ...this.settings.vis } as Record<string, unknown>;
-    if (vis.songLooks === undefined) delete vis.autoCycle;
+    delete vis.autoCycle;
     Object.assign(this.stage.visualizer.settings, vis);
     this.stage.visualizer.setMode(this.stage.visualizer.settings.mode, { kind: 'cut' });
     this.stage.reactiveLights = this.settings.reactiveLights;
