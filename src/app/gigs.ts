@@ -17,8 +17,8 @@ import { B2B } from './b2b';
 import { Snapshot } from '../game/snapshot';
 import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
-import { suggestNext, type Suggestion } from '../game/coach';
-import type { LibraryTrack } from '../core/types';
+import type { Suggestion } from '../game/coach';
+import type { NextUp } from './nextup';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
@@ -73,6 +73,8 @@ export interface GigHost {
   /** for the B2B rival: the controls (to hear you grab a fader) and loading their tracks */
   reg: ControlRegistry;
   loadTrack(deck: number, id: string): Promise<void>;
+  /** the next-track coach the whole app shares: a gig hands it its slot's energy and the tracks heard tonight */
+  nextUp: NextUp;
 }
 
 /** what the lighting tech says when you take the lights */
@@ -264,6 +266,7 @@ export class GigDirector {
   }
 
   private teardown(): void {
+    this.host.nextUp.gig = null;
     this.b2b?.stop();
     this.hud?.b2b(null);
     this.toolsWatch?.disconnect();
@@ -398,39 +401,18 @@ export class GigDirector {
   /* the next-track coach                                           */
   /* -------------------------------------------------------------- */
 
-  /** the deck to load the next track on: one of the front two that isn't playing (an empty one first) */
-  private freeDeck(): number | null {
-    const front = this.host.engine.decks.slice(0, 2).filter((d) => !d.playing);
-    return (front.find((d) => !d.loaded) ?? front[0])?.id ?? null;
-  }
-
-  /** Chill and Club: a track that fits next, every couple of seconds, while a deck is free */
+  /** Chill and Club: the shared coach's pick for the next track, while a deck is free */
   private updateCoach(gig: Gig): void {
+    const nu = this.host.nextUp;
+    nu.gig = { want: SLOTS[gig.config.slot].target(Math.min(1, gig.progress + 0.1)), heard: this.heard };
     if (gig.t - this.coachAt < 2) return;
     this.coachAt = gig.t;
-    const e = this.host.engine;
-    if (gig.assist === 'pro' || gig.phase === 'over' || this.freeDeck() === null || this.b2b) {
-      this.coach = null;
-      return;
-    }
-    const lib = this.host.library;
-    const crate = this.host.currentCrate();
-    const pool = (crate ? (lib.crate(crate)?.trackIds ?? []).map((id) => lib.get(id)) : lib.list()).filter((t): t is LibraryTrack => !!t && !!t.analysis);
-    const onDecks = new Set(e.decks.map((d) => d.track?.id).filter((x): x is string => !!x));
-    const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing && d.loaded);
-    this.coach = suggestNext({
-      playing: lead ? { bpm: lead.bpm, key: lead.currentKey() } : null,
-      want: SLOTS[gig.config.slot].target(Math.min(1, gig.progress + 0.1)),
-      tracks: pool.map((t) => ({ id: t.id, title: t.meta.title, artist: t.meta.artist, bpm: t.analysis!.bpm, key: t.analysis!.key, energy: this.snap.infoFor(t).energy })),
-      exclude: new Set([...this.heard, ...onDecks]),
-    });
+    this.coach = gig.assist === 'pro' || gig.phase === 'over' || nu.freeDeck() === null || this.b2b ? null : nu.top();
   }
 
   private loadCoach(): void {
     const pick = this.coach;
-    const deck = this.freeDeck();
-    if (!pick || deck === null) return;
-    void this.host.loadTrack(deck, pick.id);
+    if (!pick || !this.host.nextUp.load(pick.id)) return;
     this.coach = null;
     this.coachAt = this.gig?.t ?? 0;
   }

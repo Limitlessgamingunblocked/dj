@@ -13,7 +13,7 @@ import { contextMenu, openModal, type MenuItem } from './modal';
 import { toast } from './toast';
 import { drawOverview, fitCanvas } from './waveform';
 import { fader, hwButton, knob, padButton, type Widget } from './widgets';
-import { nearEnd } from '../core/prefs';
+import { nearEnd, prefs } from '../core/prefs';
 import { loadSetting, saveSetting } from '../core/settings';
 
 export class DeckPanel {
@@ -25,6 +25,9 @@ export class DeckPanel {
   private discAngle = 1e9;
   private num: HTMLElement;
   private title: HTMLElement;
+  /** an empty deck suggests a track: the coach's pick, one click to load it here */
+  private tryBtn: HTMLButtonElement;
+  private tryId = '';
   private artist: HTMLElement;
   private bpm: HTMLElement;
   private bpmOrig: HTMLElement;
@@ -60,6 +63,10 @@ export class DeckPanel {
     this.art = h('div', { class: 'deck-art', title: 'Spins with the platter' }, this.disc, this.num);
     this.title = h('div', { class: 't' });
     this.artist = h('div', { class: 'a' });
+    this.tryBtn = h('button', { class: 'deck-try', type: 'button', hidden: true }) as HTMLButtonElement;
+    this.tryBtn.addEventListener('click', () => {
+      if (this.tryId) this.app.nextUp.load(this.tryId, this.app.sideDeck(side));
+    });
     // on a four-deck board each side holds two decks: which one this panel shows
     const [a, b] = side === 'L' ? [1, 3] : [2, 4];
     this.layerBtns = [a, b].map((n) => {
@@ -174,7 +181,7 @@ export class DeckPanel {
     this.el = h(
       'section',
       { class: `deck-panel ${side === 'L' ? 'left' : 'right'}`, 'aria-label': `Deck ${side === 'L' ? 'left' : 'right'}` },
-      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '4px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
+      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist, this.tryBtn), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '4px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
       h('div', { class: 'readouts' }, h('div', { class: 'bpm-line' }, bpmBox, this.tempoChip), this.time),
       h('div', { class: 'overview-wrap' }, ovBox, h('div', { class: 'phase', title: 'Beat within the bar' }, ...this.phase)),
       h(
@@ -361,6 +368,14 @@ export class DeckPanel {
     setClass(this.art, 'spinning', d.playing);
     setText(this.title, d.loading ? 'Loading…' : t ? t.meta.title : 'No track loaded');
     setText(this.artist, t ? t.meta.artist || t.fileName : 'Drop a track here');
+    const pick = !d.loaded && !d.loading && prefs.nextUp ? this.app.nextUp.top() : null;
+    if (this.tryBtn.hidden !== !pick) this.tryBtn.hidden = !pick;
+    if (pick && pick.id !== this.tryId) {
+      this.tryId = pick.id;
+      setText(this.tryBtn, `Try: ${pick.title}`);
+      this.tryBtn.title = `Load “${pick.title}”${pick.artist ? ` by ${pick.artist}` : ''} here · ${pick.why}`;
+    }
+    if (!pick) this.tryId = '';
     setText(this.bpm, d.loaded ? formatBpm(d.bpm) : '--.-');
     setText(this.bpmOrig, 'BPM');
     this.bpmOrig.title = d.analysis ? `Track tempo ${formatBpm(d.analysis.bpm)} BPM` : '';

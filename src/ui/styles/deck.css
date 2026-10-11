@@ -111,6 +111,32 @@
   text-overflow: ellipsis;
 }
 
+/* an empty deck's suggestion: the coach's pick, one click to load it here */
+.deck-try {
+  display: block;
+  max-width: 100%;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--venue);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 4%);
+  color: var(--text);
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.deck-try[hidden] {
+  display: none;
+}
+
+.deck-try:hover {
+  background: rgb(255 255 255 / 9%);
+}
+
 .deck-layer {
   display: flex;
   flex-direction: column;

@@ -101,6 +101,13 @@ Serve `dist/` from `localhost` or any `https://` host. The single-file build (`n
 - **Streak:** clean transitions, built drops and comebacks in a row multiply their points (×1.25, ×1.5 … up to ×2). A trainwreck, a key clash, dead air, redlining, too many drops or a repeat breaks it.
 - **Crowd requests** every couple of minutes, with a timer: more energy or less when the room is off the slot's curve, otherwise a drop, a long blend, a filter fade or something new. Met requests pay points and lift the vibe; missed ones cost a little.
 - **Next-track coach** (Chill and Club): a track from your crate that's in key, close in tempo and at the energy the slot wants next, with a Load button.
+- **Up next, in every mode:** the coach also runs outside gigs (free play, Auto DJ, a fresh start).
+  - An "Up next" card sits bottom-right on the stage, with Load and ↻ for another pick.
+  - The Library shows its top three picks over the table and tags them "next" in the list.
+  - An empty deck offers one with "Try: …".
+  - Outside a gig it aims a step above the energy that's playing, so the night keeps building. Before anything is loaded it picks a warm opener.
+  - It never suggests what the room has heard or what's on the decks.
+  - Settings → Show & venue turns it off.
 - The results show your best streak and how many requests you met.
 
 ### Party: hype dancers and the air horn

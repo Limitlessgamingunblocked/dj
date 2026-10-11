@@ -19,6 +19,7 @@ import { openPlaylistImport } from './PlaylistImport';
 import { entryLabel } from '../library/playlists';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
+import { onPrefs, prefs } from '../core/prefs';
 
 type View = { kind: 'all' } | { kind: 'favs' } | { kind: 'history' } | { kind: 'crate'; id: string };
 export type SortKey = 'title' | 'artist' | 'genre' | 'bpm' | 'key' | 'energy' | 'time' | 'bitrate' | 'added' | 'format' | 'fav';
@@ -43,6 +44,8 @@ export class LibraryPanel {
   private renderQueued = false;
   private fileInput: HTMLInputElement;
   private folderInput: HTMLInputElement;
+  /** the coach's picks for the next track, over the table */
+  private nextStrip: HTMLElement;
 
   constructor(private app: AppContext) {
     const lib = app.library;
@@ -97,6 +100,7 @@ export class LibraryPanel {
     this.tbody = h('tbody');
     const table = h('table', { class: 'tracks' }, this.thead, this.tbody);
     const wrap = h('div', { class: 'table-wrap' }, table);
+    this.nextStrip = h('div', { class: 'lib-next', role: 'group', 'aria-label': 'Suggested next tracks', hidden: true });
 
     this.el = h(
       'div',
@@ -119,6 +123,7 @@ export class LibraryPanel {
           this.fileInput,
           this.folderInput,
         ),
+        this.nextStrip,
         wrap,
       ),
     );
@@ -137,8 +142,34 @@ export class LibraryPanel {
     lib.on('track', () => this.queueRender());
     app.events.on('selection', () => this.highlightSelection());
     for (const d of app.engine.decks) d.on('loaded', () => this.queueRender());
+    app.nextUp.events.on('changed', () => this.renderNext());
+    onPrefs((_, changed) => changed.has('nextUp') && this.renderNext());
     this.renderSide();
     this.render();
+  }
+
+  /** the coach's picks: click one to find it in the list, Load to put it on the free deck */
+  private renderNext(): void {
+    const nu = this.app.nextUp;
+    const picks = prefs.nextUp ? nu.list() : [];
+    clear(this.nextStrip);
+    this.nextStrip.hidden = !picks.length;
+    const ids = new Set(picks.map((p) => p.id));
+    for (const tr of this.tbody.querySelectorAll('tr[data-id]')) tr.classList.toggle('next-pick', ids.has(tr.getAttribute('data-id')!));
+    if (!picks.length) return;
+    this.nextStrip.append(h('span', { class: 'lib-next-k' }, nu.opening() ? 'Start with' : 'Up next'));
+    for (const p of picks) {
+      const find = h('button', { class: 'lnp-main', type: 'button', title: `Find “${p.title}” in the list` }, h('b', {}, p.title), h('span', {}, p.artist), h('small', { class: 'mono' }, p.why));
+      find.addEventListener('click', () => {
+        const t = this.app.library.get(p.id);
+        if (t) this.app.select(t);
+      });
+      const load = h('button', { class: 'btn small', type: 'button', title: `Load “${p.title}” on the free deck` }, 'Load');
+      load.addEventListener('click', () => {
+        if (!nu.load(p.id)) toast('Both decks are playing. Pause one first.');
+      });
+      this.nextStrip.append(h('div', { class: 'lib-next-pick' }, find, load));
+    }
   }
 
   currentCrate(): string | null {
@@ -521,6 +552,7 @@ export class LibraryPanel {
       frag.append(row);
     }
     this.tbody.append(frag);
+    this.renderNext();
     if (wanted.length) {
       const add = h('button', { class: 'btn small', type: 'button' }, 'Add files…');
       add.addEventListener('click', () => this.fileInput.click());

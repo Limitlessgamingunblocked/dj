@@ -406,3 +406,13 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - A venue can turn its ghosts down; Burning Man runs them at a quarter.
 
     The art car's moving heads also come down to 30 % while the Man is in flames, so the fire lights the playa, then back up as he falls.
+
+## Up next in every mode (2026-10-11)
+148. **One coach for the whole app.** The gig's next-track coach became a service (`app/nextup.ts`) that runs every frame in every mode. The gig HUD, the stage card, the Library strip and an empty deck's hint all read the same picks, so they never disagree.
+    - A gig hands it its slot's energy and the tracks heard tonight.
+    - Outside a gig it aims a step above the energy playing (the night keeps building).
+    - With nothing loaded it picks an opener around energy 4–5.
+149. **Where the picks show.**
+    - The stage card sits bottom right, because the now-playing card is bottom left. It hides in a gig, since the HUD shows the gig's own pick.
+    - The Library strip and the empty-deck hint show in every mode, gigs included. Pro assist still hides the HUD's pick, as before.
+    - Loading a pick puts it on the free deck. Under Auto DJ, a track you load yourself is the one it mixes next, so a pick works there too.

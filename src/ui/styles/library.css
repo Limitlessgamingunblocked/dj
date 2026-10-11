@@ -95,9 +95,22 @@
 
 .lib-main {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
+}
+
+/* fixed rows, so the table keeps the stretchy one while the Up next strip is hidden */
+.lib-main > .lib-toolbar {
+  grid-row: 1;
+}
+
+.lib-main > .lib-next {
+  grid-row: 2;
+}
+
+.lib-main > .table-wrap {
+  grid-row: 3;
 }
 
 .lib-toolbar {
@@ -204,6 +217,98 @@ table.tracks tr.selected {
 
 table.tracks tr.compat td:first-child {
   box-shadow: inset 3px 0 0 var(--ok);
+}
+
+/* the coach's picks for the next track (app/nextup.ts) */
+.lib-next {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.lib-next[hidden] {
+  display: none;
+}
+
+.lib-next-k {
+  align-self: center;
+  flex: none;
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--venue);
+}
+
+.lib-next-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 260px;
+  min-width: 170px;
+  padding: 4px 6px 4px 9px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--venue);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 3%);
+}
+
+.lnp-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lnp-main b,
+.lnp-main span,
+.lnp-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lnp-main b {
+  font-size: 13px;
+}
+
+.lnp-main span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lnp-main small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.lnp-main:focus-visible {
+  outline: 2px solid var(--venue);
+  outline-offset: 2px;
+}
+
+table.tracks tr.next-pick td.title::after {
+  content: 'next';
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--venue);
+  color: #050608;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 1px;
 }
 
 table.tracks tr.loaded td.title {

@@ -39,6 +39,8 @@ import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
 import { GigDirector, type Callout } from './gigs';
+import { NextUp } from './nextup';
+import { NextUpCard } from '../ui/NextUpCard';
 import { roomFor } from '../audio/room';
 import { venueLock } from '../game/progression';
 import { Director, sectionOf } from '../three/director';
@@ -133,6 +135,9 @@ export class App implements AppContext {
   private tabs = new Map<TabId, { btn: HTMLButtonElement; body: HTMLElement; update?: (dt: number) => void; count?: HTMLElement }>();
   private tab: TabId = 'library';
   private libPanel!: LibraryPanel;
+  /** the next-track coach, in every mode */
+  nextUp!: NextUp;
+  private nextCard: NextUpCard | null = null;
   private setupPanel!: SetupPanel;
   private meters = { ch: [[0, 0], [0, 0], [0, 0], [0, 0]] as [number, number][], master: [0, 0] as [number, number] };
   private audioBanner!: HTMLElement;
@@ -465,6 +470,13 @@ export class App implements AppContext {
       trim: (r, at) => void this.desk.trim(r, at),
       saved: (r) => this.postClip(r),
     });
+    this.nextUp = new NextUp({
+      engine: this.engine,
+      library: this.library,
+      currentCrate: () => this.libPanel?.currentCrate() ?? null,
+      loadTrack: (d, id) => this.loadTrack(d, id),
+      sideDeck: (s) => this.sideDeck(s),
+    });
     this.gigs = new GigDirector({
       engine: this.engine,
       career: this.career,
@@ -501,6 +513,7 @@ export class App implements AppContext {
       venueThumb: (id, g, w, h) => venueById(id).thumb(g, w, h),
       reg: this.reg,
       loadTrack: (d, id) => this.loadTrack(d, id),
+      nextUp: this.nextUp,
     });
     // a tier up brings more of the crew: rebuild the room between sets
     this.career.changed.on('progress', (p) => {
@@ -736,6 +749,9 @@ export class App implements AppContext {
       this.stage.el.append(el);
       this.nowCard = { el, title, artist, meta, announced: '', timer: 0 };
     }
+    // the coach's pick for the next track, in free play and Auto DJ (a gig's HUD shows its own)
+    this.nextCard = new NextUpCard(this.nextUp, { inGig: () => !!this.gigs.gig });
+    this.stage.el.append(this.nextCard.el);
     const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
     setTimeout(() => (hint.style.opacity = '0'), 10000);
@@ -1534,7 +1550,9 @@ export class App implements AppContext {
       this.kick = f.kickPulse;
       this.creator?.update(dt);
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
+      this.nextUp.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
+      this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);
       this.engine.crowd.dawn = this.settings.venue === 'sunrise' ? Math.max(0, (setClock.progress - 0.55) / 0.45) : 0;
       this.engine.crowd.update(dt, this.stage.hype, this.clock.playing);

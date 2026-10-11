@@ -3,6 +3,7 @@ import type { ControlRegistry } from '../core/controls';
 import type { Emitter } from '../core/emitter';
 import type { LibraryTrack } from '../core/types';
 import type { Library } from '../library/Library';
+import type { NextUp } from './nextup';
 
 export interface AppEvents extends Record<string, unknown> {
   board: string;
@@ -27,4 +28,6 @@ export interface AppContext {
   /** id of the venue being played */
   venueId(): string;
   setVenue(id: string): void;
+  /** the next-track coach: picks for what to play next, in every mode */
+  nextUp: NextUp;
 }

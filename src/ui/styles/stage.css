@@ -322,6 +322,88 @@
   }
 }
 
+/* "Up next": the coach's pick for the next track, bottom right (the now-playing card is bottom left) */
+.next-up {
+  position: absolute;
+  right: 18px;
+  bottom: calc(18px + var(--inset, 0px));
+  width: min(300px, calc(50% - 30px));
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px 10px;
+  border-right: 4px solid var(--venue);
+  border-radius: 6px 0 0 6px;
+  background: linear-gradient(270deg, rgba(5, 7, 10, 0.9), rgba(5, 7, 10, 0.66));
+  backdrop-filter: blur(6px);
+  z-index: 3;
+}
+
+.next-up[hidden] {
+  display: none;
+}
+
+.next-up .nu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.next-up .nu-label {
+  font-family: var(--font-label);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--venue);
+}
+
+.next-up .nu-close {
+  min-height: 0;
+  padding: 0 6px;
+  line-height: 18px;
+}
+
+.next-up .nu-title {
+  font-family: var(--font-label);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.next-up .nu-artist {
+  font-size: 12px;
+  color: #d5dbe5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.next-up .nu-why {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.next-up .nu-acts {
+  display: flex;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+@media (max-width: 640px) {
+  .next-up {
+    width: min(220px, calc(100% - 36px));
+    padding: 7px 10px 8px;
+  }
+
+  .next-up .nu-why {
+    display: none;
+  }
+}
+
 /* the crowd chanting the DJ's name at the peak */
 .name-chant {
   position: absolute;
