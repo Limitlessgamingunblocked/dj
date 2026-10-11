@@ -474,6 +474,8 @@ class RoamingArtCars implements Fixture {
 /* ------------------------------------------------------------------ */
 
 class BurningMan extends OpenAir {
+  // the burn fills the frame with fire: its lens ghost would land on the crowd as a red smear
+  readonly lensGhost = 0.25;
   readonly views: VenueViews = {
     // from the top deck of the next art car along: the crowd, the car, the Man in neon past it
     wide: { pos: V(-34, 9, -52), target: V(8, 0, 30) },
@@ -492,6 +494,7 @@ class BurningMan extends OpenAir {
   private farCrowd: FarCrowd;
   private man: TheMan;
   private burnFire: BurnFire;
+  private heads: MovingHeads;
   private fireworks: Fireworks;
   private octopus: MechOctopus;
   private mountains: THREE.MeshBasicMaterial;
@@ -592,7 +595,7 @@ class BurningMan extends OpenAir {
     }
 
     // the rig on the canopy: heads under the ribs, lasers off the spine, strobes, a wash or two
-    this.add(new MovingHeads([-7.8, -5.2, -2.6, 2.6, 5.2, 7.8].map((x) => ({ pos: V(x, 5.6 - Math.abs(x) * 0.05, -1.4) })), { length: 40, radius: 1.6, gain: 0.95, floorY: PL, haze: [PL + 1, 14] }));
+    this.heads = this.add(new MovingHeads([-7.8, -5.2, -2.6, 2.6, 5.2, 7.8].map((x) => ({ pos: V(x, 5.6 - Math.abs(x) * 0.05, -1.4) })), { length: 40, radius: 1.6, gain: 0.95, floorY: PL, haze: [PL + 1, 14] }));
     this.add(new Strobes([-6.5, -2, 2, 6.5].map((x) => ({ pos: V(x, 5.8, -1.6), tilt: 0.6 })), [1, 0.12, 0.12]));
     this.add(
       new Lasers(
@@ -769,12 +772,17 @@ class BurningMan extends OpenAir {
       this.burnFire.base = b.base;
       this.burnFire.body = b.body;
       this.burnFire.glow = b.glow;
+      // the car's heads come down while he's in flames, so the fire lights the playa, then back up
+      this.heads.dim = 1 - 0.7 * THREE.MathUtils.smoothstep(this.burnT, 14, 22) * (1 - THREE.MathUtils.smoothstep(this.burnT, 78, 92));
       // the whole perimeter goes up while he burns
       if (this.burnT < 90) {
         hype = Math.max(hype, 0.9);
         peak = Math.max(peak, 0.6 * (1 - this.burnT / 90));
       }
-    } else this.man.setNeon(1, s.kick);
+    } else {
+      this.man.setNeon(1, s.kick);
+      this.heads.dim = 1;
+    }
     // the sun comes up over the hills: the night's done
     if (!this.sunUp && l.sun > 0.5 && k > 0.9) {
       this.sunUp = true;

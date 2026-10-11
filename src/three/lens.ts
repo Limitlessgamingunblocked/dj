@@ -70,6 +70,12 @@ const FRAG = /* glsl */ `
     vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
     return max(c - uThreshold, 0.0);
   }
+  // a ghost is a faint reflection between the lens elements: it saturates, so a big fire in frame
+  // throws a soft veil, not a second fire
+  vec3 ghostSrc(vec2 uv) {
+    vec3 b = bright(uv);
+    return b / (1.0 + b);
+  }
   vec3 starSrc(vec2 uv) {
     vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
     return max(c - uStarThr, 0.0);
@@ -174,7 +180,7 @@ const FRAG = /* glsl */ `
     // ghosts mirrored through the centre
     if (uGhost > 0.001) {
       vec2 g = 0.5 - (uv - 0.5);
-      vec3 gh = bright(0.5 + (g - 0.5) * 0.55) * vec3(0.9, 0.6, 1.0) + bright(0.5 + (g - 0.5) * 1.35) * vec3(0.5, 1.0, 0.8) * 0.6;
+      vec3 gh = ghostSrc(0.5 + (g - 0.5) * 0.55) * vec3(0.9, 0.6, 1.0) + ghostSrc(0.5 + (g - 0.5) * 1.35) * vec3(0.5, 1.0, 0.8) * 0.6;
       c += gh * uGhost * smoothstep(0.9, 0.1, length(g - 0.5));
     }
     // dirt on the front element, lit by the wide glow of whatever is bright in frame, and a

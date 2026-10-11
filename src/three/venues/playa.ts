@@ -475,9 +475,11 @@ const BALL_VERT = /* glsl */ `
   attribute float iAge;
   attribute float iSeed;
   attribute float iSize;
+  attribute float iPuff;
   uniform float uTime;
   varying float vAge;
   varying float vSeed;
+  varying float vH;
   varying vec3 vN;
   varying vec3 vView;
   varying vec3 vP;
@@ -489,18 +491,24 @@ const BALL_VERT = /* glsl */ `
                mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), u.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), u.x), u.y), u.z);
   }
   void main() {
-    // a column of propane leaves the nozzle, catches and rolls up into a ball, rising as it burns off
+    // one billow of a flame column: it leaves the nozzle as a tight jet, catches, and rolls upward,
+    // swelling and slowing as it burns off. The billows behind it leave a beat later, so a burst
+    // reads as one tall, rolling column of fire
     float a = clamp(iAge, 0.0, 1.0);
-    float grow = smoothstep(0.0, 0.45, a);
+    float grow = smoothstep(0.0, 0.5, a);
     vec3 p = position;
-    float bill = noise(normal * 2.2 + vec3(0.0, -uTime * 1.6, iSeed * 9.0)) * 0.55 + noise(normal * 5.0 + vec3(iSeed)) * 0.25;
-    p *= (0.25 + 0.95 * grow) * (0.8 + bill);
-    // stretched tall as it leaves, rounder as it rolls
-    p.y *= mix(2.6, 1.15, grow);
+    float bill = noise(normal * 2.4 + vec3(0.0, -uTime * 2.2, iSeed * 9.0)) * 0.6 + noise(normal * 5.5 + vec3(iSeed * 3.0, -uTime * 3.0, 0.0)) * 0.3;
+    // thin as it leaves, rounder as it rolls: a flat-ish underside and a dome on top
+    float w = (0.16 + 0.9 * grow) * (0.75 + bill);
+    p.xz *= w;
+    p.y *= w * mix(2.3, 1.05, grow) * (p.y < 0.0 ? 0.7 : 1.0);
     p *= iSize;
-    p.y += iSize * (0.6 + a * 2.2 + a * a * 1.6);
+    // buoyant: it shoots up out of the nozzle, then drifts up slower, leaning a little with the wind
+    p.y += iSize * (0.45 + a * 3.4 - a * a * 0.8) * (1.0 + iPuff * 0.2);
+    p.x += sin(iSeed * 12.0 + uTime * 0.7) * a * a * iSize * 0.5;
     vAge = iAge;
     vSeed = iSeed;
+    vH = clamp(position.y * 0.5 + 0.5, 0.0, 1.0);
     vP = p;
     vec4 wp = instanceMatrix * vec4(p, 1.0);
     vec4 mv = modelViewMatrix * wp;
@@ -513,6 +521,7 @@ const BALL_FRAG = /* glsl */ `
   uniform float uTime;
   varying float vAge;
   varying float vSeed;
+  varying float vH;
   varying vec3 vN;
   varying vec3 vView;
   varying vec3 vP;
@@ -526,18 +535,28 @@ const BALL_FRAG = /* glsl */ `
   void main() {
     if (vAge <= 0.0 || vAge >= 1.0) discard;
     float edge = abs(dot(vN, vView));
-    float n = fbm(vec2(atan(vN.z, vN.x) * 1.4 + vSeed * 5.0, vP.y * 0.9 - uTime * 2.4));
-    // a yellow-hot core early on, then orange, then dull red at the edges as it burns out
-    float heat = clamp(1.15 - vAge * 1.4 + (edge - 0.5) * 0.8 + (n - 0.5) * 0.6, 0.0, 1.0);
-    vec3 col = mix(vec3(0.4, 0.05, 0.0), vec3(1.0, 0.36, 0.03), smoothstep(0.1, 0.5, heat));
-    col = mix(col, vec3(1.0, 0.7, 0.24), smoothstep(0.62, 0.95, heat));
-    float a = pow(edge, 1.4) * smoothstep(0.3, 0.62, n + edge * 0.35) * (1.0 - smoothstep(0.6, 1.0, vAge)) * smoothstep(0.0, 0.05, vAge);
-    gl_FragColor = vec4(col * a, 1.0);
+    float n = fbm(vec2(atan(vN.z, vN.x) * 1.4 + vSeed * 5.0, vP.y * 0.8 - uTime * 2.6));
+    // pale yellow at the heart early on, orange as it rolls, a dull red rim as it burns out
+    float heat = clamp(1.2 - vAge * 1.35 + (edge - 0.5) * 0.9 + (n - 0.5) * 0.7, 0.0, 1.0);
+    vec3 col = mix(vec3(0.45, 0.06, 0.0), vec3(1.0, 0.34, 0.03), smoothstep(0.08, 0.45, heat));
+    col = mix(col, vec3(1.0, 0.64, 0.18), smoothstep(0.5, 0.8, heat));
+    col = mix(col, vec3(1.0, 0.84, 0.5), smoothstep(0.84, 1.0, heat));
+    // the underside, still fed with fresh gas, burns blue for an instant
+    col = mix(col, vec3(0.25, 0.4, 1.0), (1.0 - vH) * (1.0 - smoothstep(0.0, 0.16, vAge)) * 0.6);
+    float a = pow(edge, 1.3) * smoothstep(0.28, 0.6, n + edge * 0.35) * (1.0 - smoothstep(0.55, 1.0, vAge)) * smoothstep(0.0, 0.04, vAge);
+    // several billows overlap in a column: each one is held back so the stack stays fire-coloured
+    gl_FragColor = vec4(col * a * 0.75, 1.0);
   }
 `;
 
-/** how long a fireball lives, seconds */
-export const POOF_LIFE = 1.35;
+/** billows in one burst, how far apart they leave the nozzle (s), and how long each one burns (s) */
+const PUFFS = 5;
+const PUFF_GAP = 0.07;
+const PUFF_LIFE = 1.15;
+/** how long a burst lives, seconds: the valve's open while the billows leave, then the last one burns off */
+export const POOF_LIFE = PUFF_LIFE + (PUFFS - 1) * PUFF_GAP;
+/** the blue root at the nozzle shows while the valve's open */
+const JET = (PUFFS - 1) * PUFF_GAP + 0.06;
 
 /**
  * Which poofers fire now. On the drop: all of them, rippling out; at the
@@ -554,12 +573,15 @@ export function poofPlan(s: { dropHit: boolean; peak: number; beatInBar: number;
 }
 
 /**
- * Propane poofers: nozzles that throw rolling fireballs. Each burst lights
- * the playa round it orange for a second. One instanced mesh for every ball.
+ * Propane poofers: nozzles that throw tall rolling columns of flame, a blue
+ * root of fresh gas at the nozzle while the valve's open. Each burst lights
+ * the playa round it orange for a second. One instanced mesh for every
+ * billow, one for the roots.
  */
 export class Fireballs implements Fixture {
   readonly object = new THREE.Group();
   private mesh: THREE.InstancedMesh;
+  private roots: THREE.InstancedMesh;
   private age: THREE.InstancedBufferAttribute;
   private mat: THREE.ShaderMaterial;
   private fired: number[];
@@ -569,32 +591,53 @@ export class Fireballs implements Fixture {
   private lastBeatFired = -100;
   private lastFire = -100;
   private c = new THREE.Vector3();
+  private col = new THREE.Color();
+  private m = new THREE.Matrix4();
   /** where each nozzle is (world), updated by its owner if it moves */
   readonly nozzles: THREE.Vector3[];
 
   constructor(nozzles: THREE.Vector3[], o: { size?: number; lightRange?: number } = {}) {
     this.nozzles = nozzles.map((v) => v.clone());
     const n = Math.max(1, nozzles.length);
+    const size = o.size ?? 1.6;
     const geo = new THREE.IcosahedronGeometry(1, 3);
-    this.age = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
+    this.age = new THREE.InstancedBufferAttribute(new Float32Array(n * PUFFS), 1);
     geo.setAttribute('iAge', this.age);
-    geo.setAttribute('iSeed', new THREE.InstancedBufferAttribute(new Float32Array(n).map((_, i) => (i * 0.37) % 1), 1));
-    geo.setAttribute('iSize', new THREE.InstancedBufferAttribute(new Float32Array(n).fill(o.size ?? 1.6), 1));
+    const per = (f: (nozzle: number, k: number) => number) => new THREE.InstancedBufferAttribute(new Float32Array(n * PUFFS).map((_, i) => f(Math.floor(i / PUFFS), i % PUFFS)), 1);
+    geo.setAttribute('iSeed', per((j, k) => (j * 0.37 + k * 0.23) % 1));
+    // the first billow becomes the big rolling top; the ones behind it are the column
+    geo.setAttribute('iSize', per((_, k) => size * (1 - k * 0.09)));
+    geo.setAttribute('iPuff', per((_, k) => k / (PUFFS - 1)));
     // front faces only: with the backs added in too, a full volley stacked up to white
     this.mat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 } }, vertexShader: BALL_VERT, fragmentShader: BALL_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
-    this.mesh = new THREE.InstancedMesh(geo, this.mat, n);
+    this.mesh = new THREE.InstancedMesh(geo, this.mat, n * PUFFS);
     this.mesh.frustumCulled = false;
+    // the root: a short blue cone of gas just catching, bright at the nozzle, gone a metre up
+    const rootGeo = new THREE.CylinderGeometry(0.34 * size * 0.5, 0.08, 1.1 * size * 0.55, 12, 4, true).translate(0, 0.55 * size * 0.55, 0);
+    const rc = new Float32Array(rootGeo.attributes.position.count * 3);
+    for (let i = 0; i < rootGeo.attributes.position.count; i++) {
+      const v = 1 - THREE.MathUtils.clamp(rootGeo.attributes.position.getY(i) / (1.1 * size * 0.55), 0, 1);
+      rc.set([v, v, v], i * 3);
+    }
+    rootGeo.setAttribute('color', new THREE.BufferAttribute(rc, 3));
+    this.roots = new THREE.InstancedMesh(rootGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }), n);
+    this.roots.frustumCulled = false;
+    for (let i = 0; i < n; i++) this.roots.setColorAt(i, this.col.setRGB(0, 0, 0));
     this.fired = nozzles.map(() => -100);
-    this.object.add(this.mesh);
+    this.object.add(this.mesh, this.roots);
     this.light = new THREE.PointLight(0xff7a2a, 0, o.lightRange ?? 60, 1.3);
     this.object.add(this.light);
     this.place();
   }
 
   private place(): void {
-    const m = new THREE.Matrix4();
-    this.nozzles.forEach((p, i) => this.mesh.setMatrixAt(i, m.makeTranslation(p.x, p.y, p.z)));
+    this.nozzles.forEach((p, i) => {
+      this.m.makeTranslation(p.x, p.y, p.z);
+      for (let k = 0; k < PUFFS; k++) this.mesh.setMatrixAt(i * PUFFS + k, this.m);
+      this.roots.setMatrixAt(i, this.m);
+    });
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.roots.instanceMatrix.needsUpdate = true;
   }
 
   /** fire these nozzles now (staggered by `stagger` seconds each) */
@@ -621,10 +664,17 @@ export class Fireballs implements Fixture {
     let lit = 0;
     const c = this.c.set(0, 0, 0);
     let w = 0;
-    for (let i = 0; i < a.length; i++) {
-      const age = (this.t - this.fired[i]) / POOF_LIFE;
-      a[i] = age > 0 && age < 1 ? age : 0;
-      if (a[i] > 0) {
+    for (let i = 0; i < this.nozzles.length; i++) {
+      const since = this.t - this.fired[i];
+      for (let k = 0; k < PUFFS; k++) {
+        const age = (since - k * PUFF_GAP) / PUFF_LIFE;
+        a[i * PUFFS + k] = age > 0 && age < 1 ? age : 0;
+      }
+      // the gas root, flickering while the valve's open
+      const on = since > 0 && since < JET ? (0.75 + 0.25 * Math.sin(this.t * 53 + i * 2.1)) * Math.min(1, since / 0.03) : 0;
+      this.roots.setColorAt(i, this.col.setRGB(0.18 * on, 0.36 * on, 1.1 * on));
+      const age = since / POOF_LIFE;
+      if (age > 0 && age < 1) {
         const k = age < 0.15 ? age / 0.15 : Math.max(0, 1 - (age - 0.15) / 0.7);
         lit += k;
         c.addScaledVector(this.nozzles[i], k);
@@ -632,6 +682,7 @@ export class Fireballs implements Fixture {
       }
     }
     this.age.needsUpdate = true;
+    this.roots.instanceColor!.needsUpdate = true;
     this.mat.uniforms.uTime.value = this.t;
     if (w > 0) this.light.position.copy(c.multiplyScalar(1 / w)).add(V(0, 3, 0));
     this.light.intensity = Math.min(1.5, lit) * 110 * (0.9 + 0.1 * Math.sin(this.t * 31));

@@ -400,3 +400,9 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     The open desert sounds dry: nothing to bounce off, and a heavy low end. Underneath it, wind blows across the lake bed in slow gusts.
 144. **The art car's lasers stay over heads everywhere round the car**, because people stand all round it, not just in front; they reach 150 m. Two orange shapes that hung in the sky in every shot turned out to be lens ghosts, not lasers. The octopus's polished deck caught a wash light, and the cinematic lens mirrored that bright flat rectangle across the frame. The deck is matte now.
 145. **A full volley of fireballs reads as fire, not a white-out.** Each ball is drawn on its front faces only. With the back faces added in as well, the octopus's seven arms firing together stacked up to cream-white and buried the sculpture in bloom. The hot core is a deeper yellow, and the light the fire throws onto the playa is a little lower.
+146. **Poofers throw tall rolling columns of flame, as in the photo of a real fire-breathing art car.** Each burst is five billows that leave the nozzle 70 ms apart. The first one rolls up into the top of the column and the rest make its body, so the flame reads as one tall plume, not a ball. While the valve's open, a short blue cone of fresh gas shows at the nozzle. The octopus itself stays an original design.
+147. **The burn reads clean.** The red smear on the crowd beside the car was the cinematic lens's ghost of the burning Man: a ghost mirrors whatever is brightest through the frame's centre, and the burn is the brightest thing on the playa by far. Two changes:
+    - Ghosts now saturate, as real ones do. A big fire throws a soft veil, not a second fire.
+    - A venue can turn its ghosts down; Burning Man runs them at a quarter.
+
+    The art car's moving heads also come down to 30 % while the Man is in flames, so the fire lights the playa, then back up as he falls.

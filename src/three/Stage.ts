@@ -1002,7 +1002,7 @@ export class Stage {
     // lamp's ghost smeared over the decks reads as a bug, not as cinema
     const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth';
     lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (close ? 0.15 : 1);
-    lu.uGhost.value = !lensFx || close ? 0 : 0.2;
+    lu.uGhost.value = !lensFx || close ? 0 : 0.2 * (this.venue?.lensGhost ?? 1);
     // dirt on the front element lights up when a wall of light hits it; stars on the brightest points
     lu.uDirt.value = lensFx && this.bloom.enabled ? 0.5 * (close ? 0.15 : 1) : 0;
     lu.uStarDirs.value = lensFx && !close ? (this.quality === 'high' ? 3 : 2) : 0;

@@ -105,6 +105,8 @@ export class MovingHeads implements Fixture {
   private pools: THREE.InstancedMesh | null = null;
   /** the venue's floor light map: pools are painted into it too */
   lightMap: LightMap | null = null;
+  /** the venue can bring the whole rig down (0..1), on top of the show's own level */
+  dim = 1;
   private floorY = 0;
   private len: number;
   private rad: number;
@@ -255,7 +257,7 @@ export class MovingHeads implements Fixture {
         this.goboAttr.setXY(i, gp.gobo, gp.spin);
       }
       this.lenses.setMatrixAt(i, this.m4);
-      let level = s.movers * s.master * s.intensity;
+      let level = s.movers * s.master * s.intensity * this.dim;
       if (s.moverPattern === 2) level *= (Math.floor(b) + i) % 2 ? 1 : 0.35;
       level *= 0.7 + s.kick * 0.5 * (0.4 + s.peak);
       // (floored mods: the beat count is negative before a track's first beat)

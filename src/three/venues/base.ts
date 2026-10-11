@@ -76,6 +76,12 @@ export interface VenueScene {
   readonly ambient?: number;
   /** how far the camera sees (default 160 m): open-air venues see the horizon */
   readonly far?: number;
+  /**
+   * How strong the cinematic lens's ghosts are here, 0..1 (default 1). A venue with a
+   * huge fire in frame wants them faint: a burning tower's ghost lands on the crowd as a
+   * red smear.
+   */
+  readonly lensGhost?: number;
   update(s: ShowState, f: Features, dt: number, camera: THREE.Camera): void;
   /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
   prerender?(renderer: THREE.WebGLRenderer, dt: number): void;
