@@ -58,6 +58,7 @@ import type { Stage } from '../three/Stage';
 import { VENUES } from '../three/venues';
 import { dressingRoom, LIGHTINGS, STAND, type DressingRoomScene, type Lighting } from '../three/venues/dressingroom';
 import { clear, h, setClass, setText } from './dom';
+import { icon } from './icons';
 
 export interface CreatorHost {
   stage: Stage;
@@ -353,7 +354,7 @@ export class CharacterCreator {
   /* ---------------------------------------------------------------- */
 
   private build(): void {
-    const btn = (label: string, title: string, fn: () => void, cls = 'btn') => {
+    const btn = (label: string | Node, title: string, fn: () => void, cls = 'btn') => {
       const b = h('button', { class: cls, type: 'button', title, 'aria-label': title }, label) as HTMLButtonElement;
       b.addEventListener('click', fn);
       return b;
@@ -384,8 +385,8 @@ export class CharacterCreator {
         { class: 'creator-group', role: 'group', 'aria-label': 'Camera' },
         btn('Full body', 'Full body', () => this.frame('body'), 'cchip'),
         btn('Face', 'Face close-up', () => this.frame('face'), 'cchip'),
-        btn('⟲', 'Turn left', () => (this.faceGoal -= Math.PI / 4), 'cchip'),
-        btn('⟳', 'Turn right', () => (this.faceGoal += Math.PI / 4), 'cchip'),
+        btn(icon('turnLeft', 16), 'Turn left', () => (this.faceGoal -= Math.PI / 4), 'cchip'),
+        btn(icon('turnRight', 16), 'Turn right', () => (this.faceGoal += Math.PI / 4), 'cchip'),
         turn,
         btn('−', 'Zoom out', () => this.zoom(1.25), 'cchip'),
         btn('+', 'Zoom in', () => this.zoom(0.8), 'cchip'),

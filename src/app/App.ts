@@ -35,6 +35,11 @@ import { nameService } from '../name/NameService';
 import { CharacterCreator } from '../ui/CharacterCreator';
 import { NameChant } from '../ui/NameChant';
 import { NamingScene } from '../ui/NamingScene';
+import { TitleScreen } from '../ui/TitleScreen';
+import { PhotoMode } from '../ui/PhotoMode';
+
+/** the club the title screen glides through when your own venue is a small room */
+const TITLE_VENUE = 'deckhouse';
 import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
@@ -58,6 +63,7 @@ import { BeatClock } from '../core/BeatClock';
 import { openBoardPicker } from '../ui/BoardPicker';
 import { DeckPanel } from '../ui/DeckPanel';
 import { h, setClass, setText } from '../ui/dom';
+import { icon } from '../ui/icons';
 import { FxPanel } from '../ui/FxPanel';
 import { openHelp } from '../ui/help';
 import { deviceScreen } from '../three/deviceScreen';
@@ -118,6 +124,8 @@ export class App implements AppContext {
   private debug: DebugMenu | null = null;
   private chant: NameChant | null = null;
   private naming: NamingScene | null = null;
+  private title: TitleScreen | null = null;
+  private photo: PhotoMode | null = null;
   private namingBusy = false;
   private creator: CharacterCreator | null = null;
   private home: HubView | null = null;
@@ -194,7 +202,8 @@ export class App implements AppContext {
     const p = this.career.progress;
     setCrewTier(p.sandbox ? 7 : p.tier);
     this.settings.venue = def.id;
-    if (changed || initial) this.stage.setVenue(def);
+    // a new venue: walk in through it (not on load, and not into the same room)
+    if (changed || initial) this.stage.setVenue(def, { arrive: changed && !initial });
     // how the room sounds, and how big its crowd is
     this.engine.mixer.room.set(roomFor(def.id));
     this.engine.crowd.size = CROWD_SIZE[def.id] ?? 1;
@@ -448,6 +457,7 @@ export class App implements AppContext {
       auto: () => this.setDirector(!this.settings.director),
       autoOn: () => this.settings.director,
       photo: () => void this.takePhoto(),
+      photoMode: () => this.openPhotoMode(),
     });
     this.stage.directing = this.settings.director;
     this.stage.lensPick = prefs.lens;
@@ -635,8 +645,25 @@ export class App implements AppContext {
     this.setView(this.settings.view);
     // the first real moment: name yourself (until named, unless they chose Later; automated test browsers skip it)
     const askName = /[?&]naming\b/.test(location.search) || (!this.career.profile.name && !this.settings.namingLater && !navigator.webdriver);
-    if (askName) this.naming?.show({ first: !this.career.profile.name });
-    else if (/[?&]dressing\b/.test(location.search)) this.creator.show();
+    const afterTitle = (fromTitle = false) => {
+      void this.engine.resume();
+      // off the title: walk into your own venue (the title glides through the club)
+      if (fromTitle) {
+        if (this.stage.venueDef?.id !== this.settings.venue) this.stage.setVenue(venueById(this.settings.venue), { arrive: true });
+        else this.stage.arrive();
+      }
+      if (askName) this.naming?.show({ first: !this.career.profile.name });
+      else if (/[?&]dressing\b/.test(location.search)) this.creator?.show();
+    };
+    // the title screen first (automated test browsers and the deep links skip it; ?title forces it)
+    const title = /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle)\b/.test(location.search));
+    if (title) {
+      // a club at night behind the name (a new player's bedroom is their venue; the title shows them where it goes)
+      const small = ['bedroom', 'basement', 'hub'].includes(this.settings.venue);
+      if (small) this.stage.setVenue(venueById(TITLE_VENUE));
+      this.title = new TitleScreen({ stage: this.stage, shell: this.shell, reg: this.reg, accent: () => venueById(small ? TITLE_VENUE : this.settings.venue).ui, start: () => afterTitle(true) });
+      this.title.show();
+    } else afterTitle();
 
     bindKeyboard(this.reg, {
       'xfader-left': () => this.reg.nudgeValue('mixer.xfader', -0.05, 'key'),
@@ -919,7 +946,7 @@ export class App implements AppContext {
   private buildStageHud(): HTMLElement {
     const camBtn = h('button', { class: 'btn cam-btn', title: 'Camera view' });
     camBtn.addEventListener('click', (e) => this.cameraMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY));
-    const expandBtn = h('button', { class: 'btn icon hide-sm', title: 'Hide or show the deck panels', 'aria-label': 'Hide or show the deck panels' }, '⤢');
+    const expandBtn = h('button', { class: 'btn icon hide-sm', title: 'Hide or show the deck panels', 'aria-label': 'Hide or show the deck panels' }, icon('panels', 16));
     expandBtn.addEventListener('click', () => {
       this.settings.focus = !this.settings.focus;
       this.shell.classList.toggle('stage-focus', this.settings.focus);
@@ -928,7 +955,7 @@ export class App implements AppContext {
     const zoomChip = h('button', { class: 'zoom-chip', title: 'Zoom back out' });
     zoomChip.addEventListener('click', () => this.stage.focusZone(null));
     // board full screen, and (in it) the framing switch
-    const fullBtn = h('button', { class: 'btn icon board-full-btn', title: 'Board full screen (Shift+B)', 'aria-label': 'Board full screen' }, '⛶');
+    const fullBtn = h('button', { class: 'btn icon board-full-btn', title: 'Board full screen (Shift+B)', 'aria-label': 'Board full screen' }, icon('expand', 16));
     fullBtn.addEventListener('click', () => this.boardFull(!this.boardMode));
     const framing = h('div', { class: 'seg board-framing', role: 'group', 'aria-label': 'Board framing' });
     for (const [v, label] of [
@@ -954,8 +981,8 @@ export class App implements AppContext {
    */
   private buildCameraPad(): { el: HTMLElement; widgets: Widget[] } {
     const widgets: Widget[] = [];
-    const b = (id: string, icon: string, label: string, cls: string) => {
-      const w = hwButton(this.reg, id, icon, { cls: `btn cam-pad-btn ${cls}` });
+    const b = (id: string, glyph: string | Node, label: string, cls: string) => {
+      const w = hwButton(this.reg, id, glyph, { cls: `btn cam-pad-btn ${cls}` });
       w.el.setAttribute('aria-label', label);
       widgets.push(w);
       return w.el;
@@ -971,11 +998,11 @@ export class App implements AppContext {
         'div',
         { class: 'cam-pad-body' },
         h('span', { class: 'label' }, 'Camera'),
-        group(b('cam.left', '↶', 'Orbit left (hold)', ''), b('cam.right', '↷', 'Orbit right (hold)', '')),
-        group(b('cam.raise', '▲', 'Look more from above (hold)', ''), b('cam.lower', '▼', 'Look from lower down (hold)', '')),
-        group(b('cam.out', '−', 'Zoom out (hold)', ''), b('cam.in', '+', 'Zoom in (hold)', '')),
-        group(b('cam.reset', '⌂', 'Back to the board view', ''), b('cam.next', '⇢', 'Next camera angle', ''), b('cam.lens', '◎', 'Next lens look (fisheye, camcorder…)', '')),
-        group(b('cam.auto', 'Auto', 'Auto director: the camera cuts with the music', 'auto'), b('cam.photo', 'Photo', 'Take a photo', '')),
+        group(b('cam.left', icon('orbitLeft', 16), 'Orbit left (hold)', ''), b('cam.right', icon('orbitRight', 16), 'Orbit right (hold)', '')),
+        group(b('cam.raise', icon('up', 16), 'Look more from above (hold)', ''), b('cam.lower', icon('down', 16), 'Look from lower down (hold)', '')),
+        group(b('cam.out', icon('minus', 16), 'Zoom out (hold)', ''), b('cam.in', icon('plus', 16), 'Zoom in (hold)', '')),
+        group(b('cam.reset', icon('home', 16), 'Back to the board view', ''), b('cam.next', icon('next', 16), 'Next camera angle', ''), b('cam.lens', icon('lens', 16), 'Next lens look (fisheye, camcorder…)', '')),
+        group(b('cam.auto', 'Auto', 'Auto director: the camera cuts with the music', 'auto'), b('cam.photo', icon('camera', 16), 'Take a photo', ''), b('cam.photomode', 'Photo mode', 'Photo mode: focus, depth of field, filters, framing', '')),
         fold,
       ),
     );
@@ -1043,6 +1070,19 @@ export class App implements AppContext {
       toast('Couldn’t take a photo here.', 'error');
       return;
     }
+    this.showPhoto(blob);
+  }
+
+  /** photo mode: focus, depth of field, filters, framing (Shift+P) */
+  private openPhotoMode(): void {
+    if (this.boardMode) this.boardFull(false);
+    this.photo ??= new PhotoMode({ stage: this.stage, shell: this.shell, save: (b) => this.showPhoto(b) });
+    if (this.photo.open) this.photo.close();
+    else this.photo.show();
+  }
+
+  /** the picture, to look at and save */
+  private showPhoto(blob: Blob): void {
     const url = URL.createObjectURL(blob);
     const venue = venueById(this.settings.venue);
     const name = `deckhouse-${venue.id}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
@@ -1181,7 +1221,7 @@ export class App implements AppContext {
     if (on === this.boardMode) return;
     this.boardMode = on;
     this.shell.classList.toggle('board-full', on);
-    setText(this.hud.fullBtn, on ? '✕' : '⛶');
+    this.hud.fullBtn.replaceChildren(icon(on ? 'close' : 'expand', 16));
     this.hud.fullBtn.title = on ? 'Leave board full screen (Esc)' : 'Board full screen (Shift+B)';
     this.hud.fullBtn.setAttribute('aria-label', on ? 'Leave board full screen' : 'Board full screen');
     if (on) {
@@ -1274,6 +1314,7 @@ export class App implements AppContext {
       },
       'sep',
       { label: 'Take a photo', checked: false, action: () => void this.takePhoto() },
+      { label: 'Photo mode…', checked: false, hint: 'Shift+P', action: () => this.openPhotoMode() },
       {
         label: 'Save this view',
         checked: false,

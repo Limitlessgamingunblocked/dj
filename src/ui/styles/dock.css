@@ -53,7 +53,7 @@
   color: var(--muted);
   font-family: var(--font-label);
   font-weight: 700;
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   border-bottom: 2px solid transparent;
@@ -72,7 +72,7 @@
 .tab .count {
   margin-left: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--dim);
 }
 
@@ -88,7 +88,7 @@
 .pane h3 {
   margin: 0 0 8px;
   font-family: var(--font-label);
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -97,7 +97,7 @@
 
 .pane p.note {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-s);
   max-width: 70ch;
   margin: 6px 0;
 }
@@ -120,9 +120,14 @@
 .card h3 {
   margin: 0;
   font-family: var(--font-label);
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
   font-weight: 700;
+}
+
+/* switching tabs: the panel settles in instead of popping */
+.dock > :last-child > :not([hidden]) {
+  animation: ui-fade var(--dur) var(--ease-out);
 }

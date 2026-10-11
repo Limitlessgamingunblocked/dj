@@ -483,3 +483,75 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - The poses are drawn into the cut-out atlas back to front, with shading from the light. There's a long-hair version of each.
     - The atlas carries data, not colour: skin, hair or clothes; top, trousers or phone; shading; coverage. Each far person keeps their own clothes and skin colours.
     - Colour is padded past the outline so the edges don't darken as the cut-outs get small.
+
+## Atmosphere, outdoor venues, your DJ, presentation (2026-10-11)
+164. **The open-air sky is light through air, not keyed colours.**
+    - It uses single scattering through a planet's atmosphere: Rayleigh for the blue and the low sun's reddening, Mie for haze and glare, and ozone for the deep twilight blue overhead.
+    - On the GPU it goes into a small sky-view table (azimuth by elevation, denser at the horizon) that the dome reads. The table is redrawn only when the sun or the moon moves.
+    - On the CPU, a handful of directions give the sun's colour at the ground and at the clouds, and the sky's light on the scene.
+    - Each venue's keys now only give the sun's height, the stars and when the site lights come on.
+    - Single scattering leaves twilight too dark, because most twilight light has bounced twice. The sun's share is lifted up to 3.5 times as it sets, like a camera opening up.
+165. **Everything outside takes its light from that sky.**
+    - The sun light is the colour and strength that reaches the ground. After dark the moon takes over, cool and dim, with its strength following its phase.
+    - The hemisphere fill is the sky's average from above, plus the site's ground colour lit by the sun and sky from below.
+    - The haze takes the horizon's colour. Metal and glass reflect a small filtered cube render of the sky, re-made every few seconds.
+    - The moon is far brighter than a real one (day for night, as on film); otherwise the night would be invisible on a screen.
+    - The sun disc is bright enough to flare but no more. At ten times brighter, the lens bloom veiled the whole midday frame.
+166. **Real clouds, cheaply.**
+    - A low layer of heaped cloud and a high layer of streaks are drawn in the dome from tiling noise.
+    - Each is lit by the sun as it is at that height, so high cloud stays pink after sunset.
+    - Heaps are shadowed where they're thick and silver at the edges towards the sun, grey-blue by moonlight, and glow underneath with the site's lights.
+    - Cover is set against the noise's measured spread. The first threshold sat above 99 % of the noise, so there was no cloud at all.
+    - Per venue:
+      - festival: the full moon rising behind the stage;
+      - beach and boat: sea air, with a moonrise;
+      - Sunrise and the playa: a thin crescent over the dawn, so the Milky Way stays bright.
+167. **Proper water at the beach and the boat.**
+    - Gerstner swells move the surface on a grid of rings that is fine underfoot and coarse at the horizon, with two layers of ripples on top.
+    - It reflects the same sky table and clouds the dome draws, plus sun and moon glitter paths.
+    - The show's lights glitter beneath each one. Rows of lamps on a shore or bank are reflected as shimmering columns, found where the reflected ray meets their plane.
+    - Surf runs up the beach and washes back. The boat leaves a churn, the two arms of its V wake and wash along the hull.
+    - The beach sand was tilted the wrong way (rising towards the sea); it now slopes in and meets the water where the surf breaks.
+168. **Life in the air.**
+    - Dust specks drift through every moving-head rig, lit only where a beam passes through them and brightest looking up the beam. They replace the blocky sparkle cells drawn on the beam surfaces.
+    - Steam rises off a packed crowd. It builds over a minute or two of a hard peak, clears in a breakdown and is lit only by the rig.
+    - The crowd's skin goes glossy with sweat over a long peak.
+169. **Your hand goes to whatever control moves**, whether by mouse, key, MIDI or the Auto DJ.
+    - Each board part has a grip point, such as a fader's cap or a jog wheel's near edge. The registry's activity event finds the part, and a two-bone reach puts the hand there.
+    - It eases in, holds while the control keeps moving, then eases back to the dance.
+    - The fingers curl round it, and the head glances down.
+170. **A better DJ:**
+    - **Fingers:** two segments on joints, with knuckles and nails. They curl to grip a control, open with hands up and close to a fist for the pump.
+    - **Face:** brows lift through the build and on the drop, the mouth shouts along on the drop, and the eyes go between the decks and the room.
+    - **Clothes and props that swing:** a skirt, hoodie strings, a lanyard pass and a towel over the shoulder. These are driven by the chest's motion, as the hair is by the head's.
+    - **Headphones on one ear:** the cup is on the left ear and the band crosses the crown. While a channel is cued, the head tips to that side and every eight beats the hand presses the cup in.
+    - **Starter look:** it now wears headphones, because a DJ always has them.
+171. **Walking in.**
+    - Switching venue plays a 6-second shot from the back of the room, over the crowd, to the booth, with the venue's name. It starts once the room's shaders have compiled.
+    - Any touch skips it. It doesn't play with reduced motion, and it doesn't play on load (the title does that).
+172. **A title screen.**
+    - The name is traced from the display face on a canvas, its holes found by nesting, and extruded: chrome faces with glowing sides.
+    - It hangs close to the lens, so a small room's walls can't hide it, in front of a slow glide through a club at night. A new player's bedroom would be a weak first look, so the title uses the Deckhouse club and then walks you into your own venue.
+    - Any key, tap or controller button starts. Automated browsers and deep links skip it; `?title` forces it.
+173. **Photo mode** (camera menu, the camera pad, or Shift+P):
+    - Depth of field comes from the scene's depth, with a real aperture (f/1.4 to f/16) and highlights opening into bokeh.
+    - Tap anything in the picture to focus on it.
+    - "Hold the moment" freezes the room while the camera still moves.
+    - Filters layer over the room's own grade.
+    - Framing offers thirds and frame shapes (16:9, 4:5, square, 9:16, 2.39:1). The picture is saved cropped to the frame.
+174. **One interface style.**
+    - Every button glyph (✕ ⋯ ⛶ ↶ ▲ ★ 📌 and the rest) is now a line icon from one set, on one grid and stroke weight.
+    - Font sizes snap to one scale (2xs to 2xl). They had drifted to 20 values.
+    - Dialogs, menus, toasts and dock panels share one set of curves and timings, and buttons respond to a press.
+    - Reduced motion still turns the movement off.
+175. **A shader bug shipped and fixed.** The step-touch round declared `lean` twice in the crowd's pose shader, so it didn't compile and the 3D crowd didn't draw. The from-disk tests run in the bedroom, which has no crowd, so they didn't catch it.
+    - It's fixed, and a test now checks the pose shader declares each top-level variable once.
+    - Screenshots of a crowded venue are now part of every round's checks.
+176. **Depth of field reads its own copy of depth.**
+    - On Medium and High, the ambient-occlusion pass draws into the buffer that holds the scene's depth and clears it, so depth of field saw everything as far away and blurred the subject too. Low has no such pass, which is why the first test looked right.
+    - While photo mode is open, the depth tap now writes the distance from the camera, in metres, into a texture of its own, and depth of field reads that. It costs one small pass, only in photo mode.
+    - The blur's taps turn at random from pixel to pixel, so a small bright speck spreads into a soft disc instead of printing the tap pattern as a flower.
+177. **Close portraits, and bloom that follows exposure.**
+    - In a custom camera view the DJ is hidden when the camera is within 1.2 m of their head, so the head never blocks the board. In photo mode that hid the DJ from every close portrait, so there the DJ only disappears with the camera inside their head (under 0.35 m).
+    - The bloom's threshold was fixed in the scene's light before exposure. When the camera stops down for daylight it now rises to match (the threshold over the exposure, below exposure 1 only), so a bright sky doesn't bloom over the picture. Clubs, where exposure sits at 1 or above, look the same as before.
+    - Photo mode's focus now follows the DJ as the camera moves, until you tap to focus or set the distance (the *Focus on DJ* chip turns it back on). Before, it kept the distance from when photo mode opened, so moving in for a portrait left the DJ soft.

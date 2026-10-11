@@ -30,6 +30,7 @@ import { appleMusicSearchUrl, energyTen, spotifySearchUrl, toCsv, toM3U, toRekor
 import { profileTrack, type TrackProfile } from '../setbuilder/profile';
 import { STYLES, styleForAnchor } from '../setbuilder/styles';
 import { clear, h, setClass } from './dom';
+import { icon } from './icons';
 import { contextMenu, openModal } from './modal';
 import { toast } from './toast';
 
@@ -307,7 +308,7 @@ export class SetBuilderPanel {
   private renderChips(): void {
     clear(this.chips);
     for (const a of this.s.anchors) {
-      const x = h('button', { class: 'x', type: 'button', 'aria-label': `Remove ${a}` }, '×');
+      const x = h('button', { class: 'x', type: 'button', 'aria-label': `Remove ${a}` }, icon('close', 12));
       x.addEventListener('click', () => {
         this.s.anchors = this.s.anchors.filter((y) => y !== a);
         this.renderChips();
@@ -782,7 +783,7 @@ export class SetBuilderPanel {
     const ol = h('ol', { class: 'sb-list' });
     plan.entries.forEach((e, i) => {
       const p = e.profile;
-      const iconBtn = (label: string, title: string, fn: (ev: MouseEvent) => void, disabled = false, pressed?: boolean) => {
+      const iconBtn = (label: string | Node, title: string, fn: (ev: MouseEvent) => void, disabled = false, pressed?: boolean) => {
         const b = h('button', { class: 'btn small icon', type: 'button', title, 'aria-label': title, disabled, 'aria-pressed': pressed === undefined ? undefined : String(pressed) }, label);
         b.addEventListener('click', (ev) => fn(ev as MouseEvent));
         return b;
@@ -806,11 +807,11 @@ export class SetBuilderPanel {
         h(
           'span',
           { class: 'tools' },
-          iconBtn('📌', e.pinned ? 'Unpin (a re-roll may replace it)' : 'Pin (keep it when re-rolling)', () => this.togglePin(i), false, e.pinned),
-          iconBtn('⇄', 'Swap for a similar track', (ev) => this.swapMenu(i, ev)),
+          iconBtn(icon(e.pinned ? 'pin' : 'pin', 14), e.pinned ? 'Unpin (a re-roll may replace it)' : 'Pin (keep it when re-rolling)', () => this.togglePin(i), false, e.pinned),
+          iconBtn(icon('swap', 14), 'Swap for a similar track', (ev) => this.swapMenu(i, ev)),
           iconBtn('↑', 'Move up', () => this.move(i, -1), i === 0),
           iconBtn('↓', 'Move down', () => this.move(i, 1), i === plan.entries.length - 1),
-          iconBtn('✕', 'Remove from the set', () => this.remove(i)),
+          iconBtn(icon('close', 14), 'Remove from the set', () => this.remove(i)),
         ),
       );
       row.addEventListener('dblclick', () => {

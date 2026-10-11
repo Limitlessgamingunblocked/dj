@@ -63,7 +63,7 @@
   font-family: var(--font-label);
   font-weight: 700;
   letter-spacing: 0.12em;
-  font-size: 12px;
+  font-size: var(--text-s);
   flex: none;
 }
 
@@ -76,7 +76,7 @@
 }
 
 .live-badge .mono {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0;
   opacity: 0.9;
 }
@@ -97,7 +97,7 @@
   font-family: var(--font-label);
   font-weight: 700;
   letter-spacing: 0.06em;
-  font-size: 15px;
+  font-size: var(--text-m);
   text-transform: uppercase;
   background: rgba(7, 9, 13, 0.82);
   border-left: 3px solid var(--venue);
@@ -196,7 +196,7 @@
 
 .venue-card .where {
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--vc);
@@ -209,18 +209,18 @@
   font-family: var(--font-label);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  font-size: 16px;
+  font-size: var(--text-l);
   line-height: 1.15;
 }
 
 .venue-card p {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
 .venue-card .cap {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--dim);
 }
 
@@ -255,7 +255,7 @@
   height: 56px;
   border-radius: 8px;
   font-family: var(--font-label);
-  font-size: 14px;
+  font-size: var(--text-m);
   letter-spacing: 0.1em;
   flex-direction: column;
   gap: 4px;
@@ -269,7 +269,7 @@
 }
 
 .hw.light-pad kbd {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   opacity: 0.6;
 }
 
@@ -361,7 +361,7 @@
 }
 
 .show-status {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 

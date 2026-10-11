@@ -8,6 +8,7 @@ import { camelotColor, compatibility, formatKey, openKey } from '../analysis/key
 import { DECK_COLORS, HOTCUE_COLORS, type DeckId } from '../core/types';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText, setVar } from './dom';
+import { icon } from './icons';
 import { openLyricsEditor } from './LyricsEditor';
 import { contextMenu, openModal, type MenuItem } from './modal';
 import { toast } from './toast';
@@ -77,7 +78,7 @@ export class DeckPanel {
       return btn;
     });
     this.layerBtn = h('div', { class: 'seg layer-seg', role: 'group', 'aria-label': 'Deck on this side' }, ...this.layerBtns);
-    const more = h('button', { class: 'btn small ghost icon', title: 'Deck options', 'aria-label': 'Deck options' }, '⋯');
+    const more = h('button', { class: 'btn small ghost icon', title: 'Deck options', 'aria-label': 'Deck options' }, icon('more', 16));
     more.addEventListener('click', (e) => this.deckMenu(e as MouseEvent));
 
     this.bpm = h('span');
@@ -150,9 +151,9 @@ export class DeckPanel {
           { class: 'tool-grid jump-key' },
           h('div', { class: 'label span3' }, 'Beat jump'),
           h('div', { class: 'label span4' }, 'Key'),
-          w(hwButton(reg, P('jump.back'), '◀', { title: 'Jump back' })),
+          w(hwButton(reg, P('jump.back'), icon('back', 14), { title: 'Jump back' })),
           this.jumpSize,
-          w(hwButton(reg, P('jump.fwd'), '▶', { title: 'Jump forward' })),
+          w(hwButton(reg, P('jump.fwd'), icon('next', 14), { title: 'Jump forward' })),
           w(hwButton(reg, P('key.down'), '♭', { title: 'Key down a semitone' })),
           this.keyShift,
           w(hwButton(reg, P('key.up'), '♯', { title: 'Key up a semitone' })),

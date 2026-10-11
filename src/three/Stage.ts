@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { AOPass, DepthTap } from './ao';
+import { DofPass } from './dof';
 import { ReflectPass, tagBright } from './reflect';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -74,6 +75,9 @@ function composerTarget(samples: number): THREE.WebGLRenderTarget {
   return new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples, depthTexture: new THREE.DepthTexture(1, 1) });
 }
 
+/** how bright (in the scene's light, at exposure 1) a pixel must be to bloom */
+const BLOOM_THRESHOLD = 0.93;
+
 export class Stage {
   readonly el: HTMLElement;
   readonly canvas: HTMLCanvasElement;
@@ -118,6 +122,7 @@ export class Stage {
   private bloom: UnrealBloomPass;
   /** ambient occlusion (public for the debug menu's view of it) */
   readonly ao: AOPass;
+  readonly dof: DofPass;
   /** reflective floors (public for the debug menu) */
   readonly reflect: ReflectPass;
   private lens: LensOutputPass;
@@ -263,8 +268,8 @@ export class Stage {
 
     this.composer = new EffectComposer(this.renderer, composerTarget(this.msaa));
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    // the scene's depth, for the two passes after it
-    const tap = new DepthTap();
+    // the scene's depth, for the passes after it (and a copy in metres for depth of field)
+    const tap = new DepthTap(this.camera);
     this.composer.addPass(tap);
     // the room's light in a polished floor
     this.reflect = new ReflectPass(this.scene, this.camera, tap);
@@ -272,9 +277,12 @@ export class Stage {
     // contact shadow where things meet, from the frame's depth
     this.ao = new AOPass(this.camera, tap);
     this.composer.addPass(this.ao);
+    // photo mode's depth of field (off otherwise)
+    this.dof = new DofPass(tap);
+    this.composer.addPass(this.dof);
     // measures the scene for auto exposure (leaves the picture alone)
     this.composer.addPass(this.exposure);
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, 0.93);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, BLOOM_THRESHOLD);
     // the bloom blurs its input across the whole frame, so a single NaN pixel would black it all
     // out: scrub non-finite values as they enter
     const hp = this.bloom.materialHighPassFilter;
@@ -309,6 +317,8 @@ export class Stage {
     this.bindPointer();
     // whatever moves a control (the mouse, a key, MIDI, the Auto DJ), your hand goes to it
     reg.on('activity', ({ id }) => this.handTo(id));
+    // touching the stage skips the walk in
+    for (const ev of ['pointerdown', 'wheel'] as const) this.el.addEventListener(ev, () => this.rig.arriving && this.skipArrival(), { passive: true });
     this.rig.onManualMove(() => {
       this.focusedZone = null;
       this.zoneCandidate = null;
@@ -346,11 +356,16 @@ export class Stage {
       return;
     }
     av.mode = 'dj';
+    // a channel cued in the headphones: the cup goes to the ear
+    av.cueing = this.ctx.engine.channels.some((c) => c.state.cue);
     av.object.position.set(0, 0, 0.68);
     av.object.rotation.y = Math.PI;
-    // you only appear in the venue / crowd shots, or when the camera is out in front of the booth
+    // you only appear in the venue / crowd shots, or when the camera is out in front of the booth;
+    // in photo mode the camera can come round you for a portrait, as long as it isn't in your head
     const v = this.rig.view;
-    av.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || this.rig.isLive || (v === 'custom' && this.camera.position.z < 0.3 && this.camera.position.distanceTo(this.avatarHead) > 1.2));
+    const toHead = this.camera.position.distanceTo(this.avatarHead);
+    const custom = this.dof.enabled ? toHead > 0.35 : this.camera.position.z < 0.3 && toHead > 1.2;
+    av.object.visible = !this.rig.focused && (v === 'wide' || v === 'crowd' || v === 'drone' || this.rig.isLive || (v === 'custom' && custom));
     // the live feeds (stream monitor, IMAG) show you even when the main camera doesn't
     if (av.object.visible || this.venue?.feed) av.update(show, dt);
   }
@@ -373,7 +388,15 @@ export class Stage {
   /* venue                                                                */
   /* ------------------------------------------------------------------ */
 
-  setVenue(def: VenueDef): void {
+  /** photo mode: hold the room still, and a filter over the grade */
+  freeze = false;
+  photoFilter: import('./lens').Grade | null = null;
+  private frozenShow: ReturnType<LightShow['update']> | null = null;
+  /** a walk into the venue waiting for its shaders to finish compiling */
+  private pendingArrival = false;
+  private arrivalCard: HTMLElement | null = null;
+
+  setVenue(def: VenueDef, o: { arrive?: boolean } = {}): void {
     if (this.venue) {
       this.scene.remove(this.venue.group);
       this.venue.dispose();
@@ -406,6 +429,74 @@ export class Stage {
     this.camera.far = v.far ?? 160;
     this.camera.updateProjectionMatrix();
     this.precompile();
+    // walking in: doors, over the crowd, the booth (once it's ready to draw)
+    this.pendingArrival = !!o.arrive && this.view !== 'visual' && !this.avatarSpot;
+    if (this.pendingArrival) this.showArrivalCard(def);
+  }
+
+  /** the venue's name over the walk in */
+  private showArrivalCard(def: VenueDef): void {
+    this.arrivalCard?.remove();
+    const card = document.createElement('div');
+    card.className = 'arrival-card';
+    const name = document.createElement('b');
+    name.textContent = def.name;
+    const place = document.createElement('span');
+    place.textContent = def.place;
+    card.append(name, place);
+    this.el.append(card);
+    this.arrivalCard = card;
+    window.setTimeout(() => {
+      if (this.arrivalCard === card) this.arrivalCard = null;
+      card.remove();
+    }, 5200);
+  }
+
+  /** start the walk in, from black */
+  private startArrival(): void {
+    this.pendingArrival = false;
+    const v = this.rig.view;
+    const end = (v !== 'custom' ? this.rig.poseOf(v) : null) ?? { pos: this.camera.position.clone(), target: this.rig.controls.target.clone() };
+    if (this.rig.arrive(end)) this.fade = { k: 0, phase: 'in', view: null };
+  }
+
+  /** how far away the first solid thing under a point on the screen is (photo mode's tap to focus) */
+  distanceAt(clientX: number, clientY: number): number | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    const ray = new THREE.Raycaster();
+    ray.setFromCamera(ndc, this.camera);
+    ray.far = this.camera.far;
+    const roots: THREE.Object3D[] = [this.avatar.object];
+    if (this.venue) roots.push(this.venue.group);
+    if (this.board) roots.push(this.board.root);
+    const hit = ray.intersectObjects(roots, true).find((h) => {
+      const m = h.object as THREE.Mesh;
+      if (!m.isMesh || !m.visible) return false;
+      const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.Material;
+      return !mat.transparent && mat.visible;
+    });
+    return hit ? hit.distance : null;
+  }
+
+  /** how far the DJ's face is from the camera */
+  distanceToDJ(): number {
+    return this.camera.position.distanceTo(this.avatar.bones.head.getWorldPosition(new THREE.Vector3()));
+  }
+
+  /** walk into the venue that's up now (after the title screen) */
+  arrive(): void {
+    if (!this.venueDef || this.view === 'visual') return;
+    this.pendingArrival = true;
+    this.showArrivalCard(this.venueDef);
+  }
+
+  /** any input: straight to the end of the walk in */
+  skipArrival(): void {
+    this.pendingArrival = false;
+    this.rig.skipArrival();
+    this.arrivalCard?.remove();
+    this.arrivalCard = null;
   }
 
   /**
@@ -972,12 +1063,16 @@ export class Stage {
     const lyric = this.lyric;
     // a hook line landing is a key-phrase hit for the lights
     if (lyric?.lineStarted && lyric.line?.hook && this.visualizer.settings.lyrics && this.visualizer.settings.lyricHooks) this.show.accent(1);
-    const show = this.show.update(f, dt, this.hype);
+    // photo mode's freeze: the room holds the moment (the camera still moves)
+    const frozen = this.freeze && !!this.frozenShow;
+    const show = frozen ? this.frozenShow! : this.show.update(f, dt, this.hype);
+    if (!frozen) this.frozenShow = show;
+    const sdt = frozen ? 0 : dt;
     const venue = this.venue;
     if (this.view !== 'visual') {
       this.rig.update(dt, f, visSettings.shake);
       if (this.board) for (const p of this.board.parts) p.update(this.ctx);
-      venue?.update(show, f, dt, this.camera);
+      venue?.update(show, f, sdt, this.camera);
       // vocals → a spotlight on the DJ; bass → a glow on the floor under the booth
       const atBooth = !this.avatarSpot;
       this.djSpot.intensity = atBooth ? 14 * show.vocal * show.master * Math.min(1.2, show.intensity) : 0;
@@ -988,9 +1083,9 @@ export class Stage {
       this.scene.environment = venue?.environment ?? this.roomEnv;
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;
-      this.placeAvatar(show, dt);
+      this.placeAvatar(show, sdt);
       this.dancers.enabled = this.show.controls.dancers;
-      this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, dt);
+      this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, sdt);
     }
 
     // on the venue screens the visual player can run at half rate when the load is high
@@ -1053,6 +1148,8 @@ export class Stage {
     lu.uStar.value = 0.018;
     // the grade moves with the track: softer through a breakdown, harder at the peak
     this.lens.followShow(show.build, show.peak);
+    // a photo filter on top of the room's grade
+    if (this.photoFilter) this.lens.applyFilter(this.photoFilter);
     // a cut: dark, switch angle, back up
     const fd = this.fade;
     if (fd.phase === 'out') {
@@ -1068,6 +1165,9 @@ export class Stage {
     lu.uFade.value = fd.k;
     // auto exposure (the security camera's auto gain pumps harder)
     r.toneMappingExposure = this.baseExposure * (this.exposure.enabled ? this.exposure.exposure : 1);
+    // the bloom's threshold is in the scene's light before exposure: when the camera stops down
+    // for daylight, raise it to match, or the whole bright sky blooms into a veil over the picture
+    this.bloom.threshold = BLOOM_THRESHOLD / Math.min(1, Math.max(0.05, r.toneMappingExposure));
     // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
     const lookId = this.rig.focused ? 'none' : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
     if (lookId !== this.lookId) {
@@ -1100,6 +1200,7 @@ export class Stage {
     // live camera feeds (Boiler Room's stream monitor, Alexandra Palace's IMAG towers)
     const feed = venue?.feed;
     if (this.compiling) return;
+    if (this.pendingArrival) this.startArrival();
     // a security camera updates a few times a second: hold the last picture in between
     if (L.fps > 0) {
       this.lookHold += dt;

@@ -87,7 +87,7 @@
 }
 
 .fx-display .big {
-  font-size: 18px;
+  font-size: var(--text-xl);
   font-weight: 700;
 }
 
@@ -164,7 +164,7 @@
 .vis-group h4 {
   margin: 0 0 6px;
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   display: flex;
@@ -175,7 +175,7 @@
 .vis-group h4 span {
   color: var(--muted);
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0;
   text-transform: none;
   font-weight: 400;
@@ -222,7 +222,7 @@
 
 .vis-mode span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .vis-mode.active {
@@ -240,7 +240,7 @@
 .field {
   display: grid;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -262,12 +262,12 @@ select {
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 4px 14px;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 kbd {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   padding: 1px 5px;
   border-radius: 3px;
   border: 1px solid var(--line-2);
@@ -305,7 +305,7 @@ kbd {
 
 .settings-card .hint {
   color: var(--dim);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .set-row[hidden],
@@ -317,7 +317,7 @@ kbd {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--text);
   cursor: pointer;
 }
@@ -347,7 +347,7 @@ kbd {
   min-width: 46px;
   text-align: right;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 input[type='color'] {
@@ -382,7 +382,7 @@ input[type='color'] {
   align-items: center;
   gap: 6px;
   min-height: 28px;
-  font-size: 12px;
+  font-size: var(--text-s);
   border-bottom: 1px solid var(--line);
 }
 

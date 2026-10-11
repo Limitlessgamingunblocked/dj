@@ -1,4 +1,5 @@
 import { h } from './dom';
+import { icon } from './icons';
 
 export interface ModalHandle {
   close(): void;
@@ -13,7 +14,7 @@ export function closeMenus(): void {
 export function openModal(title: string, content: HTMLElement | ((m: ModalHandle) => HTMLElement), opts: { wide?: boolean } = {}): ModalHandle {
   closeMenus();
   const body = h('div', { class: 'modal-body' });
-  const closeBtn = h('button', { class: 'btn ghost icon modal-x', type: 'button', 'aria-label': 'Close', title: 'Close (Esc)' }, '✕');
+  const closeBtn = h('button', { class: 'btn ghost icon modal-x', type: 'button', 'aria-label': 'Close', title: 'Close (Esc)' }, icon('close', 16));
   const box = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title, tabindex: '-1', style: opts.wide ? { width: 'min(1200px, 100%)' } : undefined }, h('div', { class: 'modal-head' }, h('h2', {}, title), closeBtn), body);
   const back = h('div', { class: 'modal-back' }, box);
   const handle: ModalHandle = {

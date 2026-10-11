@@ -60,7 +60,7 @@ body.gig-on .gig-btn {
 
 .bk-daily-k {
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -73,7 +73,7 @@ body.gig-on .gig-btn {
 
 .bk-daily h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-l);
 }
 
 .bk-daily-goals,
@@ -83,7 +83,7 @@ body.gig-on .gig-btn {
   padding-left: 18px;
   display: grid;
   gap: 2px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .res-daily {
@@ -120,7 +120,7 @@ body.gig-on .gig-btn {
   padding: 8px 10px;
   border-radius: 6px;
   background: rgb(0 0 0 / 35%);
-  font-size: 12.5px;
+  font-size: var(--text-s);
   line-height: 1.5;
   white-space: pre-wrap;
   user-select: all;
@@ -176,7 +176,7 @@ body.gig-on .gig-btn {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -210,7 +210,7 @@ body.gig-on .gig-btn {
 
 .gh-time {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: var(--text-m);
   font-weight: 700;
   min-width: 4.2em;
   text-align: right;
@@ -221,7 +221,7 @@ body.gig-on .gig-btn {
 }
 
 .gh-rec {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 3px;
@@ -298,7 +298,7 @@ body.gig-on .gig-btn {
   background: transparent;
   color: var(--muted);
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -325,7 +325,7 @@ body.gig-on .gig-btn {
   border-radius: 14px;
   background: rgb(8 8 10 / 78%);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: var(--text-sm);
   opacity: 0;
   transform: translateY(-4px);
   transition: opacity 0.3s, transform 0.3s;
@@ -402,7 +402,7 @@ body.gig-clean .lyric-hud {
   border: 1px solid rgb(255 255 255 / 8%);
   overflow: hidden;
   color: #e9e6f3;
-  font-size: 12.5px;
+  font-size: var(--text-s);
   pointer-events: none;
 }
 
@@ -421,7 +421,7 @@ body.gig-clean .lyric-hud {
   border-radius: 3px;
   background: #e0243c;
   color: #fff;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 800;
 }
 
@@ -462,7 +462,7 @@ body.gig-clean .lyric-hud {
 .gig-setup h3 {
   margin: 0 0 6px;
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted);
@@ -493,11 +493,11 @@ body.gig-clean .lyric-hud {
 
 .gs-venue b {
   font-family: var(--font-label);
-  font-size: 17px;
+  font-size: var(--text-l);
 }
 
 .gs-venue span {
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -525,7 +525,7 @@ body.gig-clean .lyric-hud {
   background: var(--panel-2);
   color: var(--text);
   font-family: var(--font-label);
-  font-size: 14px;
+  font-size: var(--text-m);
   letter-spacing: 0.05em;
 }
 
@@ -538,7 +538,7 @@ body.gig-clean .lyric-hud {
 .gs-brief,
 .gs-note {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -577,7 +577,7 @@ body.gig-clean .lyric-hud {
 .gs-go {
   min-width: 180px;
   height: 38px;
-  font-size: 15px;
+  font-size: var(--text-m);
   background: #ff2e88;
   border-color: #ff2e88;
 }
@@ -598,7 +598,7 @@ body.gig-clean .lyric-hud {
 
 .gs-booking h3 {
   margin: 2px 0 4px;
-  font-size: 22px;
+  font-size: var(--text-2xl);
   letter-spacing: 0.04em;
   color: var(--text);
   text-transform: none;
@@ -610,7 +610,7 @@ body.gig-clean .lyric-hud {
 
 .gs-extra {
   color: #9dd7ff;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* ---------------------------------------------------------------- bookings */
@@ -623,7 +623,7 @@ body.gig-clean .lyric-hud {
 .bookings h3 {
   margin: 0 0 8px;
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--muted);
@@ -649,20 +649,20 @@ body.gig-clean .lyric-hud {
 
 .bk-tier b {
   font-family: var(--font-label);
-  font-size: 22px;
+  font-size: var(--text-2xl);
 }
 
 .bk-tier span {
   color: #ffb547;
   font-family: var(--font-label);
-  font-size: 15px;
+  font-size: var(--text-m);
   letter-spacing: 0.05em;
 }
 
 .bk-tier small {
   grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .bk-bar {
@@ -685,7 +685,7 @@ body.gig-clean .lyric-hud {
 }
 
 .bk-num span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -693,13 +693,13 @@ body.gig-clean .lyric-hud {
 
 .bk-num b {
   font-family: var(--font-label);
-  font-size: 18px;
+  font-size: var(--text-xl);
 }
 
 .bk-next {
   grid-column: 1 / -1;
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -722,7 +722,7 @@ body.gig-clean .lyric-hud {
 }
 
 .bk-day span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -730,13 +730,13 @@ body.gig-clean .lyric-hud {
 
 .bk-day b {
   font-family: var(--font-label);
-  font-size: 15px;
+  font-size: var(--text-m);
 }
 
 .bk-day small {
   min-height: 14px;
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -799,7 +799,7 @@ body.gig-clean .lyric-hud {
 }
 
 .bk-when {
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -808,11 +808,11 @@ body.gig-clean .lyric-hud {
 .bk-info h4 {
   margin: 0;
   font-family: var(--font-label);
-  font-size: 19px;
+  font-size: var(--text-xl);
 }
 
 .bk-info h4 small {
-  font-size: 12px;
+  font-size: var(--text-s);
   font-weight: 400;
   color: var(--muted);
 }
@@ -821,7 +821,7 @@ body.gig-clean .lyric-hud {
   justify-self: start;
   padding: 1px 8px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: var(--text-s);
   background: rgb(90 209 255 / 16%);
   color: var(--rc, #9de4ff);
 }
@@ -830,7 +830,7 @@ body.gig-clean .lyric-hud {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text);
 }
 
@@ -841,7 +841,7 @@ body.gig-clean .lyric-hud {
 .bk-expect,
 .bk-goal {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -923,7 +923,7 @@ body.gig-clean .lyric-hud {
 
 .res-kicker {
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: #ffb547;
@@ -942,7 +942,7 @@ body.gig-clean .lyric-hud {
 
 .res-promoter {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-m);
 }
 
 .res-promoter b {
@@ -963,7 +963,7 @@ body.gig-clean .lyric-hud {
 .res-stat span,
 .res-card > span {
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--muted);
@@ -971,12 +971,12 @@ body.gig-clean .lyric-hud {
 
 .res-stat b {
   font-family: var(--font-label);
-  font-size: 24px;
+  font-size: var(--text-2xl);
 }
 
 .res-stat small,
 .res-card small {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -993,7 +993,7 @@ body.gig-clean .lyric-hud {
   display: flex;
   gap: 8px;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1036,7 +1036,7 @@ body.gig-clean .lyric-hud {
 
 .res-card b {
   font-family: var(--font-label);
-  font-size: 18px;
+  font-size: var(--text-xl);
 }
 
 .res-card .btn {
@@ -1054,7 +1054,7 @@ body.gig-clean .lyric-hud {
 }
 
 .res-earn b {
-  font-size: 22px;
+  font-size: var(--text-2xl);
   color: #b6ff3b;
 }
 
@@ -1088,7 +1088,7 @@ body.gig-clean .lyric-hud {
 
 .res-news-h {
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--muted);
@@ -1103,11 +1103,11 @@ body.gig-clean .lyric-hud {
   border-radius: 14px;
   background: rgb(255 255 255 / 6%);
   border: 1px solid var(--line);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .res-new small {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1128,7 +1128,7 @@ body.gig-clean .lyric-hud {
 .res-objective {
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: var(--text-m);
 }
 
 .res-objective.met {
@@ -1143,7 +1143,7 @@ body.gig-clean .lyric-hud {
 
 .res-next {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -1202,7 +1202,7 @@ body.gig-clean .lyric-hud {
   }
 
   .gh-row {
-    font-size: 11px;
+    font-size: var(--text-xs);
   }
 }
 
@@ -1247,7 +1247,7 @@ body.gig-clean .lyric-hud {
 
 .sf-head b {
   font-family: var(--font-label);
-  font-size: 22px;
+  font-size: var(--text-2xl);
   letter-spacing: 0.04em;
   background: linear-gradient(90deg, #ff2e88, #7a3cff);
   -webkit-background-clip: text;
@@ -1256,7 +1256,7 @@ body.gig-clean .lyric-hud {
 }
 
 .sf-head span {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -1295,7 +1295,7 @@ body.gig-clean .lyric-hud {
 }
 
 .sf-who {
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .sf-who span {
@@ -1309,7 +1309,7 @@ body.gig-clean .lyric-hud {
   background: var(--panel-3);
   color: var(--muted);
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1317,7 +1317,7 @@ body.gig-clean .lyric-hud {
 
 .sf-body p {
   margin: 4px 0;
-  font-size: 14px;
+  font-size: var(--text-m);
   line-height: 1.35;
 }
 
@@ -1334,7 +1334,7 @@ body.gig-clean .lyric-hud {
   background: linear-gradient(135deg, #2a1040, #ff2e88 140%);
   color: #fff;
   font-family: var(--font-label);
-  font-size: 16px;
+  font-size: var(--text-l);
   letter-spacing: 0.05em;
 }
 
@@ -1345,13 +1345,13 @@ body.gig-clean .lyric-hud {
   height: 44px;
   border-radius: 50%;
   background: rgb(255 255 255 / 20%);
-  font-size: 18px;
+  font-size: var(--text-xl);
 }
 
 .sf-acts {
   display: flex;
   gap: 16px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
@@ -1360,7 +1360,7 @@ body.gig-clean .lyric-hud {
   padding: 0;
   background: none;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .sf-like[aria-pressed='true'] {
@@ -1375,7 +1375,7 @@ body.gig-clean .lyric-hud {
 
 .sf-comments p {
   margin: 2px 0;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1412,7 +1412,7 @@ body.gig-clean .lyric-hud {
 
 .hub-kicker {
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--dim);
@@ -1438,7 +1438,7 @@ body.gig-clean .lyric-hud {
 
 .hub-tier-row span {
   color: #ffb547;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .hub-stats {
@@ -1455,17 +1455,17 @@ body.gig-clean .lyric-hud {
 
 .hub-stat b {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: var(--text-m);
 }
 
 .hub-stat span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--dim);
 }
 
 .hub-next {
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -1521,12 +1521,12 @@ body.gig-clean .lyric-hud {
 
 .hub-station b {
   font-family: var(--font-label);
-  font-size: 16px;
+  font-size: var(--text-l);
   letter-spacing: 0.02em;
 }
 
 .hub-station small {
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1562,7 +1562,7 @@ body.hub-open .home-btn {
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .gh-b2b-who {
@@ -1628,16 +1628,16 @@ body.hub-open .app .main {
 /* ------------------------------------------------- the HUD: score, streak, requests, coach */
 
 .gh-top .gh-time {
-  font-size: 17px;
+  font-size: var(--text-l);
 }
 
 .gh-mid {
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .gh-score {
   font-family: var(--font-mono);
-  font-size: 17px;
+  font-size: var(--text-l);
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -1650,7 +1650,7 @@ body.hub-open .app .main {
   background: linear-gradient(90deg, #ff2e88, #ffb547);
   color: #120a10;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-s);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -1676,7 +1676,7 @@ body.hub-open .app .main {
   border: 1px solid rgb(255 181 71 / 35%);
   position: relative;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   animation: gh-in 0.35s var(--ease);
 }
@@ -1684,7 +1684,7 @@ body.hub-open .app .main {
 .gh-req-k,
 .gh-coach-k {
   font-family: var(--font-label);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1735,7 +1735,7 @@ body.hub-open .app .main {
   gap: 8px;
   min-width: 0;
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .gh-coach-k {

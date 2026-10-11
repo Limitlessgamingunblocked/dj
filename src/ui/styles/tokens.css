@@ -33,16 +33,21 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
-  /* type scale */
+  /* type scale: every size in the interface is one of these (display headlines aside) */
+  --text-2xs: 10px;
   --text-xs: 11px;
   --text-s: 12px;
+  --text-sm: 13px;
   --text-m: 14px;
   --text-l: 16px;
   --text-xl: 20px;
-  /* motion */
+  --text-2xl: 24px;
+  /* motion: one set of curves and timings for every screen, panel, menu and button */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 120ms;
   --dur: 200ms;
+  --dur-slow: 320ms;
   /* controls */
   --control-h: 30px;
   --control-h-s: 24px;
@@ -122,7 +127,7 @@ button {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -140,7 +145,26 @@ button {
 }
 
 .fineprint {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--dim);
   margin: 0;
+}
+
+/* shared entrances (movement and a quick fade-up, so nothing is ever left invisible if a frame stalls) */
+@keyframes ui-rise {
+  from {
+    transform: translateY(8px);
+    opacity: 0.4;
+  }
+}
+@keyframes ui-pop {
+  from {
+    transform: scale(0.97);
+    opacity: 0.4;
+  }
+}
+@keyframes ui-fade {
+  from {
+    opacity: 0.35;
+  }
 }

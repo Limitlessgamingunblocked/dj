@@ -33,7 +33,7 @@
   color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--text-sm);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -56,7 +56,7 @@
 .tree-item .ic {
   width: 14px;
   text-align: center;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--dim);
   flex: none;
 }
@@ -69,7 +69,7 @@
 
 .tree-item .ct {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--dim);
 }
 
@@ -151,7 +151,7 @@
   background: var(--bg);
   padding: 0 6px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .table-wrap {
@@ -162,7 +162,7 @@
 table.tracks {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 table.tracks th {
@@ -173,7 +173,7 @@ table.tracks th {
   text-align: left;
   font-family: var(--font-label);
   font-weight: 700;
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -200,7 +200,7 @@ table.tracks td {
 table.tracks td.num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 table.tracks tr {
@@ -238,7 +238,7 @@ table.tracks tr.compat td:first-child {
   align-self: center;
   flex: none;
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -279,16 +279,16 @@ table.tracks tr.compat td:first-child {
 }
 
 .lnp-main b {
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .lnp-main span {
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
 .lnp-main small {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   color: var(--muted);
 }
 
@@ -304,7 +304,7 @@ table.tracks tr.next-pick td.title::after {
   border-radius: 4px;
   background: var(--venue);
   color: #050608;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -327,7 +327,7 @@ table.tracks .fav {
   border: 0;
   background: none;
   color: var(--dim);
-  font-size: 14px;
+  font-size: var(--text-m);
   line-height: 1;
 }
 
@@ -356,7 +356,7 @@ table.tracks .tag {
   padding: 0 5px;
   border-radius: 8px;
   border: 1px solid var(--line-2);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--muted);
 }
 
@@ -366,7 +366,7 @@ table.tracks .mine {
   border-radius: 3px;
   background: #2a2340;
   color: #c9b6ff;
-  font-size: 9px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   vertical-align: 1px;
@@ -390,7 +390,7 @@ table.tracks .art {
   min-width: 22px;
   padding: 0 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   letter-spacing: 0;
 }
 
@@ -412,7 +412,7 @@ table.tracks .art {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -441,7 +441,7 @@ table.tracks .art {
 .empty strong {
   display: block;
   color: var(--text);
-  font-size: 15px;
+  font-size: var(--text-m);
   margin-bottom: 4px;
 }
 
@@ -457,7 +457,7 @@ table.tracks .art {
 .lib-welcome h3 {
   margin: 0;
   font-family: var(--font-label);
-  font-size: 22px;
+  font-size: var(--text-2xl);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -482,7 +482,7 @@ table.tracks .art {
   gap: 12px;
   padding: 10px 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .wanted b {
@@ -554,7 +554,7 @@ table.tracks .art {
 }
 
 .pl-count {
-  font-size: 12px;
+  font-size: var(--text-s);
   font-family: var(--font-mono);
 }
 
@@ -570,7 +570,7 @@ table.tracks .art {
   margin: 8px 0 0;
   padding-left: 18px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-s);
   display: grid;
   gap: 2px;
 }
@@ -592,7 +592,7 @@ table.tracks button.genre {
   background: transparent;
   color: var(--text, #e6ebf2);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-s);
   padding: 1px 9px;
   max-width: 100%;
   overflow: hidden;

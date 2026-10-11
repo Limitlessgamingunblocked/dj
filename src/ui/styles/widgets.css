@@ -15,7 +15,7 @@
   background: linear-gradient(180deg, #1b222c, #141a22);
   color: #aeb8c8;
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -51,7 +51,7 @@
 .hw.big {
   height: 44px;
   min-width: 56px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   border-radius: 50%;
   width: 52px;
 }
@@ -78,7 +78,7 @@
   color: color-mix(in srgb, #fff calc(var(--lvl) * 100%), #7b8698);
   font-family: var(--font-label);
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.04em;
   user-select: none;
   -webkit-user-select: none;
@@ -114,7 +114,7 @@
 
 .knob .kl {
   font-family: var(--font-label);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--muted);

@@ -112,21 +112,73 @@ const COMPOSITE_FRAG = /* glsl */ `
   }
 `;
 
+const DIST_FRAG = /* glsl */ `
+  uniform sampler2D tDepth;
+  uniform float uNear, uFar;
+  varying vec2 vUv;
+  void main() {
+    float d = texture2D(tDepth, vUv).x * 2.0 - 1.0;
+    gl_FragColor = vec4(2.0 * uNear * uFar / (uFar + uNear - d * (uFar - uNear)), 0.0, 0.0, 1.0);
+  }
+`;
+
 /**
  * Keeps the scene's depth for the passes after it. The composer swaps its two
  * buffers as passes run, so which one holds the scene changes from frame to
  * frame: this sits straight after the scene render and notes where it is.
+ *
+ * A pass drawing into that buffer later clears its depth, so a pass that runs
+ * after the others (depth of field) asks for a copy: the distance from the
+ * camera in metres, in a texture of its own, made only on frames it's asked for.
  */
 export class DepthTap extends Pass {
   depth: THREE.DepthTexture | null = null;
+  /** this frame's distance copy, or null if nobody asked for one */
+  distance: THREE.Texture | null = null;
+  private want = 0;
+  private distRT: THREE.WebGLRenderTarget | null = null;
+  private distQuad: FullScreenQuad | null = null;
+  private size = new THREE.Vector2(1, 1);
 
-  constructor() {
+  constructor(private camera?: THREE.PerspectiveCamera) {
     super();
     this.needsSwap = false;
   }
 
-  render(_r: THREE.WebGLRenderer, _w: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget): void {
+  /** make the distance copy on the next frames (ask again every frame it's needed) */
+  requestDistance(): void {
+    this.want = 2;
+  }
+
+  setSize(width: number, height: number): void {
+    this.size.set(width, height);
+    this.distRT?.setSize(width, height);
+  }
+
+  render(renderer: THREE.WebGLRenderer, _w: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget): void {
     this.depth = readBuffer.depthTexture;
+    this.distance = null;
+    if (this.want <= 0 || !this.depth || !this.camera) return;
+    this.want--;
+    if (!this.distRT || !this.distQuad) {
+      this.distRT = new THREE.WebGLRenderTarget(this.size.x, this.size.y, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false });
+      this.distQuad = new FullScreenQuad(
+        new THREE.ShaderMaterial({ uniforms: { tDepth: { value: null }, uNear: { value: 0.1 }, uFar: { value: 100 } }, vertexShader: VERT, fragmentShader: DIST_FRAG, depthTest: false, depthWrite: false }),
+      );
+    }
+    const u = (this.distQuad.material as THREE.ShaderMaterial).uniforms;
+    u.tDepth.value = this.depth;
+    u.uNear.value = this.camera.near;
+    u.uFar.value = this.camera.far;
+    renderer.setRenderTarget(this.distRT);
+    this.distQuad.render(renderer);
+    this.distance = this.distRT.texture;
+  }
+
+  dispose(): void {
+    this.distRT?.dispose();
+    (this.distQuad?.material as THREE.Material | undefined)?.dispose();
+    this.distQuad?.dispose();
   }
 }
 

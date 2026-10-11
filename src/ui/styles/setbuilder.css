@@ -40,7 +40,7 @@
 .sb-val {
   min-width: 3.5ch;
   text-align: right;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .sb-num {
@@ -51,7 +51,7 @@
   background: var(--bg);
   padding: 0 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .sb-chips {
@@ -70,7 +70,7 @@
   border-radius: 12px;
   background: #182330;
   border: 1px solid #2b6f99;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .sb-chip .x {
@@ -124,7 +124,7 @@
 .sb-arc .nm {
   font-family: var(--font-label);
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   line-height: 1.15;
@@ -167,7 +167,7 @@
 
 .sb-go {
   height: 36px;
-  font-size: 14px;
+  font-size: var(--text-m);
   flex: none;
 }
 
@@ -199,7 +199,7 @@
 .sb-title {
   margin: 0;
   font-family: var(--font-label);
-  font-size: 16px;
+  font-size: var(--text-l);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   flex: 1 1 240px;
@@ -220,13 +220,13 @@
 .sb-stat .v {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 16px;
+  font-size: var(--text-l);
   font-variant-numeric: tabular-nums;
 }
 
 .sb-stat .l {
   font-family: var(--font-label);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -238,7 +238,7 @@
   background: #2a2410;
   border: 1px solid #4a3f14;
   color: #f3e3a0;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .sb-chart-box {
@@ -253,7 +253,7 @@
   gap: 14px;
   flex-wrap: wrap;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -264,7 +264,7 @@
 }
 
 .sb-legend .note {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--dim);
 }
 
@@ -356,7 +356,7 @@
   border-radius: 5px;
   background: #0b1016;
   border: 1px solid var(--line-2);
-  font-size: 12px;
+  font-size: var(--text-s);
   pointer-events: none;
   z-index: 2;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
@@ -398,13 +398,13 @@
 
 .sb-track .idx {
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--text-s);
   text-align: right;
 }
 
 .sb-track .start,
 .sb-track .bpm {
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
@@ -430,13 +430,13 @@
 }
 
 .sb-track .artist {
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
 .sb-role {
   font-family: var(--font-label);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -485,7 +485,7 @@
 
 .sb-track .tools .btn.icon {
   width: 24px;
-  font-size: 12px;
+  font-size: var(--text-s);
   letter-spacing: 0;
 }
 
@@ -501,7 +501,7 @@
   margin-left: 30px;
   padding: 5px 8px;
   border-left: 2px dashed var(--line-2);
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -528,7 +528,7 @@
   border-radius: 13px;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: #081018;
 }
 
@@ -552,7 +552,7 @@
 .sb-export h3 {
   margin: 8px 0 0;
   font-family: var(--font-label);
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -560,14 +560,14 @@
 
 .sb-export .note {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-s);
   margin: 0;
 }
 
 .sb-label {
   display: grid;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -587,7 +587,7 @@
   padding-left: 22px;
   max-height: 220px;
   overflow-y: auto;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .sb-links li {
@@ -641,7 +641,7 @@
   background: #1c1510;
   border: 1px solid #5a3420;
   color: #ffd8bf;
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 
 .sb-role.sound {

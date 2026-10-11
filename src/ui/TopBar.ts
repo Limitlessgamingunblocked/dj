@@ -8,6 +8,7 @@ import { nameService } from '../name/NameService';
 import type { AppContext } from '../app/context';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText } from './dom';
+import { icon } from './icons';
 
 export interface TopBarActions {
   pickBoard(): void;
@@ -104,7 +105,7 @@ export class TopBar {
     this.midiDot = h('span', { class: 'status-dot on' });
     this.midiBtn = h('button', { class: 'btn ghost hide-sm', type: 'button', title: 'MIDI controller connected', hidden: true }, this.midiDot, 'MIDI');
     this.midiBtn.addEventListener('click', () => a.midi());
-    const more = h('button', { class: 'btn ghost icon more-btn', type: 'button', title: 'More', 'aria-label': 'More', 'aria-haspopup': 'menu' }, '⋯');
+    const more = h('button', { class: 'btn ghost icon more-btn', type: 'button', title: 'More', 'aria-label': 'More', 'aria-haspopup': 'menu' }, icon('more', 18));
     more.addEventListener('click', (e) => {
       const r = more.getBoundingClientRect();
       a.menu((e as MouseEvent).clientX || r.left, r.bottom + 4);

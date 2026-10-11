@@ -15,6 +15,7 @@ import { GENRES } from '../analysis/genre';
 import { genreNote, genreOf } from '../library/genres';
 import { trackInfo } from '../game/tracks';
 import { clear, h } from './dom';
+import { icon } from './icons';
 import { openPlaylistImport } from './PlaylistImport';
 import { entryLabel } from '../library/playlists';
 import { contextMenu, openModal } from './modal';
@@ -86,7 +87,7 @@ export class LibraryPanel {
 
     const importBtn = h('button', { class: 'btn primary' }, 'Import music');
     importBtn.addEventListener('click', () => this.fileInput.click());
-    const moreBtn = h('button', { class: 'btn', title: 'More library actions', 'aria-label': 'More library actions' }, '⋯');
+    const moreBtn = h('button', { class: 'btn', title: 'More library actions', 'aria-label': 'More library actions' }, icon('more', 16));
     moreBtn.addEventListener('click', (e) =>
       contextMenu((e as MouseEvent).clientX, (e as MouseEvent).clientY, [
         { label: 'Import a folder…', action: () => this.folderInput.click() },
@@ -202,16 +203,16 @@ export class LibraryPanel {
     newCrate.addEventListener('click', () => this.create('crate'));
     newFolder.addEventListener('click', () => this.create('folder'));
     this.side.append(h('div', { class: 'side-actions' }, newCrate, newFolder));
-    const item = (label: string, icon: string, count: number, active: boolean, onClick: () => void) => {
-      const el = h('div', { class: `tree-item${active ? ' active' : ''}`, role: 'button', tabindex: 0 }, h('span', { class: 'ic' }, icon), h('span', { class: 'nm' }, label), h('span', { class: 'ct' }, String(count)));
+    const item = (label: string, glyph: string | Node, count: number, active: boolean, onClick: () => void) => {
+      const el = h('div', { class: `tree-item${active ? ' active' : ''}`, role: 'button', tabindex: 0 }, h('span', { class: 'ic' }, glyph), h('span', { class: 'nm' }, label), h('span', { class: 'ct' }, String(count)));
       el.addEventListener('click', onClick);
       return el;
     };
     const all = lib.list();
     this.side.append(
       item('Collection', '◉', all.length, this.view.kind === 'all', () => this.setView({ kind: 'all' })),
-      item('Favourites', '★', all.filter((t) => t.fav).length, this.view.kind === 'favs', () => this.setView({ kind: 'favs' })),
-      item('History', '↺', lib.history.length, this.view.kind === 'history', () => this.setView({ kind: 'history' })),
+      item('Favourites', icon('star', 14), all.filter((t) => t.fav).length, this.view.kind === 'favs', () => this.setView({ kind: 'favs' })),
+      item('History', icon('history', 14), lib.history.length, this.view.kind === 'history', () => this.setView({ kind: 'history' })),
     );
     const walk = (parent: string | null, depth: number) => {
       for (const c of lib.children(parent)) {
@@ -226,8 +227,8 @@ export class LibraryPanel {
     const lib = this.app.library;
     const active = this.view.kind === 'crate' && this.view.id === c.id;
     const open = this.openFolders.has(c.id);
-    const icon = c.kind === 'folder' ? (open ? '▾' : '▸') : '▤';
-    const el = h('div', { class: `tree-item${active ? ' active' : ''}`, role: 'button', tabindex: 0, style: { paddingLeft: `${6 + depth * 14}px` }, draggable: 'true' }, h('span', { class: 'ic' }, icon));
+    const glyph = c.kind === 'folder' ? icon(open ? 'down' : 'chevron', 14) : icon('record', 14);
+    const el = h('div', { class: `tree-item${active ? ' active' : ''}`, role: 'button', tabindex: 0, style: { paddingLeft: `${6 + depth * 14}px` }, draggable: 'true' }, h('span', { class: 'ic' }, glyph));
     if (this.renaming === c.id) {
       const input = h('input', { value: c.name, 'aria-label': 'Crate name' }) as HTMLInputElement;
       const commit = () => {
@@ -252,7 +253,7 @@ export class LibraryPanel {
     } else {
       el.append(h('span', { class: 'nm' }, c.name));
       if (c.kind === 'crate') el.append(h('span', { class: 'ct', title: c.wanted?.length ? `${c.wanted.length} still to add` : undefined }, c.wanted?.length ? `${c.trackIds.length}/${c.trackIds.length + c.wanted.length}` : String(c.trackIds.length)));
-      const more = h('button', { class: 'more', 'aria-label': `${c.name} options` }, '⋯');
+      const more = h('button', { class: 'more', 'aria-label': `${c.name} options` }, icon('more', 14));
       more.addEventListener('click', (e) => {
         e.stopPropagation();
         this.crateMenu(c, e as MouseEvent);
@@ -509,7 +510,7 @@ export class LibraryPanel {
         loads.append(b);
       }
       const info = trackInfo(t);
-      const star = h('button', { class: `fav${t.fav ? ' on' : ''}`, type: 'button', title: t.fav ? 'Take the star off' : 'Star it', 'aria-label': t.fav ? `Unstar ${t.meta.title}` : `Star ${t.meta.title}`, 'aria-pressed': String(!!t.fav) }, t.fav ? '★' : '☆');
+      const star = h('button', { class: `fav${t.fav ? ' on' : ''}`, type: 'button', title: t.fav ? 'Take the star off' : 'Star it', 'aria-label': t.fav ? `Unstar ${t.meta.title}` : `Star ${t.meta.title}`, 'aria-pressed': String(!!t.fav) }, icon(t.fav ? 'starOn' : 'star', 14));
       star.addEventListener('click', (e) => {
         e.stopPropagation();
         this.app.library.setFavorite(t, !t.fav);

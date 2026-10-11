@@ -114,7 +114,9 @@ export function defaultLook(id = 'look_1', name = 'My look'): Look {
     tattoos: [],
     piercings: [],
   };
-  return wearSet(base, OUTFIT_SETS[0]);
+  // a DJ's headphones from the start, worn on one ear
+  const l = wearSet(base, OUTFIT_SETS[0]);
+  return { ...l, items: { ...l.items, headphones: l.items.headphones ?? 'hp_dj' } };
 }
 
 /* ------------------------------------------------------------------ */

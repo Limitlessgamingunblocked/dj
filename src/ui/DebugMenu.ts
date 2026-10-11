@@ -9,6 +9,7 @@ import type { BeatClock } from '../core/BeatClock';
 import { MAX_TIER } from '../core/models';
 import type { Career } from '../game/Career';
 import { h, setText } from './dom';
+import { icon } from './icons';
 
 export interface DebugHost {
   clock: BeatClock;
@@ -88,7 +89,7 @@ export class DebugMenu {
     erase.addEventListener('click', () => {
       if (confirm('Erase the career (name, progress, looks, boards, recordings list)? Settings and the music library stay.')) host.career.erase();
     });
-    const close = h('button', { class: 'btn icon', type: 'button', 'aria-label': 'Close the debug menu', onclick: () => this.toggle(false) }, '×');
+    const close = h('button', { class: 'btn icon', type: 'button', 'aria-label': 'Close the debug menu', onclick: () => this.toggle(false) }, icon('close', 16));
 
     this.el = h(
       'aside',

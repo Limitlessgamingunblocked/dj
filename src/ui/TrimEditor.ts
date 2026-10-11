@@ -16,6 +16,7 @@ import { downloadBlob, type SetLibrary } from '../media/sets';
 import type { Take } from '../media/Studio';
 import type { ResolutionId } from '../media/MediaWriter';
 import { h, setClass, setText } from './dom';
+import { icon } from './icons';
 import { openModal, type ModalHandle } from './modal';
 import { toast } from './toast';
 
@@ -310,8 +311,8 @@ export async function openTrimEditor(rec: Recording, hooks: TrimHooks, at?: numb
   snapBox.checked = snap;
   snapBox.disabled = !rec.bars.length;
   snapBox.addEventListener('change', () => (snap = snapBox.checked));
-  const zoomIn = h('button', { class: 'btn', type: 'button', title: 'Zoom in' }, '＋');
-  const zoomOut = h('button', { class: 'btn', type: 'button', title: 'Zoom out' }, '－');
+  const zoomIn = h('button', { class: 'btn', type: 'button', title: 'Zoom in', 'aria-label': 'Zoom in' }, icon('plus', 16));
+  const zoomOut = h('button', { class: 'btn', type: 'button', title: 'Zoom out', 'aria-label': 'Zoom out' }, icon('minus', 16));
   const fit = h('button', { class: 'btn', type: 'button', title: 'Show the whole set' }, 'Whole set');
   zoomIn.addEventListener('click', () => zoom(0.6));
   zoomOut.addEventListener('click', () => zoom(1.6));

@@ -30,7 +30,7 @@
   gap: 8px;
   font-family: var(--font-label);
   font-weight: 700;
-  font-size: 18px;
+  font-size: var(--text-xl);
   letter-spacing: 0.2em;
   white-space: nowrap;
   padding-right: 4px;
@@ -46,7 +46,7 @@
 }
 
 .brand small {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.18em;
   color: var(--dim);
   font-weight: 600;
@@ -76,7 +76,25 @@
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
-  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+/* a press you can feel */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* line icons sit in buttons like text does */
+.btn .ic,
+.hw .ic,
+.tab .ic {
+  display: block;
+  flex: none;
 }
 
 .btn:hover {
@@ -195,12 +213,12 @@
 }
 
 .master-readout .mono {
-  font-size: 15px;
+  font-size: var(--text-m);
   font-weight: 700;
 }
 
 .master-readout .label {
-  font-size: 10px;
+  font-size: var(--text-2xs);
 }
 
 /* board and venue: a small caption, the name, a chevron; not shouted */
@@ -209,14 +227,14 @@
   text-transform: none;
   letter-spacing: 0.01em;
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   padding: 0 10px;
 }
 
 .btn.picker .picker-k {
   font-family: var(--font-label);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -224,12 +242,12 @@
 }
 
 .btn .chev {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--dim);
 }
 
 .more-btn {
-  font-size: 18px;
+  font-size: var(--text-xl);
   letter-spacing: 0;
 }
 
@@ -260,7 +278,7 @@ body:not(.gig-on) .topbar .hype-meter {
   background: #2a2208;
   color: #ffe9a3;
   border-bottom: 1px solid #4d3f10;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* Auto DJ is running: what it's doing, click to stop */
@@ -270,7 +288,7 @@ body:not(.gig-on) .topbar .hype-meter {
   border-color: color-mix(in srgb, var(--ok) 55%, var(--line-2));
   color: var(--ok);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 
@@ -299,7 +317,7 @@ body:not(.gig-on) .topbar .hype-meter {
 .topbar .dj-name {
   font-family: var(--font-label, 'Barlow Condensed', sans-serif);
   font-weight: 800;
-  font-size: 15px;
+  font-size: var(--text-m);
   letter-spacing: 0.08em;
   padding: 2px 4px 2px 12px;
   background: linear-gradient(180deg, #fff 0%, #c9ced6 45%, #6f7a8c 52%, #e8edf4 64%, #8c96a6 100%);

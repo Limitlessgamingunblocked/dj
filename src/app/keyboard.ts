@@ -62,6 +62,7 @@ export const KEY_DEFS: KeyDef[] = [
   { key: 'Shift+KeyV', id: 'cam.next', label: 'Camera: next angle' },
   { key: 'Quote', id: 'cam.auto', label: 'Camera: auto director on / off' },
   { key: 'Shift+Quote', id: 'cam.photo', label: 'Camera: take a photo' },
+  { key: 'Shift+KeyP', id: 'cam.photomode', label: 'Camera: photo mode (focus, depth of field, filters)' },
   { key: 'Shift+KeyR', id: 'rec.toggle', label: 'Record: start / stop' },
   { key: 'Shift+KeyS', id: 'replay.save', label: 'Replay buffer: SAVE THAT MIX' },
   { key: 'Shift+KeyC', id: 'replay.clip', label: 'Replay buffer: CLIP IT (vertical)' },

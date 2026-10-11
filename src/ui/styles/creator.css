@@ -46,7 +46,7 @@
   margin: 2px 0 0;
   font-family: var(--font-label);
   font-weight: 900;
-  font-size: 24px;
+  font-size: var(--text-2xl);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -55,7 +55,7 @@
   font-family: var(--font-label);
   text-transform: uppercase;
   letter-spacing: 0.28em;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: #ffb547;
 }
 
@@ -73,7 +73,7 @@
   background: transparent;
   color: var(--muted);
   font-family: var(--font-label);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -108,7 +108,7 @@
   flex: 1;
   margin: 0;
   font-family: var(--font-label);
-  font-size: 18px;
+  font-size: var(--text-xl);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -123,7 +123,7 @@
 .creator-sec h4 {
   margin: 0;
   font-family: var(--font-label);
-  font-size: 12px;
+  font-size: var(--text-s);
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -135,7 +135,7 @@
   grid-template-columns: 9.5em 1fr 3em;
   align-items: center;
   gap: var(--space-2);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .creator-range input {
@@ -145,7 +145,7 @@
 
 .creator-range output {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
   text-align: right;
 }
@@ -166,7 +166,7 @@
   border: 1px solid var(--line-2);
   background: var(--panel-2);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-s);
   line-height: 1.2;
   touch-action: manipulation;
 }
@@ -187,7 +187,7 @@
 }
 
 .creator-lock {
-  font-size: 10px;
+  font-size: var(--text-2xs);
 }
 
 .creator-sw {
@@ -203,7 +203,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .creator-colour > span {
@@ -241,7 +241,7 @@
 
 .creator-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: var(--muted);
 }
 
@@ -249,7 +249,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .creator-row {
@@ -268,7 +268,7 @@
   border: 1px solid var(--line-2);
   background: #08090c;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .creator-tattoo {
@@ -301,13 +301,13 @@
 .creator-set b,
 .creator-item b {
   font-family: var(--font-label);
-  font-size: 14px;
+  font-size: var(--text-m);
   letter-spacing: 0.04em;
 }
 
 .creator-set span,
 .creator-item span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -372,7 +372,7 @@
 .creator-status {
   margin: 0;
   min-height: 1.1em;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: #ffb547;
 }
 

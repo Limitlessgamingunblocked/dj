@@ -37,7 +37,7 @@
   font-family: var(--font-label, 'Barlow Condensed', sans-serif);
   text-transform: uppercase;
   letter-spacing: 0.28em;
-  font-size: 12px;
+  font-size: var(--text-s);
   color: #ffb547;
 }
 
@@ -99,7 +99,7 @@
 .naming-tag {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--text-m);
   padding: 8px 10px;
   background: #050506;
   color: #fff;
@@ -114,7 +114,7 @@
   align-items: center;
   font-family: var(--font-label, 'Barlow Condensed', sans-serif);
   letter-spacing: 0.12em;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -141,7 +141,7 @@
 }
 
 .naming-previews figcaption {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
   text-align: center;
   letter-spacing: 0.08em;
@@ -153,7 +153,7 @@
   min-height: 1.2em;
   color: #ffb547;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--text-m);
 }
 
 .naming-actions {

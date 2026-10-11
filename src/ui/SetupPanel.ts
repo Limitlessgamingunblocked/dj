@@ -16,6 +16,7 @@ import { beatLabel } from '../audio/Deck';
 import { LENS_LOOKS } from '../three/looks';
 import type { Quality, Stage } from '../three/Stage';
 import { clear, h } from './dom';
+import { icon } from './icons';
 import { KeysEditor } from './keysTable';
 import { openModal } from './modal';
 import { soundCardControls } from './SoundCardControls';
@@ -556,7 +557,7 @@ export class SetupPanel {
     for (const a of this.stage.rig.anchors()) {
       const go = h('button', { class: 'btn small', type: 'button' }, `★ ${a.name}`);
       go.addEventListener('click', () => this.stage.rig.goToAnchor(a));
-      const del = h('button', { class: 'btn small ghost', type: 'button', 'aria-label': `Delete ${a.name}` }, '×');
+      const del = h('button', { class: 'btn small ghost', type: 'button', 'aria-label': `Delete ${a.name}` }, icon('close', 14));
       del.addEventListener('click', () => {
         this.stage.rig.deleteAnchor(a.name);
         this.renderAnchors();

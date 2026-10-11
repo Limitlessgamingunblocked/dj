@@ -9,6 +9,7 @@ import { mmss } from '../media/Compositor';
 import { formatBytes, storageEstimate } from '../media/MediaStore';
 import { cleanupPlan, sortSets, type SetLibrary, type SortKey } from '../media/sets';
 import { h, setText } from './dom';
+import { icon } from './icons';
 import { openModal } from './modal';
 import { toast } from './toast';
 
@@ -108,7 +109,7 @@ export class MySetsPanel {
         this.thumbs.set(r.id, u);
         img.src = u;
       })();
-    const fav = h('button', { class: 'btn small ghost ms-fav', type: 'button', title: r.favorite ? 'Favourite: never cleared' : 'Favourite', 'aria-label': 'Favourite', 'aria-pressed': String(r.favorite) }, r.favorite ? '★' : '☆');
+    const fav = h('button', { class: 'btn small ghost ms-fav', type: 'button', title: r.favorite ? 'Favourite: never cleared' : 'Favourite', 'aria-label': 'Favourite', 'aria-pressed': String(r.favorite) }, icon(r.favorite ? 'starOn' : 'star', 14));
     fav.addEventListener('click', (e) => {
       e.stopPropagation();
       this.o.sets.toggleFavorite(r.id);

@@ -111,6 +111,10 @@ export class CameraRig {
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
   private booth = new THREE.Vector3(0, 1.45, 0.3);
+  /** the title screen's slow glide through the room (the drone's path, with a steady lens) */
+  private flyby: { curve: THREE.CatmullRomCurve3; length: number; u: number; t: number } | null = null;
+  /** walking into a venue: a path from the back of the room over the crowd to where the camera's going */
+  private arrival: { curve: THREE.CatmullRomCurve3; end: Pose; look: THREE.Vector3; t: number; T: number } | null = null;
   private ahead = new THREE.Vector3();
   private perfOffset: THREE.Vector3 | null = null;
   private perfOffsetAt = 0;
@@ -289,6 +293,7 @@ export class CameraRig {
   }
 
   goTo(v: ViewId, instant = false): void {
+    this.skipArrival();
     if (v === 'drone') {
       this.startDrone();
       return;
@@ -448,6 +453,95 @@ export class CameraRig {
   }
 
   /* ---------------------------------------------------------------- */
+  /* arriving                                                           */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * The walk in after a venue switch: from the back of the room (the far end
+   * of the venue's drone path, at head height), up over the crowd, to `end`.
+   * False if it can't or shouldn't (reduced motion, the drone up).
+   */
+  arrive(end: Pose, seconds = 6): boolean {
+    const v = this.venueViews;
+    if (!v || reducedMotion() || this.drone) return false;
+    const pts = v.drone.length ? v.drone : [v.wide.pos];
+    let far = pts[0];
+    for (const p of pts) if (p.distanceToSquared(this.booth) > far.distanceToSquared(this.booth)) far = p;
+    const p0 = far.clone();
+    p0.y = v.crowd.pos.y + 0.15;
+    const mid = v.crowd.pos.clone().lerp(p0, 0.35);
+    mid.y = Math.max(mid.y, v.crowd.pos.y) + 0.9;
+    this.arrival = { curve: new THREE.CatmullRomCurve3([p0, mid, end.pos.clone()], false, 'centripetal'), end: { pos: end.pos.clone(), target: end.target.clone() }, look: v.crowd.target.clone(), t: 0, T: seconds };
+    this.goalPos = null;
+    this.goalTarget = null;
+    this.focused = false;
+    this.controls.enabled = false;
+    this.camera.position.copy(p0);
+    this.controls.target.copy(this.arrival.look);
+    return true;
+  }
+
+  /** the title screen's glide: on, or off (back to normal control) */
+  setFlyby(on: boolean): void {
+    if (!on) {
+      if (this.flyby) this.controls.enabled = true;
+      this.flyby = null;
+      return;
+    }
+    const v = this.venueViews;
+    const pts = v?.drone.length ? v.drone : [new THREE.Vector3(0, 3, -6), new THREE.Vector3(5, 2.5, -3), new THREE.Vector3(0, 2, -9), new THREE.Vector3(-5, 2.5, -3)];
+    const curve = new THREE.CatmullRomCurve3(pts.map((p) => p.clone()), true, 'centripetal', 0.5);
+    this.flyby = { curve, length: curve.getLength(), u: 0, t: 0 };
+    this.stopDrone();
+    this.goalPos = null;
+    this.goalTarget = null;
+    this.focused = false;
+    this.controls.enabled = false;
+  }
+
+  private updateFlyby(dt: number): void {
+    const fb = this.flyby!;
+    fb.t += dt;
+    fb.u = (fb.u + (1.1 * dt) / fb.length) % 1;
+    const p = fb.curve.getPointAt(fb.u, this.tmpA);
+    this.camera.position.copy(p);
+    // looking a little ahead along the path, always back towards the booth
+    const ahead = fb.curve.getPointAt((fb.u + 4 / fb.length) % 1, this.tmpB).lerp(this.booth, 0.6);
+    this.controls.target.copy(ahead);
+    this.camera.lookAt(ahead);
+  }
+
+  get arriving(): boolean {
+    return !!this.arrival;
+  }
+
+  /** straight to the end of the walk in (any input skips it) */
+  skipArrival(): void {
+    const a = this.arrival;
+    if (!a) return;
+    this.arrival = null;
+    this.camera.position.copy(a.end.pos);
+    this.controls.target.copy(a.end.target);
+    this.controls.enabled = true;
+    this.base = { pos: a.end.pos.clone(), target: a.end.target.clone() };
+  }
+
+  private updateArrival(dt: number): void {
+    const a = this.arrival!;
+    a.t += dt;
+    const x = Math.min(1, a.t / a.T);
+    // ease in and out
+    const u = x * x * x * (x * (x * 6 - 15) + 10);
+    a.curve.getPoint(u, this.tmpA);
+    this.camera.position.copy(this.tmpA);
+    // eyes on the booth, settling onto the shot's own target at the end
+    this.tmpB.copy(a.look).lerp(this.booth, THREE.MathUtils.smoothstep(x, 0.1, 0.5)).lerp(a.end.target, THREE.MathUtils.smoothstep(x, 0.6, 1));
+    this.controls.target.copy(this.tmpB);
+    this.camera.lookAt(this.tmpB);
+    if (x >= 1) this.skipArrival();
+  }
+
+  /* ---------------------------------------------------------------- */
   /* FPV drone                                                          */
   /* ---------------------------------------------------------------- */
 
@@ -538,6 +632,20 @@ export class CameraRig {
     }
     this.droneFx.amount += ((this.drone ? 1 : 0) - this.droneFx.amount) * Math.min(1, dt * 4);
     if (this.move.yaw || this.move.pitch || this.move.zoom) this.applyMove(dt);
+    if (this.flyby) {
+      this.camera.position.sub(this.shakeOffset);
+      this.shakeOffset.set(0, 0, 0);
+      this.updateFlyby(dt);
+      this.inUpdate = false;
+      return;
+    }
+    if (this.arrival) {
+      this.camera.position.sub(this.shakeOffset);
+      this.shakeOffset.set(0, 0, 0);
+      this.updateArrival(dt);
+      this.inUpdate = false;
+      return;
+    }
     if (this.drone) {
       this.camera.position.sub(this.shakeOffset);
       this.shakeOffset.set(0, 0, 0);

@@ -110,20 +110,6 @@ function lathe(pts: [number, number][], depth: number, phiStart = 0, phiLength =
   return g;
 }
 
-/** a relaxed hand hanging from the wrist: a palm, four slightly curled fingers and a thumb (k: 1 left, -1 right) */
-function handGeometry(armR: number, k: number): THREE.BufferGeometry {
-  const w = armR * 1.55;
-  const parts: THREE.BufferGeometry[] = [new THREE.CapsuleGeometry(armR * 0.62, 0.035, 4, 12).scale(w / (armR * 1.24), 1, 0.55).translate(0, -0.035, 0)];
-  for (let i = 0; i < 4; i++) {
-    const len = [0.042, 0.05, 0.048, 0.038][i];
-    const f = new THREE.CapsuleGeometry(0.0072, len, 3, 8).translate(0, -len / 2, 0);
-    f.rotateX(0.35);
-    parts.push(f.translate((i - 1.5) * (w / 4) * 0.95, -0.068, 0.004));
-  }
-  parts.push(new THREE.CapsuleGeometry(0.0085, 0.032, 3, 8).translate(0, -0.016, 0).rotateZ(k * 0.55).rotateY(k * -0.5).translate(k * w * 0.45, -0.022, 0.01));
-  return mergeGeometries(parts.map((g) => g.toNonIndexed()))!;
-}
-
 /**
  * Two-bone reach for a limb hanging along −Y from its joint, bending at the
  * elbow about its own X axis (towards +Z): the joint's rotation and the elbow
@@ -165,6 +151,15 @@ interface Reach {
 /** how long a hand stays on a control after it last moved */
 const REACH_HOLD = 0.75;
 
+/** a hand's fingers: four with a knuckle and a middle joint each, and a thumb */
+interface HandRig {
+  fingers: { knuckle: THREE.Object3D; mid: THREE.Object3D }[];
+  thumb: THREE.Object3D;
+  thumbRest: THREE.Euler;
+  /** 0 open, ~0.35 relaxed, ~0.9 a grip, 1.5 a fist */
+  curl: number;
+}
+
 export class Avatar {
   readonly object = new THREE.Group();
   readonly bones = {} as Record<BoneName, THREE.Object3D>;
@@ -183,7 +178,8 @@ export class Avatar {
   private owned: { dispose(): void }[] = [];
   private skinMats: THREE.MeshPhysicalMaterial[] = [];
   private glowMats: { mat: THREE.MeshStandardMaterial; k: number }[] = [];
-  private springs: { obj: THREE.Object3D; ox: number; oz: number; vx: number; vz: number; k: number }[] = [];
+  /** things that swing: hair (moved by the head), clothes (moved by the body) */
+  private springs: { obj: THREE.Object3D; ox: number; oz: number; vx: number; vz: number; k: number; body?: boolean; rest?: THREE.Euler }[] = [];
   private lids: THREE.Object3D[] = [];
   private headphones: THREE.Object3D | null = null;
   private headphonesHome: { parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler } | null = null;
@@ -195,6 +191,15 @@ export class Avatar {
   private blinkAt = 2;
   private djName: string;
   private reaching: { l: Reach | null; r: Reach | null } = { l: null, r: null };
+  /** the fingers, so they can curl round a control or into a fist */
+  private hands: { l: HandRig | null; r: HandRig | null } = { l: null, r: null };
+  /** the parts of the face that move: brows, lower lip, eyes */
+  private faceRig: { brows: THREE.Object3D[]; lower: THREE.Object3D | null; lowerY: number; eyes: THREE.Object3D[] } = { brows: [], lower: null, lowerY: 0, eyes: [] };
+  /** listening in the headphones (a channel cued): the cup to the ear */
+  cueing = false;
+  private cueW = 0;
+  private pressW = 0;
+  private lastChest = new THREE.Vector3();
   private ikQ = new THREE.Quaternion();
   private ikT = new THREE.Vector3();
 
@@ -230,6 +235,8 @@ export class Avatar {
     this.glowMats = [];
     this.springs = [];
     this.lids = [];
+    this.hands = { l: null, r: null };
+    this.faceRig = { brows: [], lower: null, lowerY: 0, eyes: [] };
     this.headphones = null;
     this.headphonesHome = null;
     this.prop = null;
@@ -302,7 +309,7 @@ export class Avatar {
       this.mesh(new THREE.SphereGeometry(d.armR * 1.25, 16, 12), this.skin(`upper_arm_${s}`), b[`shoulder_${s}`]);
       this.mesh(limb(d.armR * 1.1, d.upperArm, d.armR * 0.95), this.skin(`upper_arm_${s}`), b[`upper_arm_${s}`]);
       this.mesh(limb(d.armR * 0.92, d.foreArm, d.armR * 0.7), this.skin(`forearm_${s}`), b[`forearm_${s}`]);
-      this.mesh(handGeometry(d.armR, k), this.skin(`hand_${s}`), b[`hand_${s}`]);
+      this.buildHand(s, k);
       this.mesh(limb(d.legR * 1.15, d.thigh, d.legR * 0.88), this.skin('thigh'), b[`thigh_${s}`]);
       this.mesh(limb(d.legR * 0.86, d.shin, d.legR * 0.6), this.skin(`calf_${s}`), b[`shin_${s}`]);
     }
@@ -316,6 +323,55 @@ export class Avatar {
   /* ---------------------------------------------------------------- */
   /* head and face                                                     */
   /* ---------------------------------------------------------------- */
+
+  /** a hand: the palm, four fingers in two segments on joints, a thumb (k: 1 left, -1 right) */
+  private buildHand(side: 'l' | 'r', k: number): void {
+    const d = this.d;
+    const hb = this.bones[`hand_${side}`];
+    const mat = this.skin(`hand_${side}`);
+    const w = d.armR * 1.55;
+    this.mesh(new THREE.CapsuleGeometry(d.armR * 0.62, 0.035, 4, 12).scale(w / (d.armR * 1.24), 1, 0.55).translate(0, -0.035, 0), mat, hb);
+    // knuckles: a little ridge across the back of the hand
+    this.mesh(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, -0.006), mat, hb);
+    const fingers: HandRig['fingers'] = [];
+    for (let i = 0; i < 4; i++) {
+      const len = [0.044, 0.052, 0.05, 0.04][i];
+      const r0 = [0.0074, 0.0076, 0.0073, 0.0066][i];
+      const knuckle = new THREE.Object3D();
+      knuckle.position.set((i - 1.5) * (w / 4) * 0.95, -0.066, 0.004);
+      hb.add(knuckle);
+      const l1 = len * 0.55;
+      const l2 = len * 0.48;
+      this.mesh(new THREE.CapsuleGeometry(r0, l1, 3, 8).translate(0, -l1 / 2, 0), mat, knuckle);
+      const mid = new THREE.Object3D();
+      mid.position.set(0, -l1 - 0.001, 0);
+      knuckle.add(mid);
+      this.mesh(new THREE.CapsuleGeometry(r0 * 0.9, l2, 3, 8).translate(0, -l2 / 2, 0), mat, mid);
+      // the nail
+      this.mesh(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), this.std(new THREE.Color(0xf0d8cc), { roughness: 0.3 }), mid, V(0, -l2 * 0.72, -r0 * 0.85));
+      fingers.push({ knuckle, mid });
+    }
+    const thumb = new THREE.Object3D();
+    thumb.position.set(k * w * 0.45, -0.022, 0.01);
+    thumb.rotation.set(0, k * -0.5, k * 0.55);
+    hb.add(thumb);
+    this.mesh(new THREE.CapsuleGeometry(0.0085, 0.034, 3, 8).translate(0, -0.017, 0), mat, thumb);
+    this.hands[side] = { fingers, thumb, thumbRest: thumb.rotation.clone(), curl: 0.35 };
+  }
+
+  /** curl the fingers towards `want` (and ease there) */
+  private curlHand(side: 'l' | 'r', want: number, dt: number): void {
+    const h = this.hands[side];
+    if (!h) return;
+    h.curl += (want - h.curl) * Math.min(1, dt * 12);
+    h.fingers.forEach((f, i) => {
+      // the little finger curls a touch more, the index a touch less
+      const c = h.curl * (0.9 + i * 0.06);
+      f.knuckle.rotation.x = c * 0.95;
+      f.mid.rotation.x = c * 1.15;
+    });
+    h.thumb.rotation.set(h.thumbRest.x + h.curl * 0.35, h.thumbRest.y, h.thumbRest.z * (1 - Math.min(1, h.curl) * 0.4));
+  }
 
   /** the face sliders with the face-shape preset underneath */
   private face(id: string): number {
@@ -410,6 +466,10 @@ export class Avatar {
     upper.scale.set(1, 1 + f('lip_shape') * 0.2, 0.9);
     const lower = this.mesh(limb(0.0058 * lf, 0.03 * lw).rotateZ(Math.PI / 2).translate(-0.015 * lw, 0, 0), lipMat, head, mouth.clone().add(V(0, -0.006, -0.001)));
     lower.scale.set(1, 1, 0.9);
+    this.faceRig.lower = lower;
+    this.faceRig.lowerY = lower.position.y;
+    // the mouth's inside, seen when it opens
+    this.mesh(new THREE.SphereGeometry(0.012 * lw, 12, 8).scale(1.4, 0.7, 0.5), this.std(0x2a0d0d, { roughness: 0.9 }), head, mouth.clone().add(V(0, -0.002, -0.006)));
 
     // ears
     const es = 1 + f('ear_size') * 0.25;
@@ -436,6 +496,7 @@ export class Avatar {
       }
       const eye = this.mesh(new THREE.SphereGeometry(er, 24, 16), eyeMat, head, pos);
       eye.rotation.y = s * 0.05;
+      this.faceRig.eyes.push(eye);
       const tilt = slider(l, 'eye_tilt') * 0.18 * s;
       // lids: a skin shell over the top of the eye (rounder eyes show more), a smaller one under
       const lidPivot = new THREE.Object3D();
@@ -484,7 +545,11 @@ export class Avatar {
       for (const seg of segs) {
         if (seg.length < 2) continue;
         const curve = new THREE.CatmullRomCurve3(seg.map(([bx, by]) => at(s * (0.14 + bx * 0.36), 0.27 + by * 0.12 + bx * slider(l, 'eye_tilt') * 0.03, 0.88, 0.003)));
-        this.mesh(new THREE.TubeGeometry(curve, 12, thick, 6, false), browMat, head);
+        // on a pivot so the brows can lift
+        const pivot = new THREE.Object3D();
+        head.add(pivot);
+        this.mesh(new THREE.TubeGeometry(curve, 12, thick, 6, false), browMat, pivot);
+        this.faceRig.brows.push(pivot);
       }
     }
 
@@ -1040,7 +1105,18 @@ export class Avatar {
         const print = this.mesh(new THREE.PlaneGeometry(0.17, 0.17), this.keep(new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.9 })), b.spine, V(0, 0.18 * d.H, d.chestR * d.depth * 1.04 + 0.02));
         print.rotation.x = -0.12;
       }
-      if (top === 'hoodie' && !l.items.outer) this.mesh(new THREE.BoxGeometry(0.2, 0.08, 0.02), this.fabric('top', 2), b.hips, V(0, 0.07, d.waistR * d.depth + 0.03));
+      if (top === 'hoodie' && !l.items.outer) {
+        this.mesh(new THREE.BoxGeometry(0.2, 0.08, 0.02), this.fabric('top', 2), b.hips, V(0, 0.07, d.waistR * d.depth + 0.03));
+        // the drawstrings, swinging
+        for (const sx of [-1, 1]) {
+          const knot = new THREE.Object3D();
+          knot.position.set(sx * 0.032, 0.205 * d.H, d.chestR * d.depth * 0.82 + 0.014);
+          b.chest.add(knot);
+          this.mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 0.13, 5).translate(0, -0.065, 0), this.fabric('top', 2), knot);
+          this.mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.014, 6).translate(0, -0.135, 0), this.std(0xd8d8d8, { roughness: 0.4, metalness: 0.6 }), knot);
+          this.springs.push({ obj: knot, ox: 0, oz: 0, vx: 0, vz: 0, k: 1.4, body: true });
+        }
+      }
     }
     const outer = item('outer');
     if (outer) {
@@ -1067,7 +1143,12 @@ export class Avatar {
       const skirt = bottom.startsWith('skirt');
       if (skirt) {
         // a short flared skirt from the waist to mid-thigh, legs bare beneath
-        this.mesh(lathe([[d.hipsR * 1.32 + 0.03, -0.3], [d.hipsR * 1.12 + 0.012, -0.12], [d.hipsR + 0.012, -0.03], [(d.hipsR + d.waistR) / 2 + 0.008, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.1), m, b.hips);
+        // on a spring at the waist: it swings and flips with the hips
+        const sk = new THREE.Object3D();
+        sk.position.set(0, 0.1, 0);
+        b.hips.add(sk);
+        this.mesh(lathe([[d.hipsR * 1.32 + 0.03, -0.3], [d.hipsR * 1.12 + 0.012, -0.12], [d.hipsR + 0.012, -0.03], [(d.hipsR + d.waistR) / 2 + 0.008, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.1).translate(0, -0.1, 0), m, sk);
+        this.springs.push({ obj: sk, ox: 0, oz: 0, vx: 0, vz: 0, k: 0.25, body: true });
         const band = this.mesh(new THREE.TorusGeometry(d.waistR + 0.008, 0.006, 6, 28), this.fabric('bottom', 2), b.hips, V(0, 0.115, 0));
         band.rotation.x = Math.PI / 2;
         band.scale.set(1, d.depth * 1.1, 1);
@@ -1218,9 +1299,17 @@ export class Avatar {
         g.rotation.x = Math.PI / 2 + 0.25;
         g.scale.setScalar(0.92);
         b.neck.add(g);
+      } else if (wear === 'one_ear') {
+        // the DJ's way: the left cup on the ear, the band across the crown, the right cup pushed up off the other ear
+        const pivot = new THREE.Group();
+        pivot.position.copy(headTop).add(V(r * 1.12, -0.005, -r * 0.02));
+        b.head.add(pivot);
+        g.position.set(-r * 1.12, 0, 0);
+        pivot.add(g);
+        pivot.rotation.set(0, -0.32, 0.46);
+        g.userData.oneEar = true;
       } else {
         g.position.copy(headTop).add(V(0, r * 0.05, -r * 0.02));
-        if (wear === 'one_ear') g.rotation.z = 0.35;
         b.head.add(g);
       }
       this.headphones = g;
@@ -1237,7 +1326,12 @@ export class Avatar {
         const c = this.mesh(new THREE.TorusGeometry(0.075, 0.004, 4, 28), this.fabric('neck'), b.spine, V(0, 0.3 * d.H, 0.04));
         c.rotation.x = Math.PI / 2 + 0.7;
         c.scale.set(1, 1.8, 1);
-        this.mesh(new THREE.BoxGeometry(0.05, 0.07, 0.004), this.fabric('neck', 2), b.spine, V(0, 0.2 * d.H, d.chestR * d.depth + 0.03));
+        // the pass swings on its clip
+        const clip = new THREE.Object3D();
+        clip.position.set(0, 0.2 * d.H + 0.04, d.chestR * d.depth + 0.03);
+        b.spine.add(clip);
+        this.mesh(new THREE.BoxGeometry(0.05, 0.07, 0.004).translate(0, -0.04, 0), this.fabric('neck', 2), clip);
+        this.springs.push({ obj: clip, ox: 0, oz: 0, vx: 0, vz: 0, k: 1.1, body: true });
       } else if (neck === 'bandana') {
         this.mesh(new THREE.ConeGeometry(0.085, 0.07, 3).rotateX(Math.PI), this.fabric('neck'), b.spine, V(0, 0.34 * d.H, 0.045));
       }
@@ -1264,8 +1358,18 @@ export class Avatar {
       strap.rotation.set(Math.PI / 2, 0.75, 0);
       strap.scale.set(1, 0.62, 1);
     } else if (bag === 'towel') {
-      const tw = this.mesh(new THREE.BoxGeometry(0.11, 0.012, 0.34), this.fabric('bag'), b.shoulder_l, V(-0.02, 0.05, 0));
+      // over the left shoulder, the ends hanging front and back, swinging as you move
+      const tm = this.fabric('bag');
+      const tw = this.mesh(new THREE.BoxGeometry(0.11, 0.012, 0.14), tm, b.shoulder_l, V(-0.02, 0.05, 0));
       tw.rotation.z = 0.25;
+      for (const zs of [1, -1]) {
+        const flap = new THREE.Object3D();
+        flap.position.set(-0.02, 0.045, zs * 0.07);
+        b.shoulder_l.add(flap);
+        this.mesh(new THREE.BoxGeometry(0.11, 0.24, 0.01).translate(0, -0.12, zs * 0.012), tm, flap);
+        flap.rotation.x = zs * -0.12;
+        this.springs.push({ obj: flap, ox: 0, oz: 0, vx: 0, vz: 0, k: 0.8, body: true, rest: flap.rotation.clone() });
+      }
     }
 
     // piercings
@@ -1512,8 +1616,68 @@ export class Avatar {
       this.habitAt = bar;
     } else if (this.prop) this.holdProp(null);
 
-    if (dj) this.applyReach(dt);
+    if (dj) {
+      this.cueGesture(beat, dt);
+      this.applyReach(dt);
+    }
+
+    // fingers: on the decks, round a control, open with hands up, a fist for the pump
+    const move = dropping ? option(l, 'drop_move') : '';
+    const gripping = (side: 'l' | 'r') => (this.reaching[side]?.w ?? 0) > 0.3;
+    for (const side of ['l', 'r'] as const) {
+      let want = dj ? 0.55 : 0.35;
+      if (move === 'hands_up' || move === 'jump') want = 0.12;
+      if (move === 'fist_pump' && side === 'r') want = 1.5;
+      if (move === 'point' && side === 'r') want = 1.25;
+      if (habitOn && side === 'r' && habit === 'sip') want = 1.1;
+      if (gripping(side)) want = 0.88;
+      this.curlHand(side, want, dt);
+    }
+
+    // the face: brows up through the build and on the drop, shouting along on the drop, eyes on the decks and up to the room
+    const fr = this.faceRig;
+    const drop = Math.max(0, 1 - this.dropT / (beatLen * 8));
+    const lift = Math.max(s.build * 0.7, drop);
+    for (const br of fr.brows) br.position.y += (lift * 0.0045 - br.position.y) * Math.min(1, dt * 8);
+    if (fr.lower) {
+      const open = drop * (0.55 + 0.45 * hit) + s.peak * 0.25 * hit;
+      fr.lower.position.y = fr.lowerY - open * 0.009;
+    }
+    const lookUp = dropping || s.peak > 0.5 || (bar % 4 === 3 && ph < 0.75);
+    const gaze = dj ? (lookUp ? -0.06 : 0.3) : 0;
+    for (const e of fr.eyes) e.rotation.x += (gaze - e.rotation.x) * Math.min(1, dt * 6);
     this.settle(dt);
+  }
+
+  /**
+   * Cueing in the headphones: worn on one ear, the head tips to that side and
+   * every few bars the hand comes up to press the cup in; worn on both, a
+   * hand on the cup now and then.
+   */
+  private cueGesture(beat: number, dt: number): void {
+    const b = this.bones;
+    const g = this.headphones;
+    if (!g || g.parent === b.hand_r || option(this.look, 'phones_wear') === 'neck') return;
+    const on = this.cueing ? 1 : 0;
+    this.cueW += (on - this.cueW) * Math.min(1, dt * 3);
+    if (this.cueW < 0.01) return;
+    // the head over to the cup on the left ear, that shoulder up to meet it
+    b.neck.rotation.z -= 0.2 * this.cueW;
+    b.shoulder_l.position.y += 0.014 * this.cueW;
+    // two beats in every eight: the left hand presses the cup in
+    const press = this.cueing && ((beat % 8) + 8) % 8 < 2 && (this.reaching.l?.w ?? 0) < 0.2;
+    this.pressW += ((press ? 1 : 0) - this.pressW) * Math.min(1, dt * 7);
+    if (this.pressW < 0.01) return;
+    this.object.updateMatrixWorld(true);
+    const r = this.d.headR;
+    const ear = b.head.localToWorld(this.ikT.set(r * 1.25, r * 0.95, -r * 0.05));
+    const local = b.shoulder_l.worldToLocal(ear);
+    const len = local.length();
+    if (len > 1e-4) local.multiplyScalar(Math.max(0.05, len - 0.06) / len);
+    const { q, bend } = twoBoneIK(local, this.d.upperArm, this.d.foreArm, new THREE.Vector3(1, -0.2, -0.3), this.ikQ);
+    b.upper_arm_l.quaternion.slerp(q, this.pressW);
+    b.forearm_l.rotation.x += (-bend - b.forearm_l.rotation.x) * this.pressW;
+    b.hand_l.rotation.z += (-0.9 - b.hand_l.rotation.z) * this.pressW;
   }
 
   /** the hype dancers' routine, locked to the beat */
@@ -1597,28 +1761,38 @@ export class Avatar {
     if (this.blinkAt < -0.12) this.blinkAt = 2.5 + Math.random() * 3.5;
     for (const lid of this.lids) lid.rotation.x = blink ? 0.6 : -0.35;
 
-    // hair swings: springs pushed by how the head moves
+    // hair and clothes swing: springs pushed by how the head (hair) or the chest (clothes) moves
     this.object.updateMatrixWorld(true);
     const hp = b.head.getWorldPosition(new THREE.Vector3());
     const dv = hp.clone().sub(this.lastHead);
     this.lastHead.copy(hp);
-    if (dt > 0 && dv.lengthSq() < 0.05) {
+    const cp = b.chest.getWorldPosition(new THREE.Vector3());
+    const dc = cp.clone().sub(this.lastChest);
+    this.lastChest.copy(cp);
+    // (in the body's own frame, so turning the avatar round doesn't flip the swing)
+    const inv = new THREE.Quaternion();
+    this.object.getWorldQuaternion(inv).invert();
+    dv.applyQuaternion(inv);
+    dc.applyQuaternion(inv);
+    if (dt > 0 && dv.lengthSq() < 0.05 && dc.lengthSq() < 0.05) {
       const span = Math.min(dt, 0.1);
       const steps = Math.ceil(span / (1 / 120));
       const h = span / steps;
-      // the head's velocity kicks the hair once per frame, then the springs settle in small steps
-      const kx = -(dv.z / dt) * 0.9 * 60;
-      const kz = (dv.x / dt) * 0.9 * 60;
+      // the velocity kicks the springs once per frame, then they settle in small steps
+      const kick = Math.min(1, 0.016 / Math.max(0.016, dt));
       for (const sp of this.springs) {
-        sp.vx += kx * sp.k * span * Math.min(1, 0.016 / Math.max(0.016, dt));
-        sp.vz += kz * sp.k * span * Math.min(1, 0.016 / Math.max(0.016, dt));
+        const v = sp.body ? dc : dv;
+        // bouncing up and down lifts a hanging thing too (and drops it back)
+        sp.vx += (-(v.z / dt) * 0.9 * 60 + (sp.body ? -(v.y / dt) * 20 : 0)) * sp.k * span * kick;
+        sp.vz += (v.x / dt) * 0.9 * 60 * sp.k * span * kick;
         for (let i = 0; i < steps; i++) {
           sp.vx += (-sp.ox * 60 - sp.vx * 7) * h;
           sp.vz += (-sp.oz * 60 - sp.vz * 7) * h;
           sp.ox = Math.max(-0.5, Math.min(0.5, sp.ox + sp.vx * h));
           sp.oz = Math.max(-0.5, Math.min(0.5, sp.oz + sp.vz * h));
         }
-        sp.obj.rotation.set(sp.ox - b.neck.rotation.x * 0.6 * sp.k, 0, sp.oz);
+        if (sp.body) sp.obj.rotation.set((sp.rest?.x ?? 0) + sp.ox, sp.rest?.y ?? 0, (sp.rest?.z ?? 0) + sp.oz);
+        else sp.obj.rotation.set(sp.ox - b.neck.rotation.x * 0.6 * sp.k, 0, sp.oz);
       }
     }
 

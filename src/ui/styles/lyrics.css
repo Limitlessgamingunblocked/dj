@@ -13,7 +13,7 @@
   backdrop-filter: blur(6px);
   font-family: var(--font-label);
   font-weight: 700;
-  font-size: 22px;
+  font-size: var(--text-2xl);
   line-height: 1.2;
   letter-spacing: 0.02em;
   text-align: center;
@@ -46,7 +46,7 @@
 }
 @media (max-width: 720px) {
   .lyric-hud {
-    font-size: 16px;
+    font-size: var(--text-l);
     bottom: 40px;
   }
 }
@@ -73,7 +73,7 @@
 }
 .ly-track b {
   font-family: var(--font-label);
-  font-size: 20px;
+  font-size: var(--text-xl);
 }
 .ly-track span {
   color: var(--muted);
@@ -81,10 +81,10 @@
 .ly-clock {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 .ly-status {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--muted);
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -130,12 +130,12 @@
 }
 .ly-preview small {
   color: var(--dim);
-  font-size: 12px;
+  font-size: var(--text-s);
 }
 .ly-now {
   font-family: var(--font-label);
   font-weight: 800;
-  font-size: 24px;
+  font-size: var(--text-2xl);
   line-height: 1.15;
   color: rgba(231, 236, 243, 0.35);
 }
@@ -172,14 +172,14 @@
 }
 .ly-tapnext b {
   font-family: var(--font-label);
-  font-size: 22px;
+  font-size: var(--text-2xl);
 }
 .ly-tapnext small {
   color: var(--muted);
 }
 .ly-tap {
   height: 64px;
-  font-size: 18px;
+  font-size: var(--text-xl);
 }
 .vis-lyrics {
   display: grid;

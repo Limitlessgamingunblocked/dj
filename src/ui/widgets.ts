@@ -165,8 +165,8 @@ export function fader(
   };
 }
 
-export function hwButton(reg: ControlRegistry, id: string, label: string, opts: { cls?: string; color?: string; title?: string } = {}): Widget {
-  const b = h('button', { class: `hw ${opts.cls ?? ''}`, 'data-control': id, type: 'button', title: opts.title ?? reg.get(id)?.label ?? label }, label);
+export function hwButton(reg: ControlRegistry, id: string, label: string | Node, opts: { cls?: string; color?: string; title?: string } = {}): Widget {
+  const b = h('button', { class: `hw ${opts.cls ?? ''}`, 'data-control': id, type: 'button', title: opts.title ?? reg.get(id)?.label ?? (typeof label === 'string' ? label : '') }, label);
   let pointerDown = false;
   b.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;

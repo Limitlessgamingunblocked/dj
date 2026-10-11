@@ -7,6 +7,7 @@
 import { prefs } from '../core/prefs';
 import type { NextUp } from '../app/nextup';
 import { h, setText } from './dom';
+import { icon } from './icons';
 
 export class NextUpCard {
   readonly el: HTMLElement;
@@ -28,7 +29,7 @@ export class NextUpCard {
     this.why = h('span', { class: 'nu-why mono' });
     this.loadBtn = h('button', { class: 'btn primary small', type: 'button' }) as HTMLButtonElement;
     this.loadBtn.addEventListener('click', () => this.nu.load());
-    const another = h('button', { class: 'btn small icon', type: 'button', title: 'Suggest another', 'aria-label': 'Suggest another track' }, '↻');
+    const another = h('button', { class: 'btn small icon', type: 'button', title: 'Suggest another', 'aria-label': 'Suggest another track' }, icon('refresh', 14));
     another.addEventListener('click', () => this.nu.another());
     const close = h('button', { class: 'btn small icon nu-close', type: 'button', title: 'Hide until the next pick', 'aria-label': 'Hide the suggestion' }, '×');
     close.addEventListener('click', () => {

@@ -421,6 +421,15 @@ export class LensOutputPass extends Pass {
     this.uniforms.uLift.value = g.lift;
   }
 
+  /** a photo filter over the grade this frame (after followShow): tints multiply, contrast and saturation scale, lift adds */
+  applyFilter(f: Grade): void {
+    const u = this.uniforms;
+    (u.uTint.value as THREE.Color).set(this.base.tint).multiply(new THREE.Color(f.tint));
+    u.uContrast.value *= f.contrast;
+    u.uSaturation.value *= f.saturation;
+    u.uLift.value += f.lift;
+  }
+
   /** move the grade with the show's sections (see sectionGrade) */
   followShow(build: number, peak: number): void {
     const g = sectionGrade(this.base, build, peak);
