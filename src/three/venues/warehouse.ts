@@ -16,6 +16,7 @@ import { Dresser } from './dress';
 import { atBar } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
+import { KineticRig } from './showfx';
 import { concreteTexture, floorTexture, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -100,6 +101,8 @@ class Warehouse extends VenueBase {
       for (const x of [-5, -2.5, 0, 2.5, 5]) heads.push({ pos: V(x, 4.3, z) });
     }
     this.add(new MovingHeads(heads, { length: 10, radius: 0.85, floorY: -STAGE }));
+    // a small kinetic grid behind the truss: LED spheres on winches, under the low ceiling
+    this.add(new KineticRig({ x0: -6, x1: 6, z0: -8.8, z1: -6.8, nx: 9, nz: 2, top: 6.3, low: 3.9, high: 6.0 }));
     this.add(new Strobes([-4, -1.3, 1.3, 4].map((x) => ({ pos: V(x, 4.35, -1.4), tilt: 0.4 }))));
     this.add(new Blinders([-3.4, -1.7, 1.7, 3.4].map((x) => ({ pos: V(x, 0.28, -1.05), tilt: -0.25 }))));
     this.group.add(laserStands([V(-4.6, 2.55, -1.3), V(4.6, 2.55, -1.3)], 0));

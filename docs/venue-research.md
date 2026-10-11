@@ -205,6 +205,26 @@ Added in October 2026. Burn night on the open playa, from the top deck of a soun
 - **Scale compression:** the burn runs for minutes, not the real hour or so.
 - **Not verified:** the Temple's exact distance, the Man's current height and base, and the exact compass bearings of the ranges.
 
+## Show effects in use now (October 2026)
+
+What the big tours and festivals use now, and which of them the game had. The vendor sources are marketing, so they're treated as describing what an effect is, not how good it is.
+
+| Effect | What it is | In the game | Source |
+|---|---|---|---|
+| CO2 jets | Compressed CO2 fired as fog columns on drops and entrances; odourless, gone in seconds | Already (every big venue) | [Moka SFX](https://mokasfx.com/blog/stage-special-effects-live-entertainment/), [EMH Productions](https://emhproductions.com/top-stage-lighting-trends-for-concerts-in-2025/) |
+| Cold-spark fountains and waterfalls | Pyro-free spark machines: fountains from the floor, or hung units for a falling "curtain" (about 1.5–7 m) | Fountains already; no hung waterfalls yet | [Sparkular Fall listing](https://audioeffetti.com/en/category/special-effects/spark-effects/showven-bt04-sparks-waterfall-effects-indoor-and-outdoor-for-professional-stage-kit-of-6-bto4-in-flight-case-p23476), [Theatre FX on waterfall gerbs](https://www.theatrefx.com/funfacts34.html) |
+| Drone shows | Hundreds to thousands of GPS-flown drones drawing shapes; reusable, unlike fireworks | Already (festival signature moment) | [Hanoi 2025 (2,025 drones)](https://tuoitrenews.vn/news/ttnewsstyle/20250115/2025-drones-to-illuminate-hanois-iconic-west-lake-this-weekend/83951.html), [Cyberdrone on festivals](https://www.cyberdrone.com/blog/drone-shows-for-music-festivals) |
+| **LED wristbands** | Bands with RGB LEDs and an infrared receiver. Pan-tilt IR emitters on the lighting towers sweep the crowd, run from the same lighting desk over DMX/Art-Net, so whole sections change colour or show moving graphics. A transmitter reaches about 100 m; an arena uses about 16 | **New** (festival, Alexandra Palace) | [Architect Magazine](https://www.architectmagazine.com/technology/products/when-the-audience-becomes-the-concert-lighting_o), [teardown of a tour band](https://goughlui.com/2025/01/14/teardown-pixmob-led-wristband-aurora-v1-7/), [Hackaday](https://hackaday.com/2023/07/page/43) |
+| **Kinetic lights** | Motor winches flying lights, LED balls or bars on cables, each set for height, speed, colour and brightness. A 2025 arena tour flew 136 moving lights on 60 winches through 12 m vertical moves, live, without timecode | **New** (Warehouse Rave, Deckhouse Warehouse) | [USITT on Winch XL](https://www.usitt.org/news/winch-xl-from-kinetic-lights-the-heavy-lifter-behind-iconic-stage-moments), [Sonicstate on the 2025 arena production](https://sonicstate.com/news/2026/01/26/radioheads-arena-production/), [EGO kinetic ball](https://audioeffetti.com/en/category/special-effects/kinetic-systems/ego-professional-kinball35-kinetic-35-cm-light-ball-rgb-42-x-tri-smd-leds-p13857) |
+| **Holographic gauze** | A near-invisible metallic gauze in front of the performer, with projected 3D renders that seem to float in front of the stage. When the performer is lit, the audience sees them through it. Later versions used a transparent LED screen hung in front of the main one. "Hologram" is a marketing word: these are projected or LED images | **New** (festival main stage) | [LSi on Holo-Gauze](https://lsionline.co.uk/news/holo-gauze-helps-create-mega-hologram), [ShowTex Holo-Gauze](https://www.showtex.com/en/node/241), [DJ Mag](https://djmag.com/news/eric-prydz-announces-new-hologram-live-show-holo) |
+| Anamorphic "3D" LED | Content distorted to look 3D from one spot, usually on a corner screen; it falls apart off-axis | Not done: the camera moves, so a one-viewpoint trick reads as distortion | [AVIXA](https://xchange.avixa.org/posts/the-illusion-of-3d-on-led-walls-how-content-and-perspective-create-immersive-visuals), [AdQuick](https://www.adquick.com/3d-anamorphic-digital-billboards) |
+| Pixel mapping, AI-driven cues | Every pixel of a fixture controlled; consoles reacting to the performance live | Already (pixel-mapped battens and LED walls; the show follows the music live) | [Andolite](https://www.andolite.co.uk/blogs/stage-essentials/concert-lighting-design-trends-for-2025) |
+
+**How the game draws them:**
+- **Wristbands:** one point per person in the far crowd, coloured in the vertex shader from the show state: sector, wave, drop ring and beat swap. One draw for thousands of people.
+- **Kinetic lights:** instanced spheres with live cables. Formations are pure functions of the grid position, so they're tested, and each winch moves at no more than 1.2 m/s.
+- **Gauze:** the solid's edges and the tunnel's rings are projected on the CPU from the front-of-house eye onto the gauze, then drawn as glowing strokes in one fragment shader. That's how the real content works: rendered for the audience's central view, it looks right from there and flat from the side.
+
 ## Across all venues
 - Venues are darker and more contrasty than the scenes: light comes in pools from fixtures, not from ambient fill.
 - Real rooms have edges: bars, exit signs, doors, pipes and ducts, cables and gaffer tape around the booth.

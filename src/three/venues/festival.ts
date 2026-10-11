@@ -30,6 +30,7 @@ import { OpenAir } from './openair';
 import type { SkyKey } from './outdoor';
 import { Pyro } from './pyro';
 import type { ShowState } from './show';
+import { HoloScrim, Wristbands } from './showfx';
 import { canvasTexture, rng } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -215,6 +216,8 @@ class Festival extends OpenAir {
   };
   private crowd: Crowd;
   private farCrowd: FarCrowd;
+  private bands: Wristbands;
+  private scrim: HoloScrim;
   private flags: Flags;
   private drones = new DroneShow();
   private trigger = new PeakTrigger(0.87, 12);
@@ -437,8 +440,13 @@ class Festival extends OpenAir {
       const t = (z - FIELD_BACK) / -FIELD_BACK;
       return 0.55 + 1.7 * t * t;
     };
-    this.farCrowd = new FarCrowd(scatter(-100, 100, FIELD_BACK, -5, density, 604, avoid).map((p) => ({ ...p, y: FL })), { seed: 605, clothes, phones: 0.12, focus: V(0, 6, 4) });
+    const field = scatter(-100, 100, FIELD_BACK, -5, density, 604, avoid).map((p) => ({ ...p, y: FL }));
+    this.farCrowd = new FarCrowd(field, { seed: 605, clothes, phones: 0.12, focus: V(0, 6, 4) });
     this.group.add(this.farCrowd.object);
+    // everyone in the field wears an LED wristband the show drives
+    this.bands = this.add(new Wristbands(field, { origin: new THREE.Vector2(0, 0), seed: 607 }));
+    // a holographic gauze across the stage lip: shapes hang in the air in front of the booth, drawn for the mix tent's view
+    this.scrim = this.add(new HoloScrim([32, 15], V(0, 7.9, -1.95), V(0, FL + 1.7, -42)));
     // flags across the crowd
     const r = rng(606);
     const flagSpots: THREE.Vector3[] = [];
@@ -589,6 +597,9 @@ class Festival extends OpenAir {
     this.farCrowd.update(s, dt);
     this.flags.update(this.time, s.hype);
     this.carpet.color.setScalar(0.5 + s.photos * 0.6 + night * 0.3);
+    // bands and the gauze don't read in daylight: they come up with the dark
+    this.bands.amount = THREE.MathUtils.smoothstep(night, 0.45, 0.9);
+    this.scrim.amount = 0.25 + 0.75 * THREE.MathUtils.smoothstep(night, 0.45, 0.9);
     // the signature moment: a long run at the top, and the drones spell your name
     if (this.trigger.update(dt, s.hype, s.playing) && night > 0.5) {
       this.drones.start(nameService.text);

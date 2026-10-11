@@ -39,10 +39,8 @@ export class NextUpCard {
       'div',
       { class: 'next-up', role: 'region', 'aria-label': 'Suggested next track', hidden: true },
       h('div', { class: 'nu-head' }, this.label, close),
-      this.title,
-      this.artist,
-      this.why,
-      h('div', { class: 'nu-acts' }, this.loadBtn, another),
+      h('div', { class: 'nu-name' }, this.title, this.artist),
+      h('div', { class: 'nu-acts' }, this.why, this.loadBtn, another),
     );
   }
 

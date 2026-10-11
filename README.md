@@ -268,6 +268,24 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
 - **Mirror balls** at DC-10 and the warehouse throw hundreds of spots that drift across the walls, floor and ceiling, with faint rays through the haze; they take over in breakdowns.
 - **CO2** jets go up as dense columns that billow and tear into wisps, lit white from the rig above and in the show's colour underneath.
 - **The crowd is lit from the stage**: people seen against the rig get bright rims, so the floor reads as silhouettes edged in light.
+- **Show effects the big tours use now** (`showfx.ts`):
+  - **LED wristbands** on everyone at the Main-Stage Festival and Alexandra Palace, driven by the show as at stadium tours:
+    - colour sectors drift round the crowd in the groove, with stars in a breakdown;
+    - waves run out from the stage through a build, faster as it tightens;
+    - every band fires on the drop, then a ring of colour runs out through the crowd;
+    - at the peak the two halves of the room swap on the beat.
+  - **Kinetic lights**: a grid of LED spheres on motor winches over the floor of the Warehouse Rave, and a small one in the Deckhouse Warehouse.
+    - They fly in formations: a new wave, tilt, ripple or dome each phrase.
+    - They go up into the roof for a breakdown and come down slowly through a build.
+    - On the drop they form a V or a dome, and at the peak they ripple on the beat.
+    - Winch speed is capped at real-world speeds.
+  - **Holographic gauze** across the front of the festival stage, as at the big "hologram" DJ shows. The content is drawn for the mix tent's view, so shapes seem to hang in the air in front of the booth:
+    - a turning wireframe solid, a new one every 16 bars;
+    - a tunnel of rings rushing out at you through a build;
+    - a burst on the drop.
+
+    From behind it's a faint reverse.
+  - All of them follow Reduce flashing.
 - Lighting desk (Show tab): follow-the-music on/off, drop FX, pyro on drops, **Reduce flashing**, palettes (including a Custom one with your own three colours), laser mode and look, intensity, haze, confetti on drops, and pads for strobe, blinders, lasers, CO2, pyro, confetti and blackout. The pads are also on the keyboard (N, B, Y, T, Shift+T, Shift+Y, ` by default; each pad shows its current key) and MIDI-learnable.
 - **Reduce flashing** keeps strobes, blinders and blinking lasers under 3 flashes a second, softens them, skips the blackout before the drop and turns off the crowd's phone flashes. It's on by default if your system is set to reduce motion.
 - All fixtures are instanced: volumetric beam cones that throw pools of light on the floor, camera-facing laser beams, dotted LED strings, glowing globes, CO2 particle plumes, drifting haze, dust in the booth light and colour-washed fog.

@@ -416,3 +416,22 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - The stage card sits bottom right, because the now-playing card is bottom left. It hides in a gig, since the HUD shows the gig's own pick.
     - The Library strip and the empty-deck hint show in every mode, gigs included. Pro assist still hides the HUD's pick, as before.
     - Loading a pick puts it on the free deck. Under Auto DJ, a track you load yourself is the one it mixes next, so a pick works there too.
+
+## Show effects in use now (2026-10-11)
+150. **Three effects the game didn't have, picked from what big shows use now:**
+    - LED wristbands in the crowd;
+    - kinetic winch lights;
+    - a holographic gauze in front of the booth.
+
+    It already had CO2, cold sparks, flame jets, confetti, lasers, a mirror ball, drones and pixel-mapped LED, so those weren't redone. Anamorphic "3D" screens were left out: the illusion only works from one fixed spot, and the game's camera moves.
+151. **Where each one goes:**
+    - Wristbands are at the arena-scale rooms (the Main-Stage Festival and both Alexandra Palace layouts), on the far crowd's spots. The jointed dancers up front don't get them, because a point can't follow a moving wrist and would float.
+    - Kinetic rigs are in the two warehouses, over the floor where the roof is high enough.
+    - The gauze is on the festival main stage.
+    - Outdoors, the bands and the gauze fade with daylight.
+152. **The gauze is drawn for one viewpoint, the mix tent, as real projected content is.** Strokes are about 25 cm wide so they read from the back of the field. The content is held back in the groove and comes up through the build and drop, so it doesn't sit over the DJ all night. An early version with thin strokes and a wide glow blew the close crowd camera out to white; the glow is now a tight halo.
+153. **The flash rules hold.** With Reduce flashing on:
+    - the wristbands swap halves every other beat, not every beat;
+    - the drop's all-band flash drops to a quarter;
+    - the gauze doesn't flash on the drop;
+    - the kinetic balls pulse on the kick at 40 % of their usual depth.

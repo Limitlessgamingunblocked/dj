@@ -27,6 +27,7 @@ import { Lasers, laserStands } from './lasers';
 import { moments, PeakTrigger } from './moments';
 import { Pyro } from './pyro';
 import type { ShowState } from './show';
+import { KineticRig } from './showfx';
 import { canvasTexture, concreteTexture, floorTexture, rng, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -244,6 +245,8 @@ class WarehouseRave extends VenueBase {
     for (const z of [-2, -9, -16]) this.group.add(truss(V(-10, rigY, z), V(10, rigY, z), 0.45));
     this.add(new MovingHeads([-2, -9, -16].flatMap((z) => [-9, -6, -3, 0, 3, 6, 9].map((x) => ({ pos: V(x, rigY - 0.4, z) }))), { length: 18, radius: 1.2, gain: 1.15, floorY: FL, haze: [FL + 1, H] }));
     this.add(new Strobes([-2, -9, -16].flatMap((z) => [-7.5, -2.5, 2.5, 7.5].map((x) => ({ pos: V(x, rigY - 0.3, z), tilt: Math.PI / 2 }))), [1, 0.1, 0.1]));
+    // kinetic lights over the back of the floor: LED spheres on winches flying in formations with the music
+    this.add(new KineticRig({ x0: -9, x1: 9, z0: -27, z1: -19, nx: 13, nz: 6, top: H - 0.4, low: FL + 5.2, high: H - 1.2 }));
     this.add(new Blinders([-6, -3, 3, 6].map((x) => ({ pos: V(x, 0.3, -1.3), tilt: -0.3 }))));
     const tops = [V(-W / 2 + 1.5, FL + 5.4, -11), V(W / 2 - 1.5, FL + 5.4, -11), V(-W / 2 + 1.5, FL + 5.4, -24), V(W / 2 - 1.5, FL + 5.4, -24)];
     this.group.add(laserStands(tops, FL + 5.24));

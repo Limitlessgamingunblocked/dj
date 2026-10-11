@@ -38,6 +38,7 @@ import { Lasers, laserStands, type AudienceZone, type RoomProxy } from './lasers
 import { ledScreen, type LedUniforms } from './led';
 import { LightField } from './lightfield';
 import type { ShowState } from './show';
+import { Wristbands } from './showfx';
 import { canvasTexture, concreteTexture, floorTexture, grilleTexture, rng, withSurface } from './tex';
 import { laserLines, silhouettes } from './warehouse';
 
@@ -900,7 +901,10 @@ class AllyPally extends VenueBase {
       const t = (z - backZ) / (front - backZ);
       return 1.25 + 1.65 * t * t;
     };
-    this.add(new FarCrowd(scatter(-hw, hw, backZ, front, density, 1988, avoid).map((p) => ({ ...p, y: FL })), { seed: 1873, clothes, phones: 0.07, focus: V(0, 4, 4), lightMap: this.lm }));
+    const standing = scatter(-hw, hw, backZ, front, density, 1988, avoid).map((p) => ({ ...p, y: FL }));
+    this.add(new FarCrowd(standing, { seed: 1873, clothes, phones: 0.07, focus: V(0, 4, 4), lightMap: this.lm }));
+    // LED wristbands on the floor, driven by the show, as at the arena tours
+    this.add(new Wristbands(standing, { origin: new THREE.Vector2(0, 0), seed: 1989 }));
 
     this.add(new HazeLayer(new THREE.Box3(V(-26, FL + 3, -96), V(26, FL + 21, 6)), 7, 0.5, this.lm));
     // hazers on stage, their clouds rolling out over the front of the crowd
@@ -1067,7 +1071,10 @@ class AllyPally extends VenueBase {
       if (Math.abs(x) > hw - 1.6) return 0;
       return 2.2 - 1.15 * Math.min(1, (r - NEAR) / 40);
     };
-    this.add(new FarCrowd(scatter(-hw, hw, zB + 7.5, -zB - 2, density, 2023, avoid).map((p) => ({ ...p, y: FL })), { seed: 2019, clothes, phones: 0.04, focus: V(0, 3, 0), lightMap: this.lm }));
+    const standing = scatter(-hw, hw, zB + 7.5, -zB - 2, density, 2023, avoid).map((p) => ({ ...p, y: FL }));
+    this.add(new FarCrowd(standing, { seed: 2019, clothes, phones: 0.04, focus: V(0, 3, 0), lightMap: this.lm }));
+    // in the round the waves run out from the booth in the middle
+    this.add(new Wristbands(standing, { origin: new THREE.Vector2(0, 0), seed: 2024 }));
 
     this.add(new HazeLayer(new THREE.Box3(V(-26, FL + 3, -54), V(26, FL + 20, 54)), 7, 0.5, this.lm));
     // confetti out over all four sides
