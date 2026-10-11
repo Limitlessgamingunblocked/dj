@@ -27,6 +27,7 @@ const FLYER: Record<string, FlyerStyle> = {
   boat: 'sunset',
   dc10: 'sunset',
   sunrise: 'sunset',
+  burningman: 'sunset',
 };
 
 export const flyerFor = (venue: string): FlyerStyle => FLYER[venue] ?? 'rave';

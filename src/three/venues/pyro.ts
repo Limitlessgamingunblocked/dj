@@ -17,7 +17,7 @@ export interface PyroSpec {
   kind: 'flame' | 'spark';
 }
 
-const FLAME_VERT = /* glsl */ `
+export const FLAME_VERT = /* glsl */ `
   attribute float iFire;
   attribute float iSeed;
   uniform float uTime, uHeight;
@@ -47,7 +47,7 @@ const FLAME_VERT = /* glsl */ `
   }
 `;
 
-const FLAME_FRAG = /* glsl */ `
+export const FLAME_FRAG = /* glsl */ `
   uniform float uTime;
   varying float vH;
   varying float vFire;

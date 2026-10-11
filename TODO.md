@@ -21,6 +21,7 @@ Every placeholder in the code is marked `TODO:` and listed here (Section 0). Sta
 | `src/three/venues/dressingroom.ts` | The dressing room is built in code. The mirror is a dark glossy pane, not a real reflection. | 2 (art) |
 | `src/three/venues/dress.ts` | **Set dressing is built in code** (low-poly cases, ducts, trees, trucks and so on), a stand-in for Blender props. In the real venues it fits the building type but isn't taken from photos (DECISIONS 120). Check it against reference photos: Berghain's crane, valves and cabinets; Printworks' stairs and roof ducts; Boiler Room's gazebo, truck and cars; Alexandra Palace's radiators and far-end windows. | art / verify |
 | `src/three/venues/landmarks.ts` | **The distant landmarks are built in code** (the big wheel, balloons, birds, lighthouse, headlands, the town's lights, aircraft), stand-ins for Blender props. The birds are flat wing shapes, the town's lights are points with no reflection in the sea, and the far shore's hotels are plain boxes. | art |
+| `src/three/venues/burningman.ts`, `playa.ts` | **Burning Man is built in code** to the city plan's measurements, with generic forms for the Man, the Temple and the art cars (DECISIONS 139). Still to check: the Temple's exact distance, the Man's current height and base, the ranges' exact bearings. The city behind the Esplanade is lights, not modelled camps, and the crowd stands (on burn night most of it sits). | art / verify |
 
 ## Blocked: needs a decision from you
 

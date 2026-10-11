@@ -418,4 +418,5 @@ export const VENUE_VIBES: Record<string, Vibe[]> = {
   printworks: ['underground', 'dark'],
   allypally: ['bold', 'future'],
   'allypally-round': ['bold', 'future'],
+  burningman: ['bold', 'acid'],
 };

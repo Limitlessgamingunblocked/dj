@@ -139,7 +139,7 @@ describe('name styles per venue', () => {
     expect(VENUE_NAME_STYLES.beach.booth).toBe('handpainted');
     expect(VENUE_NAME_STYLES.festival.screen).toBe('pixel_led');
     expect(VENUE_NAME_STYLES.sunrise.booth).toBe('white_install');
-    for (const id of ['dc10', 'boilerroom', 'berghain', 'printworks', 'allypally', 'allypally-round']) expect(VENUE_NAME_STYLES[id]).toBeTruthy();
+    for (const id of ['dc10', 'boilerroom', 'berghain', 'printworks', 'allypally', 'allypally-round', 'burningman']) expect(VENUE_NAME_STYLES[id]).toBeTruthy();
     expect(nameStyleFor('somewhere-new').booth).toBe('chrome_led');
   });
 });

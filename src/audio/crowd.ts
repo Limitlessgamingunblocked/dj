@@ -12,9 +12,9 @@ export type CrowdSound = 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant';
 /**
  * What a venue sounds like round the music (Section 8.3): glasses clinking on
  * the rooftop, waves at the beach, water and the engine on the boat, wind
- * over the festival field, birds as the sun comes up.
+ * over the festival field, birds as the sun comes up, the desert wind on the playa.
  */
-export type Ambience = 'none' | 'glasses' | 'waves' | 'water' | 'field' | 'dawn';
+export type Ambience = 'none' | 'glasses' | 'waves' | 'water' | 'field' | 'dawn' | 'playa';
 
 function noiseBuffer(ctx: BaseAudioContext, secs: number, seed = 7): AudioBuffer {
   const len = Math.max(1, Math.floor(ctx.sampleRate * secs));
@@ -166,6 +166,11 @@ export class CrowdAudio {
         break;
       case 'dawn':
         bed('lowpass', 260, 0.5, 0.02, 0.06, 0.7);
+        break;
+      case 'playa':
+        // wind across an open lake bed in slow gusts, the dust hissing along the crust
+        bed('lowpass', 380, 0.5, 0.045, 0.05, 0.9);
+        bed('bandpass', 3200, 0.4, 0.006, 0.05, 0.95);
         break;
     }
   }

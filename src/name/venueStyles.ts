@@ -29,6 +29,7 @@ export const VENUE_NAME_STYLES: Record<string, VenueNameStyle> = {
   printworks: { booth: 'chrome_led', screen: 'chrome_led' },
   allypally: { booth: 'pixel_led', screen: 'pixel_led' },
   'allypally-round': { booth: 'pixel_led' },
+  burningman: { booth: 'pixel_led', sign: 'led_sign', screen: 'pixel_led' },
 };
 
 export function nameStyleFor(venue: string): VenueNameStyle {

@@ -182,6 +182,29 @@ Researched in October 2026 for the effects pass. As with the rest of this doc, m
 
 ---
 
+## Burning Man, Black Rock City (burn night)
+
+Added in October 2026. Burn night on the open playa, from the top deck of a sound art car on the burn perimeter.
+
+| | Finding | Source |
+|---|---|---|
+| City plan | The Esplanade, the innermost street, runs 2,500 ft from the Man. Blocks run 400, 250 and 150 ft deep, and the outer road (Kraken) is 11,690 ft across. Center Camp is 3,026 ft from the Man. Promenades 40 ft wide run along the 3:00/9:00 and 6:00/12:00 axes, with lantern spires about every 150 ft. Plaza portals sit at 3:00, 4:30, 6:00, 7:30 and 9:00. True north/south follows the 4:30 axis. The pentagon fence points are 8,430 ft from the Man, and the elevation is 3,904 ft. | [2023 BRC location data](https://bm-innovate.s3.amazonaws.com/2023/2023%20BRC%20Measurements.pdf), [2024 city plan](https://history.burningman.org/brc-history/event-archives/2024-event-archive/2024-black-rock-city-plan/), [2022 city plan](https://burningman.org/event/preparation/black-rock-city-guide/2022-black-rock-city-plan) |
+| The Temple | At 12:00 on the open playa. One personal account puts it about half a mile past the Man; a third-party 2026 map lists 12:00 and 2,500 ft. | [2023 account](https://wandering-through-time-and-place.com/2023/09/09/the-man-the-temple-and-an-orientation-burning-man-2023/), [2026 camp map](https://burn2026.app/discover) |
+| The Man | Wood, outlined in neon since 1991. About 40 ft on a 30 ft platform in 2001, 61 ft in 2019; the height changes every year, and so does the base. | [Burning Man history](https://history.burningman.org/brc-history/afterburn/08-2/art/the_man/), [Wikipedia](https://en.wikipedia.org/wiki/Burning_Man), [Yahoo](https://www.yahoo.com/entertainment/burning-man-see-towering-effigy-204029416.html) |
+| Burn night | Fire dancers perform in the circle first. The Man raises his arms, fireworks start and work inward until he's bathed in flame, and everyone waits for him and his structure to fall. The crowd sits in a circle about 1,000 ft from his base, with only Rangers, performers and fire crew inside. | [Carson Now (2010)](https://carsonnow.org/story/09/05/2010/burning-mans-fiery-salute-different-way-living), [2017 account](https://wandering-through-time-and-place.com/2017/10/21/the-man-burns-burning-man-2017-part-15/) |
+| Art cars | Mutant vehicles count as motor vehicles: 5 mph in the city. Only propane (LP-gas) flame effects are allowed, inspected on playa, discharging at least 10 ft off the ground. | [Survival guide](https://survival.burningman.org/?p=1433), [flame effects on mutant vehicles](https://burningman.org/black-rock-city/bring-your-art/fire-art-guidelines/fire-on-mutant-vehicles/), [workshop notes](https://eplaya.burningman.org/viewtopic.php?p=1066894) |
+| The playa and hills | Dry alkali mud cracked into hexagonal plates, pale white-grey; tyre tracks show as darker lines. The playa sits at 3,900 ft, and the highest peaks round it (Granite, King Lear) are just under 9,000 ft. The Granite Range is to the west by Gerlach, the Calico Hills to the north-west, the Jackson Mountains to the east. | [Wikipedia: Black Rock Desert](https://en.wikipedia.org/wiki/Black_Rock_Desert), [octopup.org](https://octopup.org/burning-man/info/playa), [Granite Range](https://en.wikipedia.org/wiki/Granite_Range_(Washoe_County)) |
+| Night and dawn | The playa is very dark at night, and installations must be lit from about 7:30 pm to 6:15 am. EL wire and LEDs are everywhere, on art cars, people and bikes. Nights run in the high 40s to low 50s °F. At dawn the hills go magenta, then red and orange. | [Lighting your art](https://burningman.org/black-rock-city/bring-your-art/art-installation-guidelines/lighting-your-art/), [Colors of the Playa](https://journal.burningman.org/2013/02/black-rock-city/tales-from-the-playa/colors-of-the-playa/), [eplaya](https://eplaya.burningman.org/viewtopic.php?p=1167300) |
+| Size | About 70,000–80,000 people; the permit allows up to 80,000–100,000 for 2019–2028. | [Healdsburg Tribune](https://www.healdsburgtribune.com/snapshot-from-baker-beach-to-black-rock/), [BLM summary](https://eplanning.blm.gov/public_projects/nepa/93518/125234/152681/Proposed_Action_Executive_Summary.pdf) |
+
+**What's generic, and why:**
+- **The Man and the Temple:** every year's Man, pavilion and Temple are designed anew, many by named artists. The scene builds the type (a timber lattice figure on a timber pavilion with neon on his outline; a tiered timber temple with a spire), not any year's design.
+- **The art cars:** the octopus in the photo you sent is a specific artist's work, so the scene's mechanical octopus is an original design in that spirit. It has a brass mantle, lamp eyes with a slit pupil, a chimney poofer and six raised arms with nozzles. The roaming cars (a jellyfish, a galleon, a dome, a fish) and the sound car are generic too.
+- **The city:** camps are generic stages, domes, towers and shade structures, with lights placed by the plan's clock and distances.
+- **Where you are:** a sound car parked on the burn perimeter is a scene, not a fixed place in the plan. Exactly where cars park on burn night isn't published.
+- **Scale compression:** the burn runs for minutes, not the real hour or so.
+- **Not verified:** the Temple's exact distance, the Man's current height and base, and the exact compass bearings of the ranges.
+
 ## Across all venues
 - Venues are darker and more contrasty than the scenes: light comes in pools from fixtures, not from ambient fill.
 - Real rooms have edges: bars, exit signs, doors, pipes and ducts, cables and gaffer tape around the booth.

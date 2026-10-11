@@ -356,3 +356,46 @@ You asked for the visuals on the big screens to always rotate to the vibe of the
     - In a breakdown it goes to a calm mode.
     - With "Follow each song" off, or a track with no look, it changes every 8 bars.
 136. **Between tracks the screens drift on slowly**, through calm and groove modes, every 16 bars of the beat the player keeps on its own (about half a minute). An empty room no longer leaves one picture frozen on the wall.
+
+## Burning Man (2026-10-11)
+
+You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researched as far as possible, with a photo of a fire-breathing mechanical octopus art car.
+
+137. **Laid out from Burning Man's own city plan.**
+    - The Esplanade is 2,500 ft from the Man, the outer road 11,690 ft across, Center Camp 3,026 ft out at 6:00.
+    - Lantern spires stand every 150 ft along the 6:00/12:00 and 3:00/9:00 promenades.
+    - The city fills 2:00 to 10:00, and the Temple stands at 12:00 about 2,500 ft past the Man.
+    - True north lies along the 4:30 axis, so 12:00 points north-east and the sun comes up at about one o'clock.
+    - The hills sit at their real bearings: the Granite Range to the west, the Calico Hills north-west, the Black Rock Range north, the Selenite Range south-east, and the playa running flat away behind the Temple.
+    - Sources are in docs/venue-research.md.
+138. **You play from the top deck of a sound art car parked on the burn perimeter**, 1,000 ft from the Man at about 5:30.
+    - That's where the crowd sits on burn night, and sound cars are where the music happens on the open playa.
+    - The Man stands behind you with the Temple beyond. Past the crowd you see the city's lights, with Center Camp on the 6:00 promenade.
+    - The wide shot is from the top deck of the next art car along: high enough to see the Man over your car.
+139. **The Man, the Temple and every art car are generic forms, not copies.** Each year's Man, pavilion and Temple are new designs, many by named artists, and the octopus in your photo is a specific artist's sculpture.
+    - The Man is a timber lattice figure on an octagonal timber pavilion, outlined in neon (which goes back to 1991). His arms hinge at the shoulders.
+    - The Temple is a tiered timber sanctuary with a spire, lit warm from inside.
+    - The octopus is an original design in the spirit of the photo: a riveted brass mantle, lamp eyes with a slit pupil, a chimney poofer, and six raised arms with nozzles.
+    - The name and the place are real, with the usual fan-made, not-affiliated note. There's no logo.
+140. **The burn follows the real sequence, compressed into about two minutes.** It fires on a long peak while it's still dark, or from code (`signature('burn')`).
+    - The Man raises his arms, and fireworks go up off his base.
+    - The fire takes the pavilion and climbs him, then he falls away from the crowd.
+    - It burns down to a glow that lasts the rest of the night, and the crowd goes up for it.
+    - Fireworks burst at most three times a second, or 1.8 with Reduce flashing. The fire's light flickers smoothly.
+141. **Fire follows the playa's rules and the flash rules.**
+    - The poofers are propane fireballs at least 10 ft up, as the art car rules require.
+    - On the drop they all fire. Through the peak, half fire on beats one and three (once a bar with Reduce flashing). The octopus also fires one arm every few bars on its own.
+142. **The set runs from the dark to sunrise.**
+    - No moon, the Milky Way over a dark desert, the city's glow low on the horizon.
+    - Then blue hour, the hills going magenta (as Burning Man's own journal describes the dawn), and the sun up over them.
+    - The playa is held near-black at night. The scene's fill light falls evenly on everything, and on pale alkali that read as daylight. It comes up with the dawn.
+143. **Everything else is the playa at night:**
+    - art cars crawling past at 5 mph (a jellyfish, a galleon, a dome, a fish);
+    - 160 bikes riding loops round the Man in EL wire;
+    - bikes dumped in heaps at the edge of the crowd;
+    - the crowd in fur, goggles and sequins;
+    - lasers sweeping up from the city's sound camps;
+    - art out on the open playa (a ring of light, a forest of glowing poles, a steel tree).
+
+    The open desert sounds dry: nothing to bounce off, and a heavy low end. Underneath it, wind blows across the lake bed in slow gusts.
+144. **The art car's lasers stay over heads everywhere round the car**, because people stand all round it, not just in front; they reach 150 m. Two orange shapes that hung in the sky in every shot turned out to be lens ghosts, not lasers. The octopus's polished deck caught a wash light, and the cinematic lens mirrored that bright flat rectangle across the frame. The deck is matte now.
