@@ -399,3 +399,4 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
 
     The open desert sounds dry: nothing to bounce off, and a heavy low end. Underneath it, wind blows across the lake bed in slow gusts.
 144. **The art car's lasers stay over heads everywhere round the car**, because people stand all round it, not just in front; they reach 150 m. Two orange shapes that hung in the sky in every shot turned out to be lens ghosts, not lasers. The octopus's polished deck caught a wash light, and the cinematic lens mirrored that bright flat rectangle across the frame. The deck is matte now.
+145. **A full volley of fireballs reads as fire, not a white-out.** Each ball is drawn on its front faces only. With the back faces added in as well, the octopus's seven arms firing together stacked up to cream-white and buried the sculpture in bloom. The hot core is a deeper yellow, and the light the fire throws onto the playa is a little lower.

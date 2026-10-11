@@ -530,9 +530,9 @@ const BALL_FRAG = /* glsl */ `
     // a yellow-hot core early on, then orange, then dull red at the edges as it burns out
     float heat = clamp(1.15 - vAge * 1.4 + (edge - 0.5) * 0.8 + (n - 0.5) * 0.6, 0.0, 1.0);
     vec3 col = mix(vec3(0.4, 0.05, 0.0), vec3(1.0, 0.36, 0.03), smoothstep(0.1, 0.5, heat));
-    col = mix(col, vec3(1.0, 0.78, 0.32), smoothstep(0.62, 0.95, heat));
+    col = mix(col, vec3(1.0, 0.7, 0.24), smoothstep(0.62, 0.95, heat));
     float a = pow(edge, 1.4) * smoothstep(0.3, 0.62, n + edge * 0.35) * (1.0 - smoothstep(0.6, 1.0, vAge)) * smoothstep(0.0, 0.05, vAge);
-    gl_FragColor = vec4(col * a * 1.3, 1.0);
+    gl_FragColor = vec4(col * a, 1.0);
   }
 `;
 
@@ -580,7 +580,8 @@ export class Fireballs implements Fixture {
     geo.setAttribute('iAge', this.age);
     geo.setAttribute('iSeed', new THREE.InstancedBufferAttribute(new Float32Array(n).map((_, i) => (i * 0.37) % 1), 1));
     geo.setAttribute('iSize', new THREE.InstancedBufferAttribute(new Float32Array(n).fill(o.size ?? 1.6), 1));
-    this.mat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 } }, vertexShader: BALL_VERT, fragmentShader: BALL_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false });
+    // front faces only: with the backs added in too, a full volley stacked up to white
+    this.mat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 } }, vertexShader: BALL_VERT, fragmentShader: BALL_FRAG, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
     this.mesh = new THREE.InstancedMesh(geo, this.mat, n);
     this.mesh.frustumCulled = false;
     this.fired = nozzles.map(() => -100);
@@ -633,7 +634,7 @@ export class Fireballs implements Fixture {
     this.age.needsUpdate = true;
     this.mat.uniforms.uTime.value = this.t;
     if (w > 0) this.light.position.copy(c.multiplyScalar(1 / w)).add(V(0, 3, 0));
-    this.light.intensity = Math.min(1.5, lit) * 150 * (0.9 + 0.1 * Math.sin(this.t * 31));
+    this.light.intensity = Math.min(1.5, lit) * 110 * (0.9 + 0.1 * Math.sin(this.t * 31));
   }
 
   /** seconds since any nozzle last fired */
