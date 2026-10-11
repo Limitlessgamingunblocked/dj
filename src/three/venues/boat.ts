@@ -374,10 +374,10 @@ class Boat extends OpenAir {
 
     // packed on both levels
     const clothes = ['#f2efe8', '#1b1d22', '#2a3a5a', '#c8a07a', '#5a1e2a', '#e8e2d4', '#101114', '#3a7a8a', '#f28a6a', '#7a5cff'];
-    const top = new Crowd(crowdArea(-TOP.x + 0.6, TOP.x - 0.6, -1.4, TOP.z0 + 0.6, 2.1, 502, { avoid: [new THREE.Box2(new THREE.Vector2(TOP.x - 1.6, TOP.z0), new THREE.Vector2(TOP.x, TOP.z0 + 1.2))] }), { seed: 503, phones: 0.14, drinks: 0.4, signs: 2, clothes });
+    const top = new Crowd(crowdArea(-TOP.x + 0.6, TOP.x - 0.6, -1.4, TOP.z0 + 0.6, 2.1, 502, { avoid: [new THREE.Box2(new THREE.Vector2(TOP.x - 1.6, TOP.z0), new THREE.Vector2(TOP.x, TOP.z0 + 1.2))] }), { seed: 503, phones: 0.14, drinks: 0.4, signs: 2, clothes, shorts: 0.4 });
     const bow = new Crowd(
       crowdArea(-TOP.x + 0.8, TOP.x - 0.8, TOP.z0 - 1.2, TOP.z0 - bowLen + 2.4, 2.1, 504, { y: LOWER_Y }).filter((p) => Math.abs(p.x) < TOP.x * (0.55 + 0.45 * ((p.z - (TOP.z0 - bowLen)) / bowLen)) - 0.7),
-      { seed: 505, phones: 0.14, drinks: 0.4, clothes, booth: V(0, LOWER_Y, 0.2) },
+      { seed: 505, phones: 0.14, drinks: 0.4, clothes, booth: V(0, LOWER_Y, 0.2), shorts: 0.4 },
     );
     const crew = vipCrew(crewArc(0, 1.6, 2.5, 0.7, 2.4).filter((p) => Math.abs(p.x) < TOP.x - 0.6), 506, clothes);
     if (crew) this.add(crew);

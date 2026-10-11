@@ -201,7 +201,7 @@ class Sunrise extends OpenAir {
     const crew = vipCrew(crewArc(0, 1.8, 2.8, 0.6, 2.4), 706, clothes);
     if (crew) this.add(crew);
     this.add(security([{ x: -3.4, z: -1.8, y: -1.1 }, { x: 3.4, z: -1.8, y: -1.1 }], 707));
-    this.crowd = new Crowd(front, { seed: 703, phones: 0.06, drinks: 0.2, signs: 2, clothes, booth: V(0, 0, 0.2) });
+    this.crowd = new Crowd(front, { seed: 703, phones: 0.06, drinks: 0.2, signs: 2, clothes, booth: V(0, 0, 0.2), shorts: 0.35 });
     this.group.add(this.crowd.object);
     const density = (x: number, z: number) => {
       if (z > -10 && Math.abs(x) < 13) return 0;

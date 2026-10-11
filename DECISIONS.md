@@ -450,3 +450,36 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - At a steady B on 10-minute sets, the first tier comes after 3 sets (was 6), and the sunrise after 29 (was 87). At a C it's 46 sets (was 172).
     - Grades themselves are unchanged.
     - A saved career moves straight up to the tier its fame has now earned when the game loads.
+
+## The visual upgrade: shadows where things meet, reflections, models, the crowd (2026-10-11)
+158. **Ambient occlusion in screen space, from the frame's own depth.**
+    - It works at half resolution: 12 taps spiral round each pixel, then an edge-keeping blur. It never draws the scene a second time.
+    - Lamps, screens, beams and lasers keep their full brightness, since light doesn't sit in shadow.
+    - It fades out past about 18–45 m, where it only adds noise.
+    - The radius is a hand's span (55 cm). People, booths and walls pick up contact shadow without a dark halo round the room.
+    - The composer's target now keeps a depth texture. A small pass notes which buffer holds the scene, because the composer swaps buffers as passes run.
+159. **Reflections are a mirror render of only the bright things.** In a dark club, the lamps, screens, beams and lasers are what you see in a polished floor; dark walls reflect nothing you'd notice.
+    - Bright objects are tagged on their own layer: additive, not tone-mapped, or strongly emissive. A virtual camera below the floor draws just that layer at quarter resolution.
+    - The render is blurred by how rough the floor is and laid on with Fresnel, faint looking down and strong at a grazing angle.
+    - Screen-space reflections were rejected because they lose anything off screen, which is the rig overhead.
+    - Each venue sets its floor height, strength and roughness. The rooms with a stage get a second plane on the stage deck, because the crowd covers most of the floor.
+160. **Both are on at Medium and High.** They're off on Low, and the automatic quality turns them off at its lower two steps, before it cuts the render resolution further.
+161. **The models are built in code, not downloaded.**
+    - The free libraries (Poly Haven, Kenney, through jsDelivr) are blocked by this build environment's network policy. The single-file build also argues against large model files.
+    - Trusses are tube geometry: four chords, zigzag braces on each face, couplers every 3 m. Each length is built once and shared.
+    - Speakers are rounded cabinets with perforated grilles, handles and rigging plates: one mesh with two materials. A line array merges into a single mesh.
+    - The booth gets aluminium trims, a kick plate and a rounded top.
+162. **The crowd stays a jointed figure posed in the vertex shader, not a skinned model per person.** It is skinning with rigid bones, posed in the vertex shader, and it keeps one draw call per 6 m chunk of people. Mocap clips would need model and animation files from outside, which can't be fetched here.
+    - The close-up figure now has:
+      - a shaped torso (waist, ribcage, shoulder slope) and rounded shoulders that turn with the arm;
+      - a jaw, nose and ears, and trainers;
+      - long hair on about 40 %, a cap on about 14 %;
+      - shorts, by venue: about half the beach crowd, 10 % indoors;
+      - slimmer and broader builds.
+    - Triangles per person: 1,226 to 1,854 close up, and 581 to 810 in the low-detail model used past 12 m.
+    - The dancing gained a step-touch: the weight goes from leg to leg each beat, one knee bends and the other foot comes up. The body also leans into the beat.
+163. **The far crowd is drawn from the same 3D person.**
+    - Its four poses are posed on the CPU through the same joints as the shader. The poses are dancing, filming, hands up and a fist pump.
+    - The poses are drawn into the cut-out atlas back to front, with shading from the light. There's a long-hair version of each.
+    - The atlas carries data, not colour: skin, hair or clothes; top, trousers or phone; shading; coverage. Each far person keeps their own clothes and skin colours.
+    - Colour is padded past the outline so the edges don't darken as the cut-outs get small.

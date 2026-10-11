@@ -1,0 +1,179 @@
+import * as THREE from 'three';
+import { describe, expect, it } from 'vitest';
+import { AOPass, DepthTap } from '../src/three/ao';
+import { QUALITY_STEPS } from '../src/three/quality';
+import { REFLECT_LAYER, ReflectPass, isBright, tagBright } from '../src/three/reflect';
+import { PERSON_BONES, PERSON_MATS, personGeometry } from '../src/three/venues/crowd';
+import { boneMatrix, posedPerson, type HeldPose } from '../src/three/venues/crowdpose';
+import { FAR_POSES, atlasColor, padEdges } from '../src/three/venues/farcrowd';
+import { speakerGeometry, truss } from '../src/three/venues/fixtures';
+
+const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+const REST: HeldPose = { aL: [0, 0, 0], aR: [0, 0, 0], knee: 0 };
+
+describe('reflections pick out the bright things', () => {
+  it('counts lamps, screens and beams as bright, plain surfaces not', () => {
+    const geo = new THREE.BoxGeometry();
+    const plain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x808080 }));
+    const lamp = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ emissive: 0xffffff }));
+    const dim = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ emissive: 0x050505 }));
+    const beam = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ blending: THREE.AdditiveBlending }));
+    const screen = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ toneMapped: false }));
+    const hidden = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ toneMapped: false, visible: false }));
+    expect(isBright(plain)).toBe(false);
+    expect(isBright(dim)).toBe(false);
+    expect(isBright(lamp)).toBe(true);
+    expect(isBright(beam)).toBe(true);
+    expect(isBright(screen)).toBe(true);
+    expect(isBright(hidden)).toBe(false);
+    expect(isBright(new THREE.Group())).toBe(false);
+    const root = new THREE.Group().add(plain, lamp, dim, beam, screen, hidden);
+    expect(tagBright(root)).toBe(3);
+    const probe = new THREE.Layers();
+    probe.set(REFLECT_LAYER);
+    expect(lamp.layers.test(probe)).toBe(true);
+    expect(plain.layers.test(probe)).toBe(false);
+  });
+
+  it('builds the passes without a GPU, and takes one or two planes', () => {
+    const cam = new THREE.PerspectiveCamera();
+    const tap = new DepthTap();
+    expect(tap.needsSwap).toBe(false);
+    const rf = new ReflectPass(new THREE.Scene(), cam, tap);
+    rf.floor = { y: 0, strength: 0.4 };
+    expect(rf.planes).toHaveLength(1);
+    rf.floor = [
+      { y: 0, strength: 0.4 },
+      { y: 1.2, strength: 0.3 },
+      { y: 3, strength: 0.2 },
+    ];
+    expect(rf.planes).toHaveLength(2);
+    rf.floor = null;
+    expect(rf.planes).toHaveLength(0);
+    const ao = new AOPass(cam, tap);
+    ao.setSize(800, 450);
+    expect(ao.needsSwap).toBe(true);
+    rf.dispose();
+    ao.dispose();
+  });
+
+  it('drops AO and reflections at the lower quality steps only', () => {
+    expect(QUALITY_STEPS[0].surfaces).toBe(true);
+    expect(QUALITY_STEPS[QUALITY_STEPS.length - 1].surfaces).toBe(false);
+    // once off, they stay off further down
+    const firstOff = QUALITY_STEPS.findIndex((s) => !s.surfaces);
+    expect(firstOff).toBeGreaterThan(0);
+    expect(QUALITY_STEPS.slice(firstOff).every((s) => !s.surfaces)).toBe(true);
+  });
+});
+
+describe('modelled trusses and speakers', () => {
+  it('shares one geometry between runs of the same length and size', () => {
+    const a = truss(V(0, 0, 0), V(0, 6, 0));
+    const b = truss(V(5, 0, 0), V(5, 0, 6));
+    const c = truss(V(0, 0, 0), V(0, 4, 0));
+    expect(a.geometry).toBe(b.geometry);
+    expect(a.geometry).not.toBe(c.geometry);
+    // a 6 m run lies along its axis, its tubes inside the truss's width
+    a.geometry.computeBoundingBox();
+    const bb = a.geometry.boundingBox!;
+    expect(bb.max.y - bb.min.y).toBeCloseTo(6, 1);
+    expect(bb.max.x - bb.min.x).toBeLessThan(0.36);
+  });
+
+  it('gives a speaker a shell group and a grille group on its front', () => {
+    for (const layout of ['mid', 'sub', 'monitor', 'top'] as const) {
+      const g = speakerGeometry(0.6, 0.9, 0.5, layout);
+      expect(g.groups.map((x) => x.materialIndex)).toEqual([0, 1]);
+      const grille = g.groups[1];
+      const pos = g.attributes.position;
+      for (let i = grille.start; i < grille.start + grille.count; i++) expect(pos.getZ(i)).toBeCloseTo(0.25 - 0.004, 4);
+    }
+  });
+});
+
+describe('the crowd model', () => {
+  it('keeps the low-detail model well under the close-up one, with the same parts', () => {
+    const hi = personGeometry(0);
+    const lo = personGeometry(1);
+    expect(lo.index!.count).toBeLessThan(hi.index!.count * 0.6);
+    const mats = (g: THREE.BufferGeometry) => new Set(Array.from(g.attributes.aMat.array as Float32Array));
+    for (const m of [PERSON_MATS.longHair, PERSON_MATS.cap, PERSON_MATS.shin]) {
+      expect(mats(hi).has(m)).toBe(true);
+      expect(mats(lo).has(m)).toBe(true);
+    }
+    expect(Math.max(...mats(hi))).toBe(PERSON_MATS.cap);
+  });
+
+  it('poses nothing in the rest pose', () => {
+    for (const b of Object.values(PERSON_BONES)) expect(boneMatrix(b, REST).equals(new THREE.Matrix4())).toBe(true);
+  });
+
+  it('bends the joints the way the crowd shader does', () => {
+    // an arm straight up (out to the side by 180°): the elbow goes above the shoulder
+    const up = boneMatrix(PERSON_BONES.upperR, { ...REST, aR: [Math.PI, 0, 0] });
+    const elbow = V(0.2, 1.14, 0).applyMatrix4(up);
+    expect(elbow.y).toBeCloseTo(1.42 + 0.28, 5);
+    expect(elbow.x).toBeCloseTo(0.2, 5);
+    // the elbow bend swings the hand forward, the elbow stays put
+    const fore = boneMatrix(PERSON_BONES.foreR, { ...REST, aR: [0, 0, Math.PI / 2] });
+    expect(V(0.2, 1.14, 0).applyMatrix4(fore).distanceTo(V(0.2, 1.14, 0))).toBeLessThan(1e-6);
+    expect(V(0.2, 0.83, 0).applyMatrix4(fore).z).toBeCloseTo(0.31, 5);
+    // bent knees: the hips drop, the ankles stay on the floor
+    const k = 0.6;
+    const hip = V(0.09, 0.9, 0).applyMatrix4(boneMatrix(PERSON_BONES.thighR, { ...REST, knee: k }));
+    const ankle = V(0.09, 0.1, 0).applyMatrix4(boneMatrix(PERSON_BONES.shinR, { ...REST, knee: k }));
+    expect(hip.y).toBeLessThan(0.85);
+    expect(ankle.y).toBeCloseTo(0.1, 5);
+  });
+
+  it('leaves the props out of the far crowd unless asked', () => {
+    const mats = (o?: { phone?: boolean; longHair?: boolean }) => new Set(posedPerson(REST, o).map((t) => t.mat));
+    const plain = mats();
+    for (const m of [PERSON_MATS.cup, PERSON_MATS.phone, PERSON_MATS.signFace, PERSON_MATS.towel, PERSON_MATS.cap, PERSON_MATS.longHair]) expect(plain.has(m)).toBe(false);
+    expect(plain.has(PERSON_MATS.skin) && plain.has(PERSON_MATS.top) && plain.has(PERSON_MATS.shin)).toBe(true);
+    expect(mats({ phone: true }).has(PERSON_MATS.screen)).toBe(true);
+    expect(mats({ longHair: true }).has(PERSON_MATS.longHair)).toBe(true);
+  });
+
+  it('keeps every far pose inside its 1 m × 2 m card', () => {
+    for (const p of FAR_POSES) {
+      const box = new THREE.Box3();
+      for (const t of posedPerson(p, { phone: p.phone, longHair: true })) for (const q of t.p) box.expandByPoint(q);
+      expect(box.min.x).toBeGreaterThan(-0.5);
+      expect(box.max.x).toBeLessThan(0.5);
+      expect(box.max.y).toBeLessThan(1.98);
+      expect(box.min.y).toBeGreaterThan(-0.05);
+    }
+  });
+
+  it('writes the atlas data the far crowd shader decodes', () => {
+    const front = V(0, 0, 1);
+    const back = V(0, 0, -1);
+    const [skinR, skinG] = atlasColor(PERSON_MATS.skin, front);
+    expect(skinR).toBe(255);
+    expect(skinG).toBe(255);
+    expect(atlasColor(PERSON_MATS.hair, front)[0]).toBe(128);
+    expect(atlasColor(PERSON_MATS.longHair, front)[0]).toBe(128);
+    expect(atlasColor(PERSON_MATS.top, front).slice(0, 2)).toEqual([0, 255]);
+    expect(atlasColor(PERSON_MATS.sleeveUp, front)[1]).toBe(255);
+    expect(atlasColor(PERSON_MATS.bottoms, front)[1]).toBe(100);
+    expect(atlasColor(PERSON_MATS.shin, front)[1]).toBe(100);
+    expect(atlasColor(PERSON_MATS.screen, front).slice(0, 2)).toEqual([0, 0]);
+    // facing the light is brighter than facing away
+    expect(atlasColor(PERSON_MATS.top, front)[2]).toBeGreaterThan(atlasColor(PERSON_MATS.top, back)[2] + 100);
+  });
+
+  it('pads colour out past the outline without covering anything', () => {
+    const w = 5;
+    const px = new Uint8Array(w * w * 4);
+    const at = (x: number, y: number) => (y * w + x) * 4;
+    px.set([200, 100, 50, 255], at(2, 2));
+    padEdges(px, w, w, 2);
+    expect(Array.from(px.subarray(at(3, 2), at(3, 2) + 4))).toEqual([200, 100, 50, 0]);
+    expect(Array.from(px.subarray(at(2, 0), at(2, 0) + 4))).toEqual([200, 100, 50, 0]);
+    // three steps away: out of reach of two passes
+    expect(px[at(0, 0)]).toBe(0);
+    expect(px[at(2, 2) + 3]).toBe(255);
+  });
+});

@@ -1,10 +1,11 @@
 /*
  * The far crowd: thousands of people past the jointed 3D dancers, as
  * camera-facing cut-outs in one instanced draw (two triangles each).
- *   – four poses in a procedural silhouette atlas (arms down, one arm up
- *     filming, both arms up, fists up mid-jump), picked per person from the
- *     same show state that drives the 3D crowd: hands rise with the hype and
- *     the drop, jumps on the peak, phones held up by some
+ *   – four poses (dancing, one arm up filming, both arms up, a fist pumped
+ *     mid-jump) drawn from the 3D crowd's own person model, shaded, picked
+ *     per person from the same show state that drives the 3D crowd: hands
+ *     rise with the hype and the drop, jumps on the peak, phones held up by
+ *     some
  *   – bob and sway on the beat with a per-person phase, so the floor moves
  *     like a crowd rather than a pattern
  *   – lit by the show: with a floor light map (lightmap.ts) each person is lit
@@ -22,8 +23,9 @@ import * as THREE from 'three';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
 import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
-import { getCrowdScale } from './crowd';
-import { canvasTexture, rng } from './tex';
+import { getCrowdScale, PERSON_MATS as M } from './crowd';
+import { posedPerson, type HeldPose, type PosedTri } from './crowdpose';
+import { rng } from './tex';
 
 export interface FarSpot {
   x: number;
@@ -64,102 +66,124 @@ export function scatter(x0: number, x1: number, z0: number, z1: number, density:
 /* ------------------------------------------------------------------ */
 
 /*
- * 4 frames of 128×256 (1 m × 2 m). Channels are data, not colour:
+ * 8 frames of 128×256 (1 m × 2 m), drawn from the 3D crowd's person held in
+ * four of its poses (crowdpose.ts), so the back of the room is the same people
+ * as the front: the four poses, then the four again with long hair.
+ * Channels are data, not colour:
  *   R  1 = skin, 0.5 = hair, 0 = clothes
- *   G  1 = top, ~0.4 = trousers
- *   B  1 = phone screen (frame 1)
+ *   G  1 = top (and skin, hair), ~0.4 = trousers and shoes, 0 = phone
+ *   B  shading: how much the light from in front and above lands on that bit
  *   A  coverage
  */
-function atlas(): THREE.CanvasTexture {
-  return canvasTexture(
-    'far-crowd-atlas',
-    512,
-    256,
-    (g) => {
-      g.clearRect(0, 0, 512, 256);
-      g.lineCap = 'round';
-      g.lineJoin = 'round';
-      const PX = 128; // px per metre
-      const feet = 250;
-      const y = (m: number) => feet - m * PX;
-      const CLOTH = 'rgb(0,255,0)';
-      const LEGS = 'rgb(0,100,0)';
-      const SKIN = 'rgb(255,255,0)';
-      const HAIR = 'rgb(128,255,0)';
-      const limb = (pts: [number, number][], w: number, col: string) => {
-        g.strokeStyle = col;
-        g.lineWidth = w;
-        g.beginPath();
-        pts.forEach(([px, py], i) => (i ? g.lineTo(px, py) : g.moveTo(px, py)));
-        g.stroke();
-      };
-      // arm poses: [shoulder → elbow → hand] per side, in metres from the body centre
-      type Arm = [number, number][];
-      const poses: { l: Arm; r: Arm; crouch: number; phone?: boolean }[] = [
-        // arms down, a little bent, hands in front of the hips
-        { l: [[-0.2, 1.43], [-0.25, 1.17], [-0.17, 0.95]], r: [[0.2, 1.43], [0.26, 1.17], [0.19, 0.97]], crouch: 0 },
-        // right arm up holding a phone, left down
-        { l: [[-0.2, 1.43], [-0.25, 1.17], [-0.18, 0.95]], r: [[0.2, 1.43], [0.3, 1.66], [0.22, 1.93]], crouch: 0, phone: true },
-        // both arms up in a V
-        { l: [[-0.2, 1.43], [-0.36, 1.68], [-0.44, 1.95]], r: [[0.2, 1.43], [0.36, 1.68], [0.44, 1.95]], crouch: 0 },
-        // fists up, elbows out, knees bent (jumping)
-        { l: [[-0.2, 1.43], [-0.4, 1.56], [-0.27, 1.86]], r: [[0.2, 1.43], [0.4, 1.56], [0.27, 1.86]], crouch: 0.06 },
-      ];
-      poses.forEach((p, f) => {
-        const ox = f * 128 + 64;
-        const X = (m: number) => ox + m * PX;
-        const c = p.crouch;
-        const Y = (m: number) => y(m - c);
-        // legs
-        limb([[X(-0.09), Y(0.93)], [X(-0.11 - c), Y(0.5)], [X(-0.1), y(0.04)]], 17, LEGS);
-        limb([[X(0.09), Y(0.93)], [X(0.11 + c), Y(0.5)], [X(0.1), y(0.04)]], 17, LEGS);
-        // shoes
-        g.fillStyle = LEGS;
-        g.beginPath();
-        g.ellipse(X(-0.1), y(0.03), 9, 5, 0, 0, Math.PI * 2);
-        g.ellipse(X(0.1), y(0.03), 9, 5, 0, 0, Math.PI * 2);
-        g.fill();
-        // torso: shoulders to hips
-        g.fillStyle = CLOTH;
-        g.beginPath();
-        g.moveTo(X(-0.21), Y(1.46));
-        g.quadraticCurveTo(X(0), Y(1.5), X(0.21), Y(1.46));
-        g.lineTo(X(0.17), Y(1.12));
-        g.lineTo(X(0.16), Y(0.9));
-        g.lineTo(X(-0.16), Y(0.9));
-        g.lineTo(X(-0.17), Y(1.12));
-        g.closePath();
-        g.fill();
-        // arms: sleeve to the elbow, skin below
-        for (const arm of [p.l, p.r]) {
-          const pts = arm.map(([ax, ay]) => [X(ax), Y(ay)] as [number, number]);
-          limb([pts[0], pts[1]], 12, CLOTH);
-          limb([pts[1], pts[2]], 10, SKIN);
-          g.fillStyle = SKIN;
-          g.beginPath();
-          g.arc(pts[2][0], pts[2][1], 6, 0, Math.PI * 2);
-          g.fill();
+export const FAR_POSES: (HeldPose & { phone?: boolean })[] = [
+  // the club dance: elbows bent, hands in front
+  { aL: [0.2, 0.45, 1.45], aR: [0.18, 0.6, 1.3], knee: 0.1 },
+  // filming: the right arm up with the phone
+  { aL: [0.16, 0.35, 1.25], aR: [0.12, 1.95, 0.6], knee: 0.05, phone: true },
+  // both hands in the air
+  { aL: [2.65, 0.25, 0.35], aR: [2.65, 0.25, 0.35], knee: 0.05 },
+  // a fist pumped up, knees bent (jumping)
+  { aL: [0.25, 0.55, 1.4], aR: [0.3, 2.55, 0.65], knee: 0.4 },
+];
+
+/** the data colour (R, G, B 0..255) of a posed triangle in the atlas */
+export function atlasColor(mat: number, n: THREE.Vector3): [number, number, number] {
+  const r = mat === M.skin ? 255 : mat === M.hair || mat === M.longHair ? 128 : 0;
+  const g = mat === M.phone || mat === M.screen ? 0 : mat === M.bottoms || mat === M.shoes || mat === M.shin ? 100 : 255;
+  // front and above, a little from one side; a wrap so the turn of the body falls off softly
+  const l = n.x * 0.28 + n.y * 0.5 + n.z * 0.82;
+  const shade = 0.22 + 0.78 * Math.max(0, (l + 0.25) / 1.25);
+  return [r, g, Math.round(255 * Math.min(1, shade))];
+}
+
+/**
+ * Spread the colour of covered pixels out into the empty ones round them
+ * (alpha stays 0), so filtering and mipmaps at the outline blend with the
+ * person's own colours instead of black.
+ */
+export function padEdges(px: Uint8ClampedArray | Uint8Array, w: number, h: number, passes: number): void {
+  const done = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) done[i] = px[i * 4 + 3] > 0 ? 1 : 0;
+  for (let pass = 0; pass < passes; pass++) {
+    const add: number[] = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (done[i]) continue;
+        let r = 0, g = 0, b = 0, k = 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const j = ny * w + nx;
+          if (!done[j]) continue;
+          r += px[j * 4];
+          g += px[j * 4 + 1];
+          b += px[j * 4 + 2];
+          k++;
         }
-        // neck, head and hair
-        limb([[X(0), Y(1.47)], [X(0), Y(1.55)]], 11, SKIN);
-        g.fillStyle = SKIN;
-        g.beginPath();
-        g.ellipse(X(0), Y(1.65), 12, 15, 0, 0, Math.PI * 2);
-        g.fill();
-        g.fillStyle = HAIR;
-        g.beginPath();
-        g.ellipse(X(0), Y(1.69), 12.5, 12, 0, Math.PI, Math.PI * 2);
-        g.fill();
-        if (p.phone) {
-          // the phone in the raised hand, screen towards the stage
-          const [hx, hy] = [X(p.r[2][0]), Y(p.r[2][1])];
-          g.fillStyle = 'rgb(0,0,255)';
-          g.fillRect(hx - 5, hy - 16, 10, 16);
-        }
-      });
-    },
-    { srgb: false },
-  );
+        if (!k) continue;
+        px[i * 4] = r / k;
+        px[i * 4 + 1] = g / k;
+        px[i * 4 + 2] = b / k;
+        add.push(i);
+      }
+    }
+    for (const i of add) done[i] = 1;
+  }
+}
+
+let atlasTex: THREE.DataTexture | null = null;
+
+function atlas(): THREE.Texture {
+  if (atlasTex) return atlasTex;
+  const W = 1024;
+  const H = 256;
+  const PX = 128; // px per metre
+  const FEET = 254;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const g = c.getContext('2d')!;
+  g.lineJoin = 'round';
+  // a hairline stroke round each triangle closes the seams between them
+  g.lineWidth = 0.7;
+  const frames = [false, true].flatMap((longHair) => FAR_POSES.map((pose) => ({ pose, longHair })));
+  frames.forEach(({ pose, longHair }, f) => {
+    const ox = f * 128 + 64;
+    // back to front
+    const zs = (t: PosedTri) => t.p[0].z + t.p[1].z + t.p[2].z;
+    const tris = posedPerson(pose, { phone: pose.phone, longHair }).sort((a, b) => zs(a) - zs(b));
+    g.save();
+    g.beginPath();
+    g.rect(f * 128, 0, 128, H);
+    g.clip();
+    for (const t of tris) {
+      const [r, gg, b] = atlasColor(t.mat, t.n);
+      g.fillStyle = g.strokeStyle = `rgb(${r},${gg},${b})`;
+      g.beginPath();
+      g.moveTo(ox + t.p[0].x * PX, FEET - t.p[0].y * PX);
+      g.lineTo(ox + t.p[1].x * PX, FEET - t.p[1].y * PX);
+      g.lineTo(ox + t.p[2].x * PX, FEET - t.p[2].y * PX);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    g.restore();
+  });
+  const img = g.getImageData(0, 0, W, H).data;
+  padEdges(img, W, H, 4);
+  // rows from the bottom up: uv 0 is at the feet
+  const data = new Uint8Array(W * H * 4);
+  for (let y = 0; y < H; y++) data.set(img.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+  const t = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+  t.generateMipmaps = true;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.anisotropy = 8;
+  t.userData.shared = true;
+  t.needsUpdate = true;
+  atlasTex = t;
+  return t;
 }
 
 /* ------------------------------------------------------------------ */
@@ -204,7 +228,9 @@ const VERT = /* glsl */ `
     vSeedF = seed;
     float flip = fract(seed * 13.7) > 0.5 ? 1.0 : 0.0;
     float u = flip > 0.5 ? 1.0 - uv.x : uv.x;
-    vUv = vec2((frame + u) * 0.25, uv.y);
+    // long hair on some
+    float hair = step(0.62, fract(seed * 23.17)) * 4.0;
+    vUv = vec2((frame + hair + u) * 0.125, uv.y);
     vY = uv.y;
     // a card facing the camera; it leans towards a camera that looks down on it
     vec3 toCam = cameraPosition - c;
@@ -252,8 +278,9 @@ const FRAG = /* glsl */ `
     vec3 base = t.g > 0.6 ? vTop : vLegs;
     base = mix(base, vHair, step(0.3, t.r) * (1.0 - step(0.75, t.r)));
     base = mix(base, vSkin, step(0.75, t.r));
-    vec3 col = base * vLit * (0.55 + 0.45 * vY);
-    if (vPhone > 0.5 && t.b > 0.5) {
+    // the atlas's shading for the shape of the body, a little darker low down in the crush
+    vec3 col = base * vLit * (0.1 + t.b) * (0.78 + 0.22 * vY);
+    if (vPhone > 0.5 && t.g < 0.2 && t.r < 0.3) {
       col = vec3(0.75, 0.85, 1.0) * uPhoneGlow;
       // a photo flash now and then after the drop
       if (uPhotos > 0.001) col += vec3(14.0) * step(1.0 - 0.06 * uPhotos, fract(sin(dot(vec2(vSeedF * 113.0, floor(uTime * 9.0 + vSeedF * 37.0)), vec2(12.9898, 78.233))) * 43758.5453));

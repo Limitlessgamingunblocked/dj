@@ -283,6 +283,7 @@ class Rooftop extends OpenAir {
     // the after-work crowd, drinks in hand
     this.crowd = new Crowd(crowdArea(x0 + 1.2, x1 - 1.2, -1.6, z0 + 1.6, 1.25, 263, { avoid: [new THREE.Box2(new THREE.Vector2(x0, -13), new THREE.Vector2(x0 + 2.6, -8))] }), {
       seed: 264,
+      shorts: 0.3,
       phones: 0.1,
       drinks: 0.6,
       signs: 1,

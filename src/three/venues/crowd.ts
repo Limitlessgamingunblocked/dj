@@ -2,8 +2,9 @@
  * The crowd: one instanced mesh of jointed people posed in the vertex shader.
  *   – a skeleton of rigid parts (thighs, shins, upper arms, forearms, head,
  *     torso) bent at hips, knees, shoulders, elbows and neck; knees bend on
- *     the beat and kick transients, hips sway, shoulders twist, heads nod
- *     and look around
+ *     the beat and kick transients, the weight steps from leg to leg, the
+ *     body leans into the beat, hips sway, shoulders twist, heads nod and
+ *     look around
  *   – behaviours blend per person with slowly drifting noise and the show
  *     state: club-dance arms, hands in the air waving, fist pumps on the
  *     beat, clapping overhead in build-ups, everyone up and jumping on drops
@@ -19,8 +20,11 @@
  *     the towel guy (spins a towel overhead on every drop), the bar-leaner
  *     (only dances when the vibe's really high) and, at festivals, the
  *     shoulder-riders who pop up at the peak
- *   – clothing: tops in the venue's palette, sleeves, trousers and shoes
- *     picked per person, skin and hair tones varied
+ *   – the figure: a shaped torso, rounded shoulders, jaw, nose and ears,
+ *     trainers; clothing: tops in the venue's palette, sleeves, trousers (or
+ *     shorts, more at the warm venues) and shoes picked per person, skin and
+ *     hair tones varied, long hair on some, caps on a few, builds slimmer
+ *     and broader
  *   – performance: dancers are grouped in ~6 m chunks, each its own instanced
  *     mesh, so chunks off screen are culled; chunks far from the camera swap
  *     to a low-detail model (a little under half the triangles). Both models
@@ -71,6 +75,8 @@ export interface CrowdOptions {
   riders?: number;
   /** the venue's floor light map: people are lit by the light landing where they stand */
   lightMap?: LightMap;
+  /** share of people in shorts (more at the warm outdoor venues) */
+  shorts?: number;
 }
 
 let shadowGeo: THREE.BufferGeometry | null = null;
@@ -78,8 +84,26 @@ let shadowMat: THREE.MeshBasicMaterial | null = null;
 
 /* bones */
 const B = { body: 0, thighL: 1, thighR: 2, shinL: 3, shinR: 4, upperL: 5, foreL: 6, upperR: 7, foreR: 8, head: 9, sign: 10 };
-/* materials */
-const M = { top: 0, bottoms: 1, skin: 2, hair: 3, shoes: 4, sleeveUp: 5, sleeveLo: 6, cup: 7, phone: 8, screen: 9, torch: 10, signFrame: 11, signFace: 12, towel: 13 };
+/* materials (longHair and cap are worn by some people; shin is the trouser leg or, in shorts, bare skin) */
+const M = { top: 0, bottoms: 1, skin: 2, hair: 3, shoes: 4, sleeveUp: 5, sleeveLo: 6, cup: 7, phone: 8, screen: 9, torch: 10, signFrame: 11, signFace: 12, towel: 13, longHair: 14, shin: 15, cap: 16 };
+export const PERSON_BONES = B;
+export const PERSON_MATS = M;
+
+/* the torso's outline from the hips to the base of the neck: radius against height */
+const TORSO: [number, number][] = [
+  [0, 0.955],
+  [0.138, 0.955],
+  [0.131, 1.0],
+  [0.128, 1.06],
+  [0.136, 1.14],
+  [0.152, 1.22],
+  [0.163, 1.3],
+  [0.166, 1.35],
+  [0.157, 1.4],
+  [0.122, 1.44],
+  [0.068, 1.462],
+  [0, 1.468],
+];
 
 const personGeo: (THREE.BufferGeometry | null)[] = [null, null];
 
@@ -105,20 +129,34 @@ export function personGeometry(detail: 0 | 1 = 0): THREE.BufferGeometry {
   for (const sd of [-1, 1]) {
     const L = sd < 0;
     parts.push(
-      part(new THREE.BoxGeometry(0.1, 0.07, 0.25).translate(sd * 0.09, 0.035, 0.045), L ? B.shinL : B.shinR, M.shoes),
-      part(cap(0.055, 0.34, 2, 7).translate(sd * 0.09, 0.3, 0), L ? B.shinL : B.shinR, M.bottoms),
-      part(cap(0.072, 0.32, 2, 7).translate(sd * 0.09, 0.7, 0), L ? B.thighL : B.thighR, M.bottoms),
+      // trainers: rounded toe and heel, a little flatter than they are wide
+      part(cap(0.046, 0.15, 2, 7).rotateX(Math.PI / 2).scale(1.08, 0.74, 1).translate(sd * 0.09, 0.034, 0.045), L ? B.shinL : B.shinR, M.shoes),
+      part(cap(0.055, 0.34, 2, 7).translate(sd * 0.09, 0.3, 0), L ? B.shinL : B.shinR, M.shin),
+      part(cap(0.077, 0.31, 2, 7).translate(sd * 0.09, 0.7, 0), L ? B.thighL : B.thighR, M.bottoms),
+      // the shoulder's round (it turns with the arm, so a raised arm keeps its shoulder)
+      part(sph(0.06, 7, 5).scale(1, 1, 0.92).translate(sd * 0.2, 1.39, 0), L ? B.upperL : B.upperR, M.sleeveUp),
       part(cap(0.05, 0.2, 2, 7).translate(sd * 0.2, 1.28, 0), L ? B.upperL : B.upperR, M.sleeveUp),
       part(cap(0.042, 0.2, 2, 6).translate(sd * 0.2, 1.01, 0), L ? B.foreL : B.foreR, M.sleeveLo),
       part(sph(0.045, 6, 5).scale(0.8, 1.25, 0.6).translate(sd * 0.2, 0.83, 0.005), L ? B.foreL : B.foreR, M.skin),
     );
+    // ears
+    if (!lo) parts.push(part(sph(0.026, 5, 4).scale(0.36, 1, 0.66).translate(sd * 0.08, 1.595, -0.004), B.head, M.skin));
   }
   parts.push(
-    part(sph(1, 10, 6).scale(0.165, 0.13, 0.12).translate(0, 0.93, 0), B.body, M.bottoms),
-    part(cap(0.16, 0.3, 3, 10).scale(1.05, 1, 0.62).translate(0, 1.2, 0), B.body, M.top),
+    part(sph(1, 10, 6).scale(0.15, 0.11, 0.095).translate(0, 0.925, 0), B.body, M.bottoms),
+    // the torso: waist, ribcage and the slope of the shoulders, deeper at the chest than the waist
+    part(new THREE.LatheGeometry(TORSO.map(([r, y]) => new THREE.Vector2(r, y)), lo ? 7 : 12).scale(1.12, 1, 0.7), B.body, M.top),
     part(new THREE.CylinderGeometry(0.045, 0.05, 0.1, lo ? 5 : 7).translate(0, 1.47, 0), B.head, M.skin),
-    part(sph(0.105, 10, 8).scale(0.9, 1.08, 1).translate(0, 1.6, 0), B.head, M.skin),
-    part(sph(0.112, 10, 5, 0, Math.PI * 2, 0, Math.PI * 0.52).scale(0.92, 1.05, 1.02).translate(0, 1.615, -0.006), B.head, M.hair),
+    part(sph(0.105, 10, 8).scale(0.78, 1.05, 0.95).translate(0, 1.6, 0), B.head, M.skin),
+    // jaw and chin: the lower face narrower than the skull, the chin forward
+    part(sph(0.07, 8, 5).scale(0.86, 0.72, 0.92).translate(0, 1.54, 0.028), B.head, M.skin),
+    // the hairline sits higher at the front than the back
+    part(sph(0.112, 10, 5, 0, Math.PI * 2, 0, Math.PI * 0.52).rotateX(-0.3).scale(0.8, 1.02, 0.97).translate(0, 1.612, -0.008), B.head, M.hair),
+    // long hair down the back and over the shoulders (some people)
+    part(new THREE.CylinderGeometry(0.094, 0.118, 0.27, lo ? 6 : 10, 1, true, Math.PI * 0.32, Math.PI * 1.36).scale(0.92, 1, 0.98).translate(0, 1.5, -0.012), B.head, M.longHair),
+    // a cap, peak forward (some people)
+    part(sph(0.118, 10, 4, 0, Math.PI * 2, 0, Math.PI * 0.44).scale(0.8, 0.86, 0.95).translate(0, 1.632, -0.004), B.head, M.cap),
+    part(new THREE.CylinderGeometry(0.085, 0.085, 0.01, lo ? 5 : 8, 1, false, -Math.PI / 2, Math.PI).scale(0.86, 1, 0.9).translate(0, 1.655, 0.052), B.head, M.cap),
     // phone in the right hand: screen faces the holder once the arm is raised, torch on the back
     part(new THREE.BoxGeometry(0.07, 0.14, 0.012).translate(0.2, 0.76, 0.03), B.foreR, M.phone),
     part(new THREE.PlaneGeometry(0.062, 0.128).translate(0.2, 0.76, 0.0365), B.foreR, M.screen),
@@ -130,7 +168,10 @@ export function personGeometry(detail: 0 | 1 = 0): THREE.BufferGeometry {
     // the towel guy's towel, hanging from the right hand (it whirls when the arm goes up)
     part(new THREE.PlaneGeometry(0.32, 0.56, 1, lo ? 1 : 3).translate(0.2, 0.5, 0.02), B.foreR, M.towel),
   );
-  if (!lo) parts.push(part(new THREE.PlaneGeometry(0.014, 0.014).rotateY(Math.PI).translate(0.215, 0.705, 0.0235), B.foreR, M.torch));
+  if (!lo) {
+    parts.push(part(new THREE.PlaneGeometry(0.014, 0.014).rotateY(Math.PI).translate(0.215, 0.705, 0.0235), B.foreR, M.torch));
+    parts.push(part(sph(0.019, 5, 4).scale(0.7, 1.15, 1).translate(0, 1.585, 0.093), B.head, M.skin));
+  }
   const geo = mergeGeometries(parts)!;
   personGeo[detail] = geo;
   return geo;
@@ -321,6 +362,12 @@ const VERT_HEAD = /* glsl */ `
     float k = min(0.7, bounce * 5.0 * hit + uKick * 0.07 * dancer + 0.04);
     // sitting on shoulders: knees bent right up, shins hanging
     k = mix(k, 1.45, rider);
+    // the weight goes from leg to leg, a beat each (a step-touch): one knee bends, the other foot comes up
+    float stepW = sin(uBeat * 3.14159 + iSeed.z * 6.283) * min(0.16, bounce * 1.8 + 0.03 * E) * dancer;
+    float kL = max(0.0, k + stepW);
+    float kR = max(0.0, k - stepW);
+    // and the body leans into the beat
+    float lean = (0.04 + 0.08 * E) * hit * dancer;
     float sway = sin(uBeat * 1.5708 + iSeed.x * 6.283) * (0.04 + 0.06 * vip + 0.03 * E);
     float twist = sin(uBeat * 0.7854 + iSeed.w * 6.283) * (0.12 + 0.1 * vip) * (1.0 - dj * 0.7);
     float shiftX = sin(uBeat * 1.5708 + iSeed.x * 6.283) * 0.035 * (1.0 - dj);
@@ -335,7 +382,7 @@ const VERT_HEAD = /* glsl */ `
     jump += marathon * max(0.0, sin(fract(uBeat * 0.5) * 6.283)) * 0.05;
     vec3 P = vec3(0.0, 0.95, 0.0);
     // the bar-leaner's lean over the counter
-    mat3 Ru = rotY(twist) * rotZ(sway) * rotX(0.28 * leaning);
+    mat3 Ru = rotY(twist) * rotZ(sway) * rotX(0.28 * leaning + lean);
     vec3 S = vec3(shiftX, 0.0, 0.0);
     float b = aBone;
     mat3 R = mat3(1.0);
@@ -345,14 +392,15 @@ const VERT_HEAD = /* glsl */ `
       T = P + S - Ru * P;
     } else if (b < 2.5) {
       vec3 hip = vec3(b < 1.5 ? -0.09 : 0.09, 0.9, 0.0);
-      R = rotX(-k);
+      R = rotX(-(b < 1.5 ? kL : kR));
       T = hip - R * hip;
     } else if (b < 4.5) {
       float sd = b < 3.5 ? -1.0 : 1.0;
+      float kk = sd < 0.0 ? kL : kR;
       vec3 hip = vec3(sd * 0.09, 0.9, 0.0);
       vec3 knee = vec3(sd * 0.09, 0.5, 0.0);
-      vec3 knee2 = hip + rotX(-k) * (knee - hip);
-      R = rotX(k * (1.0 - rider));
+      vec3 knee2 = hip + rotX(-kk) * (knee - hip);
+      R = rotX(kk * (1.0 - rider));
       T = knee2 - R * knee;
     } else if (b < 8.5) {
       float sd = b < 6.5 ? -1.0 : 1.0;
@@ -379,16 +427,20 @@ const VERT_HEAD = /* glsl */ `
       R = Ru * Rs;
       T = Ru * (A - Rs * A - P) + P + S;
     }
-    T.y += jump - 0.8 * (1.0 - cos(k)) * (1.0 - rider);
+    // the body sits down as far as the straighter leg allows, so that foot stays on the floor
+    T.y += jump - 0.8 * (1.0 - cos(min(kL, kR))) * (1.0 - rider);
     // the rider sits up on a friend's shoulders, there only for the peak
     float up = smoothstep(0.35, 0.6, uRiders);
     T.y += rider * (1.25 + 0.04 * hit);
     // props only when they're in use
     float vis = 1.0;
-    if (aMat > 6.5 && aMat < 7.5) vis = step(0.5, wDrink);
-    else if (aMat > 7.5 && aMat < 10.5) vis = step(0.5, wFilm);
+    if (aMat > 15.5) vis = step(0.86, fract(iSeed.z * 5.91)) * (1.0 - staff) * (1.0 - dj);
+    else if (aMat > 14.5) vis = 1.0;
+    else if (aMat > 13.5) vis = step(0.6, fract(iSeed.w * 3.17)) * (1.0 - guard);
     else if (aMat > 12.5) vis = towel;
     else if (aMat > 10.5) vis = sign;
+    else if (aMat > 7.5) vis = step(0.5, wFilm);
+    else if (aMat > 6.5) vis = step(0.5, wDrink);
     if (rider > 0.5 && up < 0.5) vis = 0.0;
     if (vis < 0.5) {
       R = mat3(0.0);
@@ -401,7 +453,7 @@ const VERT_HEAD = /* glsl */ `
 
 const FRAG_HEAD = /* glsl */ `
   uniform sampler2D uSigns;
-  uniform float uSignGlow, uTime, uPhotos;
+  uniform float uSignGlow, uTime, uPhotos, uShorts;
   uniform vec3 uRim, uRimFrom;
   float crowdHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   varying float vMat;
@@ -439,6 +491,11 @@ const FRAG_COLOR = /* glsl */ `
     if (uPhotos > 0.001) glow += vec3(16.0) * step(1.0 - 0.06 * uPhotos, crowdHash(vec2(vSeed.x * 113.0, floor(uTime * 9.0 + vSeed.z * 9.0))));
   }
   else if (m > 10.5 && m < 11.5) col = vec3(0.02);
+  // a cap: black, the top's colour or stone
+  else if (m > 15.5) { float cv = fract(vSeed.x * 9.7); col = cv < 0.45 ? vec3(0.025) : cv < 0.8 ? top * 0.85 : vec3(0.5, 0.46, 0.38); }
+  // the lower leg: trousers, or bare in shorts
+  else if (m > 14.5) col = fract(vSeed.z * 11.3) < uShorts ? skin : bottoms;
+  else if (m > 13.5) col = hair;
   else if (m > 12.5) col = fract(vSeed.y * 3.7) < 0.5 ? vec3(0.85, 0.85, 0.82) : top * 1.2;
   else if (m > 11.5) {
     vec3 t = texture2D(uSigns, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;
@@ -498,6 +555,7 @@ export class Crowd implements Fixture {
     uSigns: { value: null as THREE.Texture | null },
     uSignGlow: { value: 1 },
     uPhotos: { value: 0 },
+    uShorts: { value: 0.1 },
     uRim: { value: new THREE.Color(0, 0, 0) },
     uRimFrom: { value: new THREE.Vector3(0, 3.5, 1.5) },
   };
@@ -513,6 +571,7 @@ export class Crowd implements Fixture {
     spots = spots.slice();
     const clothes = (o.clothes ?? ['#1b1d22', '#2a2d33', '#101114', '#3a2f2a', '#23262d', '#d9d6cf', '#5a1e22', '#1d2b3a']).map((c) => new THREE.Color(c));
     const booth = o.booth ?? new THREE.Vector3(0, 0, 0.2);
+    this.u.uShorts.value = o.shorts ?? 0.1;
     // the rim comes from the rig over and behind the booth
     this.u.uRimFrom.value.set(booth.x, booth.y + 3.5, booth.z + 1.3);
     let n = spots.length;
@@ -604,8 +663,10 @@ export class Crowd implements Fixture {
       if (s.face === undefined && info[i * 4] === 0 && r() < 0.1) face += (r() < 0.5 ? -1 : 1) * (1.1 + r() * 0.6);
       // a rider faces the way their friend does, and is a little smaller
       const sc = s.scale ?? (s.role === 'rider' ? 0.85 : 0.9 + r() * 0.2);
+      // builds vary: slimmer and broader people (from the person's seed, so the picks above don't shift)
+      const build = 0.92 + 0.16 * ((seeds[i * 4 + 1] * 7.77) % 1);
       q.setFromAxisAngle(yAxis, face);
-      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc, sc, sc)));
+      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc * build, sc, sc * build)));
       cols.push(clothes[Math.floor(r() * clothes.length)]);
     });
     const cells = new Map<string, number[]>();

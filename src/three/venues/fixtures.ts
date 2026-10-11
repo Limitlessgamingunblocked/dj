@@ -1070,7 +1070,9 @@ function grilleMat(layout: 'mid' | 'sub' | 'monitor' | 'top', aspect: number): T
  */
 export function speakerGeometry(w: number, h: number, d: number, layout: 'mid' | 'sub' | 'monitor' | 'top'): THREE.BufferGeometry {
   const r = Math.min(w, h, d) * 0.07;
-  const shell: THREE.BufferGeometry[] = [new RoundedBoxGeometry(w, h, d, 2, r).toNonIndexed()];
+  // (the rounded box comes non-indexed already)
+  const rounded = new RoundedBoxGeometry(w, h, d, 2, r);
+  const shell: THREE.BufferGeometry[] = [rounded.index ? rounded.toNonIndexed() : rounded];
   const metal = (bw: number, bh: number, bd: number, x: number, y: number, z: number) => shell.push(new THREE.BoxGeometry(bw, bh, bd).translate(x, y, z).toNonIndexed());
   if (layout === 'top') {
     // rigging plates down both sides at the back, and the link bar
