@@ -11,6 +11,7 @@
  * TODO: procedural stand-in for the Blender apartment sets (Section 14).
  */
 import * as THREE from 'three';
+import { bevelBox } from '../bevel';
 import { drawFlyer, type FlyerInfo } from '../../ui/flyer';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { LedStrings, speaker } from './fixtures';
@@ -87,7 +88,7 @@ function planks(tone: number): THREE.CanvasTexture {
 /** a framed picture on a wall */
 function frame(tex: THREE.Texture, w: number, h: number, border = 0.04, color = 0x111111): THREE.Group {
   const g = new THREE.Group();
-  const back = new THREE.Mesh(new THREE.BoxGeometry(w + border * 2, h + border * 2, 0.03), new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.3 }));
+  const back = new THREE.Mesh(bevelBox(w + border * 2, h + border * 2, 0.03), new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.3 }));
   const pic = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4 }));
   pic.position.z = 0.017;
   g.add(back, pic);
@@ -158,16 +159,16 @@ function recordShelf(w: number, rows: number, seed: number): THREE.Group {
   const wood = new THREE.MeshStandardMaterial({ color: 0x6a4e36, roughness: 0.75 });
   const r = rng(seed);
   for (let i = 0; i <= rows; i++) {
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(w, 0.03, 0.34), wood);
+    const shelf = new THREE.Mesh(bevelBox(w, 0.03, 0.34), wood);
     shelf.position.y = i * 0.36;
     g.add(shelf);
   }
   for (const s of [-1, 1]) {
-    const side = new THREE.Mesh(new THREE.BoxGeometry(0.03, rows * 0.36, 0.34), wood);
+    const side = new THREE.Mesh(bevelBox(0.03, rows * 0.36, 0.34), wood);
     side.position.set((s * w) / 2, (rows * 0.36) / 2, 0);
     g.add(side);
   }
-  const sleeves = new THREE.InstancedMesh(new THREE.BoxGeometry(0.008, 0.31, 0.31), new THREE.MeshStandardMaterial({ roughness: 0.6 }), Math.round((w / 0.012) * rows));
+  const sleeves = new THREE.InstancedMesh(bevelBox(0.008, 0.31, 0.31), new THREE.MeshStandardMaterial({ roughness: 0.6 }), Math.round((w / 0.012) * rows));
   const m = new THREE.Matrix4();
   const c = new THREE.Color();
   let k = 0;
@@ -190,15 +191,15 @@ function setup(w: number, glow: string): THREE.Group {
   const body = new THREE.MeshStandardMaterial({ color: 0x18191d, roughness: 0.5, metalness: 0.3 });
   const plat = new THREE.MeshStandardMaterial({ color: 0x2a2b30, roughness: 0.4, metalness: 0.6 });
   for (const s of [-1, 1]) {
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(w * 0.34, 0.06, w * 0.3), body);
+    const deck = new THREE.Mesh(bevelBox(w * 0.34, 0.06, w * 0.3), body);
     deck.position.set(s * w * 0.31, 0.03, 0);
     const jog = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.1, w * 0.1, 0.012, 32), plat);
     jog.position.set(s * w * 0.31, 0.066, 0.01);
     g.add(deck, jog);
   }
-  const mixer = new THREE.Mesh(new THREE.BoxGeometry(w * 0.2, 0.08, w * 0.3), body);
+  const mixer = new THREE.Mesh(bevelBox(w * 0.2, 0.08, w * 0.3), body);
   mixer.position.y = 0.04;
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(w * 0.9, 0.006, 0.006), new THREE.MeshBasicMaterial({ color: new THREE.Color(glow).multiplyScalar(2), toneMapped: false }));
+  const strip = new THREE.Mesh(bevelBox(w * 0.9, 0.006, 0.006), new THREE.MeshBasicMaterial({ color: new THREE.Color(glow).multiplyScalar(2), toneMapped: false }));
   strip.position.set(0, 0.07, w * 0.15);
   g.add(mixer, strip);
   return g;
@@ -246,14 +247,14 @@ class Hub extends VenueBase {
       const win = new THREE.Mesh(new THREE.PlaneGeometry(ww, level === 0 ? 0.9 : 1.6), new THREE.MeshBasicMaterial({ map: city, color: new THREE.Color(0.6, 0.6, 0.75) }));
       win.position.set(W / 2 - 0.02, 1.6, -D * 0.1);
       win.rotation.y = -Math.PI / 2;
-      const sill = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, ww + 0.1), new THREE.MeshStandardMaterial({ color: 0xe8e4dc }));
+      const sill = new THREE.Mesh(bevelBox(0.12, 0.05, ww + 0.1), new THREE.MeshStandardMaterial({ color: 0xe8e4dc }));
       sill.position.set(W / 2 - 0.06, 1.6 - (level === 0 ? 0.47 : 0.82), -D * 0.1);
       this.group.add(win, sill);
     } else {
       // the glass wall replaces the right-hand wall: mullions, and the city
       const mull = new THREE.MeshStandardMaterial({ color: 0x15161a, metalness: 0.6, roughness: 0.4 });
       for (let z = -D / 2; z <= D / 2; z += 2.2) {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(0.08, H, 0.08), mull);
+        const m = new THREE.Mesh(bevelBox(0.08, H, 0.08), mull);
         m.position.set(W / 2 - 0.05, H / 2, z);
         this.group.add(m);
       }
@@ -320,14 +321,14 @@ class Hub extends VenueBase {
     const black = new THREE.MeshStandardMaterial({ color: 0x16171b, roughness: 0.6 });
     if (level === 0) {
       // the bed, the desk with the cheap controller, posters and fairy lights
-      const bed = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.45, 2.0), new THREE.MeshStandardMaterial({ color: 0x3a4a6a, roughness: 0.9 }));
+      const bed = new THREE.Mesh(bevelBox(1.4, 0.45, 2.0, 0.08), new THREE.MeshStandardMaterial({ color: 0x3a4a6a, roughness: 0.9 }));
       bed.position.set(-W / 2 + 0.75, 0.225, D / 2 - 1.1);
-      const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 0.35), new THREE.MeshStandardMaterial({ color: 0xe8e4dc }));
+      const pillow = new THREE.Mesh(bevelBox(0.6, 0.12, 0.35, 0.05), new THREE.MeshStandardMaterial({ color: 0xe8e4dc }));
       pillow.position.set(-W / 2 + 0.75, 0.5, D / 2 - 0.3);
-      const desk = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.6), wood);
+      const desk = new THREE.Mesh(bevelBox(1.5, 0.05, 0.6), wood);
       desk.position.set(W / 2 - 0.85, 0.75, -D / 2 + 0.45);
       for (const sx of [-0.7, 0.7]) for (const sz of [-0.25, 0.25]) {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.75, 0.04), wood);
+        const leg = new THREE.Mesh(bevelBox(0.04, 0.75, 0.04), wood);
         leg.position.set(W / 2 - 0.85 + sx, 0.375, -D / 2 + 0.45 + sz);
         this.group.add(leg);
       }
@@ -341,7 +342,7 @@ class Hub extends VenueBase {
       this.add(leds.done());
     } else {
       // the booth corner: a desk, the setup, monitors either side
-      const desk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.9, 0.7), black);
+      const desk = new THREE.Mesh(bevelBox(2.2, 0.9, 0.7), black);
       desk.position.set(-W * 0.18, 0.45, -D / 2 + 1.2);
       const kit = setup(1.4, level === 2 ? '#ff2e88' : '#2ec4f1');
       kit.position.set(-W * 0.18, 0.9, -D / 2 + 1.2);
@@ -360,15 +361,16 @@ class Hub extends VenueBase {
       // the sofa and a coffee table with the phone on it
       const sofa = new THREE.Group();
       const cushion = new THREE.MeshStandardMaterial({ color: level === 2 ? 0x2a2a32 : 0x8a5a3a, roughness: 0.9 });
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.42, 0.9), cushion);
+      // deep bevels so the cushions read as padded
+      const seat = new THREE.Mesh(bevelBox(2.2, 0.42, 0.9, 0.1), cushion);
       seat.position.y = 0.21;
-      const back = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 0.22), cushion);
+      const back = new THREE.Mesh(bevelBox(2.2, 0.5, 0.22, 0.08), cushion);
       back.position.set(0, 0.62, 0.34);
       sofa.add(seat, back);
       sofa.position.set(W * 0.1, 0, D / 2 - 1.3);
       sofa.rotation.y = Math.PI;
       this.group.add(sofa);
-      const table = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.4, 0.6), wood);
+      const table = new THREE.Mesh(bevelBox(1.1, 0.4, 0.6), wood);
       table.position.set(W * 0.1, 0.2, D / 2 - 2.4);
       this.group.add(table);
       // a clothes rail: the wardrobe
@@ -377,12 +379,12 @@ class Hub extends VenueBase {
       this.group.add(rail);
       const r = rng(5);
       for (let i = 0; i < 8; i++) {
-        const shirt = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.7, 0.45), new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(r(), 0.4, 0.35 + r() * 0.3), roughness: 0.9 }));
+        const shirt = new THREE.Mesh(bevelBox(0.06, 0.7, 0.45), new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(r(), 0.4, 0.35 + r() * 0.3), roughness: 0.9 }));
         shirt.position.set(W / 2 - 1.8 + i * 0.16, 1.22, D / 2 - 0.6);
         this.group.add(shirt);
       }
       // LED strips along the ceiling
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(W - 0.4, 0.02, 0.02), new THREE.MeshBasicMaterial({ color: new THREE.Color(level === 2 ? '#ff2e88' : '#2ec4f1').multiplyScalar(1.6), toneMapped: false }));
+      const strip = new THREE.Mesh(bevelBox(W - 0.4, 0.02, 0.02), new THREE.MeshBasicMaterial({ color: new THREE.Color(level === 2 ? '#ff2e88' : '#2ec4f1').multiplyScalar(1.6), toneMapped: false }));
       strip.position.set(0, H - 0.05, -D / 2 + 0.1);
       this.group.add(strip);
       this.wash(V(-W * 0.18, H - 0.4, -D / 2 + 1.5), 0, 2.5, 6);
@@ -392,7 +394,7 @@ class Hub extends VenueBase {
       if (level === 2) {
         // your name in neon over the booth, plants, a kitchen island
         this.nameSign('neon_script', 3, 0.8, V(-W * 0.18, 2.6, -D / 2 + 0.06), 0, 1.2);
-        const island = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.95, 0.9), new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.3 }));
+        const island = new THREE.Mesh(bevelBox(2.6, 0.95, 0.9), new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.3 }));
         island.position.set(-W / 2 + 2.4, 0.475, D / 2 - 1.4);
         this.group.add(island);
         for (const [x, z] of [
@@ -411,7 +413,7 @@ class Hub extends VenueBase {
     }
     // the phone, glowing on the table (or the bed)
     this.phoneGlow = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.6, 0.7, 1.2), toneMapped: false });
-    const phone = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.01, 0.15), this.phoneGlow);
+    const phone = new THREE.Mesh(bevelBox(0.075, 0.01, 0.15), this.phoneGlow);
     phone.position.copy(level === 0 ? V(-W / 2 + 0.9, 0.46, D / 2 - 1.4) : V(W * 0.1 + 0.2, 0.41, D / 2 - 2.4));
     phone.rotation.y = 0.4;
     this.group.add(phone);

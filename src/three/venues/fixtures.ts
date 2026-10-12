@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { nameService, type NameStyle } from '../../name/NameService';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { bevelBox } from '../bevel';
 import { BeamDust, type BeamState } from './airlife';
 import { fxTier } from '../fx';
 import { HAZE_GLSL } from './atmos';
@@ -1227,8 +1228,8 @@ export function mirrorBall(r: number): THREE.Mesh {
   return m;
 }
 
-/** Scale a 1×1×1-segment box's UVs so a tiling texture keeps its real-world size. */
-export function boxUV(geo: THREE.BoxGeometry, w: number, h: number, d: number, unit: number): THREE.BoxGeometry {
+/** Scale a 1×1×1-segment box's UVs (a plain or bevelled one) so a tiling texture keeps its real-world size. */
+export function boxUV<G extends THREE.BufferGeometry>(geo: G, w: number, h: number, d: number, unit: number): G {
   const uv = geo.attributes.uv;
   const faces: [number, number][] = [
     [d, h],
@@ -1242,9 +1243,9 @@ export function boxUV(geo: THREE.BoxGeometry, w: number, h: number, d: number, u
   return geo;
 }
 
-/** Box with tiled UVs. */
+/** Box with tiled UVs and softened edges. */
 export function block(w: number, h: number, d: number, mat: THREE.Material | THREE.Material[], unit = 4): THREE.Mesh {
-  const m = new THREE.Mesh(boxUV(new THREE.BoxGeometry(w, h, d), w, h, d, unit), mat);
+  const m = new THREE.Mesh(boxUV(bevelBox(w, h, d), w, h, d, unit), mat);
   m.receiveShadow = true;
   return m;
 }

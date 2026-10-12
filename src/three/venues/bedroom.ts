@@ -10,6 +10,7 @@
  * TODO: procedural stand-in for the Blender bedroom set (Section 14).
  */
 import * as THREE from 'three';
+import { bevelBox } from '../bevel';
 import { nameStyleFor } from '../../name/venueStyles';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { boothClutter } from './details';
@@ -185,7 +186,7 @@ class Bedroom extends VenueBase {
     boothClutter(this.group, 1.6, TABLE_Y, -0.45, 33, { laptop: false });
     // little monitor speakers either side
     for (const x of [-0.62, 0.62]) {
-      const spk = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.18), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5 }));
+      const spk = new THREE.Mesh(bevelBox(0.16, 0.24, 0.18), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5 }));
       spk.position.set(x, TABLE_Y + 0.12, -0.55);
       const cone = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), new THREE.MeshStandardMaterial({ color: 0x2a2b30, roughness: 0.3, metalness: 0.4 }));
       cone.position.set(x, TABLE_Y + 0.1, -0.459);
@@ -218,11 +219,11 @@ class Bedroom extends VenueBase {
 
     // the colour-changing LED strip along the top of the front wall and under the desk
     this.ledStrip = new THREE.ShaderMaterial({ uniforms: { uHue: { value: 0 }, uRainbow: { value: 0 }, uLevel: { value: 1 }, uTime: { value: 0 } }, vertexShader: STRIP_VERT, fragmentShader: STRIP_FRAG, toneMapped: false });
-    const top = new THREE.Mesh(new THREE.BoxGeometry(W - 0.1, 0.02, 0.02), this.ledStrip);
+    const top = new THREE.Mesh(bevelBox(W - 0.1, 0.02, 0.02), this.ledStrip);
     top.position.set(0, h - 0.06, z0 + 0.03);
-    const under = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.015, 0.015), this.ledStrip);
+    const under = new THREE.Mesh(bevelBox(1.5, 0.015, 0.015), this.ledStrip);
     under.position.set(0, TABLE_Y - 0.05, -0.47);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(W - 0.1, 0.02, 0.02), this.ledStrip);
+    const back = new THREE.Mesh(bevelBox(W - 0.1, 0.02, 0.02), this.ledStrip);
     back.position.set(0, h - 0.06, z1 - 0.03);
     this.group.add(top, under, back);
     this.stripLight = new THREE.PointLight(0xff2e88, 1.5, 5, 1.4);
@@ -245,17 +246,18 @@ class Bedroom extends VenueBase {
 
     // the bed, a window onto the night, posters, records, a plant
     const bed = new THREE.Group();
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.3, 2.0), new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.7 }));
+    const frame = new THREE.Mesh(bevelBox(1.5, 0.3, 2.0), new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.7 }));
     frame.position.y = 0.15;
-    const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.2, 1.92), new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.95 }));
+    // the soft things get deep bevels so they read as padded
+    const mattress = new THREE.Mesh(bevelBox(1.42, 0.2, 1.92, 0.06), new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.95 }));
     mattress.position.y = 0.4;
-    const duvet = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.08, 1.3), new THREE.MeshStandardMaterial({ color: 0x3a5a86, roughness: 0.95 }));
+    const duvet = new THREE.Mesh(bevelBox(1.46, 0.08, 1.3, 0.03), new THREE.MeshStandardMaterial({ color: 0x3a5a86, roughness: 0.95 }));
     duvet.position.set(0, 0.53, -0.3);
-    const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.12, 0.35), mattress.material);
+    const pillow = new THREE.Mesh(bevelBox(0.55, 0.12, 0.35, 0.05), mattress.material);
     const pillow2 = pillow.clone();
     pillow.position.set(-0.35, 0.56, 0.7);
     pillow2.position.set(0.35, 0.56, 0.7);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 0.06), frame.material);
+    const head = new THREE.Mesh(bevelBox(1.5, 0.7, 0.06), frame.material);
     head.position.set(0, 0.6, 1.0);
     bed.add(frame, mattress, duvet, pillow, pillow2, head);
     bed.position.set(-0.75, 0, z1 - 1.05);
@@ -272,7 +274,7 @@ class Bedroom extends VenueBase {
       [0.05, 0.98, -0.58, 0],
       [0.03, 0.9, 0, 0],
     ]) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, hh, 0.05), sill);
+      const m = new THREE.Mesh(bevelBox(w, hh, 0.05), sill);
       m.position.set(x, y, 0.02);
       win.add(m);
     }
@@ -302,11 +304,11 @@ class Bedroom extends VenueBase {
     const nm = nameStyleFor('bedroom');
     if (nm.sign) this.nameSign(nm.sign, 0.62, 0.3, V(0.2, 2.1, z0 + 0.012), 0, 1);
     // a crate of records and a plant
-    const crate = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.3, 0.36), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.8 }));
+    const crate = new THREE.Mesh(bevelBox(0.36, 0.3, 0.36), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.8 }));
     crate.position.set(1.4, 0.15, 0.4);
     this.group.add(crate);
     for (let i = 0; i < 9; i++) {
-      const rec = new THREE.Mesh(new THREE.BoxGeometry(0.31, 0.31, 0.006), new THREE.MeshStandardMaterial({ color: [0x111111, 0xff2e88, 0xe9e2cf, 0x3a5a86][i % 4], roughness: 0.6 }));
+      const rec = new THREE.Mesh(bevelBox(0.31, 0.31, 0.006), new THREE.MeshStandardMaterial({ color: [0x111111, 0xff2e88, 0xe9e2cf, 0x3a5a86][i % 4], roughness: 0.6 }));
       rec.position.set(1.4, 0.36, 0.28 + i * 0.026);
       rec.rotation.x = -0.15;
       this.group.add(rec);

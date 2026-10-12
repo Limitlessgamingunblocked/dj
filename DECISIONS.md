@@ -555,3 +555,24 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
     - In a custom camera view the DJ is hidden when the camera is within 1.2 m of their head, so the head never blocks the board. In photo mode that hid the DJ from every close portrait, so there the DJ only disappears with the camera inside their head (under 0.35 m).
     - The bloom's threshold was fixed in the scene's light before exposure. When the camera stops down for daylight it now rises to match (the threshold over the exposure, below exposure 1 only), so a bright sky doesn't bloom over the picture. Clubs, where exposure sits at 1 or above, look the same as before.
     - Photo mode's focus now follows the DJ as the camera moves, until you tap to focus or set the distance (the *Focus on DJ* chip turns it back on). Before, it kept the distance from when photo mode opened, so moving in for a portrait left the DJ soft.
+178. **One art direction: stylised realism.**
+    - Realistic lighting sat next to blocky, low-poly people. The two options were to push everything to photoreal or to design the shapes and keep the physics, and stylised realism was chosen.
+    - What stays physically based: the light, the sky and sun, water, haze, exposure, and materials (roughness and metalness from real values).
+    - What is designed: people and props. Smooth, simple forms with clean silhouettes, details painted in rather than modelled, and no hard 90° edges on anything you see up close.
+    - Materials follow one vocabulary: skin is semi-gloss (wetter as the night peaks), cotton and fabric matte, denim matte with a weave, hair satin, rubber soles and plastic in between, phones glossy. New props should take their roughness from that list, not pick a fresh value.
+    - WebGPU was prototyped for this round and then removed at the user's request. Nothing of it was committed.
+179. **The crowd figure, rebuilt.**
+    - Limbs, neck and pelvis are lathes of real proportions (a calf, a tapered thigh, a forearm narrowing to the wrist), closed with domed ends so there are no rings where parts meet. Knees, elbows and shoulders are small spheres that hide the joints when they bend.
+    - The head is one deformed sphere (the jaw narrows, the back of the jaw tucks in, the chin comes forward), welded so it has no seam. The hair is a second shell over it: its hairline is lower at the sides and back than at the front, and it thins to nothing at the edge, so it reads as hair rather than a helmet. A quiff (on some people, never under a cap), a nose, ears and thumbs complete it.
+    - The close model is about 3,100 vertices (4,600 triangles), up from 1,500, and the far one about 1,000. A test holds both under budget and checks that every body part is a closed surface.
+    - The figures at the back of big rooms are drawn from the low-detail model, so they changed with it.
+180. **Detail painted in the shader, not modelled.**
+    - The fragment shader gets each vertex's rest-pose position and bone, and paints from them: eyes with a catch light, brows, a mouth and cheeks; necklines (crew or V), collar ribs, hems, tonal stripes, colour blocks and small chest prints (a ring, a dot or a chevron: abstract, never a logo); belts and buckles; denim twill, seams and worn knees; shoe soles, laces and side stripes; strands in the hair.
+    - Every edge is antialiased with `fwidth`, so the details stay clean at any distance instead of shimmering.
+    - Each part sets its own roughness (`crowdRough`) from the material list in 178.
+    - Shorts are painted rather than cut: below the hem, the thigh is coloured as skin. Modelled shorts left a ragged edge where the thigh's triangles crossed the hem.
+181. **Bevelled props.**
+    - `bevelBox` keeps a box's 24 vertices, in the same order and with the same uvs (so tiled uvs still work), shrinks each face and closes the gaps with a strip along every edge and a triangle at every corner. Those reuse the faces' vertices, so across a strip the normal turns from one face's to the other's and the edge shades like a rounded one, for 32 more triangles and no more vertices. Material groups are kept.
+    - It is used by every set-dressing box, every `block()` (risers, desks, pillars, beams) and the furniture in the bedroom, the apartment, the dressing room and the basement. The bevel scales with size, from 3 mm to 3 cm, and thin plates stay plain. Cushions and mattresses get deep bevels so they look padded.
+    - Room shells stay plain boxes: their corners aren't seen, and one shell's floor is an invisible face.
+    - Cost: 2–3 % more triangles per venue (11,000 more in the warehouse, 49,000 at the festival).

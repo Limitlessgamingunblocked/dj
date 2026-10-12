@@ -102,7 +102,43 @@ describe('the crowd model', () => {
       expect(mats(hi).has(m)).toBe(true);
       expect(mats(lo).has(m)).toBe(true);
     }
-    expect(Math.max(...mats(hi))).toBe(PERSON_MATS.cap);
+    expect(Math.max(...mats(hi))).toBe(PERSON_MATS.hairUp);
+  });
+
+  it('stays inside its vertex budget at both levels of detail', () => {
+    expect(personGeometry(0).attributes.position.count).toBeLessThan(3300);
+    expect(personGeometry(1).attributes.position.count).toBeLessThan(1100);
+  });
+
+  it('builds the body from closed parts, with no seams or open ends', () => {
+    // count each edge by where its ends are, so lathe and sphere seams count as joined
+    for (const detail of [0, 1] as const) {
+      const g = personGeometry(detail);
+      const pos = g.attributes.position as THREE.BufferAttribute;
+      const mat = g.attributes.aMat.array as Float32Array;
+      const idx = g.index!.array;
+      const key = (i: number) => `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+      const edges = new Map<number, Map<string, number>>();
+      for (let k = 0; k < idx.length; k += 3) {
+        const ks = [key(idx[k]), key(idx[k + 1]), key(idx[k + 2])];
+        if (ks[0] === ks[1] || ks[1] === ks[2] || ks[0] === ks[2]) continue;
+        const m = mat[idx[k]];
+        let e = edges.get(m);
+        if (!e) edges.set(m, (e = new Map()));
+        for (const [a, b] of [
+          [0, 1],
+          [1, 2],
+          [2, 0],
+        ]) {
+          const s = ks[a] < ks[b] ? `${ks[a]}|${ks[b]}` : `${ks[b]}|${ks[a]}`;
+          e.set(s, (e.get(s) ?? 0) + 1);
+        }
+      }
+      for (const m of [PERSON_MATS.skin, PERSON_MATS.top, PERSON_MATS.bottoms, PERSON_MATS.shoes, PERSON_MATS.sleeveUp, PERSON_MATS.sleeveLo, PERSON_MATS.shin, PERSON_MATS.hairUp]) {
+        const open = [...edges.get(m)!.values()].filter((c) => c !== 2).length;
+        expect(open, `material ${m} at detail ${detail}`).toBe(0);
+      }
+    }
   });
 
   it('poses nothing in the rest pose', () => {

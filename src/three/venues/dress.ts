@@ -26,6 +26,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { bevelBox } from '../bevel';
 import { exitSign } from './details';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
@@ -570,7 +571,7 @@ export class Dresser implements Fixture {
   }
 
   box(k: MatKey | THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number, ry = 0, rx = 0, rz = 0): void {
-    this.put(k, place(new THREE.BoxGeometry(w, h, d), x, y, z, ry, rx, rz));
+    this.put(k, place(bevelBox(w, h, d), x, y, z, ry, rx, rz));
   }
 
   /** a cylinder (or pipe) from a to b */
@@ -694,24 +695,24 @@ export class Dresser implements Fixture {
     this.put('red', at(new THREE.SphereGeometry(0.075, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.5, 0.1)));
     this.put('black', at(new THREE.CylinderGeometry(0.02, 0.025, 0.08, 8).translate(0, 0.58, 0.1)));
     this.put('black', at(new THREE.TorusGeometry(0.09, 0.01, 4, 10, Math.PI).rotateZ(-Math.PI / 2).translate(0.06, 0.45, 0.12)));
-    this.put('blackMetal', at(new THREE.BoxGeometry(0.12, 0.05, 0.08).translate(0, 0.4, 0.03)));
-    this.put('red', at(new THREE.BoxGeometry(0.2, 0.2, 0.01).translate(0, 0.9, 0.005)));
-    this.put('white', at(new THREE.BoxGeometry(0.07, 0.12, 0.012).translate(0, 0.9, 0.006)));
+    this.put('blackMetal', at(bevelBox(0.12, 0.05, 0.08).translate(0, 0.4, 0.03)));
+    this.put('red', at(bevelBox(0.2, 0.2, 0.01).translate(0, 0.9, 0.005)));
+    this.put('white', at(bevelBox(0.07, 0.12, 0.012).translate(0, 0.9, 0.006)));
   }
 
   /** fire alarm call point */
   callPoint(pos: THREE.Vector3, yaw = 0): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('red', new THREE.BoxGeometry(0.1, 0.1, 0.05).translate(0, 0, 0.025).applyMatrix4(m));
-    this.put('white', new THREE.BoxGeometry(0.06, 0.06, 0.01).translate(0, 0, 0.051).applyMatrix4(m));
+    this.put('red', bevelBox(0.1, 0.1, 0.05).translate(0, 0, 0.025).applyMatrix4(m));
+    this.put('white', bevelBox(0.06, 0.06, 0.01).translate(0, 0, 0.051).applyMatrix4(m));
   }
 
   /** a grey electrical panel with conduit running up to `ceil` */
   panel(pos: THREE.Vector3, yaw: number, w = 0.6, h = 0.8, ceil?: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('grey', new THREE.BoxGeometry(w, h, 0.18).translate(0, h / 2, 0.09).applyMatrix4(m));
-    this.put('blackMetal', new THREE.BoxGeometry(0.03, 0.12, 0.03).translate(w / 2 - 0.06, h / 2, 0.19).applyMatrix4(m));
-    this.put('yellow', new THREE.BoxGeometry(0.12, 0.1, 0.005).translate(0, h * 0.78, 0.182).applyMatrix4(m));
+    this.put('grey', bevelBox(w, h, 0.18).translate(0, h / 2, 0.09).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(0.03, 0.12, 0.03).translate(w / 2 - 0.06, h / 2, 0.19).applyMatrix4(m));
+    this.put('yellow', bevelBox(0.12, 0.1, 0.005).translate(0, h * 0.78, 0.182).applyMatrix4(m));
     if (ceil !== undefined) {
       for (let i = 0; i < 3; i++) {
         const x = -w / 3 + (i * w) / 3;
@@ -724,24 +725,24 @@ export class Dresser implements Fixture {
   /** a caged bulkhead lamp, warm */
   bulkhead(pos: THREE.Vector3, yaw = 0, warm: THREE.MeshBasicMaterial): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('blackMetal', new THREE.BoxGeometry(0.26, 0.16, 0.04).translate(0, 0, 0.02).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(0.26, 0.16, 0.04).translate(0, 0, 0.02).applyMatrix4(m));
     this.put(warm, new THREE.SphereGeometry(0.07, 10, 6).scale(1.4, 0.8, 0.6).translate(0, 0, 0.06).applyMatrix4(m));
-    for (let i = -1; i <= 1; i++) this.put('blackMetal', new THREE.BoxGeometry(0.008, 0.13, 0.008).translate(i * 0.06, 0, 0.11).applyMatrix4(m));
-    this.put('blackMetal', new THREE.BoxGeometry(0.2, 0.008, 0.008).translate(0, 0, 0.115).applyMatrix4(m));
+    for (let i = -1; i <= 1; i++) this.put('blackMetal', bevelBox(0.008, 0.13, 0.008).translate(i * 0.06, 0, 0.11).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(0.2, 0.008, 0.008).translate(0, 0, 0.115).applyMatrix4(m));
   }
 
   /** double fire doors with push bars, a kick plate, a little window and the exit sign over them */
   fireDoor(pos: THREE.Vector3, yaw: number, w = 1.6, h = 2.15, sign = true): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     const at = (g: THREE.BufferGeometry) => this.put('blackMetal', g.applyMatrix4(m));
-    at(new THREE.BoxGeometry(0.08, h + 0.06, 0.12).translate(-w / 2 - 0.04, h / 2, 0.03));
-    at(new THREE.BoxGeometry(0.08, h + 0.06, 0.12).translate(w / 2 + 0.04, h / 2, 0.03));
-    at(new THREE.BoxGeometry(w + 0.16, 0.08, 0.12).translate(0, h + 0.04, 0.03));
+    at(bevelBox(0.08, h + 0.06, 0.12).translate(-w / 2 - 0.04, h / 2, 0.03));
+    at(bevelBox(0.08, h + 0.06, 0.12).translate(w / 2 + 0.04, h / 2, 0.03));
+    at(bevelBox(w + 0.16, 0.08, 0.12).translate(0, h + 0.04, 0.03));
     for (const s of [-1, 1]) {
-      this.put('grey', new THREE.BoxGeometry(w / 2 - 0.01, h, 0.05).translate((s * w) / 4, h / 2, 0.02).applyMatrix4(m));
-      this.put('alu', new THREE.BoxGeometry(w / 2 - 0.16, 0.05, 0.05).translate((s * w) / 4, 1.0, 0.07).applyMatrix4(m));
-      this.put('alu', new THREE.BoxGeometry(w / 2 - 0.08, 0.25, 0.006).translate((s * w) / 4, 0.14, 0.047).applyMatrix4(m));
-      this.put('black', new THREE.BoxGeometry(0.16, 0.5, 0.006).translate((s * w) / 4, 1.55, 0.047).applyMatrix4(m));
+      this.put('grey', bevelBox(w / 2 - 0.01, h, 0.05).translate((s * w) / 4, h / 2, 0.02).applyMatrix4(m));
+      this.put('alu', bevelBox(w / 2 - 0.16, 0.05, 0.05).translate((s * w) / 4, 1.0, 0.07).applyMatrix4(m));
+      this.put('alu', bevelBox(w / 2 - 0.08, 0.25, 0.006).translate((s * w) / 4, 0.14, 0.047).applyMatrix4(m));
+      this.put('black', bevelBox(0.16, 0.5, 0.006).translate((s * w) / 4, 1.55, 0.047).applyMatrix4(m));
     }
     if (sign) this.extra(exitSign(V(0, h + 0.32, 0.04).applyMatrix4(m), yaw));
   }
@@ -800,8 +801,8 @@ export class Dresser implements Fixture {
   /** a small wall speaker on a bracket, angled down at the floor */
   wallSpeaker(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('black', new THREE.BoxGeometry(0.32, 0.5, 0.28).rotateX(0.3).translate(0, 0, 0.2).applyMatrix4(m));
-    this.put('blackMetal', new THREE.BoxGeometry(0.05, 0.05, 0.2).translate(0, 0, 0.06).applyMatrix4(m));
+    this.put('black', bevelBox(0.32, 0.5, 0.28).rotateX(0.3).translate(0, 0, 0.2).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(0.05, 0.05, 0.2).translate(0, 0, 0.06).applyMatrix4(m));
   }
 
   /** an old pipe from a to b with flanges every two metres */
@@ -820,7 +821,7 @@ export class Dresser implements Fixture {
   valve(pos: THREE.Vector3, yaw: number, r = 0.18): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     this.put('red', new THREE.TorusGeometry(r, r * 0.12, 6, 18).translate(0, 0, 0.12).applyMatrix4(m));
-    for (let i = 0; i < 4; i++) this.put('red', new THREE.BoxGeometry(r * 2, r * 0.12, r * 0.12).rotateZ((i * Math.PI) / 4).translate(0, 0, 0.12).applyMatrix4(m));
+    for (let i = 0; i < 4; i++) this.put('red', bevelBox(r * 2, r * 0.12, r * 0.12).rotateZ((i * Math.PI) / 4).translate(0, 0, 0.12).applyMatrix4(m));
     this.put('rust', new THREE.CylinderGeometry(0.03, 0.03, 0.14, 8).rotateX(Math.PI / 2).translate(0, 0, 0.05).applyMatrix4(m));
   }
 
@@ -829,7 +830,7 @@ export class Dresser implements Fixture {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     this.put('rust', new THREE.CylinderGeometry(r, r, 0.05, 16).rotateX(Math.PI / 2).translate(0, 0, 0.03).applyMatrix4(m));
     this.put('cream', new THREE.CircleGeometry(r * 0.85, 16).translate(0, 0, 0.056).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(r * 0.7, 0.008, 0.004).rotateZ(0.7).translate(r * 0.2, r * 0.15, 0.06).applyMatrix4(m));
+    this.put('black', bevelBox(r * 0.7, 0.008, 0.004).rotateZ(0.7).translate(r * 0.2, r * 0.15, 0.06).applyMatrix4(m));
   }
 
   /** a row of old control cabinets facing +Z after `yaw`, dials and a few lamps still lit */
@@ -840,15 +841,15 @@ export class Dresser implements Fixture {
     const amber = this.glow('#ffb547', 'kick', 1.3);
     for (let i = 0; i < n; i++) {
       const x = (i - (n - 1) / 2) * 0.82;
-      this.put('grey', new THREE.BoxGeometry(0.8, 2.2, 0.6).translate(x, 1.1, 0).applyMatrix4(m));
-      this.put('blackMetal', new THREE.BoxGeometry(0.01, 2.0, 0.005).translate(x, 1.1, 0.302).applyMatrix4(m));
-      this.put('blackMetal', new THREE.BoxGeometry(0.03, 0.14, 0.03).translate(x + 0.08, 1.1, 0.31).applyMatrix4(m));
+      this.put('grey', bevelBox(0.8, 2.2, 0.6).translate(x, 1.1, 0).applyMatrix4(m));
+      this.put('blackMetal', bevelBox(0.01, 2.0, 0.005).translate(x, 1.1, 0.302).applyMatrix4(m));
+      this.put('blackMetal', bevelBox(0.03, 0.14, 0.03).translate(x + 0.08, 1.1, 0.31).applyMatrix4(m));
       for (let k = 0; k < 2; k++) this.gauge(V(x - 0.2 + k * 0.4, 1.72, 0.3).applyMatrix4(m), yaw, 0.08);
       for (let k = 0; k < 5; k++) {
         const l = this.r();
         this.put(l < 0.5 ? green : l < 0.75 ? amber : red, new THREE.SphereGeometry(0.018, 6, 4).translate(x - 0.24 + k * 0.12, 1.45, 0.305).applyMatrix4(m));
       }
-      this.put('white', new THREE.BoxGeometry(0.2, 0.06, 0.004).translate(x - 0.2, 1.95, 0.302).applyMatrix4(m));
+      this.put('white', bevelBox(0.2, 0.06, 0.004).translate(x - 0.2, 1.95, 0.302).applyMatrix4(m));
     }
   }
 
@@ -880,7 +881,7 @@ export class Dresser implements Fixture {
     const ang = Math.atan2(dir.x, dir.z);
     for (let i = 0; i < n; i++) {
       const p = bottom.clone().addScaledVector(dir, (run * (i + 0.5)) / n).setY(bottom.y + (rise * (i + 1)) / n - 0.02);
-      this.put('blackMetal', place(new THREE.BoxGeometry(w, 0.04, run / n + 0.02), p.x, p.y, p.z, ang));
+      this.put('blackMetal', place(bevelBox(w, 0.04, run / n + 0.02), p.x, p.y, p.z, ang));
     }
     for (const sd of [1, -1]) {
       const a = bottom.clone().addScaledVector(side, sd);
@@ -917,7 +918,7 @@ export class Dresser implements Fixture {
     const ang = Math.atan2(b.x - a.x, b.z - a.z);
     for (let i = 0; i < n; i++) {
       const p = a.clone().lerp(b, (i + 0.5) / n);
-      this.put(belt, place(new THREE.BoxGeometry(0.004, 0.05, len / n - 0.06), p.x, p.y + 0.88, p.z, ang));
+      this.put(belt, place(bevelBox(0.004, 0.05, len / n - 0.06), p.x, p.y + 0.88, p.z, ang));
     }
   }
 
@@ -927,7 +928,7 @@ export class Dresser implements Fixture {
     for (const sx of [-1, 1]) this.rod('alu', V((sx * w) / 2, 0, 0).applyMatrix4(m), V((sx * w) / 2, 1.6, 0).applyMatrix4(m), 0.015, 5);
     this.rod('alu', V(-w / 2, 1.6, 0).applyMatrix4(m), V(w / 2, 1.6, 0).applyMatrix4(m), 0.012, 5);
     const kinds: MatKey[] = ['black', 'white', 'grey', 'red', 'blue', 'black', 'cream'];
-    for (let x = -w / 2 + 0.1; x < w / 2 - 0.05; x += 0.09) this.put(kinds[Math.floor(this.r() * kinds.length)], new THREE.BoxGeometry(0.03, 0.7, 0.5).rotateY(0.15 * (this.r() - 0.5)).translate(x, 1.22, 0).applyMatrix4(m));
+    for (let x = -w / 2 + 0.1; x < w / 2 - 0.05; x += 0.09) this.put(kinds[Math.floor(this.r() * kinds.length)], bevelBox(0.03, 0.7, 0.5).rotateY(0.15 * (this.r() - 0.5)).translate(x, 1.22, 0).applyMatrix4(m));
   }
 
   /** a heavy chain hanging from a to b */
@@ -947,20 +948,20 @@ export class Dresser implements Fixture {
   roadCase(pos: THREE.Vector3, yaw: number, w: number, h: number, d: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     const at = (k: MatKey, g: THREE.BufferGeometry) => this.put(k, g.applyMatrix4(m));
-    at('case', new THREE.BoxGeometry(w, h, d).translate(0, h / 2, 0));
+    at('case', bevelBox(w, h, d).translate(0, h / 2, 0));
     const e = 0.022;
     for (const sx of [-1, 1])
       for (const sz of [-1, 1]) {
-        at('alu', new THREE.BoxGeometry(e, h, e).translate((sx * w) / 2, h / 2, (sz * d) / 2));
-        for (const sy of [0, 1]) at('alu', new THREE.BoxGeometry(0.06, 0.06, 0.06).translate((sx * (w - 0.03)) / 2, sy * h + (sy ? -0.03 : 0.03), (sz * (d - 0.03)) / 2));
+        at('alu', bevelBox(e, h, e).translate((sx * w) / 2, h / 2, (sz * d) / 2));
+        for (const sy of [0, 1]) at('alu', bevelBox(0.06, 0.06, 0.06).translate((sx * (w - 0.03)) / 2, sy * h + (sy ? -0.03 : 0.03), (sz * (d - 0.03)) / 2));
       }
     for (const sy of [0, 1])
-      for (const sz of [-1, 1]) at('alu', new THREE.BoxGeometry(w, e, e).translate(0, sy * h, (sz * d) / 2));
+      for (const sz of [-1, 1]) at('alu', bevelBox(w, e, e).translate(0, sy * h, (sz * d) / 2));
     for (const sy of [0, 1])
-      for (const sx of [-1, 1]) at('alu', new THREE.BoxGeometry(e, e, d).translate((sx * w) / 2, sy * h, 0));
-    at('alu', new THREE.BoxGeometry(w + 0.004, 0.02, 0.02).translate(0, h * 0.62, d / 2));
-    for (const sx of [-1, 1]) at('blackMetal', new THREE.BoxGeometry(0.004, 0.06, 0.16).translate((sx * (w + 0.004)) / 2, h * 0.7, 0));
-    at('white', new THREE.BoxGeometry(Math.min(0.3, w * 0.5), 0.05, 0.003).translate(-w * 0.18, h * 0.85, d / 2 + 0.002));
+      for (const sx of [-1, 1]) at('alu', bevelBox(e, e, d).translate((sx * w) / 2, sy * h, 0));
+    at('alu', bevelBox(w + 0.004, 0.02, 0.02).translate(0, h * 0.62, d / 2));
+    for (const sx of [-1, 1]) at('blackMetal', bevelBox(0.004, 0.06, 0.16).translate((sx * (w + 0.004)) / 2, h * 0.7, 0));
+    at('white', bevelBox(Math.min(0.3, w * 0.5), 0.05, 0.003).translate(-w * 0.18, h * 0.85, d / 2 + 0.002));
     if (h < 0.7) for (const sx of [-1, 1]) for (const sz of [-1, 1]) at('rubber', new THREE.CylinderGeometry(0.035, 0.035, 0.05, 8).translate((sx * (w - 0.1)) / 2, -0.025, (sz * (d - 0.1)) / 2));
   }
 
@@ -968,15 +969,15 @@ export class Dresser implements Fixture {
   ampRack(pos: THREE.Vector3, yaw: number, units = 6): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     const h = units * 0.135 + 0.12;
-    this.put('case', new THREE.BoxGeometry(0.6, h, 0.65).translate(0, h / 2 + 0.06, 0).applyMatrix4(m));
+    this.put('case', bevelBox(0.6, h, 0.65).translate(0, h / 2 + 0.06, 0).applyMatrix4(m));
     const green = this.glow('#3ddc97', 'level', 1.8);
     const amber = this.glow('#ffb547', 'kick', 1.8);
     const red = this.glow('#ff3b3e', 'blink', 1.6);
     for (let u = 0; u < units; u++) {
       const y = 0.12 + u * 0.135;
-      this.put('blackMetal', new THREE.BoxGeometry(0.5, 0.12, 0.02).translate(0, y + 0.06, 0.33).applyMatrix4(m));
-      for (let k = 0; k < 6; k++) this.put(k < 4 ? green : k < 5 ? amber : red, new THREE.BoxGeometry(0.014, 0.01, 0.006).translate(-0.18 + k * 0.022, y + 0.09, 0.343).applyMatrix4(m));
-      this.put('alu', new THREE.BoxGeometry(0.04, 0.04, 0.03).translate(0.17, y + 0.06, 0.345).applyMatrix4(m));
+      this.put('blackMetal', bevelBox(0.5, 0.12, 0.02).translate(0, y + 0.06, 0.33).applyMatrix4(m));
+      for (let k = 0; k < 6; k++) this.put(k < 4 ? green : k < 5 ? amber : red, bevelBox(0.014, 0.01, 0.006).translate(-0.18 + k * 0.022, y + 0.09, 0.343).applyMatrix4(m));
+      this.put('alu', bevelBox(0.04, 0.04, 0.03).translate(0.17, y + 0.06, 0.345).applyMatrix4(m));
     }
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.put('rubber', new THREE.CylinderGeometry(0.035, 0.035, 0.06, 8).rotateZ(Math.PI / 2).translate(sx * 0.24, 0.035, sz * 0.26).applyMatrix4(m));
   }
@@ -998,9 +999,9 @@ export class Dresser implements Fixture {
   /** a hazer on the floor, with its little status light */
   hazer(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('case', new THREE.BoxGeometry(0.5, 0.28, 0.32).translate(0, 0.14, 0).applyMatrix4(m));
+    this.put('case', bevelBox(0.5, 0.28, 0.32).translate(0, 0.14, 0).applyMatrix4(m));
     this.put('blackMetal', new THREE.CylinderGeometry(0.05, 0.05, 0.04, 10).rotateX(Math.PI / 2).translate(0, 0.16, 0.17).applyMatrix4(m));
-    this.put(this.glow('#3ddc97', 'blink', 1.6), new THREE.BoxGeometry(0.02, 0.02, 0.01).translate(0.18, 0.22, 0.165).applyMatrix4(m));
+    this.put(this.glow('#3ddc97', 'blink', 1.6), bevelBox(0.02, 0.02, 0.01).translate(0.18, 0.22, 0.165).applyMatrix4(m));
   }
 
   /** a yellow-and-black cable ramp from a to b along the floor */
@@ -1020,8 +1021,8 @@ export class Dresser implements Fixture {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     for (let i = 0; i < n; i++) {
       const y = i * 0.145;
-      for (let k = 0; k < 3; k++) this.put('wood', new THREE.BoxGeometry(1.2, 0.1, 0.1).translate(0, y + 0.05, -0.45 + k * 0.45).applyMatrix4(m));
-      for (let k = 0; k < 7; k++) this.put('wood', new THREE.BoxGeometry(0.12, 0.022, 1.0).translate(-0.54 + k * 0.18, y + 0.111, 0).applyMatrix4(m));
+      for (let k = 0; k < 3; k++) this.put('wood', bevelBox(1.2, 0.1, 0.1).translate(0, y + 0.05, -0.45 + k * 0.45).applyMatrix4(m));
+      for (let k = 0; k < 7; k++) this.put('wood', bevelBox(0.12, 0.022, 1.0).translate(-0.54 + k * 0.18, y + 0.111, 0).applyMatrix4(m));
     }
   }
 
@@ -1038,7 +1039,7 @@ export class Dresser implements Fixture {
     }
     this.rod('galv', a.clone().setY(a.y + h), b.clone().setY(b.y + h), 0.03, 8);
     this.rod('galv', a.clone().setY(a.y + h * 0.5), b.clone().setY(b.y + h * 0.5), 0.015, 6);
-    const plate = new THREE.BoxGeometry(len, 0.01, 0.6);
+    const plate = bevelBox(len, 0.01, 0.6);
     const ang = Math.atan2(dir.x, dir.z) - Math.PI / 2;
     const mid = a.clone().add(b).multiplyScalar(0.5).add(back.clone().multiplyScalar(0.55));
     this.put('galv', place(plate, mid.x, mid.y + 0.005, mid.z, ang));
@@ -1091,7 +1092,7 @@ export class Dresser implements Fixture {
   /** stairs climbing in +Z after `yaw` */
   steps(pos: THREE.Vector3, yaw: number, n: number, w = 1.2, rise = 0.18, run = 0.28, k: MatKey = 'blackMetal'): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    for (let i = 0; i < n; i++) this.put(k, new THREE.BoxGeometry(w, rise * (i + 1), run).translate(0, (rise * (i + 1)) / 2, run * i + run / 2).applyMatrix4(m));
+    for (let i = 0; i < n; i++) this.put(k, bevelBox(w, rise * (i + 1), run).translate(0, (rise * (i + 1)) / 2, run * i + run / 2).applyMatrix4(m));
     for (const s of [-1, 1]) {
       const a = V((s * w) / 2, 1, 0).applyMatrix4(m);
       const b = V((s * w) / 2, 1 + rise * n, run * n).applyMatrix4(m);
@@ -1117,13 +1118,13 @@ export class Dresser implements Fixture {
   /** front of house: a desk with a lighting console and a sound console, screens lit */
   foh(pos: THREE.Vector3, yaw: number, w = 2.4): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('case', new THREE.BoxGeometry(w, 0.85, 0.9).translate(0, 0.425, 0).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(w * 0.45, 0.08, 0.6).rotateX(-0.15).translate(-w * 0.25, 0.9, 0).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(w * 0.45, 0.08, 0.6).rotateX(-0.15).translate(w * 0.25, 0.9, 0).applyMatrix4(m));
+    this.put('case', bevelBox(w, 0.85, 0.9).translate(0, 0.425, 0).applyMatrix4(m));
+    this.put('black', bevelBox(w * 0.45, 0.08, 0.6).rotateX(-0.15).translate(-w * 0.25, 0.9, 0).applyMatrix4(m));
+    this.put('black', bevelBox(w * 0.45, 0.08, 0.6).rotateX(-0.15).translate(w * 0.25, 0.9, 0).applyMatrix4(m));
     const screens = this.glow('#ffffff', 'steady', 1.1, 0, consoleTexture());
     for (const x of [-w * 0.25, w * 0.25]) this.put(screens, new THREE.PlaneGeometry(w * 0.42, 0.22).rotateX(-0.5).rotateY(Math.PI).translate(x, 1.08, 0.24).applyMatrix4(m));
     const leds = this.glow('#2ec4f1', 'kick', 1.4);
-    for (let i = 0; i < 16; i++) this.put(leds, new THREE.BoxGeometry(0.02, 0.006, 0.02).translate(-w * 0.45 + i * 0.06, 0.95, -0.18).applyMatrix4(m));
+    for (let i = 0; i < 16; i++) this.put(leds, bevelBox(0.02, 0.006, 0.02).translate(-w * 0.45 + i * 0.06, 0.95, -0.18).applyMatrix4(m));
     // a little desk lamp on a gooseneck
     this.tube('blackMetal', [V(w * 0.45, 0.9, 0.3), V(w * 0.45, 1.2, 0.25), V(w * 0.4, 1.28, 0.1)].map((v) => v.applyMatrix4(m)), 0.008, 4);
   }
@@ -1131,12 +1132,12 @@ export class Dresser implements Fixture {
   /** a mobile light mast: a trailer, a mast and a head of four lamps */
   lightMast(pos: THREE.Vector3, yaw: number, h = 7): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('yellow', new THREE.BoxGeometry(1.2, 0.8, 2).translate(0, 0.7, 0).applyMatrix4(m));
+    this.put('yellow', bevelBox(1.2, 0.8, 2).translate(0, 0.7, 0).applyMatrix4(m));
     for (const s of [-1, 1]) this.put('rubber', new THREE.CylinderGeometry(0.3, 0.3, 0.2, 12).rotateZ(Math.PI / 2).translate(s * 0.65, 0.3, 0).applyMatrix4(m));
     this.rod('galv', V(0, 1, 0).applyMatrix4(m), V(0, h, 0).applyMatrix4(m), 0.06, 8);
-    this.put('galv', new THREE.BoxGeometry(1.2, 0.06, 0.06).translate(0, h, 0).applyMatrix4(m));
+    this.put('galv', bevelBox(1.2, 0.06, 0.06).translate(0, h, 0).applyMatrix4(m));
     const lamp = this.glow('#fff1d6', 'steady', 2.4);
-    for (let i = 0; i < 4; i++) this.put(lamp, new THREE.BoxGeometry(0.26, 0.2, 0.06).translate(-0.45 + i * 0.3, h + 0.15, 0.06).applyMatrix4(m));
+    for (let i = 0; i < 4; i++) this.put(lamp, bevelBox(0.26, 0.2, 0.06).translate(-0.45 + i * 0.3, h + 0.15, 0.06).applyMatrix4(m));
   }
 
   /* ---------------- outdoors ---------------- */
@@ -1146,8 +1147,8 @@ export class Dresser implements Fixture {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     this.rod('blackMetal', V(0, 0, 0).applyMatrix4(m), V(0, h, 0).applyMatrix4(m), 0.06, 8);
     this.tube('blackMetal', [V(0, h - 0.1, 0), V(0, h + 0.2, 0.2), V(0, h + 0.2, 0.7)].map((v) => v.applyMatrix4(m)), 0.04, 6);
-    this.put('blackMetal', new THREE.BoxGeometry(0.3, 0.12, 0.5).translate(0, h + 0.18, 0.85).applyMatrix4(m));
-    this.put(this.glow('#ffb35a', 'steady', 2.2), new THREE.BoxGeometry(0.24, 0.02, 0.4).translate(0, h + 0.11, 0.85).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(0.3, 0.12, 0.5).translate(0, h + 0.18, 0.85).applyMatrix4(m));
+    this.put(this.glow('#ffb35a', 'steady', 2.2), bevelBox(0.24, 0.02, 0.4).translate(0, h + 0.11, 0.85).applyMatrix4(m));
   }
 
   /** a palm: a curving segmented trunk and a crown of drooping fronds */
@@ -1189,10 +1190,10 @@ export class Dresser implements Fixture {
   /** a sun lounger facing +Z after `yaw` */
   lounger(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('wood', new THREE.BoxGeometry(0.65, 0.06, 1.3).translate(0, 0.32, 0.2).applyMatrix4(m));
-    this.put('wood', new THREE.BoxGeometry(0.65, 0.06, 0.7).rotateX(0.9).translate(0, 0.55, -0.6).applyMatrix4(m));
-    this.put('white', new THREE.BoxGeometry(0.6, 0.05, 1.25).translate(0, 0.37, 0.2).applyMatrix4(m));
-    for (const sx of [-1, 1]) for (const sz of [-0.3, 0.7]) this.put('wood', new THREE.BoxGeometry(0.05, 0.3, 0.05).translate(sx * 0.28, 0.15, sz).applyMatrix4(m));
+    this.put('wood', bevelBox(0.65, 0.06, 1.3).translate(0, 0.32, 0.2).applyMatrix4(m));
+    this.put('wood', bevelBox(0.65, 0.06, 0.7).rotateX(0.9).translate(0, 0.55, -0.6).applyMatrix4(m));
+    this.put('white', bevelBox(0.6, 0.05, 1.25).translate(0, 0.37, 0.2).applyMatrix4(m));
+    for (const sx of [-1, 1]) for (const sz of [-0.3, 0.7]) this.put('wood', bevelBox(0.05, 0.3, 0.05).translate(sx * 0.28, 0.15, sz).applyMatrix4(m));
   }
 
   /** a bamboo torch with a live flame */
@@ -1213,9 +1214,9 @@ export class Dresser implements Fixture {
   /** a rooftop AC unit with a fan grille on top */
   acUnit(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('galv', new THREE.BoxGeometry(1.4, 1.0, 1).translate(0, 0.5, 0).applyMatrix4(m));
+    this.put('galv', bevelBox(1.4, 1.0, 1).translate(0, 0.5, 0).applyMatrix4(m));
     this.put('blackMetal', new THREE.CylinderGeometry(0.4, 0.4, 0.04, 16).translate(0, 1.02, 0).applyMatrix4(m));
-    for (let i = 0; i < 8; i++) this.put('galv', new THREE.BoxGeometry(1.42, 0.02, 0.02).translate(0, 0.15 + i * 0.1, 0.505).applyMatrix4(m));
+    for (let i = 0; i < 8; i++) this.put('galv', bevelBox(1.42, 0.02, 0.02).translate(0, 0.15 + i * 0.1, 0.505).applyMatrix4(m));
     this.rod('galv', V(0.5, 0.3, -0.5).applyMatrix4(m), V(0.5, 0.3, -1.4).applyMatrix4(m), 0.04, 6);
   }
 
@@ -1253,13 +1254,13 @@ export class Dresser implements Fixture {
   foodTruck(pos: THREE.Vector3, yaw: number, seed: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     const body: MatKey = (['white', 'red', 'blue', 'yellow'] as MatKey[])[seed % 4];
-    this.put(body, new THREE.BoxGeometry(4.5, 2.2, 2.1).translate(0, 1.5, 0).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(1.4, 1.6, 2.1).translate(-2.9, 1.2, 0).applyMatrix4(m));
+    this.put(body, bevelBox(4.5, 2.2, 2.1).translate(0, 1.5, 0).applyMatrix4(m));
+    this.put('black', bevelBox(1.4, 1.6, 2.1).translate(-2.9, 1.2, 0).applyMatrix4(m));
     for (const x of [-2.6, 1.4]) for (const z of [-1, 1]) this.put('rubber', new THREE.CylinderGeometry(0.42, 0.42, 0.25, 14).rotateX(Math.PI / 2).translate(x, 0.42, z).applyMatrix4(m));
     const hatch = this.glow('#ffd9a0', 'steady', 1.4);
     this.put(hatch, new THREE.PlaneGeometry(2.4, 0.9).translate(0, 1.8, 1.06).applyMatrix4(m));
-    this.put(body, new THREE.BoxGeometry(2.6, 0.04, 0.8).rotateX(-0.5).translate(0, 2.45, 1.4).applyMatrix4(m));
-    this.put('steel', new THREE.BoxGeometry(2.6, 0.05, 0.35).translate(0, 1.25, 1.2).applyMatrix4(m));
+    this.put(body, bevelBox(2.6, 0.04, 0.8).rotateX(-0.5).translate(0, 2.45, 1.4).applyMatrix4(m));
+    this.put('steel', bevelBox(2.6, 0.05, 0.35).translate(0, 1.25, 1.2).applyMatrix4(m));
     const menu = this.glow('#ffffff', 'steady', 1.2, 0, menuTexture(seed));
     this.put(menu, new THREE.PlaneGeometry(1.6, 0.8).translate(0, 2.95, 1.06).applyMatrix4(m));
     const bulbs = this.glow('#ffcf7a', 'breathe', 2);
@@ -1272,8 +1273,8 @@ export class Dresser implements Fixture {
     const sh = new THREE.Shape([new THREE.Vector2(-len / 2, 0.4), new THREE.Vector2(len / 2, 0.4), new THREE.Vector2(len / 2 + 1.2, 1.4), new THREE.Vector2(-len / 2, 1.4)]);
     const hull = new THREE.ExtrudeGeometry(sh, { depth: len * 0.3, bevelEnabled: false }).translate(0, -0.4, -len * 0.15);
     this.put('white', hull.applyMatrix4(m));
-    this.put('white', new THREE.BoxGeometry(len * 0.35, 0.9, len * 0.2).translate(-len * 0.05, 1.45, 0).applyMatrix4(m));
-    this.put(this.glow('#ffd29a', 'steady', 1.6), new THREE.BoxGeometry(len * 0.33, 0.22, len * 0.205).translate(-len * 0.05, 1.5, 0).applyMatrix4(m));
+    this.put('white', bevelBox(len * 0.35, 0.9, len * 0.2).translate(-len * 0.05, 1.45, 0).applyMatrix4(m));
+    this.put(this.glow('#ffd29a', 'steady', 1.6), bevelBox(len * 0.33, 0.22, len * 0.205).translate(-len * 0.05, 1.5, 0).applyMatrix4(m));
     this.rod('alu', V(0, 1.4, 0).applyMatrix4(m), V(0, 1.4 + len * 1.1, 0).applyMatrix4(m), 0.06, 6);
     this.put(this.glow('#ffffff', 'steady', 2.4), new THREE.SphereGeometry(0.15, 6, 4).translate(0, 1.5 + len * 1.1, 0).applyMatrix4(m));
   }
@@ -1282,19 +1283,19 @@ export class Dresser implements Fixture {
   lifeguard(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     for (const sx of [-0.8, 0.8]) for (const sz of [-0.8, 0.8]) this.rod('white', V(sx, 0, sz).applyMatrix4(m), V(sx * 0.8, 2.2, sz * 0.8).applyMatrix4(m), 0.06, 6);
-    this.put('white', new THREE.BoxGeometry(1.8, 0.1, 1.8).translate(0, 2.2, 0).applyMatrix4(m));
-    this.put('yellow', new THREE.BoxGeometry(1.4, 1.2, 1.3).translate(0, 2.85, -0.15).applyMatrix4(m));
-    this.put('red', new THREE.BoxGeometry(1.7, 0.08, 1.6).translate(0, 3.5, -0.15).applyMatrix4(m));
-    for (let i = 0; i < 7; i++) this.put('white', new THREE.BoxGeometry(0.6, 0.04, 0.08).translate(0, 0.3 * i + 0.1, 1.2 - i * 0.05).applyMatrix4(m));
+    this.put('white', bevelBox(1.8, 0.1, 1.8).translate(0, 2.2, 0).applyMatrix4(m));
+    this.put('yellow', bevelBox(1.4, 1.2, 1.3).translate(0, 2.85, -0.15).applyMatrix4(m));
+    this.put('red', bevelBox(1.7, 0.08, 1.6).translate(0, 3.5, -0.15).applyMatrix4(m));
+    for (let i = 0; i < 7; i++) this.put('white', bevelBox(0.6, 0.04, 0.08).translate(0, 0.3 * i + 0.1, 1.2 - i * 0.05).applyMatrix4(m));
     this.flag(V(0.7, 3.5, -0.15).applyMatrix4(m), 1.6, 'red');
   }
 
   /** a daybed with posts and a fabric canopy, facing +Z after `yaw` */
   daybed(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('wood', new THREE.BoxGeometry(2, 0.3, 2).translate(0, 0.15, 0).applyMatrix4(m));
-    this.put('white', new THREE.BoxGeometry(1.9, 0.2, 1.9).translate(0, 0.4, 0).applyMatrix4(m));
-    for (let i = 0; i < 3; i++) this.put('cream', new THREE.BoxGeometry(0.5, 0.25, 0.18).translate(-0.6 + i * 0.6, 0.62, -0.8).applyMatrix4(m));
+    this.put('wood', bevelBox(2, 0.3, 2).translate(0, 0.15, 0).applyMatrix4(m));
+    this.put('white', bevelBox(1.9, 0.2, 1.9).translate(0, 0.4, 0).applyMatrix4(m));
+    for (let i = 0; i < 3; i++) this.put('cream', bevelBox(0.5, 0.25, 0.18).translate(-0.6 + i * 0.6, 0.62, -0.8).applyMatrix4(m));
     for (const sx of [-0.95, 0.95]) for (const sz of [-0.95, 0.95]) this.rod('wood', V(sx, 0, sz).applyMatrix4(m), V(sx, 2.3, sz).applyMatrix4(m), 0.04, 6);
     const g = new THREE.PlaneGeometry(2.1, 2.1, 6, 6).rotateX(-Math.PI / 2);
     const p = g.attributes.position as THREE.BufferAttribute;
@@ -1313,9 +1314,9 @@ export class Dresser implements Fixture {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
     for (let i = 0; i < n; i++) {
       const x = (i - (n - 1) / 2) * 1.2;
-      this.put(i % 2 ? 'blue' : 'green', new THREE.BoxGeometry(1.1, 2.3, 1.2).translate(x, 1.15, 0).applyMatrix4(m));
-      this.put('white', new THREE.BoxGeometry(1.15, 0.1, 1.25).translate(x, 2.35, 0).applyMatrix4(m));
-      this.put('grey', new THREE.BoxGeometry(0.12, 0.04, 0.02).translate(x + 0.3, 1.2, 0.61).applyMatrix4(m));
+      this.put(i % 2 ? 'blue' : 'green', bevelBox(1.1, 2.3, 1.2).translate(x, 1.15, 0).applyMatrix4(m));
+      this.put('white', bevelBox(1.15, 0.1, 1.25).translate(x, 2.35, 0).applyMatrix4(m));
+      this.put('grey', bevelBox(0.12, 0.04, 0.02).translate(x + 0.3, 1.2, 0.61).applyMatrix4(m));
     }
   }
 
@@ -1346,9 +1347,9 @@ export class Dresser implements Fixture {
   /** a bench facing +Z after `yaw` */
   bench(pos: THREE.Vector3, yaw: number, len = 1.8): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    for (let i = 0; i < 3; i++) this.put('wood', new THREE.BoxGeometry(len, 0.04, 0.12).translate(0, 0.45, -0.15 + i * 0.14).applyMatrix4(m));
-    for (let i = 0; i < 2; i++) this.put('wood', new THREE.BoxGeometry(len, 0.12, 0.04).translate(0, 0.65 + i * 0.16, -0.24).applyMatrix4(m));
-    for (const s of [-1, 1]) this.put('blackMetal', new THREE.BoxGeometry(0.06, 0.45, 0.45).translate((s * (len - 0.2)) / 2, 0.22, -0.05).applyMatrix4(m));
+    for (let i = 0; i < 3; i++) this.put('wood', bevelBox(len, 0.04, 0.12).translate(0, 0.45, -0.15 + i * 0.14).applyMatrix4(m));
+    for (let i = 0; i < 2; i++) this.put('wood', bevelBox(len, 0.12, 0.04).translate(0, 0.65 + i * 0.16, -0.24).applyMatrix4(m));
+    for (const s of [-1, 1]) this.put('blackMetal', bevelBox(0.06, 0.45, 0.45).translate((s * (len - 0.2)) / 2, 0.22, -0.05).applyMatrix4(m));
   }
 
   /** a street bin */
@@ -1437,7 +1438,7 @@ export class Dresser implements Fixture {
     else {
       this.box('straw', 1.0, 0.42, 0.5, pos.x, pos.y + 0.21, pos.z, yaw);
       // the twine round it
-      for (const s of [-0.25, 0.25]) this.put('trunk', place(new THREE.BoxGeometry(0.02, 0.43, 0.51), pos.x + Math.cos(yaw) * s, pos.y + 0.21, pos.z - Math.sin(yaw) * s, yaw));
+      for (const s of [-0.25, 0.25]) this.put('trunk', place(bevelBox(0.02, 0.43, 0.51), pos.x + Math.cos(yaw) * s, pos.y + 0.21, pos.z - Math.sin(yaw) * s, yaw));
     }
   }
 
@@ -1487,40 +1488,40 @@ export class Dresser implements Fixture {
   /** a site cabin on blocks, door and windows facing +Z after `yaw`, the windows lit */
   cabin(pos: THREE.Vector3, yaw: number, w = 6, lit?: THREE.MeshBasicMaterial): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('white', new THREE.BoxGeometry(w, 2.6, 2.6).translate(0, 1.55, 0).applyMatrix4(m));
-    this.put('grey', new THREE.BoxGeometry(w + 0.06, 0.12, 2.66).translate(0, 2.9, 0).applyMatrix4(m));
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.put('stone', new THREE.BoxGeometry(0.4, 0.25, 0.4).translate((sx * (w - 0.5)) / 2, 0.125, (sz * 2.1) / 2).applyMatrix4(m));
-    this.put('grey', new THREE.BoxGeometry(0.9, 2.0, 0.04).translate(w / 2 - 0.8, 1.25, 1.31).applyMatrix4(m));
-    this.put('galv', new THREE.BoxGeometry(1.0, 0.24, 0.4).translate(w / 2 - 0.8, 0.12, 1.5).applyMatrix4(m));
+    this.put('white', bevelBox(w, 2.6, 2.6).translate(0, 1.55, 0).applyMatrix4(m));
+    this.put('grey', bevelBox(w + 0.06, 0.12, 2.66).translate(0, 2.9, 0).applyMatrix4(m));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) this.put('stone', bevelBox(0.4, 0.25, 0.4).translate((sx * (w - 0.5)) / 2, 0.125, (sz * 2.1) / 2).applyMatrix4(m));
+    this.put('grey', bevelBox(0.9, 2.0, 0.04).translate(w / 2 - 0.8, 1.25, 1.31).applyMatrix4(m));
+    this.put('galv', bevelBox(1.0, 0.24, 0.4).translate(w / 2 - 0.8, 0.12, 1.5).applyMatrix4(m));
     const glass = lit ?? this.glow('#d8e4ff', 'steady', 0.9);
     for (let x = -w / 2 + 0.9; x < w / 2 - 1.6; x += 1.5) this.put(glass, new THREE.PlaneGeometry(1.0, 0.7).translate(x, 1.9, 1.31).applyMatrix4(m));
-    this.put('galv', new THREE.BoxGeometry(0.6, 0.45, 0.3).translate(-w / 2 + 0.5, 2.3, -1.45).applyMatrix4(m));
+    this.put('galv', bevelBox(0.6, 0.45, 0.3).translate(-w / 2 + 0.5, 2.3, -1.45).applyMatrix4(m));
   }
 
   /** a mobile generator with its exhaust stack and a panel that shows the load */
   generator(pos: THREE.Vector3, yaw: number): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('green', new THREE.BoxGeometry(4, 2.1, 1.4).translate(0, 1.25, 0).applyMatrix4(m));
-    this.put('grey', new THREE.BoxGeometry(4.2, 0.2, 1.5).translate(0, 0.1, 0).applyMatrix4(m));
-    for (let i = 0; i < 9; i++) this.put('blackMetal', new THREE.BoxGeometry(0.06, 1.2, 0.02).translate(-1.6 + i * 0.12, 1.3, 0.71).applyMatrix4(m));
+    this.put('green', bevelBox(4, 2.1, 1.4).translate(0, 1.25, 0).applyMatrix4(m));
+    this.put('grey', bevelBox(4.2, 0.2, 1.5).translate(0, 0.1, 0).applyMatrix4(m));
+    for (let i = 0; i < 9; i++) this.put('blackMetal', bevelBox(0.06, 1.2, 0.02).translate(-1.6 + i * 0.12, 1.3, 0.71).applyMatrix4(m));
     this.rod('blackMetal', V(1.4, 2.3, 0).applyMatrix4(m), V(1.4, 3.2, 0).applyMatrix4(m), 0.08, 8);
-    this.put('blackMetal', new THREE.BoxGeometry(0.6, 0.5, 0.03).translate(1.1, 1.4, 0.71).applyMatrix4(m));
-    this.put(this.glow('#3ddc97', 'level', 1.6), new THREE.BoxGeometry(0.3, 0.06, 0.01).translate(1.1, 1.5, 0.728).applyMatrix4(m));
-    this.put(this.glow('#ffb547', 'blink', 1.6), new THREE.BoxGeometry(0.04, 0.04, 0.01).translate(1.3, 1.3, 0.728).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(0.6, 0.5, 0.03).translate(1.1, 1.4, 0.71).applyMatrix4(m));
+    this.put(this.glow('#3ddc97', 'level', 1.6), bevelBox(0.3, 0.06, 0.01).translate(1.1, 1.5, 0.728).applyMatrix4(m));
+    this.put(this.glow('#ffb547', 'blink', 1.6), bevelBox(0.04, 0.04, 0.01).translate(1.3, 1.3, 0.728).applyMatrix4(m));
   }
 
   /** an articulated lorry: cab and trailer, the cab facing +Z after `yaw` */
   lorry(pos: THREE.Vector3, yaw: number, len = 13.6, cab: MatKey = 'blue'): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('white', new THREE.BoxGeometry(2.5, 2.8, len).translate(0, 2.6, -len / 2).applyMatrix4(m));
-    this.put('grey', new THREE.BoxGeometry(2.3, 0.3, len).translate(0, 1.05, -len / 2).applyMatrix4(m));
+    this.put('white', bevelBox(2.5, 2.8, len).translate(0, 2.6, -len / 2).applyMatrix4(m));
+    this.put('grey', bevelBox(2.3, 0.3, len).translate(0, 1.05, -len / 2).applyMatrix4(m));
     for (let i = 0; i < 3; i++) for (const s of [-1, 1]) this.put('rubber', new THREE.CylinderGeometry(0.5, 0.5, 0.35, 14).rotateZ(Math.PI / 2).translate(s * 1.0, 0.5, -len + 1.2 + i * 1.3).applyMatrix4(m));
     for (const s of [-1, 1]) this.rod('grey', V(s * 0.9, 1.0, -2.2).applyMatrix4(m), V(s * 0.9, 0, -2.2).applyMatrix4(m), 0.06, 6);
-    this.put(cab, new THREE.BoxGeometry(2.5, 2.9, 2.3).translate(0, 2.05, 1.6).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(2.3, 1.0, 0.02).rotateX(-0.08).translate(0, 2.7, 2.76).applyMatrix4(m));
-    this.put('grey', new THREE.BoxGeometry(2.5, 0.4, 0.1).translate(0, 0.8, 2.76).applyMatrix4(m));
+    this.put(cab, bevelBox(2.5, 2.9, 2.3).translate(0, 2.05, 1.6).applyMatrix4(m));
+    this.put('black', bevelBox(2.3, 1.0, 0.02).rotateX(-0.08).translate(0, 2.7, 2.76).applyMatrix4(m));
+    this.put('grey', bevelBox(2.5, 0.4, 0.1).translate(0, 0.8, 2.76).applyMatrix4(m));
     for (const s of [-1, 1]) this.put('rubber', new THREE.CylinderGeometry(0.5, 0.5, 0.35, 14).rotateZ(Math.PI / 2).translate(s * 1.0, 0.5, 1.6).applyMatrix4(m));
-    for (const s of [-1, 1]) this.put(this.glow('#fff4dd', 'steady', 1.2), new THREE.BoxGeometry(0.3, 0.15, 0.02).translate(s * 0.9, 0.95, 2.82).applyMatrix4(m));
+    for (const s of [-1, 1]) this.put(this.glow('#fff4dd', 'steady', 1.2), bevelBox(0.3, 0.15, 0.02).translate(s * 0.9, 0.95, 2.82).applyMatrix4(m));
   }
 
   /** a scaffold tower w × d, h tall, boarded on top, with a rail */
@@ -1551,10 +1552,10 @@ export class Dresser implements Fixture {
   /** an IBC water tank in its cage, on a pallet (ballast for towers) */
   ibc(pos: THREE.Vector3, yaw = 0): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('cream', new THREE.BoxGeometry(1.0, 1.0, 1.15).translate(0, 0.65, 0).applyMatrix4(m));
-    this.put('galv', new THREE.BoxGeometry(1.06, 0.14, 1.2).translate(0, 0.07, 0).applyMatrix4(m));
-    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) this.put('galv', new THREE.BoxGeometry(1.04, 0.02, 0.02).translate(0, 0.3 + i * 0.25, s * 0.585).applyMatrix4(m));
-    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) this.put('galv', new THREE.BoxGeometry(0.02, 1.04, 0.02).translate(-0.4 + i * 0.27, 0.66, s * 0.585).applyMatrix4(m));
+    this.put('cream', bevelBox(1.0, 1.0, 1.15).translate(0, 0.65, 0).applyMatrix4(m));
+    this.put('galv', bevelBox(1.06, 0.14, 1.2).translate(0, 0.07, 0).applyMatrix4(m));
+    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) this.put('galv', bevelBox(1.04, 0.02, 0.02).translate(0, 0.3 + i * 0.25, s * 0.585).applyMatrix4(m));
+    for (let i = 0; i < 4; i++) for (const s of [-1, 1]) this.put('galv', bevelBox(0.02, 1.04, 0.02).translate(-0.4 + i * 0.27, 0.66, s * 0.585).applyMatrix4(m));
   }
 
   /** wheelie bins in a row (general, recycling, glass), lids facing +Z after `yaw` */
@@ -1563,8 +1564,8 @@ export class Dresser implements Fixture {
     const kinds: MatKey[] = ['black', 'green', 'blue'];
     for (let i = 0; i < n; i++) {
       const x = (i - (n - 1) / 2) * 0.78;
-      this.put(kinds[i % 3], new THREE.BoxGeometry(0.7, 1.0, 0.75).translate(x, 0.55, 0).applyMatrix4(m));
-      this.put(kinds[i % 3], new THREE.BoxGeometry(0.74, 0.05, 0.8).translate(x, 1.07, 0.02).applyMatrix4(m));
+      this.put(kinds[i % 3], bevelBox(0.7, 1.0, 0.75).translate(x, 0.55, 0).applyMatrix4(m));
+      this.put(kinds[i % 3], bevelBox(0.74, 0.05, 0.8).translate(x, 1.07, 0.02).applyMatrix4(m));
       for (const s of [-1, 1]) this.put('rubber', new THREE.CylinderGeometry(0.1, 0.1, 0.05, 10).rotateZ(Math.PI / 2).translate(x + s * 0.3, 0.1, -0.3).applyMatrix4(m));
     }
   }
@@ -1576,12 +1577,12 @@ export class Dresser implements Fixture {
     const ang = Math.atan2(dir.x, dir.z);
     const out = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar(depth / 2);
     const mid = a.clone().add(b).multiplyScalar(0.5).add(out);
-    this.put('darkWood', place(new THREE.BoxGeometry(depth, 0.04, len), mid.x, a.y + h, mid.z, ang));
+    this.put('darkWood', place(bevelBox(depth, 0.04, len), mid.x, a.y + h, mid.z, ang));
     const lip = mid.clone().add(out.clone().multiplyScalar(0.92));
-    this.put('darkWood', place(new THREE.BoxGeometry(0.03, 0.03, len), lip.x, a.y + h + 0.03, lip.z, ang));
+    this.put('darkWood', place(bevelBox(0.03, 0.03, len), lip.x, a.y + h + 0.03, lip.z, ang));
     for (let t = 0.3; t < len; t += 1.4) {
       const p = a.clone().addScaledVector(dir, t).add(out);
-      this.put('blackMetal', place(new THREE.BoxGeometry(depth * 0.8, 0.12, 0.02), p.x, a.y + h - 0.08, p.z, ang));
+      this.put('blackMetal', place(bevelBox(depth * 0.8, 0.12, 0.02), p.x, a.y + h - 0.08, p.z, ang));
     }
     let glass = this.mats.get('glass');
     if (!glass) this.mats.set('glass', (glass = new THREE.MeshStandardMaterial({ color: 0xcfe6f2, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.45 })));
@@ -1594,7 +1595,7 @@ export class Dresser implements Fixture {
   /** a small speaker on a pole, aimed along +Z after `yaw` and a little down */
   poleSpeaker(pos: THREE.Vector3, yaw: number, h = 4): void {
     this.rod('galv', pos, pos.clone().setY(pos.y + h), 0.045, 6);
-    this.put('black', place(new THREE.BoxGeometry(0.45, 0.7, 0.4), pos.x, pos.y + h + 0.1, pos.z, yaw, 0.2));
+    this.put('black', place(bevelBox(0.45, 0.7, 0.4), pos.x, pos.y + h + 0.1, pos.z, yaw, 0.2));
   }
 
   /** a sign board with a word on it, facing +Z after `yaw`; on two posts down to `ground` if given */
@@ -1606,7 +1607,7 @@ export class Dresser implements Fixture {
       this.mats.set(key, (mat = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.22, roughness: 0.8 })));
     }
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('blackMetal', new THREE.BoxGeometry(w + 0.06, h + 0.06, 0.04).applyMatrix4(m));
+    this.put('blackMetal', bevelBox(w + 0.06, h + 0.06, 0.04).applyMatrix4(m));
     this.put(mat, new THREE.PlaneGeometry(w, h).translate(0, 0, 0.022).applyMatrix4(m));
     if (ground !== undefined) for (const s of [-1, 1]) this.rod('galv', V((s * w) / 2.5, ground - pos.y, -0.03).applyMatrix4(m), V((s * w) / 2.5, h / 2, -0.03).applyMatrix4(m), 0.03, 6);
   }
@@ -1623,14 +1624,14 @@ export class Dresser implements Fixture {
       const c = depth / 2 - 0.15;
       this.put('canvas', new THREE.PlaneGeometry(w + 0.4, depth).rotateX(-Math.PI / 2).rotateX(a).translate(0, 2.6 + Math.sin(0.42) * (dp / 2 - c), sd * c * Math.cos(a)).applyMatrix4(m));
     }
-    this.put('darkWood', new THREE.BoxGeometry(w - 0.6, 1.05, 0.6).translate(0, 0.525, dp / 2 - 0.6).applyMatrix4(m));
-    this.put('steel', new THREE.BoxGeometry(w - 0.5, 0.05, 0.72).translate(0, 1.075, dp / 2 - 0.6).applyMatrix4(m));
-    this.put('darkWood', new THREE.BoxGeometry(w - 1, 2.0, 0.4).translate(0, 1.0, -dp / 2 + 0.4).applyMatrix4(m));
+    this.put('darkWood', bevelBox(w - 0.6, 1.05, 0.6).translate(0, 0.525, dp / 2 - 0.6).applyMatrix4(m));
+    this.put('steel', bevelBox(w - 0.5, 0.05, 0.72).translate(0, 1.075, dp / 2 - 0.6).applyMatrix4(m));
+    this.put('darkWood', bevelBox(w - 1, 2.0, 0.4).translate(0, 1.0, -dp / 2 + 0.4).applyMatrix4(m));
     const shelf = this.glow('#ffcf8a', 'steady', 1.1);
     const bottles: MatKey[] = ['green', 'cream', 'red', 'blue', 'alu'];
     for (let i = 0; i < 3; i++) {
       const y = 0.95 + i * 0.42;
-      this.put(shelf, new THREE.BoxGeometry(w - 1.2, 0.02, 0.06).translate(0, y - 0.02, -dp / 2 + 0.62).applyMatrix4(m));
+      this.put(shelf, bevelBox(w - 1.2, 0.02, 0.06).translate(0, y - 0.02, -dp / 2 + 0.62).applyMatrix4(m));
       for (let x = -w / 2 + 0.8; x < w / 2 - 0.8; x += 0.11 + this.r() * 0.06) {
         const bh = 0.22 + this.r() * 0.1;
         this.put(bottles[Math.floor(this.r() * bottles.length)], new THREE.CylinderGeometry(0.03, 0.035, bh, 6).translate(x, y + bh / 2, -dp / 2 + 0.68).applyMatrix4(m));
@@ -1659,7 +1660,7 @@ export class Dresser implements Fixture {
   /** a white folding table, its front +Z after `yaw`; `laptops` open on it, their screens lit and facing the front */
   foldingTable(pos: THREE.Vector3, yaw: number, w = 1.8, laptops = 0): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put('white', new THREE.BoxGeometry(w, 0.04, 0.75).translate(0, 0.74, 0).applyMatrix4(m));
+    this.put('white', bevelBox(w, 0.04, 0.75).translate(0, 0.74, 0).applyMatrix4(m));
     for (const sx of [-1, 1]) {
       this.rod('galv', V((sx * (w - 0.2)) / 2, 0, -0.3).applyMatrix4(m), V((sx * (w - 0.2)) / 2, 0.72, -0.3).applyMatrix4(m), 0.014, 5);
       this.rod('galv', V((sx * (w - 0.2)) / 2, 0, 0.3).applyMatrix4(m), V((sx * (w - 0.2)) / 2, 0.72, 0.3).applyMatrix4(m), 0.014, 5);
@@ -1667,8 +1668,8 @@ export class Dresser implements Fixture {
     const screen = this.glow('#9fc2ff', 'steady', 0.9);
     for (let i = 0; i < laptops; i++) {
       const x = (i - (laptops - 1) / 2) * 0.5;
-      this.put('alu', new THREE.BoxGeometry(0.33, 0.015, 0.23).translate(x, 0.768, 0.05).applyMatrix4(m));
-      this.put('alu', new THREE.BoxGeometry(0.33, 0.22, 0.008).rotateX(0.25).translate(x, 0.88, -0.08).applyMatrix4(m));
+      this.put('alu', bevelBox(0.33, 0.015, 0.23).translate(x, 0.768, 0.05).applyMatrix4(m));
+      this.put('alu', bevelBox(0.33, 0.22, 0.008).rotateX(0.25).translate(x, 0.88, -0.08).applyMatrix4(m));
       this.put(screen, new THREE.PlaneGeometry(0.3, 0.19).rotateX(0.25).translate(x, 0.88, -0.075).applyMatrix4(m));
     }
   }
@@ -1698,14 +1699,14 @@ export class Dresser implements Fixture {
   /** a parked car, nose +Z after `yaw`, its lights off but the side lights on */
   car(pos: THREE.Vector3, yaw: number, k: MatKey = 'grey'): void {
     const m = new THREE.Matrix4().makeRotationY(yaw).setPosition(pos);
-    this.put(k, new THREE.BoxGeometry(1.8, 0.7, 4.4).translate(0, 0.6, 0).applyMatrix4(m));
+    this.put(k, bevelBox(1.8, 0.7, 4.4).translate(0, 0.6, 0).applyMatrix4(m));
     // the cabin, its glass a dark band round the sides
-    this.put(k, new THREE.BoxGeometry(1.56, 0.5, 2.1).translate(0, 1.2, -0.25).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(1.6, 0.32, 1.9).translate(0, 1.2, -0.25).applyMatrix4(m));
-    this.put('black', new THREE.BoxGeometry(1.4, 0.34, 0.02).rotateX(-0.5).translate(0, 1.18, 0.82).applyMatrix4(m));
+    this.put(k, bevelBox(1.56, 0.5, 2.1).translate(0, 1.2, -0.25).applyMatrix4(m));
+    this.put('black', bevelBox(1.6, 0.32, 1.9).translate(0, 1.2, -0.25).applyMatrix4(m));
+    this.put('black', bevelBox(1.4, 0.34, 0.02).rotateX(-0.5).translate(0, 1.18, 0.82).applyMatrix4(m));
     for (const sx of [-1, 1]) for (const sz of [-1.35, 1.35]) this.put('rubber', new THREE.CylinderGeometry(0.33, 0.33, 0.22, 14).rotateZ(Math.PI / 2).translate(sx * 0.85, 0.33, sz).applyMatrix4(m));
     const tail = this.glow('#ff2a1a', 'steady', 0.8);
-    for (const sx of [-1, 1]) this.put(tail, new THREE.BoxGeometry(0.3, 0.08, 0.02).translate(sx * 0.65, 0.78, -2.21).applyMatrix4(m));
+    for (const sx of [-1, 1]) this.put(tail, bevelBox(0.3, 0.08, 0.02).translate(sx * 0.65, 0.78, -2.21).applyMatrix4(m));
   }
 
   /** a concrete planter with a shrub */

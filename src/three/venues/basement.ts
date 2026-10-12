@@ -11,6 +11,7 @@
  * TODO: procedural stand-in for the Blender basement set (Section 14).
  */
 import * as THREE from 'three';
+import { bevelBox } from '../bevel';
 import type { FloorReflect } from '../reflect';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { nameStyleFor } from '../../name/venueStyles';
@@ -227,7 +228,7 @@ class Basement extends VenueBase {
     ] as [number, number][]) {
       geos.push(new THREE.CylinderGeometry(r, r, D - 0.2, 12).rotateX(Math.PI / 2).translate(x, h - 0.16 - r, cz));
       for (let z = z0 + 1; z < z1 - 0.5; z += 1.6) {
-        geos.push(new THREE.BoxGeometry(0.03, 0.16, 0.05).translate(x, h - 0.08, z));
+        geos.push(bevelBox(0.03, 0.16, 0.05).translate(x, h - 0.08, z));
         drips.push(V(x, h - 0.2 - r * 2, z + 0.4));
       }
     }
@@ -273,11 +274,11 @@ class Basement extends VenueBase {
 
     // a little bar at the back, glowing red, posters, the exit
     this.bar = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 0.08, 0.12), toneMapped: false });
-    const counter = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.05, 0.6), new THREE.MeshStandardMaterial({ color: 0x141012, roughness: 0.6 }));
+    const counter = new THREE.Mesh(bevelBox(3.4, 1.05, 0.6), new THREE.MeshStandardMaterial({ color: 0x141012, roughness: 0.6 }));
     counter.position.set(-2.4, 0.525, z0 + 0.6);
-    const glow = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.02, 0.02), this.bar);
+    const glow = new THREE.Mesh(bevelBox(3.4, 0.02, 0.02), this.bar);
     glow.position.set(-2.4, 1.0, z0 + 0.92);
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(3, 0.03, 0.2), new THREE.MeshStandardMaterial({ color: 0x1a1416 }));
+    const shelf = new THREE.Mesh(bevelBox(3, 0.03, 0.2), new THREE.MeshStandardMaterial({ color: 0x1a1416 }));
     shelf.position.set(-2.4, 1.6, z0 + 0.12);
     this.group.add(counter, glow, shelf);
     const barSpot = new THREE.Object3D();

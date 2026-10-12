@@ -17,6 +17,7 @@
  * the mirror is a dark glossy pane, not a real reflection.
  */
 import * as THREE from 'three';
+import { bevelBox } from '../bevel';
 import type { Features } from '../../visualizer/AudioFeatures';
 import { nameService } from '../../name/NameService';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
@@ -217,20 +218,20 @@ class DressingRoom extends VenueBase {
       [x0 + 0.01, cz, 0.02, D],
       [x1 - 0.01, cz, 0.02, D],
     ]) {
-      const s = new THREE.Mesh(new THREE.BoxGeometry(w, 0.1, d), skirt);
+      const s = new THREE.Mesh(bevelBox(w, 0.1, d), skirt);
       s.position.set(x, 0.05, z);
       this.room.add(s);
     }
 
     // the door to the club on the back wall, light leaking round it
-    const door = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.05, 0.05), new THREE.MeshStandardMaterial({ color: 0x1d1f24, roughness: 0.5, metalness: 0.4 }));
+    const door = new THREE.Mesh(bevelBox(0.95, 2.05, 0.05), new THREE.MeshStandardMaterial({ color: 0x1d1f24, roughness: 0.5, metalness: 0.4 }));
     door.position.set(1.35, 1.025, z0 + 0.03);
     this.doorGlow = new THREE.MeshBasicMaterial({ color: 0xff2e88, toneMapped: false });
     const gap = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.025), this.doorGlow);
     gap.position.set(1.35, 0.0125, z0 + 0.06);
     const port = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.28), this.doorGlow);
     port.position.set(1.35, 1.55, z0 + 0.06);
-    const push = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: 0x8c96a6, metalness: 0.8, roughness: 0.3 }));
+    const push = new THREE.Mesh(bevelBox(0.7, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: 0x8c96a6, metalness: 0.8, roughness: 0.3 }));
     push.position.set(1.35, 1.0, z0 + 0.08);
     this.doorLight = new THREE.PointLight(0xff2e88, 0, 4, 1.6);
     this.doorLight.position.set(1.35, 0.15, z0 + 0.3);
@@ -248,7 +249,7 @@ class DressingRoom extends VenueBase {
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(mw, mh), new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.04, metalness: 1, envMapIntensity: 3 }));
     glass.position.set(mx + 0.02, my, mz);
     glass.rotation.y = Math.PI / 2;
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.04, mh + 0.24, mw + 0.24), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5, metalness: 0.3 }));
+    const frame = new THREE.Mesh(bevelBox(0.04, mh + 0.24, mw + 0.24), new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.5, metalness: 0.3 }));
     frame.position.set(mx, my, mz);
     this.room.add(frame, glass);
     const spots: THREE.Vector3[] = [];
@@ -264,7 +265,7 @@ class DressingRoom extends VenueBase {
     this.mirrorLight = new THREE.PointLight(0xffd7a8, 2.2, 5, 1.4);
     this.mirrorLight.position.set(mx + 0.5, my + 0.1, mz);
     this.room.add(this.mirrorLight);
-    const counter = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.05, 1.9), new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.6 }));
+    const counter = new THREE.Mesh(bevelBox(0.45, 0.05, 1.9), new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.6 }));
     counter.position.set(x0 + 0.24, 0.82, mz);
     this.room.add(counter);
     // clutter on the counter: bottles, a make-up bag, a phone, cables
@@ -272,7 +273,7 @@ class DressingRoom extends VenueBase {
     for (let i = 0; i < 6; i++) {
       const tall = r() < 0.6;
       const b = new THREE.Mesh(
-        tall ? new THREE.CylinderGeometry(0.03, 0.03, 0.22, 10) : new THREE.BoxGeometry(0.12, 0.05, 0.08),
+        tall ? new THREE.CylinderGeometry(0.03, 0.03, 0.22, 10) : bevelBox(0.12, 0.05, 0.08),
         tall ? new THREE.MeshPhysicalMaterial({ color: [0x2e6b3a, 0xbfd8e8, 0x6b3a1e][i % 3], roughness: 0.1, transmission: 0.5, transparent: true, opacity: 0.8 }) : new THREE.MeshStandardMaterial({ color: [0xff2e88, 0x111111, 0x7a3cff][i % 3], roughness: 0.6 }),
       );
       b.position.set(x0 + 0.14 + r() * 0.2, 0.845 + (tall ? 0.11 : 0.025), mz - 0.8 + i * 0.3 + r() * 0.1);
@@ -281,9 +282,9 @@ class DressingRoom extends VenueBase {
     // a chair at the counter
     const chair = new THREE.Group();
     const steel = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.4, metalness: 0.7 });
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.04, 0.42), new THREE.MeshStandardMaterial({ color: 0x5a1e22, roughness: 0.7 }));
+    const seat = new THREE.Mesh(bevelBox(0.42, 0.04, 0.42), new THREE.MeshStandardMaterial({ color: 0x5a1e22, roughness: 0.7 }));
     seat.position.y = 0.46;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.4, 0.42), seat.material);
+    const back = new THREE.Mesh(bevelBox(0.04, 0.4, 0.42), seat.material);
     back.position.set(0.2, 0.7, 0);
     chair.add(seat, back);
     for (const [x, z] of [[-0.18, -0.18], [-0.18, 0.18], [0.18, -0.18], [0.18, 0.18]]) {
@@ -303,7 +304,7 @@ class DressingRoom extends VenueBase {
     for (const z of [-1.1, 1.1]) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1.75, 8), steel);
       post.position.set(0, 0.875, z);
-      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.04), steel);
+      const foot = new THREE.Mesh(bevelBox(0.5, 0.03, 0.04), steel);
       foot.position.set(0, 0.015, z);
       rail.add(post, foot);
     }
@@ -317,7 +318,7 @@ class DressingRoom extends VenueBase {
       hanger.scale.set(1, 0.35, 1);
       const sat = i % 4 === 1;
       const g = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, len, 0.025),
+        bevelBox(0.5, len, 0.025),
         sat ? new THREE.MeshPhysicalMaterial({ color: cloth[i], roughness: 0.35, sheen: 1, sheenColor: new THREE.Color(cloth[i]) }) : new THREE.MeshStandardMaterial({ color: cloth[i], roughness: 0.85 }),
       );
       g.rotation.y = Math.PI / 2 + (r() - 0.5) * 0.25;
@@ -335,10 +336,10 @@ class DressingRoom extends VenueBase {
       [-1.7, 0.78, z0 + 0.5, 0.75, 0.36, 0.5, -0.08],
       [-0.65, 0.2, z0 + 0.45, 0.45, 0.4, 0.45, 0.2],
     ]) {
-      const c = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), caseMat);
+      const c = new THREE.Mesh(bevelBox(w, hh, d), caseMat);
       c.position.set(x, y, z);
       c.rotation.y = ry;
-      const e = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.025, d + 0.01), edge);
+      const e = new THREE.Mesh(bevelBox(w + 0.01, 0.025, d + 0.01), edge);
       e.position.y = hh / 2 - 0.02;
       c.add(e);
       this.room.add(c);
@@ -369,7 +370,7 @@ class DressingRoom extends VenueBase {
 
     // a strip light on the ceiling
     this.ceilingMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.6, 1.5), toneMapped: false });
-    const tube = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 1.4), this.ceilingMat);
+    const tube = new THREE.Mesh(bevelBox(0.12, 0.04, 1.4), this.ceilingMat);
     tube.position.set(0, h - 0.03, STAND.z + 0.9);
     this.room.add(tube);
     this.ceiling = new THREE.PointLight(0xf2efe6, 1.8, 7, 1.3);
@@ -419,11 +420,11 @@ class DressingRoom extends VenueBase {
     deck.rotation.x = -Math.PI / 2;
     deck.position.set(0, 0, STAND.z);
     const white = new THREE.MeshStandardMaterial({ color: 0xf4f2ec, roughness: 0.6 });
-    const railTop = new THREE.Mesh(new THREE.BoxGeometry(8, 0.06, 0.08), white);
+    const railTop = new THREE.Mesh(bevelBox(8, 0.06, 0.08), white);
     railTop.position.set(0, 1.05, STAND.z - 2.2);
     this.terrace.add(sky, sea, deck, railTop);
     for (let i = 0; i < 17; i++) {
-      const p = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.05, 0.05), white);
+      const p = new THREE.Mesh(bevelBox(0.05, 1.05, 0.05), white);
       p.position.set(-4 + i * 0.5, 0.525, STAND.z - 2.2);
       this.terrace.add(p);
     }
