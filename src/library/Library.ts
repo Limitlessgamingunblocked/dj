@@ -424,6 +424,13 @@ export class Library extends Emitter<LibraryEvents> {
   }
 
   /** Manual beat-grid edits (tap tempo, ×2, ÷2, grid shift). */
+  /** a track's title, artist, genre or label (an edit or mashup you made) */
+  setMeta(t: LibraryTrack, patch: { title?: string; artist?: string; genre?: string; label?: string }): void {
+    Object.assign(t.meta, patch);
+    this.touch(t);
+    this.emit('changed', undefined);
+  }
+
   updateGrid(t: LibraryTrack, patch: { bpm?: number; firstBeat?: number }): void {
     if (!t.analysis) return;
     if (patch.bpm) t.analysis.bpm = patch.bpm;

@@ -576,3 +576,18 @@ input[type='color'] {
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--focus) 8%, var(--panel));
 }
+
+/* live stems on each strip */
+.stem-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  width: 100%;
+}
+
+.stem-row .hw {
+  min-width: 0;
+  padding: 3px 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}

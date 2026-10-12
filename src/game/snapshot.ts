@@ -12,6 +12,8 @@ import type { DeckSnap } from './vibe';
 
 export class Snapshot {
   private info = new Map<string, TrackInfo>();
+  /** channels that have died (a night event): the room can't hear them */
+  readonly dead = new Set<number>();
 
   constructor(private engine: AudioEngine) {}
 
@@ -42,7 +44,7 @@ export class Snapshot {
         trackId: loaded ? t!.id : null,
         artist: t?.meta.artist ?? '',
         playing: loaded && d.playing,
-        audible: ch ? Math.max(0, Math.min(1, ch.state.fader * ch.xfGain)) : 0,
+        audible: ch && !this.dead.has(i) ? Math.max(0, Math.min(1, ch.state.fader * ch.xfGain)) : 0,
         bpm: d.bpm,
         beat: d.beatPosition(pos),
         key: d.currentKey(),

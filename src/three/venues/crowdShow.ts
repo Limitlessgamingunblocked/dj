@@ -111,6 +111,10 @@ export const crowdShow = {
   front: [] as string[],
   /** 0..1: the sign holders go wild (their request was played) */
   wild: 0,
+  /** how much of the crowd is still here (a festival clash: the field drifts to the other stage) */
+  share: 1,
+  /** 0..1: rain (the open-air venues show it; heads go down a little) */
+  rain: 0,
 
   start(id: CrowdMomentId): void {
     const m = CROWD_MOMENTS.find((x) => x.id === id);

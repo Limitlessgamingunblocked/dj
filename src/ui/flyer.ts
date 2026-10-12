@@ -20,6 +20,9 @@ export interface FlyerInfo {
   special: string | null;
   /** the rival's display name, for a B2B */
   rival?: string;
+  /** the night's own headline (WORLD TOUR, RESIDENT) and the line under the name */
+  title?: string;
+  line?: string;
 }
 
 interface Theme {
@@ -258,7 +261,7 @@ export function drawFlyer(c: HTMLCanvasElement, f: FlyerInfo): void {
   // the night
   g.fillStyle = t.accent;
   g.font = `800 ${Math.round(w * 0.13)}px ${t.font}`;
-  const title = f.special === 'boat' ? 'BOAT PARTY' : f.special?.startsWith('b2b:') ? 'BACK TO BACK' : f.venueName.toUpperCase();
+  const title = f.title ?? (f.special === 'boat' ? 'BOAT PARTY' : f.special?.startsWith('b2b:') ? 'BACK TO BACK' : f.venueName.toUpperCase());
   fitText(g, title, w / 2, h * 0.25, w * 0.9);
   // the name, in the venue's sign style
   const style = nameStyleFor(f.venue);
@@ -276,10 +279,11 @@ export function drawFlyer(c: HTMLCanvasElement, f: FlyerInfo): void {
     g.fillRect(w * 0.04, ny - h * 0.01, w * 0.92, nameC.height + h * 0.02);
   }
   g.drawImage(nameC, w * 0.05, ny);
-  if (f.rival) {
+  const under = f.line ?? (f.rival ? `B2B ${f.rival}` : null);
+  if (under) {
     g.fillStyle = t.ink;
     g.font = `700 ${Math.round(w * 0.07)}px ${COND}`;
-    g.fillText(`B2B ${f.rival}`, w / 2, ny + nameC.height + h * 0.06);
+    fitText(g, under, w / 2, ny + nameC.height + h * 0.06, w * 0.9);
   }
   // when and how long
   g.fillStyle = t.ink;
@@ -287,7 +291,7 @@ export function drawFlyer(c: HTMLCanvasElement, f: FlyerInfo): void {
   g.fillText(nightDate(f.night), w / 2, h * 0.78);
   g.font = `500 ${Math.round(w * 0.05)}px ${COND}`;
   g.fillText(`${f.slotLabel.toUpperCase()} · ${f.minutes} MIN SET`, w / 2, h * 0.85);
-  if (f.special === 'boat' || f.special?.startsWith('b2b:')) g.fillText(f.venueName.toUpperCase(), w / 2, h * 0.91);
+  if (f.special === 'boat' || f.title || f.special?.startsWith('b2b:')) fitText(g, f.venueName.toUpperCase(), w / 2, h * 0.91, w * 0.9);
   g.restore();
 }
 

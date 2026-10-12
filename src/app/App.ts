@@ -2,6 +2,9 @@
  * Application shell: creates the audio engine, library, control registry,
  * 3D stage + visual player and the software UI, and runs the frame loop.
  */
+import { openHarmonicWheel } from '../ui/HarmonicWheel';
+import { openScratchChallenges } from '../ui/ScratchChallenge';
+import { openLabel, openMashupBuilder, type MashupHooks } from '../ui/MashupBuilder';
 import { saveFile } from '../core/download';
 import { AudioEngine } from '../audio/AudioEngine';
 import type { Ambience } from '../audio/crowd';
@@ -1094,8 +1097,41 @@ export class App implements AppContext {
       { label: 'Share this set…', action: () => void openShareCode(this.setCodeHooks()) },
       { label: 'Open a set code…', action: () => openSetCode(this.setCodeHooks()) },
       { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
+      'sep',
+      { header: 'Play' },
+      { label: 'Harmonic wheel…', action: () => this.openHarmonic() },
+      { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
+      { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
+      { label: 'Your label…', action: () => openLabel(this.mashupHooks()) },
+      'sep',
       { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
     ]);
+  }
+
+  /** the harmonic coach: the wheel, following what's playing */
+  private openHarmonic(): void {
+    openHarmonicWheel({
+      tracks: () => {
+        const crate = this.libPanel?.currentCrate() ?? null;
+        const ids = crate ? (this.library.crate(crate)?.trackIds ?? null) : null;
+        return (ids ? ids.map((id) => this.library.get(id)) : this.library.list()).filter((t): t is LibraryTrack => !!t && !!t.analysis);
+      },
+      now: () => {
+        const e = this.engine;
+        const lead = e.masterDeck?.playing ? e.masterDeck : (e.decks.find((d) => d.playing) ?? e.decks.find((d) => d.loaded) ?? null);
+        return { key: lead?.currentKey() ?? null, bpm: lead?.loaded ? lead.bpm : 0, title: lead?.track?.meta.title ?? null, onDecks: e.decks.map((d) => d.track?.id).filter((x): x is string => !!x) };
+      },
+      load: (id) => this.nextUp.load(id),
+    });
+  }
+
+  private mashupHooks(): MashupHooks {
+    return {
+      library: this.library,
+      dj: () => nameService.text || '',
+      night: () => this.career.bookings.night,
+      load: (id) => void this.nextUp.load(id),
+    };
   }
 
   /**

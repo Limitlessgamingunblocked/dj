@@ -25,6 +25,9 @@ export interface B2BHooks {
   loadTrack(deck: number, id: string): Promise<void>;
   /** a line in the HUD */
   say(who: string, text: string): void;
+  /** your label's releases (the rival sometimes plays one), and a play of one */
+  label?(): string[];
+  labelPlayed?(trackId: string): void;
 }
 
 /** how clean a named transition was, 0..1 */
@@ -81,6 +84,17 @@ export class B2B {
       .filter((t) => t.status === 'ready')
       .map((t) => this.info(t))
       .filter((x): x is B2BTrack => !!x);
+    // now and then, one of your own releases (if it fits what's on)
+    const yours = new Set(this.hooks.label?.() ?? []);
+    const mine = pool.filter((x) => yours.has(x.id) && !this.played.has(x.id));
+    if (mine.length && Math.random() < 0.35) {
+      const pick = rivalPick(this.rival, now, mine, this.played);
+      if (pick) {
+        this.hooks.say(`${this.name}:`, this.rival === 'nox' ? '… (it’s one of yours)' : 'Here’s one from your label!');
+        this.hooks.labelPlayed?.(pick.id);
+        return pick.id;
+      }
+    }
     return rivalPick(this.rival, now, pool, this.played)?.id ?? null;
   }
 

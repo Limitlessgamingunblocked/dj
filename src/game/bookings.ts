@@ -139,13 +139,18 @@ export function payFor(venue: CareerVenue, slot: SlotId, minutes: number, p: Pic
 
 /** one offer at a venue */
 export function makeOffer(venue: CareerVenue, night: number, p: Pick<Progress, 'followers' | 'reputation'>, r: Rng, id: string, special: string | null = null): Booking {
+  return makeOfferFor(venue, night, p, r, id, special, null);
+}
+
+/** one offer, from a given promoter (the circuit's residencies, tour legs and clashes) */
+export function makeOfferFor(venue: CareerVenue, night: number, p: Pick<Progress, 'followers' | 'reputation'>, r: Rng, id: string, special: string | null, from: string | null): Booking {
   const rep = p.reputation;
   const slot: SlotId = special === 'boat' ? 'peak' : rep && r() < 0.6 ? pick(r, REP_SLOTS[rep]) : pick(r, ['warmup', 'peak', 'closing', 'afterhours'] as const);
   const minutes = pick(r, LENGTHS[venue]);
   const kind: GoalKind = rep && r() < 0.5 ? pick(r, REP_GOALS[rep]) : pick(r, SLOT_GOALS[slot]);
   const def = GOAL.get(kind)!;
   const goal = { kind, n: def.n(minutes) };
-  const promoter = pick(r, PROMOTERS[venue]);
+  const promoter = from ?? pick(r, PROMOTERS[venue]);
   return {
     id,
     venue,

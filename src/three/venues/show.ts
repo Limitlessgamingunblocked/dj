@@ -133,6 +133,9 @@ const hash = (n: number) => {
   return x - Math.floor(x);
 };
 
+/** the rig's power: 1 normally, about half on the generator after a power cut (a night event) */
+export const showPower = { k: 1, target: 1 };
+
 export class LightShow {
   readonly controls: ShowControls = {
     auto: true,
@@ -408,7 +411,9 @@ export class LightShow {
     const preDrop = react && c.dropFx && !c.reduceFlash && s.build > 0.93 && ((s.bar % 8) + 8) % 8 === 7 && s.beatInBar === 3 && s.beatPhase > 0.5;
     const mTarget = c.blackoutHold ? 0 : preDrop ? 0.25 : 1;
     this.masterLevel += (mTarget - this.masterLevel) * Math.min(1, dt * 25);
-    s.master = this.masterLevel;
+    // the generator: the lights drop out, then half of them come back
+    showPower.k += (showPower.target - showPower.k) * Math.min(1, dt * (showPower.target < showPower.k ? 12 : 1.5));
+    s.master = this.masterLevel * showPower.k;
     s.flash = Math.max(s.strobe, s.blinder * 0.6) * s.master;
     return s;
   }

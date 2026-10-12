@@ -813,7 +813,11 @@ export class Deck extends Emitter<DeckEvents> {
     }
   }
 
+  /** someone listening to the jog (the scratch challenges), whatever's loaded */
+  onJog: ((revs: number, touched: boolean) => void) | null = null;
+
   jogTurn(revs: number): void {
+    this.onJog?.(revs, this.jogTouched);
     if (!this.loaded) return;
     if (this.scratching) {
       this.recordAngle -= revs * Math.PI * 2;

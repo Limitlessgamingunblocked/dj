@@ -134,6 +134,49 @@ One gig a day, the same for everyone who plays it that day.
 - **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
 - **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.
 
+### The crowd
+- **Regulars:** eight fictional fans (Jess, Marco, Priya, Theo, Ama, Kenji, Rosa, Dev), each with their genres. Play their music and they come back, then move to the front with a hand-made sign; ignore them and they drift away. The HUD says who's in, and the results show who moved closer.
+- **Dance styles by genre:** house crowds jack, techno stomps, drum & bass bounces, slower music sways, blended as the music changes.
+- **Crowd moments** start by themselves when the night is right (Show tab → Crowd to pick one, or turn auto off): a conga line that snakes through the room, everyone sitting down and jumping up on the drop, a dance circle opening up, lighters (phones) up for the closing track.
+- **Hand-made signs:** cardboard signs with requests and messages. When a request is the one on the sign and you play it, they go wild.
+- **DJ moves:** six pads (hands up, jump, point, clap, fist pump, climb on the booth), controls `dj.move.1–6`. The crowd copies you; well timed (on a drop) it lifts the room a little and scores.
+- **Signature move:** pick one, and it fires by itself on your biggest drops. The fans learn it and copy it.
+- **Room outfits:** a glow-in-the-dark tee for the UV room, a chrome jacket for the mirror room and a hologram jacket for the hologram room. Each unlocks by playing that room.
+
+### Career: residencies, the World Tour, promoters, clashes and night events
+All in the bookings calendar (Play a gig).
+- **Promoters remember you.** Every booking moves how its (fictional) promoter feels: good sets and hit objectives warm them, bad ones and pulling out cool them. Keen promoters pay up to a third more and give you the peak slots; one you let down enough stops calling, and their offers stop. Each card shows the promoter's mood, and a Promoters list under the offers shows them all.
+- **Residencies:** from tier 2, a promoter who likes you offers a weekly night at their club. The crowd remembers last week: a track you played then gets a groan and costs a little. Keep it fresh and play well and the room fills up week by week (it shows how full); play stale or badly and it empties. End it any time.
+- **The World Tour** (tier 4): a map of real cities with fictional promoters and the game's own rooms. Pick two to five, in order, and they're booked one a night, travelling by van, then train and planes (tier 5), then private jet (tier 6). Each city's crowd has its taste (Berlin wants techno, London drum & bass and garage, Ibiza house on the terrace…): their genres lift the room, and they say so when you're off it. Finish every city for a reward in followers and fame.
+- **Festival clashes** (tier 6): you're on at the same time as a rival on the other stage. A panel shows your share of the field; play better than them and their crowd drifts over to you, play worse and you can watch your field thin out. Hold more than half for +20 fame.
+- **Night events:** about one set in three something happens mid-set, with a banner and a countdown in the HUD:
+  - **Power cut:** the lights die and half come back on the generator. Keep the room up and it pays.
+  - **Rain** (outdoor venues only): real rain streaks and its sound, and the crowd tires a little. Dance them through it for a bonus.
+  - **Broken channel:** the mixer channel you'd mix in on next goes dead (the room can't hear it) until the tech fixes it.
+  - **Fire alarm:** the speakers go quiet (your headphones still hear the decks) and the room waits. When it ends, drop something big to bring them back.
+  The daily challenge, B2Bs and Room Battles have no night events. The debug menu can force one for the next set.
+
+### Playing: scratch challenges, stems, mashups, the harmonic wheel and your label
+In the ⋯ menu under **Play**.
+- **Scratch challenges** (opt-in, scored; not a tutorial): baby scratch, forward scratch, stabs and triplets on the jog wheel, a transformer on the fader, and a beat juggle across two decks, each against a click with the pattern scrolling in a lane. Every hit is judged on timing (perfect within 50 ms, good within 100 ms) and direction, for points and up to three stars; your best is kept. Use your controller's jog, the board on the stage, the record on screen (drag it round) or the arrow keys; the fader, the Cut button or Space; deck restarts or 1 and 2.
+- **Live stems:** each mixer channel has drums, bass, melody and vocals buttons (and knobs, `ch.N.stem.*`, for a controller). It's a filter split, not true source separation: bass is the lows, drums the highs (hats and snares), vocals the centre of the mids, melody the rest. The four always add back up to the original, so untouched the sound is unchanged.
+- **Mashup builder:** pick a track for the vocals and melody and a track for the beat. It matches the tempo (by resampling, like a turntable's pitch, so it says how far the key moves and how the keys sit), finds each track's best section and lays out the arrangement on a timeline: B's intro, A's top over B's beat, B's drop, A's best part, A over B again. Make it (rendered in the browser), listen, and save it to your library.
+- **Extended edits:** one track rearranged for DJs: a long intro, the groove, the drop, the breakdown, the drop again, the outro.
+- **Your label:** release your mashups and edits on it (named after you, or rename it). Over the following nights the fictional rivals play your releases in their sets (their posts show up in the feed), and a rival in a B2B with you will sometimes drop one of yours. Each release counts its plays and who played it.
+- **Harmonic wheel:** the Camelot wheel with what's playing lit up and the keys that mix with it glowing (brighter for smoother). Your tracks are dots round the wheel, and the best of them are listed, ranked by key and tempo, with Load buttons. It follows the music while it's open.
+
+### Show: drones, fireworks, projection, VJ mode and your own visuals
+- **Drone show** at the open-air venues: 360 drones fly formations (a grid, a sphere, a ring, a heart, a star and your DJ name) over the site after dark at the peak, or on the Show tab's pad.
+- **Fireworks finale** at the festival, the beach and the boat: shells go up over the last track. A pad fires a volley anywhere under the open sky.
+- **Projection mapping:** the visual player thrown onto the surroundings: the skyline towers from the Rooftop Bar, the headland at the Beach Club, the boat's hull.
+- **VJ mode** (⋯ menu): a second person runs the visuals and lights from another window or another device. Same browser: open the link on a second screen. Another device on the same network: swap two codes by hand (WebRTC, no server, local network only). The VJ gets the visual modes, the light pads, the palette and crowd moments, and can hold their picks against the auto director.
+- **Visual editor** (⋯ menu, or the Visuals tab): stack layers (tunnel, shapes, spectrum ring, starfield, grid floor, your name, waveform) on a background, each with its colour, strength and speed, add a kaleidoscope, and save up to three looks. They play like any other visual mode.
+
+### Sharing
+- **Ghost replays:** your best run of today's daily is kept, and when you play it again its ghost runs alongside: a faint marker on the vibe meter, how far ahead or behind you are on points, and a faint line on the results graph.
+- **Set codes:** "Share this set…" turns the tracklist (title, artist, BPM), the venue and, in a crazy room, its look and scenes into a short code to paste anywhere. "Open a set code…" goes to the venue, sets the room up and makes a crate of the tracks you have, in order, listing the ones you don't.
+- **Highlight card:** a picture card of your set (the crowd at its peak, your grade, score and best transition) to save or copy from the results.
+
 ### Auto DJ
 Turn it on from the ⋯ menu (or Shift+A) and it mixes by itself, the way you would on two decks:
 - **What comes next:** the next track of your Set Builder set; without a set, the best match in the library (a compatible key, a tempo within a few percent, allowing half / double time, not played this session). Load something onto the free deck yourself and that's the next track.
@@ -349,7 +392,7 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
 - **Lens and grade**: bright fixtures (beam lenses, lasers, strobes, flames) throw anamorphic streaks and faint ghosts; the brightest points turn into six-point stars (four on medium), and dust and smudges on the lens light up when a wall of light hits it; vignette and film grain (medium and high quality). Each venue has its own colour grade and tone mapping. AgX rolls lights off to white like a camera, for the warehouse, Printworks and Boiler Room; ACES keeps the blacks deep in Berghain and DC-10. Lens effects, tone mapping, grade and output run in one full-screen pass.
 
 ### Crazy rooms
-Twelve secret rooms to DJ in, built to move with the music (`src/three/venues/rooms/`). Each opens when you meet its challenge in a set; the lock on the venue card says what it is.
+Nineteen secret rooms to DJ in, built to move with the music (`src/three/venues/rooms/`), and any you build yourself. Each opens when you meet its challenge in a set; the lock on the venue card says what it is.
 
 | Room | What it does | Opens when you… |
 |---|---|---|
@@ -365,6 +408,13 @@ Twelve secret rooms to DJ in, built to move with the music (`src/three/venues/ro
 | Water Room | A shallow pool floor that mirrors the lights, rings out on the kick, and curtains of rain that freeze mid-air under the strobe. | play a set at the Beach Club Terrace |
 | Hologram Room | A giant hologram of you behind the crowd copying every move, floating faces and shapes that orbit the room. | play in 5 different venues |
 | Glitch Room | A clean white gallery that tears into pixels, wireframe and inverted colour when you scratch, echo out or stutter-loop. | finish a set with no mistakes |
+| Zero Gravity | A space-station module over a planet. In the breakdowns the crowd and the props float up and tumble; on the drop they slam back down. | play a set at the Main-Stage Festival |
+| Aquarium | A glass tunnel on the sea floor: kelp, light shafts, caustics, fish swirling with the melody, and a whale gliding over on the drop. | play the Boat Party |
+| Inside a Speaker | You play on the dust cap of a giant woofer. Every kick pumps the cone the crowd stands on and sends a shockwave to the rim. | land 8 drops in one set |
+| Vinyl Floor | The dance floor is a turning record with the crowd riding it, light sweeping the grooves, your name on the label and the tonearm creeping in over the set. | mix in key 4 times in one set |
+| Lava Lamp Room | Giant lava lamps whose blobs rise and split with the bass and light the room. | play a set at the Rooftop Bar |
+| Arcade Room | Inside an 80s game: pixel-art walls, an 8-bit sprite crowd and a giant score that pops on every transition (and flashes MISS). | hold the room at 100 % for a full minute |
+| Cloud Room | A deck floating over a sea of clouds at sunset; on the drop lightning flickers inside them. | play the Sunrise closing set |
 
 - **Room panel** (Show tab, in a crazy room): you're the room's lighting designer.
   - Up to six pads play the room's own effects (hits, toggles and holds). Two more recall scenes. All eight are controls (`room.pad.1–8`), so they go on keys in Settings → Keyboard or on a controller with MIDI learn.
@@ -375,7 +425,8 @@ Twelve secret rooms to DJ in, built to move with the music (`src/three/venues/ro
 - **The crowd reacts to the room**: they look up and point at the big moments, and more phones come up to film.
 - **Room Battle** (pre-gig screen, in a crazy room): you and a fictional rival take turns on the room, 16 bars each. You get the first half of the pads and they get the rest, dimmed on your panel. A press scores by timing: on the beat, more on the downbeat, double just after a drop, nothing for mashing. After both turns the crowd votes, counting presses and how the room felt, and a round won is +500. The results show the score.
 - **Photo angles**: each room's wide view is placed for its best shot (the endless corridor in the mirror room, into the dome, both crowds upside down, your name in neon, your hologram). The rig view looks straight down, which in the mirror rooms makes a kaleidoscope.
-- Safety: the light grid's body-height beams are light, not lasers; the real lasers stay overhead, at least 3 m above the crowd. Flicker, glitch, invert and strobe-freeze all follow Reduce flashing.
+- **Build a room** (⋯ menu, or the Show tab in any room): pick the walls (mirrors, LED screens, moving pins, neon, glow paint or dark), the floor, the ceiling, extras, three colours and a size. It saves as a venue of its own (up to eight) with the same pads, scenes and drop moments as the others, and can host a Room Battle.
+- Safety: the light grid's body-height beams are light, not lasers; the real lasers stay overhead, at least 3 m above the crowd. Flicker, glitch, invert, strobe-freeze and the cloud room's lightning all follow Reduce flashing.
 
 ### Performance
 - **Graphics quality** (Settings): Low, Medium or High is the ceiling. With *Adjust automatically to keep it smooth* on (the default), the app steps down when frames run long. The steps are, in order: render resolution, crowd detail distance, lens streaks with ambient occlusion and floor reflections, the visual player's rate on the venue screens, then bloom inside the player. It steps back up when there's headroom. Low also turns off shadows, bloom, multisampling, lens effects, ambient occlusion and reflections.

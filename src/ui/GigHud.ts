@@ -71,6 +71,9 @@ export class GigHud {
   private showBtn: HTMLButtonElement;
   private msgTimer = 0;
   private duo: HTMLElement;
+  private alertEl: HTMLElement;
+  private alertText: HTMLElement;
+  private alertBar: HTMLElement;
   private scoreEl: HTMLElement;
   private shown = 0;
   private streakEl: HTMLElement;
@@ -115,6 +118,9 @@ export class GigHud {
     this.showBtn.addEventListener('click', () => this.setClean(false));
     this.msg = h('div', { class: 'gh-msg', role: 'status', 'aria-live': 'polite' });
     this.duo = h('div', { class: 'gh-b2b', hidden: true });
+    this.alertText = h('span', { class: 'gh-alert-t' });
+    this.alertBar = h('i');
+    this.alertEl = h('div', { class: 'gh-alert', role: 'status', hidden: true }, h('span', { class: 'gh-alert-k' }, '!'), this.alertText, h('span', { class: 'gh-alert-bar', 'aria-hidden': 'true' }, this.alertBar));
     this.scoreEl = h('span', { class: 'gh-score', 'aria-label': 'Score' }, '0');
     this.streakEl = h('span', { class: 'gh-streak', title: 'Clean moments in a row multiply their points', hidden: true });
     this.reqText = h('span', { class: 'gh-req-text' });
@@ -135,6 +141,7 @@ export class GigHud {
         meter,
         h('div', { class: 'gh-row gh-mid' }, this.mood, h('span', { class: 'spacer' }), this.ghostDiff, this.streakEl, this.scoreEl),
         this.duo,
+        this.alertEl,
         this.reqEl,
         this.coachEl,
         h('div', { class: 'gh-row gh-tools' }, this.bufBtns, h('span', { class: 'spacer' }), more, end),
@@ -166,14 +173,23 @@ export class GigHud {
   }
 
   /** a B2B: who you're playing with, whose turn it is, the chemistry meter (Section 6.10) */
-  b2b(o: { name: string; color: string; chemistry: number; turn: 'you' | 'rival'; label?: string; meter?: string } | null): void {
+  /** a night event in progress (a power cut, rain…): what's happening and how long it has left (1 → 0) */
+  alert(o: { text: string; left: number; tone?: 'bad' | 'warn' } | null): void {
+    this.alertEl.hidden = !o;
+    if (!o) return;
+    this.alertEl.dataset.tone = o.tone ?? 'bad';
+    setText(this.alertText, o.text);
+    this.alertBar.style.width = `${(Math.max(0, Math.min(1, o.left)) * 100).toFixed(1)}%`;
+  }
+
+  b2b(o: { name: string; color: string; chemistry: number; turn: 'you' | 'rival'; label?: string; meter?: string; note?: string } | null): void {
     this.duo.hidden = !o;
     if (!o) return;
     this.duo.style.setProperty('--rc', o.color);
     this.duo.replaceChildren(
       h('span', { class: 'gh-b2b-who' }, `${o.label ?? 'B2B'} · ${o.name}`),
       h('span', { class: 'gh-chem', role: 'meter', 'aria-label': o.meter ?? 'Chemistry', 'aria-valuenow': String(Math.round(o.chemistry * 100)), 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: `width:${(o.chemistry * 100).toFixed(0)}%` })),
-      h('span', { class: 'gh-turn' }, o.turn === 'you' ? 'Your turn' : `${o.name}’s turn`),
+      h('span', { class: 'gh-turn' }, o.note ?? (o.turn === 'you' ? 'Your turn' : `${o.name}’s turn`)),
     );
   }
 

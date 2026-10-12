@@ -144,6 +144,13 @@ export class Mixer {
     this.ramp(this.masterGain.gain, g);
   }
 
+  /** the speakers on or off (a fire alarm): the headphones and the recorder still hear the mix */
+  speakers(on: boolean): void {
+    const t = this.ctx.currentTime;
+    this.normalOut.gain.cancelScheduledValues(t);
+    this.normalOut.gain.setTargetAtTime(on ? 1 : 0, t, on ? 0.4 : 0.08);
+  }
+
   setCueMix(v: number): void {
     this.cueMix = clamp(v, 0, 1);
     this.ramp(this.cueInPhones.gain, Math.cos((this.cueMix * Math.PI) / 2));

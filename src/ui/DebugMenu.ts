@@ -6,6 +6,8 @@
  * came late, and what they were busy with) live. Everything it changes goes
  * through the same systems the game uses (Career saves, prefs, the show).
  */
+import { forceNight } from '../app/circuitGig';
+import { NIGHT_EVENTS, type NightEventId } from '../game/circuit';
 import type { BeatClock } from '../core/BeatClock';
 import { MAX_TIER } from '../core/models';
 import type { Career } from '../game/Career';
@@ -109,6 +111,7 @@ export class DebugMenu {
       h('section', {}, h('h4', {}, 'Career'), h('label', {}, 'tier', tier), number('fame'), number('cash'), number('followers'), h('label', { class: 'row' }, sandbox, 'Unlock everything (sandbox)')),
       h('section', {}, h('h4', {}, 'Crowd'), h('div', { class: 'row' }, crowd, crowdOut)),
       h('section', {}, h('h4', {}, 'Fire'), h('div', { class: 'row wrap' }, fire('drop', 'Drop'), fire('confetti', 'Confetti'), fire('co2', 'CO2'), fire('pyro', 'Pyro'), fire('strobe', 'Strobe'))),
+      h('section', {}, h('h4', {}, 'Night event in the next set'), h('div', { class: 'row wrap' }, ...(Object.keys(NIGHT_EVENTS) as NightEventId[]).map((id) => h('button', { class: 'btn', type: 'button', onclick: () => (forceNight.id = id) }, NIGHT_EVENTS[id].label)))),
       h('section', {}, h('h4', {}, 'Master redline'), this.redBar),
       h('section', {}, h('h4', {}, `Stutters (frames over ${STUTTER_MS} ms)`), hitches, h('div', { class: 'row' }, copyHitches, clearHitches)),
       h('section', {}, h('h4', {}, 'Saves'), h('p', { class: 'dim' }, host.career.problems.join(' ') || 'Profile and progress loaded.'), erase),

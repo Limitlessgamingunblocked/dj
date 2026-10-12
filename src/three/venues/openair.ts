@@ -21,6 +21,8 @@ import { PhysicalSky, type CloudSpec } from './sky';
 import type { ShowState } from './show';
 import { SkyShow } from './skyshow';
 import { Projector } from './projection';
+import { Rain } from './rain';
+import { crowdShow } from './crowdShow';
 
 export interface MoonSpec {
   /** bearing (0 behind the booth, +Z) */
@@ -89,6 +91,7 @@ export abstract class OpenAir extends VenueBase {
     this.group.add(this.sky.mesh, this.sun, this.sun.target);
     const ss = o.skyShow ?? { at: new THREE.Vector3(0, 55, 110) };
     this.skyShow = this.add(new SkyShow(ss.at, ss.scale ?? 1, ss.fireworks ?? false, () => this.look.night));
+    this.add(new Rain(() => this.hemi.color));
   }
 
   /** throw the visual player onto these surroundings from a projector by the stage */
@@ -191,12 +194,17 @@ export abstract class OpenAir extends VenueBase {
     this.hemi.color.copy(l.ambSky);
     this.hemi.groundColor.copy(l.ambGround);
     this.hemiBase = l.amb;
-    this.fogBase.copy(l.horizon).multiplyScalar(this.hazeFromSky);
+    this.fogBase.copy(l.horizon).multiplyScalar(this.hazeFromSky * (1 + 0.25 * crowdShow.rain));
     super.update(s, f, dt, camera);
     // projection reads after dark, brighter with the show
     this.projector?.update((0.15 + 0.85 * l.night) * (0.5 + 0.6 * s.master) * (0.7 + s.wash * 0.6) * 1.6);
     // daylight doesn't black out with the rig
     this.hemi.intensity = l.amb * (0.35 + 0.65 * Math.max(s.master, 1 - l.night)) + s.flash * 0.3;
+    // rain: the sun goes in a little and the haze thickens
+    const wet = crowdShow.rain;
+    if (wet > 0.01) {
+      this.sun.intensity *= 1 - 0.45 * wet;
+    }
   }
 
   dispose(): void {

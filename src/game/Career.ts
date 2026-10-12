@@ -9,7 +9,8 @@ import { defaultLook } from '../character/look';
 import { Emitter } from '../core/emitter';
 import { ALL_SPECS, BOOKINGS, FEED, LOOKS, PROFILE, PROGRESS, type BookingsSave, type FeedSave, type Look, type Profile, type Progress } from '../core/models';
 import { SaveSystem } from '../core/SaveSystem';
-import { refreshOffers, seeded } from './bookings';
+import { PROMOTERS, refreshOffers, seeded } from './bookings';
+import { circuitOffers, cleanCircuit, freeRun, loadCircuit, planTour, relDeclined, residencyOffer, saveCircuit, type CircuitSave } from './circuit';
 import { tierFor } from './progression';
 
 export class Career {
@@ -20,9 +21,11 @@ export class Career {
   bookings: BookingsSave;
   /** the social feed: fans' posts and your clips */
   feed: FeedSave;
+  /** the circuit: promoters' memories, the residency, the tour */
+  circuit: CircuitSave = loadCircuit();
   /** what went wrong loading the saves (shown once to the player) */
   readonly problems: string[] = [];
-  readonly changed = new Emitter<{ profile: Profile; progress: Progress; look: Look; bookings: BookingsSave; feed: FeedSave }>();
+  readonly changed = new Emitter<{ profile: Profile; progress: Progress; look: Look; bookings: BookingsSave; feed: FeedSave; circuit: CircuitSave }>();
 
   constructor(readonly saves = new SaveSystem()) {
     const p = saves.load(PROFILE);
@@ -99,11 +102,67 @@ export class Career {
     this.changed.emit('bookings', this.bookings);
   }
 
-  /** the calendar brought up to tonight: passed offers go, new ones come (the same ones for the same night) */
+  setCircuit(next: CircuitSave): void {
+    this.circuit = cleanCircuit(next);
+    saveCircuit(this.circuit);
+    this.changed.emit('circuit', this.circuit);
+  }
+
+  /** the calendar brought up to tonight: passed offers go, new ones come (the same ones for the same night), and the circuit's own nights */
   refreshBookings(): BookingsSave {
-    const next = refreshOffers(this.bookings, this.progress, seeded(this.bookings.night * 7919 + this.progress.setsPlayed));
-    if (JSON.stringify(next) !== JSON.stringify(this.bookings)) this.setBookings(next);
+    const r = seeded(this.bookings.night * 7919 + this.progress.setsPlayed);
+    const offers = refreshOffers(this.bookings, this.progress, r);
+    const out = circuitOffers(offers, this.progress, this.circuit, r);
+    let circuit = out.circuit;
+    // a promoter who likes you enough offers a weekly night
+    if (!circuit.residency && !circuit.residencyOffer) {
+      const offer = residencyOffer(this.progress, circuit.rel, null, out.save.night, PROMOTERS);
+      if (offer) circuit = { ...circuit, residencyOffer: offer };
+    }
+    if (circuit !== this.circuit) this.setCircuit(circuit);
+    if (JSON.stringify(out.save) !== JSON.stringify(this.bookings)) this.setBookings(out.save);
     return this.bookings;
+  }
+
+  /** say yes to the residency on offer */
+  acceptResidency(): void {
+    const o = this.circuit.residencyOffer;
+    if (!o) return;
+    this.setCircuit({ ...this.circuit, residency: { ...o, booked: this.bookings.night - 1 }, residencyOffer: null });
+    this.refreshBookings();
+  }
+
+  /** turn the residency down (the promoter cools a little), or end the one you have (its coming nights go) */
+  dropResidency(): void {
+    const c = this.circuit;
+    const who = c.residency?.promoter ?? c.residencyOffer?.promoter;
+    if (!who) return;
+    this.setCircuit({ ...c, residency: null, residencyOffer: null, rel: relDeclined(c.rel, who, !!c.residency) });
+    if (c.residency) this.setBookings({ ...this.bookings, items: this.bookings.items.filter((b) => !(b.special === 'residency' && b.status === 'accepted')) });
+  }
+
+  /** book a tour of these cities, one a night from the first free run of nights */
+  startTour(cities: string[]): boolean {
+    if (this.circuit.tour) return false;
+    const start = freeRun(this.bookings, this.bookings.night + 1, cities.length);
+    const t = planTour(cities, this.progress, start);
+    if (!t) return false;
+    this.setCircuit({ ...this.circuit, tour: t });
+    this.refreshBookings();
+    return true;
+  }
+
+  /** call the tour off: the legs you haven't played go */
+  cancelTour(): void {
+    const t = this.circuit.tour;
+    if (!t) return;
+    let rel = this.circuit.rel;
+    for (const city of t.cities.slice(t.leg)) {
+      const b = this.bookings.items.find((x) => x.special === `tour:${city}` && x.status === 'accepted');
+      if (b) rel = relDeclined(rel, b.promoter, true);
+    }
+    this.setCircuit({ ...this.circuit, tour: null, rel });
+    this.setBookings({ ...this.bookings, items: this.bookings.items.filter((b) => !(b.special?.startsWith('tour:') && b.status === 'accepted')) });
   }
 
   /** a new career: every career save and its backup gone */
@@ -114,6 +173,7 @@ export class Career {
     this.looks = LOOKS.defaults();
     this.bookings = BOOKINGS.defaults();
     this.feed = FEED.defaults();
+    this.setCircuit(cleanCircuit(null));
     this.changed.emit('profile', this.profile);
     this.changed.emit('progress', this.progress);
     this.changed.emit('look', this.look);

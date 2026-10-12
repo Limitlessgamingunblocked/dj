@@ -1350,9 +1350,10 @@ export class Crowd implements Fixture {
     for (let k = 1; k < path.length; k++) lens.push(lens[k - 1] + path[k].distanceTo(path[k - 1]));
     // the dancers nearest the path's start join first
     const start = path[0];
+    const gone = new Set(this.leave ? this.leave.order.slice(0, this.leave.left) : []);
     const idx = this.spots
       .map((sp, i) => ({ i, d: Math.hypot(sp.x - start.x, sp.z - start.y) }))
-      .filter(({ i }) => this.infoRole[i] === 0)
+      .filter(({ i }) => this.infoRole[i] === 0 && !gone.has(i))
       .sort((a, b) => a.d - b.d)
       .slice(0, CONGA)
       .map(({ i }) => i);
@@ -1365,6 +1366,46 @@ export class Crowd implements Fixture {
     });
     for (const i of idx) this.setRole(i, ROLE_CODE.conga);
     this.conga = { idx, home, s: 0, path, lens, total: lens[lens.length - 1] };
+  }
+
+  /** a festival clash: people drift off to the other stage (the back first) and come back */
+  private leave: { order: number[]; home: THREE.Matrix4[]; left: number } | null = null;
+  private thin(): void {
+    const share = crowdShow.share;
+    if (this.conga || !this.where.length) return;
+    if (!this.leave) {
+      if (share >= 0.999) return;
+      const b = this.u.uBooth.value;
+      const m = new THREE.Matrix4();
+      const v = new THREE.Vector3();
+      const r = rng(4242);
+      const cand: { i: number; d: number; m: THREE.Matrix4 }[] = [];
+      this.where.forEach((w, i) => {
+        if (this.infoRole[i] !== 0) return;
+        this.chunks[w.chunk].mesh.getMatrixAt(w.j, m);
+        v.setFromMatrixPosition(m);
+        cand.push({ i, d: Math.hypot(v.x - b.x, v.z - b.y) + r() * 6, m: m.clone() });
+      });
+      cand.sort((a, c) => c.d - a.d);
+      this.leave = { order: cand.map((c) => c.i), home: cand.map((c) => c.m), left: 0 };
+    }
+    const L = this.leave;
+    const want = Math.round((1 - Math.max(0, Math.min(1, share))) * L.order.length);
+    if (want === L.left || (Math.abs(want - L.left) < Math.max(2, L.order.length * 0.015) && want !== 0)) return;
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    const touched = new Set<number>();
+    const set = (k: number, mm: THREE.Matrix4) => {
+      const i = L.order[k];
+      const w = this.where[i];
+      this.chunks[w.chunk].mesh.setMatrixAt(w.j, mm);
+      touched.add(w.chunk);
+      this.shadowMesh?.setMatrixAt(i, mm);
+    };
+    if (want > L.left) for (let k = L.left; k < want; k++) set(k, zero);
+    else for (let k = want; k < L.left; k++) set(k, L.home[k]);
+    L.left = want;
+    for (const c of touched) this.chunks[c].mesh.instanceMatrix.needsUpdate = true;
+    if (this.shadowMesh) this.shadowMesh.instanceMatrix.needsUpdate = true;
   }
 
   private setRole(i: number, code: number): void {
@@ -1476,6 +1517,7 @@ export class Crowd implements Fixture {
     u.uSignGlow.value = (0.8 + 0.35 * Math.pow(1 - (((s.beat % 1) + 1) % 1), 2)) * (0.6 + 0.4 * s.master);
     u.uPhotos.value = s.photos;
     this.moments(dt);
+    this.thin();
     // the rim: the show's colours, harder with the wash and the kick, white in the strobes
     const rim = u.uRim.value;
     rim.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.3)).lerp(RIM_WHITE, 0.25 + s.flash * 0.5);

@@ -8,6 +8,7 @@
  *
  * and runs the master/follower sync with continuous phase lock.
  */
+import { Stems } from './stems';
 import { clamp, dbToGain } from '../core/util';
 import { nextRedline } from './redline';
 import { CrowdAudio } from './crowd';
@@ -25,6 +26,8 @@ const mod = (a: number, n: number) => ((a % n) + n) % n;
 export class AudioEngine {
   readonly decks: Deck[] = [];
   readonly channels: Channel[] = [];
+  /** each channel's live stems (filter-split, see stems.ts) */
+  readonly stems: Stems[] = [];
   readonly mixer: Mixer;
   readonly fx: BeatFX;
   readonly sampler: Sampler;
@@ -78,7 +81,10 @@ export class AudioEngine {
       ch.state.assign = i % 2 === 0 ? 'A' : 'B';
       this.channels.push(ch);
       const deck = new Deck(ctx, (i + 1) as DeckId, wasm, host);
-      deck.node.connect(ch.input);
+      const st = new Stems(ctx);
+      this.stems.push(st);
+      deck.node.connect(st.input);
+      st.output.connect(ch.input);
       deck.on('loaded', (d) => this.onLoaded(d));
       this.decks.push(deck);
     }

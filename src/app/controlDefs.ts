@@ -7,6 +7,9 @@
  *       sampler.* sample bank
  *       browse, shift, layer.L/R
  */
+import { STEMS, STEM_LABEL } from '../audio/stems';
+
+const STEM_COLOR = { drums: '#ff9f1c', bass: '#ff3b5c', melody: '#4cc9f0', vocals: '#b6ff3b' } as const;
 import type { ControlRegistry, LedState } from '../core/controls';
 import type { AudioEngine } from '../audio/AudioEngine';
 import { PAD_MODES, SECONDS_PER_REV, type Deck, type PadMode } from '../audio/Deck';
@@ -290,6 +293,13 @@ export function registerControls(reg: ControlRegistry, engine: AudioEngine, hook
     knob(p + 'filter', L('Filter'), () => ch.state.filter, (v) => ch.setFilter(v), 0.5, true, (v) => (v < 0.48 ? 'LPF' : v > 0.52 ? 'HPF' : 'OFF'));
     knob(p + 'res', L('Filter resonance'), () => ch.state.res, (v) => ch.setRes(v), 0.25);
     knob(p + 'crush', L('Bitcrusher'), () => ch.state.crush, (v) => ch.setCrush(v), 0);
+    // live stems (a filter split: see audio/stems.ts)
+    const st = engine.stems[i];
+    for (const stem of STEMS) {
+      knob(p + `stem.${stem}`, L(`${STEM_LABEL[stem]} stem`), () => st.levels[stem], (v) => st.set(stem, v), 1, false, (v) => (v < 0.01 ? 'Off' : `${Math.round(v * 100)}%`));
+      btn(p + `stem.${stem}.mute`, L(`${STEM_LABEL[stem]} stem on/off`), () => st.toggle(stem), () => (st.levels[stem] > 0.5 ? STEM_COLOR[stem] : false));
+    }
+    btn(p + 'stem.reset', L('All stems back'), () => st.reset());
     knob(p + 'fader', L('Fader'), () => ch.state.fader, (v) => ch.setFader(v), 0.8);
     btn(p + 'cue', L('Headphone cue'), () => ch.setCue(!ch.state.cue), () => (ch.state.cue ? '#ff9f1c' : false));
     btn(p + 'assign', L('Crossfader assign'), () => {

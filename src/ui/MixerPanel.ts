@@ -1,6 +1,7 @@
 /* Software mixer: all channel strips, crossfader with curve, master and headphones. */
 import type { AppContext } from '../app/context';
 import { h } from './dom';
+import { STEMS, STEM_INFO, STEM_LABEL } from '../audio/stems';
 import { fader, hwButton, knob, VuMeter, type Widget } from './widgets';
 
 export class MixerPanel {
@@ -29,6 +30,7 @@ export class MixerPanel {
         w(knob(reg, `ch.${c}.mid`, 'Mid')),
         w(knob(reg, `ch.${c}.low`, 'Low')),
         w(knob(reg, `ch.${c}.filter`, 'Filter')),
+        h('div', { class: 'stem-row', title: 'Live stems: a filter split (not true separation). Tap to mute, drag to set the level.' }, ...STEMS.map((s) => w(hwButton(reg, `ch.${c}.stem.${s}.mute`, STEM_LABEL[s].slice(0, 3), { title: `${STEM_LABEL[s]}: ${STEM_INFO[s]}` })))),
         w(hwButton(reg, `ch.${c}.cue`, 'Cue', { color: '#ff9f1c' })),
         h('div', { class: 'fader-row' }, vu.el, w(fader(reg, `ch.${c}.fader`, { orientation: 'v', length: 130, label: `Channel ${c} fader` }))),
         w(hwButton(reg, `ch.${c}.assign`, 'A·B', { title: 'Crossfader assign: A / THRU / B' })),

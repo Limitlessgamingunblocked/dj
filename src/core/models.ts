@@ -537,7 +537,7 @@ export interface Booking {
   promoter: string;
   /** the night it's on (the career's night counter) */
   night: number;
-  /** a special offer: 'boat' (opens the Boat Party), 'b2b:<rival>' (back to back) */
+  /** a special offer: 'boat' (opens the Boat Party), 'b2b:<rival>' (back to back), 'residency', 'tour:<city>', 'clash:<rival>' (festival clash) */
   special: string | null;
   date: string;
   status: (typeof BOOKING_STATUS)[number];
@@ -577,7 +577,7 @@ export const BOOKINGS: SaveSpec<BookingsSave> = {
           goal: { kind: oneOf(obj(o.goal).kind, GOALS, 'grade_a'), n: int(obj(o.goal).n, 1, 99, 1) },
           promoter: str(o.promoter, 40, 'A promoter'),
           night: int(o.night, 1, 1e6, 1),
-          special: typeof o.special === 'string' && /^(boat|b2b:[a-z_]{1,20})$/.test(o.special) ? o.special : null,
+          special: typeof o.special === 'string' && /^(boat|residency|b2b:[a-z_]{1,20}|clash:[a-z_]{1,20}|tour:[a-z]{1,20})$/.test(o.special) ? o.special : null,
           date: d,
           status: oneOf(o.status, BOOKING_STATUS, 'offered'),
           result: isObj(o.result) ? { grade: str(o.result.grade, 2, 'D'), met: bool(o.result.met, false) } : null,

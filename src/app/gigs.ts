@@ -28,6 +28,10 @@ import type { DjMove } from '../character/Avatar';
 import { ghostAt, keepIfBest, loadGhost, type Ghost, type GhostPoint } from '../game/ghost';
 import { openHighlight } from '../ui/HighlightCard';
 import { skyCue } from '../three/venues/skyshow';
+import { CircuitGig, type CircuitNote } from './circuitGig';
+import { CITIES, circuitSpecial, nextTourCity, relAfter, relStatus, residencyAfter, tourCity, tourReward, travelFor } from '../game/circuit';
+import { openTourMap } from '../ui/TourMap';
+import { labelName, loadLabel, playedBy, playPost, rivalNights, saveLabel } from '../game/label';
 
 /** the venues with a fireworks finale */
 const FINALE_VENUES = ['festival', 'beach', 'boat'];
@@ -183,6 +187,8 @@ export class GigDirector {
   private peakShotAt = -1e9;
   /** the finale's fireworks have gone up this set (or this night, in free play) */
   private finale = false;
+  /** the circuit in this set: residency, tour leg, clash, night event */
+  private circuit: CircuitGig | null = null;
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
@@ -236,6 +242,7 @@ export class GigDirector {
       thumb: (id, g, w, h) => this.host.venueThumb(id, g, w, h),
       play: (b) => this.openPreGig(b),
       free: () => this.openPreGig(null),
+      tour: () => openTourMap({ career: this.host.career, venueName: (id) => this.host.venueName(id), booked: () => this.openSetup() }),
       daily: (() => {
         const d = this.dailyToday();
         return { number: d.spec.number, venueName: this.host.venueName(d.spec.venue), slotLabel: SLOTS[d.spec.slot].label, twist: d.spec.twist.label, goals: d.spec.goals.map((g) => g.text), streak: d.streak, played: d.played ? `${d.played.grade} · ${d.played.met}/3 · ${d.played.score.toLocaleString()} pts` : null, play: () => this.openDaily() };
@@ -304,7 +311,7 @@ export class GigDirector {
       currentCrate: this.host.currentCrate(),
       progress: c.progress,
       assist: this.lastCfg?.assist ?? 'club',
-      booking: b ? { venue: b.venue, venueName: this.host.venueName(b.venue), slot: b.slot, minutes: b.minutes, pay: b.pay, promoter: b.promoter, expectation: b.expectation, objective: b.objective, extra: rival ? `Back to back with ${rival.name}: ${rival.style}` : b.special === 'boat' ? 'The Boat Party: play it and the boat is yours to book again.' : undefined } : null,
+      booking: b ? { venue: b.venue, venueName: this.host.venueName(b.venue), slot: b.slot, minutes: b.minutes, pay: b.pay, promoter: b.promoter, expectation: b.expectation, objective: b.objective, extra: rival ? `Back to back with ${rival.name}: ${rival.style}` : b.special === 'boat' ? 'The Boat Party: play it and the boat is yours to book again.' : circuitSpecial(b.special, c.circuit)?.badge } : null,
       start: (cfg, o) => this.start(cfg, o.look, o.crate, b),
       dressingRoom: () => this.host.openCreator(),
     });
@@ -321,7 +328,7 @@ export class GigDirector {
     drawFlyer(
       c,
       b
-        ? flyerInfo(b, this.host.djName(), venueName)
+        ? flyerInfo(b, this.host.djName(), venueName, this.host.career.circuit)
         : { venue: cfg.venue, venueName, promoter: promoters[0], dj: this.host.djName(), slotLabel: SLOTS[cfg.slot].label, minutes: cfg.minutes, night: this.host.career.bookings.night, special: null },
     );
     return c;
@@ -350,6 +357,8 @@ export class GigDirector {
         tracks: () => this.host.library.list(),
         loadTrack: (d, id) => this.host.loadTrack(d, id),
         say: (who, text) => this.hud?.say(who, text),
+        label: () => loadLabel().releases.map((x) => x.trackId),
+        labelPlayed: (id) => saveLabel(playedBy(loadLabel(), id, rival.id)),
       });
     }
     this.endBattle();
@@ -408,6 +417,27 @@ export class GigDirector {
       this.host.stageEl.append(this.chat.el);
     }
     this.applyAssist();
+    this.circuit?.dispose();
+    this.circuit = new CircuitGig(
+      {
+        engine: e,
+        say: (who, text) => this.hud?.say(who, text),
+        callout: (x) => this.host.callout(x),
+        crowd: (w) => this.host.crowd(w),
+        panel: (o) => this.hud?.b2b(o),
+        alert: (o) => this.hud?.alert(o),
+        genreOf: (id) => {
+          const t = this.host.library.get(id);
+          return t ? genreOf(t).genre || null : null;
+        },
+        dead: this.snap.dead,
+      },
+      this.gig,
+      booking,
+      this.host.career.circuit,
+      { events: !daily && !this.b2b && !this.battle },
+    );
+    this.circuit.start();
     const slot = SLOTS[cfg.slot];
     if (this.b2b) {
       const dj = this.host.djName() || 'DJ';
@@ -483,6 +513,8 @@ export class GigDirector {
 
   private teardown(): void {
     this.host.nextUp.gig = null;
+    this.circuit?.dispose();
+    this.circuit = null;
     this.endBattle();
     this.b2b?.stop();
     this.hud?.b2b(null);
@@ -542,12 +574,21 @@ export class GigDirector {
     const trackOrder = this.played.slice();
     const battle = this.battle ? { name: this.battle.game.rivalName, you: this.battle.game.you, rival: this.battle.game.rival } : null;
     const roomMoments = this.roomMoments;
+    // the circuit: the promoter remembers, the residency grows or shrinks, the tour moves on
+    const circuitNotes = this.circuitAfter(b, r.grade, met, trackOrder, r.outcome.patch);
     c.setProgress(r.outcome.patch);
     // the calendar moves on a night; the booking keeps how it went
     c.setBookings(played(c.bookings, b?.id ?? null, b ? { grade: r.grade, met } : null));
     // the fans post about it
     const dj = this.host.djName() || 'DJ';
     const posts = postsForSet({ summary: r.summary, dj, venueName: this.host.venueName(gig.config.venue), venue: gig.config.venue, followers: c.progress.followers, story: r.outcome.story?.replace(/\{name\}/g, dj) ?? null, moment: this.moment }, seeded(c.progress.setsPlayed * 31 + 7));
+    // your label: the rivals have been playing your releases
+    const lab = rivalNights(loadLabel(), c.bookings.night, seeded(c.bookings.night * 131 + 5));
+    if (lab.plays.length) {
+      saveLabel(lab.label);
+      const ln = labelName(lab.label, dj);
+      for (const pl of lab.plays) posts.push({ kind: 'rival', ...playPost(pl.rival, pl.title, dj, ln), likes: 40 + Math.floor(Math.random() * 400), comments: [], clip: null, venue: null });
+    }
     c.setFeed(addPosts(c.feed, posts, new Date()));
     // the daily challenge: the first finish of the day is the result; the streak moves on
     const daily = this.daily;
@@ -575,6 +616,7 @@ export class GigDirector {
       battle,
       roomMoments,
       regulars,
+      circuit: circuitNotes,
       ghost: ghostOut,
       highlight: () => void openHighlight({ dj, grade: r.grade, venue: this.host.venueName(gig.config.venue), slot: SLOTS[gig.config.slot].label, score: r.score, peak: r.peak.vibe, peakAt: r.peak.t, best: r.best ? TRANSITION_LABEL[r.best.name] : null, date: new Date() }, shot ?? (rp ? (rp.stills(Math.max(0, gig.t - r.peak.t))[0] ?? null) : null)),
       shareCode: trackOrder.length && this.host.shareSet ? () => this.host.shareSet!(trackOrder) : undefined,
@@ -588,6 +630,51 @@ export class GigDirector {
       again: () => (daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
+  }
+
+  /** after a booking: how the promoter feels now, the residency's room, the tour's next city, the clash */
+  private circuitAfter(b: Booking | null, grade: string, met: boolean, played: string[], patch: { followers?: number; fame?: number }): CircuitNote[] {
+    const c = this.host.career;
+    const out = this.circuit?.summary();
+    const notes: CircuitNote[] = out?.notes.slice() ?? [];
+    if (!b) return notes;
+    let cs = c.circuit;
+    const was = cs.rel[b.promoter] ?? 0;
+    const rel = relAfter(cs.rel, b.promoter, grade, met);
+    cs = { ...cs, rel };
+    const before = relStatus(was).label;
+    const after = relStatus(rel[b.promoter]).label;
+    if (after !== before) notes.push({ text: `${b.promoter}: ${after.toLowerCase()}`, good: rel[b.promoter] > was });
+    if (b.special === 'residency' && cs.residency) {
+      const ra = residencyAfter(cs.residency, played, grade);
+      cs = { ...cs, residency: ra.res };
+      notes.push({ text: `Residency week ${ra.res.weeks}: the room is ${Math.round(ra.res.crowd * 100)}% full (${ra.delta >= 0 ? '+' : '−'}${Math.round(Math.abs(ra.delta) * 100)}%), ${Math.round(ra.fresh * 100)}% fresh tracks`, good: ra.delta >= 0 });
+    }
+    const city = tourCity(b.special);
+    const t = cs.tour;
+    if (city && t) {
+      const results = [...t.results.filter((x) => x.city !== city.id), { city: city.id, grade }];
+      const leg = results.length;
+      if (t.cities.every((x) => results.some((r) => r.city === x))) {
+        const rw = tourReward(results);
+        patch.followers = (patch.followers ?? c.progress.followers) + rw.followers;
+        patch.fame = (patch.fame ?? c.progress.fame) + rw.fame;
+        cs = { ...cs, tour: null, toured: [...new Set([...cs.toured, ...t.cities])] };
+        notes.push({ text: `World Tour done: ${t.cities.length} cities, +${rw.followers.toLocaleString()} followers, +${rw.fame} fame`, good: true });
+      } else {
+        const nt = { ...t, leg, results };
+        const next = CITIES.find((x) => x.id === nextTourCity(nt));
+        cs = { ...cs, tour: nt };
+        notes.push({ text: `${city.name} done. Next stop ${next?.name ?? ''}, by ${travelFor(c.progress.tier).label.toLowerCase()}`, good: true });
+      }
+    }
+    if (out?.clash) {
+      const won = out.clash.share >= 0.5;
+      if (won) patch.fame = (patch.fame ?? c.progress.fame) + 20;
+      notes.push({ text: `Clash with ${out.clash.rival}: ${Math.round(out.clash.share * 100)}% of the field ${won ? 'stayed with you (+20 fame)' : 'went to their stage'}`, good: won });
+    }
+    c.setCircuit(cs);
+    return notes;
   }
 
   /** the last track at the festival, the beach and the boat: fireworks */
@@ -775,6 +862,7 @@ export class GigDirector {
       for (const d of decks) if (d.trackId && d.playing && d.audible > 0.3 && this.played[this.played.length - 1] !== d.trackId && !this.played.includes(d.trackId)) this.played.push(d.trackId);
       this.sharingWatch(gig);
       this.fanWatch(dt, decks, gig);
+      this.circuit?.update(dt, decks, f.dropHit, this.played);
       this.updateCoach(gig);
       const req = gig.requests.current;
       this.hud?.update({
