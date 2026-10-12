@@ -13,6 +13,12 @@ import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { setUiAudio, wireUiSounds } from '../audio/uisound';
 import { Broadcast } from './broadcast';
 import { registerRoomControls } from './roomControls';
+import { CrowdDirector } from './crowdDirector';
+import { openRoomEditor } from '../ui/RoomEditor';
+import { customVenueId, loadCustomRooms } from '../three/venues/rooms/custom';
+import { loadLoyalty, REGULARS } from '../game/regulars';
+import { option } from '../character/look';
+import { crowdShow } from '../three/venues/crowdShow';
 import { roomShow } from '../three/venues/rooms/kit';
 import { roomNote, setRoomAudio } from '../audio/roomnotes';
 import { redeemCode } from '../game/codes';
@@ -162,6 +168,8 @@ export class App implements AppContext {
   gigs!: GigDirector;
   /** the air horn */
   party!: Party;
+  /** the crowd's dance style, moments, your DJ moves and their signs */
+  crowdDir!: CrowdDirector;
   private callouts!: HTMLElement;
   private lyrics!: LyricsEngine;
   private lyricHud!: HTMLElement;
@@ -208,6 +216,20 @@ export class App implements AppContext {
 
   roomLock(id: string): string | null {
     return roomLock(id, this.career.progress);
+  }
+
+  signatureMove(): string {
+    return option(this.career.look, 'drop_move');
+  }
+
+  setSignatureMove(id: string): void {
+    const look = this.career.look;
+    this.career.saveLook({ ...look, options: { ...look.options, drop_move: id } });
+  }
+
+  regulars(): { name: string; style: string; color: string; loyalty: number; front: boolean; here: boolean }[] {
+    const l = loadLoyalty();
+    return REGULARS.map((f) => ({ name: f.name, style: f.style, color: f.color, loyalty: l[f.id] ?? 0, front: (l[f.id] ?? 0) >= 0.6, here: (l[f.id] ?? 0) >= 0.35 }));
   }
 
   setVenue(id: string, initial = false): void {
@@ -527,7 +549,7 @@ export class App implements AppContext {
       venueName: (id) => venueById(id).name,
       gigVenues: () => {
         const p = this.career.progress;
-        return GIG_VENUES.map((id) => {
+        return [...GIG_VENUES, ...loadCustomRooms().map(customVenueId)].map((id) => {
           const v = venueById(id);
           return { id, name: v.name, blurb: v.blurb, capacity: v.capacity, locked: venueLock(id, p), draw: (g, w, h) => v.thumb(g, w, h) };
         });
@@ -557,6 +579,25 @@ export class App implements AppContext {
       loadTrack: (d, id) => this.loadTrack(d, id),
       nextUp: this.nextUp,
     });
+    this.crowdDir = new CrowdDirector({
+      reg: this.reg,
+      perform: (m) => this.stage.avatar.perform(m),
+      dropMove: () => option(this.career.look, 'drop_move'),
+      hype: () => this.stage.hype,
+      playing: () => this.clock.playing,
+      section: () => this.clock.section,
+      progress: () => setClock.progress,
+      closing: () => this.gigs.gig ? this.gigs.gig.config.slot === 'closing' : true,
+      leadTrack: () => {
+        const e = this.engine;
+        const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing);
+        return lead?.track ?? null;
+      },
+      request: () => this.gigs.gig?.requests.current?.text ?? null,
+      djName: () => nameService.text,
+      moved: (m) => this.gigs.djMove(m),
+    });
+    crowdShow.onMoment((_id, label) => this.callout({ text: label, tone: 'hype' }));
     // a tier up brings more of the crew: rebuild the room between sets
     this.career.changed.on('progress', (p) => {
       const t = p.sandbox ? 7 : p.tier;
@@ -979,6 +1020,7 @@ export class App implements AppContext {
       'sep',
       { label: 'MIDI controllers', action: () => this.showTab('settings') },
       { label: 'Enter a code…', action: () => openCodeEntry({ redeem: (code) => this.redeemCode(code) }) },
+      { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
       { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
     ]);
   }
@@ -1705,6 +1747,7 @@ export class App implements AppContext {
       this.nextUp.update(dt);
       this.broadcast.update(dt);
       if (roomShow.current) this.feedRoom(dt);
+      this.crowdDir.update(dt, f.dropHit);
       this.stage.hype = this.gigs.update(dt, f);
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);

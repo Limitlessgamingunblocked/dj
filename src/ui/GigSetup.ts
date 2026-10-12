@@ -9,6 +9,8 @@ import { SLOTS, type SlotId } from '../game/vibe';
 import type { Look, Progress } from '../core/models';
 import type { Crate } from '../library/Library';
 import { isCrazyRoom } from '../game/rooms';
+import { isCustomRoom } from '../three/venues/rooms/custom';
+const roomy = (id: string) => isCrazyRoom(id) || isCustomRoom(id);
 import { h, setClass } from './dom';
 import { openModal } from './modal';
 
@@ -92,7 +94,7 @@ export function openGigSetup(o: SetupHooks): void {
   );
   const syncVenues = () => {
     cards.forEach(({ b, v }) => setClass(b, 'active', v.id === cfg.venue));
-    battleSec.hidden = !isCrazyRoom(cfg.venue);
+    battleSec.hidden = !roomy(cfg.venue);
   };
   syncVenues();
 
@@ -165,7 +167,7 @@ export function openGigSetup(o: SetupHooks): void {
   const m = openModal(bk?.daily ? 'Daily challenge' : bk ? 'Play the booking' : 'Free set', content, { wide: true });
   go.addEventListener('click', () => {
     m.close();
-    o.start({ ...cfg, battle: !!cfg.battle && isCrazyRoom(cfg.venue) }, { look, crate });
+    o.start({ ...cfg, battle: !!cfg.battle && roomy(cfg.venue) }, { look, crate });
   });
   dress.addEventListener('click', () => {
     m.close();

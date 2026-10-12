@@ -19,7 +19,12 @@ import type { ControlRegistry } from '../core/controls';
 import { B2B } from './b2b';
 import { RoomBattle } from '../game/roomBattle';
 import { isCrazyRoom } from '../game/rooms';
+import { isCustomRoom } from '../three/venues/rooms/custom';
 import { roomShow } from '../three/venues/rooms/kit';
+import { crowdShow } from '../three/venues/crowdShow';
+import { afterSet, attending, loadLoyalty, saveLoyalty, type Regular } from '../game/regulars';
+import { genreOf } from '../library/genres';
+import type { DjMove } from '../character/Avatar';
 import { Snapshot } from '../game/snapshot';
 import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
@@ -95,6 +100,8 @@ export interface GigHost {
   loadTrack(deck: number, id: string): Promise<void>;
   /** the next-track coach the whole app shares: a gig hands it its slot's energy and the tracks heard tonight */
   nextUp: NextUp;
+  /** the regulars' loyalty changed (the crowd's front row follows) */
+  regularsChanged?(): void;
 }
 
 /** what the lighting tech says when you take the lights */
@@ -149,6 +156,12 @@ export class GigDirector {
   private roomMoments = 0;
   /** the beat as of the last frame (a pad press scores by its timing) */
   private beatNow = { phase: 0, inBar: 0 };
+  /** the regulars in tonight, the genres the room heard (seconds), whose music they've cheered */
+  private fans: { fan: Regular; front: boolean }[] = [];
+  private genreSecs: Record<string, number> = {};
+  private fanCheered = new Set<string>();
+  private moveAt = -1e9;
+  private dropAt = -1e9;
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
@@ -320,7 +333,11 @@ export class GigDirector {
     }
     this.endBattle();
     this.roomMoments = 0;
-    if (cfg.battle && isCrazyRoom(cfg.venue)) {
+    this.fans = attending(loadLoyalty());
+    this.genreSecs = {};
+    this.fanCheered.clear();
+    this.moveAt = -1e9;
+    if (cfg.battle && (isCrazyRoom(cfg.venue) || isCustomRoom(cfg.venue))) {
       const ids = Object.keys(RIVALS) as RivalId[];
       const id = ids[Math.floor(Math.random() * ids.length)];
       const tier = this.host.career.progress.tier;
@@ -387,6 +404,13 @@ export class GigDirector {
     }
     // the daily's twist: a cold room or a hometown crowd
     if (daily) this.gig.meter.vibe = Math.min(1, Math.max(0, this.gig.meter.vibe + daily.twist.vibe));
+    // the regulars who've come out tonight
+    const front = this.fans.filter((f) => f.front).map((f) => f.fan.name);
+    const back = this.fans.filter((f) => !f.front).map((f) => f.fan.name);
+    if (this.fans.length) {
+      const g = this.gig;
+      setTimeout(() => this.gig === g && this.hud?.say('Regulars:', front.length ? `${listOf(front)} ${front.length > 1 ? 'are' : 'is'} at the front with a sign${back.length ? `, and ${listOf(back)} came too` : ''}.` : `${listOf(back)} came out tonight. Play their music and they'll move up front.`), 7200);
+    }
   }
 
   /** the Room Battle's over: all the pads are yours again */
@@ -473,6 +497,11 @@ export class GigDirector {
       }
       chemistry = { name: duo.name, value: v, unlocked };
     }
+    // the regulars remember the set
+    const fanOut = afterSet(loadLoyalty(), { grade: r.grade, genres: this.genreSecs, full: r.summary.full });
+    saveLoyalty(fanOut.loyalty);
+    this.host.regularsChanged?.();
+    const regulars = fanOut.changes.slice(0, 3).map((c) => ({ name: c.fan.name, style: c.fan.style, delta: c.delta }));
     const battle = this.battle ? { name: this.battle.game.rivalName, you: this.battle.game.you, rival: this.battle.game.rival } : null;
     const roomMoments = this.roomMoments;
     c.setProgress(r.outcome.patch);
@@ -507,6 +536,7 @@ export class GigDirector {
       chemistry,
       battle,
       roomMoments,
+      regulars,
       daily: dailyOut,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
@@ -517,6 +547,39 @@ export class GigDirector {
       again: () => (daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
+  }
+
+  /** the genres the room's hearing, and a regular's cheer when their music comes on */
+  private fanWatch(dt: number, decks: { trackId: string | null; playing: boolean; audible: number }[], gig: Gig): void {
+    const loud = decks.filter((d) => d.trackId && d.playing && d.audible > 0.12).sort((a, b) => b.audible - a.audible)[0];
+    if (!loud?.trackId || gig.phase === 'waiting') return;
+    const t = this.host.library.get(loud.trackId);
+    if (!t) return;
+    const genre = genreOf(t).genre;
+    if (!genre) return;
+    this.genreSecs[genre] = (this.genreSecs[genre] ?? 0) + dt;
+    if (this.fanCheered.has(loud.trackId) || (this.genreSecs[genre] ?? 0) < 20) return;
+    const f = this.fans.find((x) => x.fan.genres.includes(genre));
+    if (!f) return;
+    this.fanCheered.add(loud.trackId);
+    this.hud?.say(`${f.fan.name}:`, f.fan.cheer);
+  }
+
+  /** a DJ move from the pads: well timed (not spammed, the room with you) it lifts the room a little */
+  djMove(m: DjMove): void {
+    const gig = this.gig;
+    if (!gig || (gig.phase !== 'live' && gig.phase !== 'encore')) return;
+    if (gig.t - this.moveAt < 6) return;
+    this.moveAt = gig.t;
+    if (gig.meter.vibe < 0.3) return;
+    const onDrop = gig.t - this.dropAt < 4;
+    gig.meter.vibe = Math.min(1, gig.meter.vibe + (onDrop ? 0.02 : 0.01));
+    const pts = onDrop ? 60 : 25;
+    gig.meter.points += pts;
+    if (m === 'climb' || onDrop) {
+      this.host.crowd('cheer');
+      this.host.callout({ text: `${m === 'climb' ? 'Up on the booth!' : 'The room copies you'} +${pts}`, tone: 'hype' });
+    }
   }
 
   /** the lighting tech (Section 8.5) answers when you work the lights in a set */
@@ -615,6 +678,7 @@ export class GigDirector {
     setClock.gig = !!gig && gig.phase !== 'over';
     if (gig) setClock.progress = gig.progress;
     else tickFreeClock(dt, decks.some((d) => d.playing));
+    if (f.dropHit && gig) this.dropAt = gig.t;
     this.beatNow.phase = f.beatPhase;
     this.beatNow.inBar = f.beatInBar;
     if (gig) {
@@ -628,6 +692,7 @@ export class GigDirector {
       if (gig.assist === 'chill') this.chill(gig.t);
       const target = SLOTS[gig.config.slot].target(gig.progress);
       for (const d of decks) if (d.trackId && d.playing && d.audible > 0.12) this.heard.add(d.trackId);
+      this.fanWatch(dt, decks, gig);
       this.updateCoach(gig);
       const req = gig.requests.current;
       this.hud?.update({
@@ -674,6 +739,8 @@ export class GigDirector {
       else if (ev.what === 'met') {
         this.host.callout({ text: `Request met +${r.points}`, tone: 'hype' });
         this.host.crowd('cheer');
+        // the people with the sign go wild
+        crowdShow.wild = 1;
       }
       return;
     }
@@ -691,6 +758,10 @@ export class GigDirector {
     const text = eventText(ev);
     if (text) this.host.callout({ text, tone: ev.kind === 'mistake' ? 'bad' : ev.kind === 'drop' || ev.kind === 'comeback' ? 'hype' : 'good' });
     if (ev.kind === 'transition') this.host.mark('transition', TRANSITION_LABEL[ev.name]);
+    // a crazy room that keeps score (the arcade) hears about it
+    if (ev.kind === 'transition') roomShow.pop(TRANSITION_LABEL[ev.name], ev.points);
+    else if (ev.kind === 'drop' || ev.kind === 'comeback') roomShow.pop(ev.kind === 'drop' ? 'Drop' : 'Comeback', ev.points);
+    else if (ev.kind === 'mistake') roomShow.pop('Miss', 0, true);
     if (ev.kind === 'comeback') this.host.mark('vibe', 'Comeback');
     this.chat?.react(ev);
     if (!this.gig) return;
@@ -735,4 +806,9 @@ export class GigDirector {
       this.hud?.say('Bar:', `sent up a "${name} Sour". On the house.`);
     }
   }
+}
+
+/** "Jess", "Jess and Marco", "Jess, Marco and Priya" */
+function listOf(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }

@@ -84,6 +84,9 @@ export function owned(unlock: Unlock, p: Pick<Progress, 'tier' | 'unlocked' | 's
   return false;
 }
 
+/** the crazy rooms whose outfits unlock by playing there */
+const ROOM_NAMES: Record<string, string> = { uv: 'UV Blacklight Room', mirror: 'Infinity Mirror Room', hologram: 'Hologram Room' };
+
 const VENUE_UNLOCK: Record<string, string> = {
   basement: 'Basement Club',
   rooftop: 'Rooftop',
@@ -100,6 +103,7 @@ export function unlockText(u: Unlock): string {
   if (u.startsWith('milestone:')) return `Milestone: ${u.slice(10).replace(/_/g, ' ')}`;
   if (u.startsWith('rival:')) return `Great chemistry with ${u.slice(6).replace(/_/g, ' ').toUpperCase()} in a B2B`;
   if (u.startsWith('set:')) return `Play ${u.slice(4)} sets`;
+  if (u.startsWith('outfit:')) return `Play a set in the ${ROOM_NAMES[u.slice(7)] ?? 'secret room'}`;
   return `Play the ${VENUE_UNLOCK[u] ?? u}`;
 }
 

@@ -39,9 +39,12 @@ import { blobTexture } from './details';
 import { useLightMap, type LightMap } from './lightmap';
 import { rng } from './tex';
 import { CrowdSteam, sweatStep } from './airlife';
+import { crowdShow } from './crowdShow';
 
-export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender';
-const ROLE_CODE: Record<CrowdRole, number> = { dancer: 0, sign: 1, vip: 2, dj: 3, marathon: 4, filmer: 5, towel: 6, barlean: 7, rider: 8, security: 9, bartender: 10 };
+export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender' | 'conga' | 'card';
+const ROLE_CODE: Record<CrowdRole, number> = { dancer: 0, sign: 1, vip: 2, dj: 3, marathon: 4, filmer: 5, towel: 6, barlean: 7, rider: 8, security: 9, bartender: 10, conga: 11, card: 12 };
+/** people in a conga line at once */
+const CONGA = 10;
 
 export interface CrowdSpot {
   x: number;
@@ -62,6 +65,8 @@ export interface CrowdOptions {
   drinks?: number;
   /** LED signs held up (picked from the people closest to the booth) */
   signs?: number;
+  /** hand-made cardboard signs (requests and messages; default a few in a crowd of 24 or more) */
+  cards?: number;
   /** role for spots that don't name one */
   role?: CrowdRole;
   booth?: THREE.Vector3;
@@ -385,6 +390,67 @@ function signAtlas(): THREE.Texture {
   return signTex;
 }
 
+/* the cardboard signs: marker pen on brown board, one message a row (crowdShow.cards) */
+let cardTex: THREE.CanvasTexture | null = null;
+let cardVersion = -1;
+
+function cardAtlas(): THREE.Texture {
+  if (!cardTex) {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 1024;
+    cardTex = new THREE.CanvasTexture(c);
+    cardTex.colorSpace = THREE.SRGBColorSpace;
+    cardTex.anisotropy = 4;
+  }
+  drawCards();
+  return cardTex;
+}
+
+/** redraw the cardboard signs when their messages change */
+export function drawCards(): void {
+  if (!cardTex || cardVersion === crowdShow.cardsVersion) return;
+  cardVersion = crowdShow.cardsVersion;
+  const c = cardTex.image as HTMLCanvasElement;
+  const g = c.getContext('2d')!;
+  const inks = ['#141414', '#1a2a8a', '#9a1414', '#0f5a23'];
+  for (let i = 0; i < 8; i++) {
+    // rows run bottom-up in the texture (as the LED signs' do)
+    const y = (7 - i) * 128;
+    const board = g.createLinearGradient(0, y, 0, y + 128);
+    board.addColorStop(0, '#c49a64');
+    board.addColorStop(1, '#a87d4c');
+    g.fillStyle = board;
+    g.fillRect(0, y, 512, 128);
+    // corrugation and a torn edge
+    g.fillStyle = 'rgba(0,0,0,0.05)';
+    for (let x = 0; x < 512; x += 9) g.fillRect(x, y, 3, 128);
+    g.fillStyle = 'rgba(60,40,20,0.35)';
+    g.fillRect(0, y, 512, 3);
+    g.fillRect(0, y + 125, 512, 3);
+    const text = (crowdShow.cards[i] ?? '').toUpperCase();
+    if (!text) continue;
+    let size = 78;
+    g.font = `700 ${size}px "Permanent Marker", "Comic Sans MS", "Marker Felt", cursive`;
+    const w = g.measureText(text).width;
+    if (w > 480) {
+      size *= 480 / w;
+      g.font = `700 ${size}px "Permanent Marker", "Comic Sans MS", "Marker Felt", cursive`;
+    }
+    g.save();
+    g.translate(256, y + 66);
+    g.rotate(((i * 37) % 7 - 3) * 0.012);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = inks[i % inks.length];
+    g.fillText(text, 0, 0);
+    // a heart or underline on some
+    if (i % 3 === 1) g.fillRect(-Math.min(220, w / 2), size * 0.5, Math.min(440, w), 5);
+    g.restore();
+  }
+  cardTex.needsUpdate = true;
+}
+
 function drawSigns(): void {
   if (!signTex) return;
   const c = signTex.image as HTMLCanvasElement;
@@ -415,7 +481,12 @@ export const VERT_HEAD = /* glsl */ `
   attribute vec4 iSeed;
   attribute vec4 iInfo;
   uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick, uCold, uSync, uHype, uRiders, uLook;
+  uniform vec4 uStyle, uCircle, uCopy;
+  uniform float uSit, uLights, uWild, uCongaOn;
+  uniform vec2 uBooth;
+  uniform vec2 uConga[${CONGA}];
   varying float vMat;
+  varying float vCard;
   varying vec4 vSeed;
   varying vec2 vUv2;
   varying float vSignRow;
@@ -439,12 +510,29 @@ export const VERT_HEAD = /* glsl */ `
     float lean = step(6.5, role) * step(role, 7.5);
     float rider = step(7.5, role) * step(role, 8.5);
     float guard = step(8.5, role) * step(role, 9.5);
-    float barman = step(9.5, role);
+    float barman = step(9.5, role) * step(role, 10.5);
+    float conga = step(10.5, role) * step(role, 11.5);
+    float card = step(11.5, role);
+    vCard = card;
+    // where this person stands (in the crowd's space), and which way they face
+    mat3 IM = mat3(instanceMatrix);
+    vec2 here = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xz;
+    float faceNow = atan(IM[2].x, IM[2].z);
     // the bar-leaner only joins in when the room's really going
     float leanDance = lean * smoothstep(0.78, 0.92, uHype);
     float leaning = lean - leanDance;
     float staff = guard + barman;
-    float dancer = 1.0 - sign - vip - dj - leaning - rider - staff;
+    // a cardboard sign is held like an LED one; the conga line counts as dancing
+    sign = max(sign, card);
+    float dancer = 1.0 - sign - vip - dj - leaning - rider - staff - conga;
+    float mover = dancer + conga;
+    // the dance circle: the soloist in the middle, everyone else pushed back into a ring facing them
+    vec2 toC = here - uCircle.xy;
+    float rC = length(toC);
+    float solo = uCircle.w * (1.0 - step(0.05, rC)) * dancer;
+    float ring = uCircle.w * (1.0 - step(uCircle.z + 1.2, rC)) * (1.0 - solo) * (dancer + sign);
+    // copying your moves: the front rows, or everyone for a big one
+    float front = max(uCopy.z, 1.0 - smoothstep(5.0, 9.0, length(here - uBooth)));
     float ph = fract(uBeat + iSeed.x * 0.12);
     float hit = (1.0 - ph) * (1.0 - ph);
     float E = clamp(uHands * 1.9 - iSeed.y * 1.3, 0.0, 1.0);
@@ -463,6 +551,9 @@ export const VERT_HEAD = /* glsl */ `
     aR = mix(aR, vec3(2.5 - wave, 0.25, 0.35), wUp);
     float pump = pow(1.0 - fb, 4.0);
     float wPump = E * (smoothstep(0.28, 0.36, n) - smoothstep(0.5, 0.6, n)) * dancer;
+    // techno: more fists in the air; and your fist pump, copied
+    wPump = max(wPump, uStyle.y * 0.5 * E * step(0.5, fract(iSeed.w * 3.3)) * dancer);
+    wPump = max(wPump, uCopy.y * front * dancer);
     aR = mix(aR, vec3(-0.05, 2.3 + 0.4 * pump, 1.2 - 1.0 * pump), wPump);
     float open = 1.0 - pow(1.0 - fb, 8.0);
     float wClap = uClap * step(0.25, fract(iSeed.z * 17.3)) * (dancer + vip * 0.5);
@@ -474,8 +565,30 @@ export const VERT_HEAD = /* glsl */ `
     // the room did something: some people point up at it
     float wPoint = uLook * step(0.55, fract(iSeed.w * 5.7)) * dancer;
     aR = mix(aR, vec3(0.45, 2.25, 0.1), wPoint);
+    // pointing back at you, when you point at them
+    float wPointDJ = uCopy.x * front * step(0.25, fract(iSeed.z * 9.1)) * dancer;
+    aR = mix(aR, vec3(0.1, 1.6 + 0.08 * hit, 0.05), wPointDJ);
+    // the ring round the dance circle claps the soloist on
+    float wRing = ring * step(0.3, fract(iSeed.x * 7.9));
+    aL = mix(aL, vec3(0.32 - 0.5 * open, 1.7, 0.4), wRing * (1.0 - sign));
+    aR = mix(aR, vec3(0.32 - 0.5 * open, 1.7, 0.4), wRing * (1.0 - sign));
+    // lights up: a phone light held high, swaying slowly
+    float wLight = uLights * step(0.2, fract(iSeed.y * 11.3)) * (dancer + vip);
+    float lsw = sin(uTime * 1.3 + iSeed.x * 6.283) * 0.28;
+    aR = mix(aR, vec3(0.25 + lsw, 2.35, 0.35), wLight);
+    aL = mix(aL, vec3(0.2 - lsw * 0.5, 0.5, 1.2), wLight * 0.6);
+    // sitting down for the build: hands on knees
+    float wSit = uSit * (dancer + conga);
+    aL = mix(aL, vec3(0.1, 0.75, 0.9), wSit);
+    aR = mix(aR, vec3(0.1, 0.75, 0.9), wSit);
+    // the conga: hands on the shoulders of the one in front
+    aL = mix(aL, vec3(0.06, 1.42, 0.45), conga * (1.0 - wSit));
+    aR = mix(aR, vec3(0.06, 1.42, 0.45), conga * (1.0 - wSit));
+    // the soloist: arms out, spinning
+    aL = mix(aL, vec3(1.45 + 0.4 * hit, 0.3, 0.2), solo);
+    aR = mix(aR, vec3(1.45 + 0.4 * (1.0 - hit), 0.3, 0.2), solo);
     // phones: the filmers, plus (cold) people scrolling at chest height
-    float wFilm = iInfo.y * smoothstep(0.3, 0.4, vnoise(uTime * 0.05 + iSeed.w * 11.0) + uCheer * 0.3) * (1.0 - wClap);
+    float wFilm = iInfo.y * smoothstep(0.3, 0.4, vnoise(uTime * 0.05 + iSeed.w * 11.0) + uCheer * 0.3) * (1.0 - wClap) * (1.0 - wLight) * (1.0 - wSit);
     // the filmer never puts it down; the VIP crew hold phone lights up through the breakdowns
     wFilm = max(wFilm, filmer);
     wFilm = max(wFilm, vip * smoothstep(0.2, 0.5, uClap) * step(0.35, fract(iSeed.z * 13.1)));
@@ -484,8 +597,10 @@ export const VERT_HEAD = /* glsl */ `
     aR = mix(aR, vec3(0.12, 1.95, 0.6), wFilm);
     float wDrink = iInfo.w * (1.0 - wClap) * (1.0 - wUp) * (1.0 - wCheer);
     aL = mix(aL, vec3(0.12, 0.45 + 0.08 * hit, 1.75), wDrink);
-    aL = mix(aL, vec3(-0.2, 2.75, 0.35), sign);
-    aR = mix(aR, vec3(-0.2, 2.75, 0.35), sign);
+    // a sign held up; waved about when their request's been played
+    float wv = sin(uTime * 7.0 + iSeed.x * 6.283) * 0.35 * uWild;
+    aL = mix(aL, vec3(-0.2 + wv, 2.75, 0.35), sign);
+    aR = mix(aR, vec3(-0.2 - wv, 2.75, 0.35), sign);
     // the towel, whirled overhead on the drop
     float wTowel = towel * clamp(uCheer * 1.5 + uJump, 0.0, 1.0);
     float ta = uTime * 9.0 + iSeed.x * 6.283;
@@ -510,16 +625,31 @@ export const VERT_HEAD = /* glsl */ `
     aR = mix(aR, djR, dj);
     // body: knees bend on the beat and on kicks, hips sway, shoulders twist
     float bounce = bob * (0.5 + iSeed.z * 0.9) * (1.0 - vip * 0.55) * (1.0 - dj * 0.4) * (1.0 - leaning) * (1.0 - staff * 0.85) * (1.0 - rider);
-    float k = min(0.7, bounce * 5.0 * hit + uKick * 0.07 * dancer + 0.04);
+    // the genre's style: swaying music bounces less, drum & bass bounces twice a beat
+    bounce *= 1.0 - 0.45 * uStyle.w * mover;
+    float hit2 = pow(1.0 - fract(uBeat * 2.0 + iSeed.x * 0.1), 2.0);
+    float k = min(0.7, bounce * 5.0 * mix(hit, hit2, uStyle.z * mover) + uKick * 0.07 * dancer + 0.04);
+    k += uStyle.z * mover * hit2 * 0.12 * (0.4 + uHands);
+    // the sit-down: right down on the haunches; the soloist low to the floor
+    k = mix(k, 1.45, wSit);
+    k = mix(k, 0.9, solo);
     // sitting on shoulders: knees bent right up, shins hanging
     k = mix(k, 1.45, rider);
     // the weight goes from leg to leg, a beat each (a step-touch): one knee bends, the other foot comes up
-    float stepW = sin(uBeat * 3.14159 + iSeed.z * 6.283) * min(0.16, bounce * 1.8 + 0.03 * E) * dancer;
+    float stepW = sin(uBeat * 3.14159 + iSeed.z * 6.283) * min(0.16, bounce * 1.8 + 0.03 * E) * mover;
+    // techno: a stomp, one foot then the other, harder
+    stepW *= 1.0 + uStyle.y * 1.6 * mover;
+    stepW = mix(stepW, sin(uBeat * 3.14159) * 0.22, conga);
     float kL = max(0.0, k + stepW);
     float kR = max(0.0, k - stepW);
     // and the body leans into the beat
     float beatLean = (0.04 + 0.08 * E) * hit * dancer;
+    // house: the jack, the whole torso pumping forward and back on every beat
+    beatLean += uStyle.x * mover * (0.1 + 0.08 * E) * (hit - 0.35);
+    beatLean += wSit * 0.35;
     float sway = sin(uBeat * 1.5708 + iSeed.x * 6.283) * (0.04 + 0.06 * vip + 0.03 * E);
+    // deep and slow music: a wide, easy sway
+    sway *= 1.0 + uStyle.w * 1.8 * mover;
     float twist = sin(uBeat * 0.7854 + iSeed.w * 6.283) * (0.12 + 0.1 * vip) * (1.0 - dj * 0.7);
     float shiftX = sin(uBeat * 1.5708 + iSeed.x * 6.283) * 0.035 * (1.0 - dj);
     float nod = hit * bob * 3.0 + dj * 0.18 * hit;
@@ -531,11 +661,13 @@ export const VERT_HEAD = /* glsl */ `
     float turn = (vnoise(uTime * 0.25 + iSeed.w * 23.0) - 0.5) * (0.5 + vip * 1.4 + uCold * 1.8 * (1.0 - marathon) + staff * 0.8) * (1.0 - dj * 0.8);
     float jumpPh = mix(iSeed.x, 0.0, uSync);
     float jump = uJump * max(0.0, sin(fract(uBeat * 0.5 + jumpPh) * 6.283)) * (0.4 + iSeed.z * 0.6) * 0.32 * (dancer + sign * 0.5);
+    jump += uStyle.z * mover * max(0.0, sin(fract(uBeat * 2.0 + iSeed.x * 0.1) * 6.283)) * 0.03 * (0.3 + uHands);
+    jump += uWild * sign * max(0.0, sin(fract(uBeat + iSeed.x * 0.2) * 6.283)) * 0.14;
     jump += wCheer * max(0.0, sin(fract(uBeat + iSeed.x * 0.2) * 6.283)) * 0.12 * dancer;
     jump += marathon * max(0.0, sin(fract(uBeat * 0.5) * 6.283)) * 0.05;
     vec3 P = vec3(0.0, 0.95, 0.0);
     // the bar-leaner's lean over the counter
-    mat3 Ru = rotY(twist) * rotZ(sway) * rotX(0.28 * leaning + beatLean);
+    mat3 Ru = rotY(twist + solo * uTime * 5.0) * rotZ(sway) * rotX(0.28 * leaning + beatLean);
     vec3 S = vec3(shiftX, 0.0, 0.0);
     float b = aBone;
     mat3 R = mat3(1.0);
@@ -595,9 +727,31 @@ export const VERT_HEAD = /* glsl */ `
     else if (aMat > 13.5) vis = step(0.6, fract(iSeed.w * 3.17)) * (1.0 - guard);
     else if (aMat > 12.5) vis = towel;
     else if (aMat > 10.5) vis = sign;
-    else if (aMat > 7.5) vis = step(0.5, wFilm);
+    else if (aMat > 7.5) vis = step(0.5, max(wFilm, wLight));
     else if (aMat > 6.5) vis = step(0.5, wDrink);
     if (rider > 0.5 && up < 0.5) vis = 0.0;
+    // the dance circle: the ring turns to face the soloist and steps back; the conga pushes through
+    vec2 push = vec2(0.0);
+    if (ring > 0.001 && rC > 0.0001) push += toC / rC * max(0.0, uCircle.z - rC) * ring;
+    if (uCongaOn > 0.5 && conga < 0.5) {
+      for (int i = 0; i < ${CONGA}; i++) {
+        vec2 dd = here + push - uConga[i];
+        float l = length(dd);
+        if (l < 0.6 && l > 0.0001) push += dd / l * (0.6 - l) * uCongaOn;
+      }
+    }
+    if (ring > 0.001) {
+      float want = atan(-toC.x, -toC.y);
+      float dTurn = mod(want - faceNow + 3.14159, 6.28318) - 3.14159;
+      mat3 Rt = rotY(dTurn * ring);
+      R = Rt * R;
+      T = Rt * T;
+    }
+    if (dot(push, push) > 0.0) {
+      vec3 lp = transpose(IM) * vec3(push.x, 0.0, push.y);
+      lp /= vec3(dot(IM[0], IM[0]), dot(IM[1], IM[1]), dot(IM[2], IM[2]));
+      T += lp;
+    }
     if (vis < 0.5) {
       R = mat3(0.0);
       T = vec3(0.0, -50.0, 0.0);
@@ -608,8 +762,9 @@ export const VERT_HEAD = /* glsl */ `
 `;
 
 const FRAG_HEAD = /* glsl */ `
-  uniform sampler2D uSigns;
-  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat, uUV;
+  uniform sampler2D uSigns, uCards;
+  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat, uUV, uLights;
+  varying float vCard;
   uniform vec3 uRim, uRimFrom;
   float crowdHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   varying float vMat;
@@ -700,10 +855,12 @@ const FRAG_COLOR = /* glsl */ `
   else if (m > 9.5 && m < 10.5) {
     col = vec3(0.02);
     glow = vec3(2.2) * step(0.6, fract(vSeed.y * 7.0));
+    // lights up: every phone's torch on, warm
+    glow = max(glow, vec3(3.2, 2.9, 2.4) * uLights);
     // taking photos after the drop: each phone fires its flash now and then
     if (uPhotos > 0.001) glow += vec3(16.0) * step(1.0 - 0.06 * uPhotos, crowdHash(vec2(vSeed.x * 113.0, floor(uTime * 9.0 + vSeed.z * 9.0))));
   }
-  else if (m > 10.5 && m < 11.5) col = vec3(0.02);
+  else if (m > 10.5 && m < 11.5) col = vCard > 0.5 ? vec3(0.42, 0.3, 0.18) : vec3(0.02);
   else if (m > 16.5) { col = hair; crowdRough = 0.48; }
   // a cap: black, the top's colour or stone
   else if (m > 15.5) { float cv = fract(vSeed.x * 9.7); col = cv < 0.45 ? vec3(0.025) : cv < 0.8 ? top * 0.85 : vec3(0.5, 0.46, 0.38); crowdRough = 0.7; }
@@ -715,6 +872,13 @@ const FRAG_COLOR = /* glsl */ `
   }
   else if (m > 13.5) { col = hair; crowdRough = 0.48; }
   else if (m > 12.5) col = fract(vSeed.y * 3.7) < 0.5 ? vec3(0.85, 0.85, 0.82) : top * 1.2;
+  else if (m > 11.5 && vCard > 0.5) {
+    // a cardboard sign, marker pen on brown board: lit by the room, with a touch of its own so it reads in the dark
+    vec3 t = texture2D(uCards, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;
+    col = t;
+    crowdRough = 0.95;
+    glow = t * 0.16;
+  }
   else if (m > 11.5) {
     vec3 t = texture2D(uSigns, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;
     vec2 cell = fract(vUv2 * vec2(80.0, 20.0)) - 0.5;
@@ -822,6 +986,16 @@ export class Crowd implements Fixture {
     uSweat: { value: 0 },
     uLook: { value: 0 },
     uUV: { value: 0 },
+    uStyle: { value: new THREE.Vector4(0.25, 0.25, 0.25, 0.25) },
+    uCircle: { value: new THREE.Vector4(0, 0, 2.2, 0) },
+    uCopy: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uSit: { value: 0 },
+    uLights: { value: 0 },
+    uWild: { value: 0 },
+    uCongaOn: { value: 0 },
+    uBooth: { value: new THREE.Vector2(0, 0) },
+    uConga: { value: Array.from({ length: CONGA }, () => new THREE.Vector2(999, 999)) },
+    uCards: { value: null as THREE.Texture | null },
     uRim: { value: new THREE.Color(0, 0, 0) },
     uRimFrom: { value: new THREE.Vector3(0, 3.5, 1.5) },
   };
@@ -854,11 +1028,22 @@ export class Crowd implements Fixture {
       const front = byDist.slice(0, Math.max(o.signs * 3, Math.ceil(byDist.length * 0.3)));
       while (signIdx.size < Math.min(o.signs, front.length)) signIdx.add(front[Math.floor(r() * front.length)].i);
     }
+    // cardboard signs: a few people in the front rows (not the LED sign holders)
+    const cardIdx = new Set<number>();
+    const wantCards = o.cards ?? (n >= 24 ? Math.min(6, Math.round(n / 15)) : 0);
+    if (wantCards > 0) {
+      const front = spots
+        .map((s, i) => ({ i, d: Math.hypot(s.x - booth.x, s.z - booth.z) }))
+        .filter(({ i }) => !signIdx.has(i) && (spots[i].role ?? o.role ?? 'dancer') === 'dancer')
+        .sort((a, b) => a.d - b.d)
+        .slice(0, Math.max(wantCards * 3, 12));
+      while (cardIdx.size < Math.min(wantCards, front.length)) cardIdx.add(front[Math.floor(r() * front.length)].i);
+    }
     // the regulars: picked from the dancers in the front half, the same faces at every venue
     const regular = new Map<number, CrowdRole>();
     const dancers = spots
       .map((s, i) => ({ i, d: Math.hypot(s.x - booth.x, s.z - booth.z) }))
-      .filter(({ i }) => !signIdx.has(i) && (spots[i].role ?? o.role ?? 'dancer') === 'dancer')
+      .filter(({ i }) => !signIdx.has(i) && !cardIdx.has(i) && (spots[i].role ?? o.role ?? 'dancer') === 'dancer')
       .sort((a, b) => a.d - b.d);
     if ((o.regulars ?? n >= 30) && dancers.length >= 8) {
       const front = dancers.slice(0, Math.ceil(dancers.length * 0.5));
@@ -889,21 +1074,35 @@ export class Crowd implements Fixture {
     }
     // the first sign near the front is the superfan's (sign row 0: the DJ's name)
     let signRow = 0;
+    // the cardboard signs nearest the booth are the regulars' (rows 0-2, in their shirts)
+    const cardOrder = [...cardIdx].sort((a, b) => Math.hypot(spots[a].x - booth.x, spots[a].z - booth.z) - Math.hypot(spots[b].x - booth.x, spots[b].z - booth.z));
+    const cardRowOf = new Map<number, number>();
+    const shirt = new Map<number, THREE.Color>();
+    cardOrder.forEach((i, k) => {
+      cardRowOf.set(i, k % 8);
+      const fan = crowdShow.front[k];
+      if (k < 3 && fan) shirt.set(i, new THREE.Color(fan));
+    });
     spots.forEach((s, i) => {
-      const role: CrowdRole = signIdx.has(i) ? 'sign' : (regular.get(i) ?? s.role ?? o.role ?? 'dancer');
+      const role: CrowdRole = signIdx.has(i) ? 'sign' : cardIdx.has(i) ? 'card' : (regular.get(i) ?? s.role ?? o.role ?? 'dancer');
       const code = ROLE_CODE[role];
       const drinks = o.drinks ?? (role === 'vip' ? 0.75 : 0.1);
       const phones = role === 'vip' ? Math.max(0.3, o.phones ?? 0) : (o.phones ?? 0);
       info[i * 4] = code;
       const hands = role !== 'dj' && role !== 'sign' && role !== 'security' && role !== 'bartender' && role !== 'rider' && role !== 'towel';
       info[i * 4 + 1] = role === 'filmer' || (hands && role !== 'marathon' && r() < phones) ? 1 : 0;
-      info[i * 4 + 2] = role === 'sign' ? signRow++ % SIGNS.length : 0;
+      info[i * 4 + 2] = role === 'sign' ? signRow++ % SIGNS.length : role === 'card' ? (cardRowOf.get(i) ?? 0) : 0;
       info[i * 4 + 3] = role === 'barlean' || (hands && role !== 'marathon' && role !== 'filmer' && r() < drinks) ? 1 : 0;
     });
 
     n = spots.length;
     const mat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 });
     this.u.uSigns.value = signIdx.size ? signAtlas() : null;
+    this.u.uCards.value = cardIdx.size ? cardAtlas() : null;
+    this.hasCards = cardIdx.size > 0;
+    this.u.uBooth.value.set(booth.x, booth.z);
+    this.spots = spots;
+    this.infoRole = info.filter((_, k) => k % 4 === 0);
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, this.u);
       sh.vertexShader = sh.vertexShader
@@ -935,7 +1134,8 @@ export class Crowd implements Fixture {
       const build = 0.92 + 0.16 * ((seeds[i * 4 + 1] * 7.77) % 1);
       q.setFromAxisAngle(yAxis, face);
       mats.push(new THREE.Matrix4().compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc * build, sc, sc * build)));
-      cols.push(clothes[Math.floor(r() * clothes.length)]);
+      const c = clothes[Math.floor(r() * clothes.length)];
+      cols.push(shirt.get(i) ?? c);
     });
     const cells = new Map<string, number[]>();
     spots.forEach((s, i) => {
@@ -960,6 +1160,7 @@ export class Crowd implements Fixture {
       idx.forEach((i, j) => {
         mesh.setMatrixAt(j, mats[i]);
         mesh.setColorAt(j, cols[i]);
+        this.where[i] = { chunk: this.chunks.length, j, info: inst.iInfo };
       });
       mesh.computeBoundingSphere();
       // arms up, jumps and signs reach above the rest-pose bounds
@@ -979,6 +1180,7 @@ export class Crowd implements Fixture {
       sh.renderOrder = -1;
       this.object.add(sh);
       this.shadows.push(sh);
+      this.shadowMesh = sh;
     }
     this.steamGain = o.steam ?? (n >= 40 ? 1 : 0);
     if (this.steamGain > 0 && n) {
@@ -986,6 +1188,19 @@ export class Crowd implements Fixture {
       this.object.add(this.steam.object);
     }
   }
+
+  /* crowd moments */
+  private spots: CrowdSpot[] = [];
+  private infoRole: number[] = [];
+  private where: { chunk: number; j: number; info: THREE.InstancedBufferAttribute }[] = [];
+  private shadowMesh: THREE.InstancedMesh | null = null;
+  private hasCards = false;
+  private circleOn = false;
+  private conga: { idx: number[]; home: THREE.Matrix4[]; s: number; path: THREE.Vector2[]; lens: number[]; total: number } | null = null;
+  private tmpM = new THREE.Matrix4();
+  private tmpQ = new THREE.Quaternion();
+  private tmpV = new THREE.Vector3();
+  private tmpS = new THREE.Vector3();
 
   /** the room's steam (built in the constructor for a big enough crowd) */
   private steam: CrowdSteam | null = null;
@@ -1034,6 +1249,192 @@ export class Crowd implements Fixture {
     }
   }
 
+  /** the genre's dance style, the crowd moments, your moves copied, the cardboard signs (crowdShow) */
+  private moments(dt: number): void {
+    const u = this.u;
+    const cs = crowdShow;
+    u.uStyle.value.set(cs.style[0], cs.style[1], cs.style[2], cs.style[3]);
+    u.uSit.value += (cs.sitK() - u.uSit.value) * Math.min(1, dt * 3);
+    u.uLights.value = cs.momentK('lighters');
+    // up from the sit-down on the drop: everyone jumping together
+    const sj = cs.sitJumpK();
+    if (sj > 0) {
+      this.jump = Math.max(this.jump, sj);
+      u.uJump.value = this.jump;
+      u.uSync.value = Math.max(u.uSync.value, sj);
+    }
+    // your moves, copied
+    const cw = cs.copyWeights();
+    if (cw.hands > 0) u.uCheer.value = Math.max(u.uCheer.value, cw.hands * 0.9);
+    if (cw.clap > 0) u.uClap.value = Math.max(u.uClap.value, cw.clap);
+    if (cw.jump > 0) {
+      u.uJump.value = Math.max(u.uJump.value, cw.jump * 0.8);
+      u.uSync.value = Math.max(u.uSync.value, cw.jump);
+    }
+    u.uCopy.value.set(cw.point, cw.pump, cs.copy?.all ? 1 : 0, 0);
+    u.uWild.value = cs.wild;
+    if (this.hasCards) drawCards();
+    // the dance circle
+    const ck = this.spots.length >= 30 ? cs.momentK('circle') : 0;
+    if (ck > 0 && !this.circleOn) this.circleOn = this.pickCircle();
+    if (ck === 0) this.circleOn = false;
+    u.uCircle.value.w = this.circleOn ? ck : 0;
+    // the conga line
+    const gk = this.spots.length >= 30 ? cs.momentK('conga') : 0;
+    if (gk > 0 && !this.conga) this.startConga();
+    if (this.conga) {
+      if (gk > 0) this.stepConga(dt, gk);
+      else this.endConga();
+    }
+    u.uCongaOn.value = this.conga ? gk : 0;
+  }
+
+  /** the dancers' middle: where the floor's centre is */
+  private dancerCentre(): THREE.Vector2 {
+    const c = new THREE.Vector2();
+    let n = 0;
+    this.spots.forEach((sp, i) => {
+      if (this.infoRole[i] !== 0) return;
+      c.x += sp.x;
+      c.y += sp.z;
+      n++;
+    });
+    return n ? c.divideScalar(n) : c;
+  }
+
+  /** the soloist: the dancer nearest a spot a few metres out from the booth */
+  private pickCircle(): boolean {
+    const b = this.u.uBooth.value;
+    const c = this.dancerCentre();
+    const dir = c.clone().sub(b);
+    const len = dir.length();
+    if (len < 0.5) return false;
+    const want = b.clone().add(dir.multiplyScalar(Math.min(4.5, len * 0.8) / len));
+    let best = -1;
+    let bd = 1e9;
+    this.spots.forEach((sp, i) => {
+      if (this.infoRole[i] !== 0) return;
+      const d = Math.hypot(sp.x - want.x, sp.z - want.y);
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    });
+    if (best < 0) return false;
+    this.u.uCircle.value.set(this.spots[best].x, this.spots[best].z, 2.0, 0);
+    return true;
+  }
+
+  /** ten dancers from near the front set off round the floor, an ellipse round the middle of the crowd */
+  private startConga(): void {
+    const c = this.dancerCentre();
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let z0 = Infinity;
+    let z1 = -Infinity;
+    this.spots.forEach((sp, i) => {
+      if (this.infoRole[i] !== 0) return;
+      x0 = Math.min(x0, sp.x);
+      x1 = Math.max(x1, sp.x);
+      z0 = Math.min(z0, sp.z);
+      z1 = Math.max(z1, sp.z);
+    });
+    const rx = Math.min(6, Math.max(1.5, (x1 - x0) / 2 - 1));
+    const rz = Math.min(4.5, Math.max(1.2, (z1 - z0) / 2 - 1));
+    const path: THREE.Vector2[] = [];
+    for (let k = 0; k <= 72; k++) {
+      const a = (k / 72) * Math.PI * 2;
+      path.push(new THREE.Vector2(c.x + Math.cos(a) * rx, c.y + Math.sin(a) * rz));
+    }
+    const lens = [0];
+    for (let k = 1; k < path.length; k++) lens.push(lens[k - 1] + path[k].distanceTo(path[k - 1]));
+    // the dancers nearest the path's start join first
+    const start = path[0];
+    const idx = this.spots
+      .map((sp, i) => ({ i, d: Math.hypot(sp.x - start.x, sp.z - start.y) }))
+      .filter(({ i }) => this.infoRole[i] === 0)
+      .sort((a, b) => a.d - b.d)
+      .slice(0, CONGA)
+      .map(({ i }) => i);
+    if (idx.length < 4) return;
+    const home = idx.map((i) => {
+      const w = this.where[i];
+      const m = new THREE.Matrix4();
+      this.chunks[w.chunk].mesh.getMatrixAt(w.j, m);
+      return m;
+    });
+    for (const i of idx) this.setRole(i, ROLE_CODE.conga);
+    this.conga = { idx, home, s: 0, path, lens, total: lens[lens.length - 1] };
+  }
+
+  private setRole(i: number, code: number): void {
+    const w = this.where[i];
+    w.info.setX(w.j, code);
+    w.info.needsUpdate = true;
+    const mesh = this.chunks[w.chunk].mesh;
+    // people walk out of their chunk's bounds: never cull a chunk with a conga dancer in it
+    mesh.frustumCulled = code !== ROLE_CODE.conga ? mesh.frustumCulled : false;
+  }
+
+  private pointOn(sAt: number, out: THREE.Vector2): THREE.Vector2 {
+    const g = this.conga!;
+    const t = ((sAt % g.total) + g.total) % g.total;
+    let k = 1;
+    while (k < g.lens.length - 1 && g.lens[k] < t) k++;
+    const f = (t - g.lens[k - 1]) / Math.max(1e-6, g.lens[k] - g.lens[k - 1]);
+    return out.copy(g.path[k - 1]).lerp(g.path[k], f);
+  }
+
+  private stepConga(dt: number, k: number): void {
+    const g = this.conga!;
+    g.s += dt * 0.85;
+    const p = new THREE.Vector2();
+    const ahead = new THREE.Vector2();
+    const yAxis = new THREE.Vector3(0, 1, 0);
+    const touched = new Set<number>();
+    g.idx.forEach((i, n) => {
+      const at = g.s - n * 0.78;
+      this.pointOn(at, p);
+      this.pointOn(at + 0.2, ahead);
+      const face = Math.atan2(ahead.x - p.x, ahead.y - p.y);
+      g.home[n].decompose(this.tmpV, this.tmpQ, this.tmpS);
+      // walk out from where they were dancing, and back at the end
+      const hx = this.tmpV.x;
+      const hz = this.tmpV.z;
+      const x = hx + (p.x - hx) * k;
+      const z = hz + (p.y - hz) * k;
+      const homeFace = new THREE.Euler().setFromQuaternion(this.tmpQ, 'YXZ').y;
+      let dFace = face - homeFace;
+      dFace = ((dFace + Math.PI) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) - Math.PI;
+      this.tmpQ.setFromAxisAngle(yAxis, homeFace + dFace * k);
+      this.tmpV.set(x, this.tmpV.y, z);
+      this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
+      const w = this.where[i];
+      this.chunks[w.chunk].mesh.setMatrixAt(w.j, this.tmpM);
+      touched.add(w.chunk);
+      this.shadowMesh?.setMatrixAt(i, this.tmpM);
+      (this.u.uConga.value[n] as THREE.Vector2).set(x, z);
+    });
+    for (const c of touched) this.chunks[c].mesh.instanceMatrix.needsUpdate = true;
+    if (this.shadowMesh) this.shadowMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  private endConga(): void {
+    const g = this.conga!;
+    g.idx.forEach((i, n) => {
+      const w = this.where[i];
+      const mesh = this.chunks[w.chunk].mesh;
+      mesh.setMatrixAt(w.j, g.home[n]);
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = true;
+      this.shadowMesh?.setMatrixAt(i, g.home[n]);
+      this.setRole(i, this.infoRole[i]);
+      (this.u.uConga.value[n] as THREE.Vector2).set(999, 999);
+    });
+    if (this.shadowMesh) this.shadowMesh.instanceMatrix.needsUpdate = true;
+    this.conga = null;
+  }
+
   /** 0..1: heads go up and some people point (a room doing something overhead) */
   set look(k: number) {
     this.u.uLook.value = k;
@@ -1074,6 +1475,7 @@ export class Crowd implements Fixture {
     u.uSync.value += ((s.playing ? Math.max(0, Math.min(1, (hype - 0.85) / 0.1)) : 0) - u.uSync.value) * Math.min(1, dt * 0.8);
     u.uSignGlow.value = (0.8 + 0.35 * Math.pow(1 - (((s.beat % 1) + 1) % 1), 2)) * (0.6 + 0.4 * s.master);
     u.uPhotos.value = s.photos;
+    this.moments(dt);
     // the rim: the show's colours, harder with the wash and the kick, white in the strobes
     const rim = u.uRim.value;
     rim.copy(s.colors[0]).lerp(s.colors[1], 0.5 + 0.5 * Math.sin(s.t * 0.3)).lerp(RIM_WHITE, 0.25 + s.flash * 0.5);

@@ -35,6 +35,8 @@ export interface ResultsHooks {
   battle?: { name: string; you: number; rival: number } | null;
   /** room moments that matched the drop */
   roomMoments?: number;
+  /** the regulars who moved closer (or drifted) */
+  regulars?: { name: string; style: string; delta: number }[];
   /** today's daily challenge: the objectives, the streak, the result to share */
   daily?: DailyOut | null;
   /** the replay buffer's pictures around the crowd's peak, played behind the headline */
@@ -230,6 +232,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? 'Bonus hit: ' : 'Bonus missed: '), hooks.objective.text, hooks.objective.met ? ' (+25%)' : '') : null,
     hooks.daily ? dailyBlock(hooks.daily) : null,
     hooks.battle ? h('div', { class: `res-objective ${hooks.battle.you > hooks.battle.rival ? 'met' : ''}` }, h('b', {}, `Room Battle vs ${hooks.battle.name}: ${hooks.battle.you > hooks.battle.rival ? 'you won' : hooks.battle.you === hooks.battle.rival ? 'a draw' : 'they won'} ${hooks.battle.you}–${hooks.battle.rival}`), ' · the crowd voted each round') : null,
+    hooks.regulars?.length ? h('div', { class: 'res-objective met' }, h('b', {}, 'Regulars: '), hooks.regulars.map((f) => `${f.name} ${f.delta > 0 ? '♥ +' : '−'}${Math.round(Math.abs(f.delta) * 100)}%`).join(' · '), hooks.regulars.some((f) => f.delta > 0) ? ' · play their music and they move up front' : '') : null,
     hooks.roomMoments ? h('div', { class: 'res-objective met' }, h('b', {}, `Room moments on the drop: ${hooks.roomMoments}`), ` · +${hooks.roomMoments * 250} points`) : null,
     hooks.chemistry ? h('div', { class: `res-objective ${hooks.chemistry.value >= 0.75 ? 'met' : ''}` }, h('b', {}, `Chemistry with ${hooks.chemistry.name}: ${Math.round(hooks.chemistry.value * 100)}%`), hooks.chemistry.unlocked ? ' · their pieces are in your wardrobe' : hooks.chemistry.value >= 0.75 ? '' : ' · 75% unlocks their pieces') : null,
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,

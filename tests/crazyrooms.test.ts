@@ -42,15 +42,15 @@ const MOMENTS: RoomMoment[] = [
 ];
 
 describe('the crazy rooms as venues', () => {
-  it('there are twelve, each a venue with its own id and a challenge to open it', () => {
-    expect(CRAZY_ROOMS).toHaveLength(12);
-    expect(CRAZY_ROOM_IDS).toHaveLength(12);
+  it('there are nineteen, each a venue with its own id and a challenge to open it', () => {
+    expect(CRAZY_ROOMS).toHaveLength(19);
+    expect(CRAZY_ROOM_IDS).toHaveLength(19);
     for (const r of CRAZY_ROOMS) {
       expect(isCrazyRoom(r.id)).toBe(true);
       expect(VENUES.some((v) => v.id === r.id)).toBe(true);
       expect(ROOM_CHALLENGES.some((c) => c.id === r.id)).toBe(true);
     }
-    expect(new Set(CRAZY_ROOM_IDS).size).toBe(12);
+    expect(new Set(CRAZY_ROOM_IDS).size).toBe(19);
     expect(isCrazyRoom('basement')).toBe(false);
   });
 

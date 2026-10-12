@@ -381,6 +381,8 @@ export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): Se
   // the secret rooms this set opens
   const rooms = roomsOpenedBy(s, { tier, setsPlayed, venuesPlayed, unlocked });
   unlocked.push(...rooms.keys);
+  // a set in a crazy room with an outfit unlocks it (the glow tee, the chrome and hologram jackets)
+  if (isCrazyRoom(s.venue) && ['uv', 'mirror', 'hologram'].includes(s.venue)) unlocked.push(`outfit:${s.venue}`);
   const patch: Partial<Progress> = {
     fame,
     cash,

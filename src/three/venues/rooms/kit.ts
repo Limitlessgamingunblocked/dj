@@ -96,6 +96,7 @@ const momentListeners = new Set<(e: RoomMomentEvent) => void>();
 const changeListeners = new Set<() => void>();
 
 const pressListeners = new Set<(id: string, from: 'you' | 'rival') => void>();
+const popListeners = new Set<(label: string, points: number, bad: boolean) => void>();
 
 export const roomShow = {
   /** the crazy room that's up now (null in an ordinary venue) */
@@ -141,6 +142,14 @@ export const roomShow = {
     this.held.add(id);
     for (const fn of pressListeners) fn(id, from);
     return true;
+  },
+  /** a scored moment in the mix (a transition, a drop, a mistake): the arcade's score counter pops */
+  pop(label: string, points: number, bad = false): void {
+    for (const fn of popListeners) fn(label, points, bad);
+  },
+  onPop(fn: (label: string, points: number, bad: boolean) => void): () => void {
+    popListeners.add(fn);
+    return () => popListeners.delete(fn);
   },
   /** hear every press that went through (the Room Battle scores yours) */
   onPress(fn: (id: string, from: 'you' | 'rival') => void): () => void {

@@ -11,6 +11,8 @@ import { LASER_PATTERN_NAMES, LASER_PATTERNS, PALETTES, type ShowControls } from
 import { h, setClass, setText } from './dom';
 import { venueCards } from './VenuePicker';
 import { RoomPanel } from './RoomPanel';
+import { CrowdPanel } from './CrowdPanel';
+import { openRoomEditor } from './RoomEditor';
 import { isCrazyRoom } from '../game/rooms';
 import { hwButton, type Widget } from './widgets';
 
@@ -32,6 +34,8 @@ export class LightsPanel {
   private meter: HTMLElement;
   /** the crazy rooms' own desk */
   private room: RoomPanel;
+  /** your moves, crowd moments, the regulars */
+  private crowd: CrowdPanel;
 
   constructor(
     app: AppContext,
@@ -46,6 +50,7 @@ export class LightsPanel {
       (id) => (isCrazyRoom(id) ? app.roomLock(id) : null),
     );
     this.room = new RoomPanel(reg);
+    this.crowd = new CrowdPanel(reg, { signatureMove: () => app.signatureMove(), setSignatureMove: (id) => app.setSignatureMove(id), regulars: () => app.regulars() });
     app.events.on('venue', () => this.cards.refresh());
 
     const toggle = (label: string, title: string, get: () => boolean, set: (v: boolean) => void) => {
@@ -137,13 +142,15 @@ export class LightsPanel {
           k.hidden = !k.textContent;
         }
     });
+    const buildBtn = h('button', { class: 'btn ghost build-room', type: 'button', title: 'Build your own crazy room from parts and save it as a venue' }, 'Build a room…');
+    buildBtn.addEventListener('click', () => openRoomEditor({ venueId: () => app.venueId(), setVenue: (id) => app.setVenue(id), changed: () => this.cards.refresh() }));
     this.status = h('div', { class: 'show-status mono' });
     this.meter = h('div', { class: 'show-meter' }, ...Array.from({ length: 16 }, () => h('i')));
 
     this.el = h(
       'div',
       { class: 'pane lights-pane' },
-      h('div', { class: 'lights-col' }, h('h3', {}, 'Venue'), this.cards.el),
+      h('div', { class: 'lights-col' }, h('h3', {}, 'Venue'), buildBtn, this.cards.el),
       this.room.el,
       h(
         'div',
@@ -160,6 +167,7 @@ export class LightsPanel {
         h('div', { class: 'toggle-row sliders' }, slider('light-int', 'Intensity', 0.2, 1.5, () => c.intensity, (v) => (c.intensity = v)), slider('light-smoke', 'Haze', 0, 1, () => c.smoke, (v) => (c.smoke = v))),
         h('div', { class: 'show-live' }, this.meter, this.status),
       ),
+      this.crowd.el,
     );
   }
 
@@ -180,6 +188,7 @@ export class LightsPanel {
     for (const [id, b] of this.patBtns) setClass(b, 'active', id === c.laserPattern);
     for (const w of this.widgets) w.update();
     this.room.update();
+    this.crowd.update();
     const phase = !s.playing ? 'Idle' : s.peak > 0.5 ? 'Peak' : s.build > 0.35 ? 'Build-up' : 'Groove';
     setText(this.status, `${phase} · bar ${s.bar + 1} · movers ${['sweep', 'fan', 'alternate', 'circles', 'ballyhoo', 'focus'][s.moverPattern] ?? ''} · lasers ${s.lasers > 0.05 ? LASER_PATTERN_NAMES[s.laserPattern] : 'off'}`);
     const cells = this.meter.children;

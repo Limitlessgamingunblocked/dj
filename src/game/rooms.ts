@@ -28,6 +28,13 @@ export const ROOM_CHALLENGES: RoomChallenge[] = [
   { id: 'soundwave', name: 'Sound Wave Room', text: 'Keep the average vibe over 70% for a whole set', done: (s) => s.full && s.average >= 0.7 },
   { id: 'upsidedown', name: 'Upside-Down Room', text: 'Get called back for an encore', done: (s) => s.encore },
   { id: 'hologram', name: 'Hologram Room', text: 'Play in 5 different venues', done: (_s, p) => p.venuesPlayed.length >= 5 },
+  { id: 'lava', name: 'Lava Lamp Room', text: 'Play a set at the Rooftop Bar', done: (s) => s.venue === 'rooftop' },
+  { id: 'arcade', name: 'Arcade Room', text: 'Hold the room at 100% for a full minute', done: (s) => s.fullMinute },
+  { id: 'vinyl', name: 'Vinyl Floor', text: 'Mix in key 4 times in one set', done: (s) => s.keyMixes >= 4 },
+  { id: 'aquarium', name: 'Aquarium', text: 'Play the Boat Party', done: (s) => s.venue === 'boat' },
+  { id: 'speaker', name: 'Inside a Speaker', text: 'Land 8 drops in one set', done: (s) => s.drops >= 8 },
+  { id: 'zerog', name: 'Zero Gravity', text: 'Play a set at the Main-Stage Festival', done: (s) => s.venue === 'festival' },
+  { id: 'cloud', name: 'Cloud Room', text: 'Play the Sunrise closing set', done: (s) => s.venue === 'sunrise' },
 ];
 
 export const CRAZY_ROOM_IDS = ROOM_CHALLENGES.map((c) => c.id);

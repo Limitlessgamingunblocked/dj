@@ -35,6 +35,17 @@ import { fabricCanvas, irisCanvas, meshAlphaCanvas, skinCanvas, skinTone, toText
 
 export type BoneName = 'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'shoulder_l' | 'upper_arm_l' | 'forearm_l' | 'hand_l' | 'shoulder_r' | 'upper_arm_r' | 'forearm_r' | 'hand_r' | 'thigh_l' | 'shin_l' | 'foot_l' | 'thigh_r' | 'shin_r' | 'foot_r';
 
+/** moves from the pads (DJ moves): each plays for a few beats, then you're back on the decks */
+export type DjMove = 'hands_up' | 'jump' | 'point' | 'clap' | 'fist_pump' | 'climb';
+export const DJ_MOVES: { id: DjMove; label: string; beats: number }[] = [
+  { id: 'hands_up', label: 'Hands up', beats: 8 },
+  { id: 'jump', label: 'Jump', beats: 4 },
+  { id: 'point', label: 'Point', beats: 4 },
+  { id: 'clap', label: 'Clap', beats: 8 },
+  { id: 'fist_pump', label: 'Fist pump', beats: 8 },
+  { id: 'climb', label: 'On the booth', beats: 16 },
+];
+
 /** what the avatar reads each frame (a subset of the show state) */
 export interface AvatarInput {
   beat: number;
@@ -177,7 +188,7 @@ export class Avatar {
   private body = new THREE.Group();
   private owned: { dispose(): void }[] = [];
   private skinMats: THREE.MeshPhysicalMaterial[] = [];
-  private glowMats: { mat: THREE.MeshStandardMaterial; k: number }[] = [];
+  private glowMats: { mat: THREE.MeshStandardMaterial; k: number; base?: number }[] = [];
   /** things that swing: hair (moved by the head), clothes (moved by the body) */
   private springs: { obj: THREE.Object3D; ox: number; oz: number; vx: number; vz: number; k: number; body?: boolean; rest?: THREE.Euler }[] = [];
   private lids: THREE.Object3D[] = [];
@@ -197,6 +208,8 @@ export class Avatar {
   private faceRig: { brows: THREE.Object3D[]; lower: THREE.Object3D | null; lowerY: number; eyes: THREE.Object3D[] } = { brows: [], lower: null, lowerY: 0, eyes: [] };
   /** listening in the headphones (a channel cued): the cup to the ear */
   cueing = false;
+  /** a move from the pads, playing now */
+  private perf: { id: DjMove; t: number; len: number } | null = null;
   private cueW = 0;
   private pressW = 0;
   private lastChest = new THREE.Vector3();
@@ -209,6 +222,17 @@ export class Avatar {
     this.djName = o.djName ?? '';
     this.object.add(this.body);
     this.build();
+  }
+
+  /** play a DJ move (hands up, jump, point, clap, fist pump, up on the booth) */
+  perform(id: DjMove): void {
+    const m = DJ_MOVES.find((x) => x.id === id);
+    if (m) this.perf = { id, t: 0, len: m.beats * (60 / 124) };
+  }
+
+  /** the move playing now, if any */
+  get performing(): DjMove | null {
+    return this.perf?.id ?? null;
   }
 
   setLook(look: Look, djName = this.djName): void {
@@ -985,14 +1009,32 @@ export class Avatar {
         m.sheenRoughness = 0.55;
         m.sheenColor = new THREE.Color(zones[1]);
         break;
+      case 'chrome':
+        // a mirror finish: the room's lights slide across it
+        m.metalness = 1;
+        m.roughness = 0.1;
+        m.envMapIntensity = 0.85;
+        m.color.setScalar(0.86);
+        break;
+      case 'hologram':
+        m.metalness = 0.3;
+        m.roughness = 0.22;
+        m.iridescence = 1;
+        m.iridescenceIOR = 1.8;
+        m.transparent = true;
+        m.opacity = 0.82;
+        break;
+      case 'glow':
+        m.roughness = 0.8;
+        break;
       default:
         break;
     }
-    // under blacklight, light and bright fabric glows
+    // under blacklight, light and bright fabric glows (glow paint the most; the hologram glows by itself)
     m.emissiveMap = map;
-    m.emissive.set(0xffffff);
+    m.emissive.set(material === 'hologram' ? 0x7fefff : 0xffffff);
     m.emissiveIntensity = 0;
-    this.glowMats.push({ mat: m, k: 0.35 });
+    this.glowMats.push({ mat: m, k: material === 'glow' ? 2.6 : 0.35, base: material === 'glow' ? 0.06 : material === 'hologram' ? 0.32 : 0 });
     return m;
   }
 
@@ -1591,6 +1633,54 @@ export class Avatar {
         }
       }
     }
+    // a move from the pads takes over the arms (and the legs, for a jump or the climb)
+    const perf = this.perf;
+    let performing = false;
+    if (perf) {
+      perf.t += dt;
+      if (perf.t >= perf.len) this.perf = null;
+      else {
+        performing = true;
+        dropping = false;
+        const pump = hit;
+        const sway = Math.sin(beat * Math.PI);
+        if (perf.id === 'hands_up') {
+          setArm('l', -0.35, 2.55 + 0.18 * sway, -0.3);
+          setArm('r', -0.35, 2.55 - 0.18 * sway, -0.3);
+          b.neck.rotation.x = -0.15;
+        } else if (perf.id === 'jump') {
+          this.body.position.y = Math.max(0, Math.sin(ph * Math.PI)) * 0.2;
+          for (const side of ['l', 'r'] as const) {
+            b[`thigh_${side}`].rotation.x = -0.35 * hit;
+            b[`shin_${side}`].rotation.x = 0.7 * hit;
+          }
+          setArm('l', -0.3, 2.5, -0.35);
+          setArm('r', -0.3, 2.5, -0.35);
+        } else if (perf.id === 'point') {
+          // out over the decks at the crowd, a jab on each beat, sweeping across the room
+          setArm('r', -1.55 - pump * 0.12, 0.2 + 0.35 * Math.sin(beat * Math.PI * 0.25), -0.05);
+          setArm('l', -0.6, 0.3, -1.2);
+          b.spine.rotation.y = 0.2 * Math.sin(beat * Math.PI * 0.25);
+          b.neck.rotation.x = -0.05;
+        } else if (perf.id === 'clap') {
+          const open = 1 - Math.pow(1 - ph, 6);
+          setArm('l', -0.3, 2.45 - 0.45 * (1 - open), -0.35, 0);
+          setArm('r', -0.3, 2.45 - 0.45 * (1 - open), -0.35, 0);
+        } else if (perf.id === 'fist_pump') {
+          setArm('r', -2.1 - pump * 0.6, 0.35, -1.0 + pump * 0.6);
+          setArm('l', -0.85, 0.32, -0.75);
+        } else if (perf.id === 'climb') {
+          // up onto the front of the booth, arms up to the room, and back down
+          const k = smooth(0, 0.7, perf.t) * (1 - smooth(perf.len - 0.7, perf.len, perf.t));
+          this.body.position.y = 0.92 * k + Math.max(0, Math.sin(ph * Math.PI)) * 0.05 * k;
+          this.body.position.z = 0.32 * k;
+          setArm('l', -0.3 * k, 2.6 * k + 0.32 * (1 - k) + 0.2 * sway * k, -0.3 - 0.45 * (1 - k));
+          setArm('r', -0.3 * k, 2.6 * k + 0.32 * (1 - k) - 0.2 * sway * k, -0.3 - 0.45 * (1 - k));
+          b.neck.rotation.x = 0.32 - 0.45 * k;
+          b.spine.rotation.x = 0.12 * (1 - k);
+        }
+      }
+    }
     if (!dropping && this.headphones && this.headphonesHome && this.headphones.parent !== this.headphonesHome.parent) {
       this.headphonesHome.parent.add(this.headphones);
       this.headphones.position.copy(this.headphonesHome.pos);
@@ -1599,7 +1689,7 @@ export class Avatar {
 
     // the between-mix habit: two bars every 32, away from the drop and the peak
     const bar = Math.floor(beat / 4);
-    const habitOn = s.playing && !dropping && s.peak < 0.4 && bar % 32 >= 28 && bar % 32 < 30;
+    const habitOn = s.playing && !dropping && !performing && s.peak < 0.4 && bar % 32 >= 28 && bar % 32 < 30;
     const habit = option(l, 'between_habit');
     if (habitOn) {
       const t = ((beat / 8) % 1 + 1) % 1;
@@ -1616,7 +1706,7 @@ export class Avatar {
       this.habitAt = bar;
     } else if (this.prop) this.holdProp(null);
 
-    if (dj) {
+    if (dj && !performing) {
       this.cueGesture(beat, dt);
       this.applyReach(dt);
     }
@@ -1630,7 +1720,11 @@ export class Avatar {
       if (move === 'fist_pump' && side === 'r') want = 1.5;
       if (move === 'point' && side === 'r') want = 1.25;
       if (habitOn && side === 'r' && habit === 'sip') want = 1.1;
-      if (gripping(side)) want = 0.88;
+      if (gripping(side) && !performing) want = 0.88;
+      if (performing) {
+        const id = this.perf?.id;
+        want = id === 'fist_pump' && side === 'r' ? 1.5 : id === 'point' && side === 'r' ? 1.25 : id === 'point' || id === 'fist_pump' ? want : 0.12;
+      }
       this.curlHand(side, want, dt);
     }
 
@@ -1801,6 +1895,6 @@ export class Avatar {
       m.roughness = 0.62 - this.sweat * 0.35;
       m.clearcoat = this.sweat * 0.55;
     }
-    for (const g of this.glowMats) g.mat.emissiveIntensity = this.uv * g.k;
+    for (const g of this.glowMats) g.mat.emissiveIntensity = (g.base ?? 0) + this.uv * g.k;
   }
 }

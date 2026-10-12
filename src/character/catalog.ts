@@ -93,7 +93,7 @@ export const FACE_SHAPE_BASE: Record<FaceShape, Record<string, number>> = {
   long: { forehead_height: 0.4, chin_length: 0.5, cheek_fullness: -0.3, jaw_width: -0.2 },
 };
 
-export type Unlock = 'start' | 'basement' | 'rooftop' | 'warehouse' | 'beach' | 'boat' | 'festival' | 'sunrise' | `milestone:${string}` | `rival:${string}` | `set:${number}`;
+export type Unlock = 'start' | 'basement' | 'rooftop' | 'warehouse' | 'beach' | 'boat' | 'festival' | 'sunrise' | `milestone:${string}` | `rival:${string}` | `set:${number}` | `outfit:${string}`;
 
 export interface HairDef {
   id: string;
@@ -218,7 +218,7 @@ export const SLOTS = ['head', 'eyewear', 'headphones', 'neck', 'top', 'outer', '
 export type Slot = (typeof SLOTS)[number];
 export const SLOT_LABEL: Record<Slot, string> = { head: 'Head', eyewear: 'Eyewear', headphones: 'Headphones', neck: 'Neck', top: 'Top', outer: 'Outer layer', wrists: 'Wrists & hands', bottom: 'Bottom', socks: 'Socks', shoes: 'Shoes', bag: 'Bag & extra' };
 
-export const MATERIALS = ['cotton', 'satin', 'mesh', 'denim', 'leather', 'sequin', 'reflective', 'holographic', 'velvet'] as const;
+export const MATERIALS = ['cotton', 'satin', 'mesh', 'denim', 'leather', 'sequin', 'reflective', 'holographic', 'velvet', 'glow', 'chrome', 'hologram'] as const;
 export type Material = (typeof MATERIALS)[number];
 export const PATTERNS = ['solid', 'tie_dye', 'checkerboard', 'floral', 'camo', 'smiley', 'stripes', 'flyer'] as const;
 export type Pattern = (typeof PATTERNS)[number];
@@ -277,6 +277,7 @@ export const ITEMS: ItemDef[] = [
   it('tee_band', 'top', 'Faded band-style tee', 'start', ['underground', 'dark'], ['#2a2a2c', '#8a8580', '#c9ced6']),
   it('tee_plain', 'top', 'Plain tee', 'start', ['cozy'], ['#f4f4f2', '#d9d6cf', '#111111']),
   it('tee_smiley', 'top', 'Yellow smiley tee', 'milestone:acid', ['acid', 'bright'], ['#ffd400', '#111111', '#ffffff'], 'cotton', 'smiley'),
+  it('tee_glow', 'top', 'Glow-paint tee', 'outfit:uv', ['acid', 'bright'], ['#f4f4f2', '#b6ff3b', '#ff2e88'], 'glow', 'tie_dye'),
   it('shirt_linen', 'top', 'Open linen shirt', 'beach', ['linen', 'holiday'], ['#efe9dc', '#d9cdb4', '#c9a24a']),
   it('shirt_floral', 'top', 'Loud floral shirt', 'sunrise', ['bright', 'holiday'], ['#ff7a3c', '#ffd400', '#2e9e6b'], 'satin', 'floral'),
   it('shirt_white', 'top', 'White shirt', 'boat', ['nautical', 'smart'], ['#f7f7f5', '#14213d', '#d4a64a']),
@@ -304,6 +305,9 @@ export const ITEMS: ItemDef[] = [
   it('jacket_volt', 'outer', 'Holographic jacket (KIKI VOLT)', 'rival:kiki_volt', ['future', 'bold'], ['#c9ced6', '#ff4fb0', '#3ad7ff'], 'holographic'),
   it('track_dutch', 'outer', 'Bouncy track top (DOUBLE DUTCH)', 'rival:double_dutch', ['sporty', 'bold'], ['#ff5a2a', '#ffb547', '#f4efe2'], 'satin', 'stripes'),
   it('coat_nox', 'outer', 'Black velvet coat (NOX)', 'rival:nox', ['dark'], ['#0b0b0c', '#1a1a1e', '#9d8cff'], 'velvet'),
+  // the crazy rooms' outfits: play a set in the room to unlock its piece
+  it('jacket_chrome', 'outer', 'Mirror chrome jacket', 'outfit:mirror', ['future', 'bold'], ['#e8ecf2', '#9aa4b4', '#ffffff'], 'chrome'),
+  it('jacket_hologram', 'outer', 'Hologram jacket', 'outfit:hologram', ['future'], ['#5fe8ff', '#2a8cff', '#ffffff'], 'hologram'),
   // wrists & hands
   it('watch_gold', 'wrists', 'Gold watch', 'beach', ['glam', 'holiday'], ['#d4a64a', '#111111', '#ffffff'], 'reflective'),
   it('watch_digital', 'wrists', 'Digital watch', 'set:4', ['sporty'], ['#111111', '#b6ff3b', '#c9ced6']),

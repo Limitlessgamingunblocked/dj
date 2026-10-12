@@ -5,6 +5,11 @@ import { openModal } from './modal';
 
 const thumbs = new Map<string, string>();
 
+/** drop a cached picture (a room you've just rebuilt) */
+export function forgetThumb(id: string): void {
+  thumbs.delete(id);
+}
+
 export function venueThumb(v: VenueDef): string {
   const hit = thumbs.get(v.id);
   if (hit) return hit;

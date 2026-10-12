@@ -30,6 +30,11 @@ export interface AppContext {
   setVenue(id: string): void;
   /** why a crazy room is still locked (its unlock challenge), or null when it's open */
   roomLock(id: string): string | null;
+  /** your signature drop move (the look's), and changing it */
+  signatureMove(): string;
+  setSignatureMove(id: string): void;
+  /** the regulars and how much they like you */
+  regulars(): { name: string; style: string; color: string; loyalty: number; front: boolean; here: boolean }[];
   /** the next-track coach: picks for what to play next, in every mode */
   nextUp: NextUp;
 }

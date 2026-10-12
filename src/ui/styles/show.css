@@ -516,3 +516,124 @@
 .room-col select {
   max-width: 100%;
 }
+
+/* the Crowd column: DJ moves, crowd moments, regulars */
+.crowd-col {
+  grid-column: 1 / -1;
+}
+
+.crowd-pads {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.hw.light-pad.move-pad {
+  --pad: #ffd23f;
+}
+
+.crowd-moments .btn.active {
+  border-color: var(--accent);
+}
+
+.crowd-style {
+  color: var(--text);
+}
+
+.crowd-fans {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.crowd-fan {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--fan) 45%, var(--line));
+  border-left: 4px solid var(--fan);
+  border-radius: 6px;
+  background: #0a0e14;
+}
+
+.crowd-fan.away {
+  opacity: 0.55;
+}
+
+.crowd-fan .fan-style {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  justify-self: end;
+}
+
+.crowd-fan .fan-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: #1b2330;
+  overflow: hidden;
+}
+
+.crowd-fan .fan-bar i {
+  display: block;
+  height: 100%;
+  background: var(--fan);
+}
+
+.crowd-fan .fan-tag {
+  grid-column: 1 / -1;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fan);
+}
+
+@media (max-width: 700px) {
+  .crowd-pads {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* the Room editor */
+.build-room {
+  justify-self: start;
+}
+
+.room-list {
+  display: grid;
+  gap: 6px;
+}
+
+.room-list-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--rc);
+  border-radius: 6px;
+}
+
+.room-editor input[type='color'] {
+  width: 48px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+}
+
+@media (max-width: 700px) {
+  .room-list-item {
+    grid-template-columns: 1fr auto auto auto;
+  }
+
+  .room-list-item .note {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
