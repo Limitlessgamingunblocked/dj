@@ -11,6 +11,7 @@ import { SLOTS, TRANSITION_LABEL } from '../game/vibe';
 import { h } from './dom';
 import { openModal } from './modal';
 import { toast } from './toast';
+import { uiSound } from '../audio/uisound';
 import type { DailyOut } from '../app/gigs';
 
 export interface ResultsHooks {
@@ -32,7 +33,14 @@ export interface ResultsHooks {
   chemistry?: { name: string; value: number; unlocked: boolean } | null;
   /** today's daily challenge: the objectives, the streak, the result to share */
   daily?: DailyOut | null;
+  /** the replay buffer's pictures around the crowd's peak, played behind the headline */
+  peakStills?: Blob[];
 }
+
+/** when the grade lands (ms after the screen opens): the stamp's sound and the numbers start here */
+const STAMP_AT = 420;
+/** how long each picture of the peak holds before the next fades in (ms) */
+const STILL_HOLD = 1300;
 
 const NEW_KIND: Record<string, string> = { venue: 'Venue', item: 'Wardrobe', set: 'Outfit', hair: 'Hair', title: 'Title', reputation: 'Reputation', story: 'Story' };
 
@@ -136,15 +144,46 @@ function dailyBlock(d: DailyOut): HTMLElement {
   );
 }
 
-/** a number counting up to its value */
-function countUp(el: HTMLElement, to: number, prefix = ''): void {
+/** a number counting up to its value (ticking as it goes, if asked) */
+function countUp(el: HTMLElement, to: number, prefix = '', tick = false): void {
   const t0 = performance.now();
+  let shown = -1;
   const step = () => {
     const k = Math.min(1, (performance.now() - t0) / 1200);
-    el.textContent = `${prefix}${Math.round(to * (1 - Math.pow(1 - k, 3))).toLocaleString()}`;
+    const v = Math.round(to * (1 - Math.pow(1 - k, 3)));
+    if (v !== shown) {
+      shown = v;
+      el.textContent = `${prefix}${v.toLocaleString()}`;
+      if (tick && v > 0) uiSound('tick');
+    }
     if (k < 1) requestAnimationFrame(step);
   };
   step();
+}
+
+/**
+ * The crowd's peak again, behind the headline: the replay buffer's pictures
+ * from around it, each slowly pushing in and fading into the next, on a loop.
+ * Returns a function that stops it and frees the pictures.
+ */
+function peakReel(host: HTMLElement, stills: Blob[], label: string): () => void {
+  const urls = stills.map((b) => URL.createObjectURL(b));
+  const reel = h('div', { class: 'res-reel', 'aria-hidden': 'true' });
+  const imgs = urls.map((u) => h('img', { src: u, alt: '' }) as HTMLImageElement);
+  reel.append(...imgs, h('span', { class: 'res-reel-label' }, label));
+  host.prepend(reel);
+  host.classList.add('has-reel');
+  let i = 0;
+  const show = () => {
+    imgs.forEach((im, j) => im.classList.toggle('on', j === i));
+    i = (i + 1) % imgs.length;
+  };
+  show();
+  const timer = imgs.length > 1 ? window.setInterval(show, STILL_HOLD) : 0;
+  return () => {
+    clearInterval(timer);
+    urls.forEach((u) => URL.revokeObjectURL(u));
+  };
 }
 
 export function showResults(r: GigResults, venueName: string, hooks: ResultsHooks): void {
@@ -156,24 +195,25 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
   const replay = h('button', { class: 'btn', type: 'button', disabled: !hooks.replay || !best, title: hooks.replay ? 'Watch it again in the trim editor (saves the replay buffer to My Sets)' : 'The replay buffer is off' }, 'Replay') as HTMLButtonElement;
   const save = h('button', { class: 'btn', type: 'button', disabled: !hooks.saveHighlights, title: hooks.saveHighlights ? 'Save the replay buffer (the last few minutes of the set) to My Sets' : 'The replay buffer is off: turn it on in the recording settings' }, 'Save highlights') as HTMLButtonElement;
   const news = r.outcome.unlocked.filter((n) => n.kind !== 'tier');
+  const top = h(
+    'div',
+    { class: 'res-top' },
+    h('div', { class: `res-grade g-${r.grade}`, 'aria-label': `Grade ${r.grade}` }, r.grade),
+    h(
+      'div',
+      { class: 'res-head' },
+      h('span', { class: 'res-kicker' }, `${venueName} · ${SLOTS[r.config.slot].label} · ${r.config.minutes} min${r.encore ? ' · encore' : ''}`),
+      h('h2', { class: 'res-dj' }, hooks.dj),
+      h('p', { class: 'res-promoter' }, h('b', {}, 'Promoter: '), promoterLine(r)),
+      h('div', { class: 'res-nums' }, stat('Average vibe', `${Math.round(r.average * 100)}%`), stat('Score', r.score.toLocaleString(), r.score !== r.points ? `${r.points.toLocaleString()} × assist` : undefined), stat('Transitions', String(r.transitions)), stat('Best streak', r.bestStreak >= 2 ? `${r.bestStreak}` : '—', r.streakBonus ? `+${r.streakBonus.toLocaleString()}` : undefined), stat('Requests', r.requests.asked ? `${r.requests.met}/${r.requests.asked}` : '—'), stat('Mistakes', String(r.mistakes))),
+    ),
+  );
   const again = h('button', { class: 'btn', type: 'button' }, 'Play again');
   const studio = h('button', { class: 'btn primary', type: 'button' }, 'Back to the decks');
   const content = h(
     'div',
     { class: 'results' },
-    h(
-      'div',
-      { class: 'res-top' },
-      h('div', { class: `res-grade g-${r.grade}`, 'aria-label': `Grade ${r.grade}` }, r.grade),
-      h(
-        'div',
-        { class: 'res-head' },
-        h('span', { class: 'res-kicker' }, `${venueName} · ${SLOTS[r.config.slot].label} · ${r.config.minutes} min${r.encore ? ' · encore' : ''}`),
-        h('h2', { class: 'res-dj' }, hooks.dj),
-        h('p', { class: 'res-promoter' }, h('b', {}, 'Promoter: '), promoterLine(r)),
-        h('div', { class: 'res-nums' }, stat('Average vibe', `${Math.round(r.average * 100)}%`), stat('Score', r.score.toLocaleString(), r.score !== r.points ? `${r.points.toLocaleString()} × assist` : undefined), stat('Transitions', String(r.transitions)), stat('Best streak', r.bestStreak >= 2 ? `${r.bestStreak}` : '—', r.streakBonus ? `+${r.streakBonus.toLocaleString()}` : undefined), stat('Requests', r.requests.asked ? `${r.requests.met}/${r.requests.asked}` : '—'), stat('Mistakes', String(r.mistakes))),
-      ),
-    ),
+    top,
     graph(r),
     h('div', { class: 'res-legend' }, h('i', { class: 'l-vibe' }), 'Vibe', h('i', { class: 'l-energy' }), 'Your energy', h('i', { class: 'l-target' }), `What a ${SLOTS[r.config.slot].label.toLowerCase()} wants`),
     h(
@@ -192,8 +232,12 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     h('div', { class: 'res-actions' }, save, again, studio),
   );
   const modal = openModal('Set complete', content, { wide: true });
+  const stopReel = hooks.peakStills?.length ? peakReel(top, hooks.peakStills, `Crowd peak · ${mmss(r.peak.t)}`) : null;
+  const timers: number[] = [];
   const close = modal.close;
   modal.close = () => {
+    timers.forEach((t) => clearTimeout(t));
+    stopReel?.();
     close();
     hooks.closed?.();
   };
@@ -209,9 +253,16 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     hooks.replay?.(TRANSITION_LABEL[best.name]);
     modal.close();
   });
-  countUp(fame, r.rewards.fame, '+');
-  countUp(cash, r.rewards.cash, '+$');
-  countUp(fol, r.rewards.followers, '+');
+  // the grade stamps down, then the earnings count up, then anything new chimes in
+  timers.push(window.setTimeout(() => uiSound('stamp'), STAMP_AT));
+  timers.push(
+    window.setTimeout(() => {
+      countUp(fame, r.rewards.fame, '+', true);
+      countUp(cash, r.rewards.cash, '+$');
+      countUp(fol, r.rewards.followers, '+');
+    }, STAMP_AT + 200),
+  );
+  if (news.length || r.tierUp) timers.push(window.setTimeout(() => uiSound('unlock'), STAMP_AT + 1600));
   again.addEventListener('click', () => {
     modal.close();
     hooks.again();

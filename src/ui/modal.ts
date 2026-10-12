@@ -1,5 +1,6 @@
 import { h } from './dom';
 import { icon } from './icons';
+import { uiSound } from '../audio/uisound';
 
 export interface ModalHandle {
   close(): void;
@@ -20,6 +21,7 @@ export function openModal(title: string, content: HTMLElement | ((m: ModalHandle
   const handle: ModalHandle = {
     body,
     close: () => {
+      if (back.isConnected) uiSound('close');
       back.remove();
       document.removeEventListener('keydown', onKey, true);
       if (!document.querySelector('.modal-back')) document.body.classList.remove('modal-open');
@@ -40,6 +42,7 @@ export function openModal(title: string, content: HTMLElement | ((m: ModalHandle
   body.append(typeof content === 'function' ? content(handle) : content);
   document.body.append(back);
   document.body.classList.add('modal-open');
+  uiSound('open');
   box.focus({ preventScroll: true });
   return handle;
 }

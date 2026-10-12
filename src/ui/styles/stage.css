@@ -501,9 +501,91 @@
   14%, 72% { opacity: 1; transform: none; }
   100% { opacity: 0; transform: translateY(-6px); }
 }
+.arrival-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* a gig's flyer, pinned beside the venue's name */
+.arrival-card.with-flyer {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: clamp(10px, 1.6vw, 18px);
+}
+.arrival-card .arrival-flyer {
+  width: clamp(66px, 9vw, 124px);
+  height: auto;
+  border-radius: 3px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transform: rotate(-4deg);
+  transform-origin: 20% 100%;
+  animation: arrival-flyer 5s var(--ease) both;
+}
+@keyframes arrival-flyer {
+  0% { opacity: 0; transform: translateY(28px) rotate(-11deg) scale(0.94); }
+  16%, 74% { opacity: 1; transform: rotate(-4deg); }
+  100% { opacity: 0; transform: translateY(-10px) rotate(-3deg); }
+}
 @media (prefers-reduced-motion: reduce) {
   .arrival-card { animation-name: arrival-card-fade; }
+  .arrival-card .arrival-flyer { animation: none; }
   @keyframes arrival-card-fade { 0%, 100% { opacity: 0; } 15%, 75% { opacity: 1; } }
+}
+
+/* broadcast mode: the stage alone, full window; track names and the walk in stay */
+.app.broadcast .topbar,
+.app.broadcast .wavestrip,
+.app.broadcast .deck-panel,
+.app.broadcast .dock,
+.app.broadcast .dock-resize {
+  display: none !important;
+}
+.app.broadcast .main > .stage {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+}
+.app.broadcast .stage > :not(canvas):not(.now-playing):not(.arrival-card):not(.broadcast-hint):not(.broadcast-exit) {
+  visibility: hidden;
+}
+.app.broadcast.broadcast-still,
+.app.broadcast.broadcast-still * {
+  cursor: none !important;
+}
+.broadcast-hint {
+  position: absolute;
+  top: clamp(12px, 3vh, 28px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(8, 10, 14, 0.72);
+  color: var(--text);
+  font: 600 var(--text-xs) / 1.2 var(--font-body);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 6;
+  animation: broadcast-hint 3.2s var(--ease) both;
+}
+@keyframes broadcast-hint {
+  0% { opacity: 0; transform: translateY(-6px); }
+  12%, 78% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+.broadcast-exit {
+  position: absolute;
+  top: clamp(12px, 3vh, 28px);
+  right: clamp(12px, 3vw, 28px);
+  z-index: 6;
+  background: rgba(8, 10, 14, 0.72);
+  transition: opacity 0.3s var(--ease);
+}
+.app.broadcast-still .broadcast-exit {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* the title screen: the stage alone, full screen, the name in 3D over it */

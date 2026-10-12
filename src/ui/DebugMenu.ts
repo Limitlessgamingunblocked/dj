@@ -2,13 +2,15 @@
  * The debug menu (Section 16.6): Ctrl+Shift+D, or open the page with ?debug.
  * Jump to any venue, set the fame tier and the currencies, unlock everything,
  * change the crowd size, fire a drop or any show effect, and watch the beat
- * clock, its events and the master redline live. Everything it changes goes
+ * clock, its events, the master redline and the stutter log (frames that
+ * came late, and what they were busy with) live. Everything it changes goes
  * through the same systems the game uses (Career saves, prefs, the show).
  */
 import type { BeatClock } from '../core/BeatClock';
 import { MAX_TIER } from '../core/models';
 import type { Career } from '../game/Career';
 import { h, setText } from './dom';
+import { STUTTER_MS, stutterLine, stutters } from '../core/stutter';
 import { icon } from './icons';
 
 export interface DebugHost {
@@ -90,6 +92,13 @@ export class DebugMenu {
       if (confirm('Erase the career (name, progress, looks, boards, recordings list)? Settings and the music library stay.')) host.career.erase();
     });
     const close = h('button', { class: 'btn icon', type: 'button', 'aria-label': 'Close the debug menu', onclick: () => this.toggle(false) }, icon('close', 16));
+    // frames that came late, newest first, with what the frame before spent its time on
+    const hitches = h('pre', { class: 'dbg-log mono' }, 'None yet.');
+    const showHitches = () => setText(hitches, stutters.items.length ? stutters.items.slice(0, 10).map(stutterLine).join('\n') : 'None yet.');
+    stutters.onChange(showHitches);
+    const copyHitches = h('button', { class: 'btn', type: 'button' }, 'Copy');
+    copyHitches.addEventListener('click', () => void navigator.clipboard?.writeText(stutters.items.map(stutterLine).join('\n')).catch(() => undefined));
+    const clearHitches = h('button', { class: 'btn', type: 'button', onclick: () => stutters.clear() }, 'Clear');
 
     this.el = h(
       'aside',
@@ -101,6 +110,7 @@ export class DebugMenu {
       h('section', {}, h('h4', {}, 'Crowd'), h('div', { class: 'row' }, crowd, crowdOut)),
       h('section', {}, h('h4', {}, 'Fire'), h('div', { class: 'row wrap' }, fire('drop', 'Drop'), fire('confetti', 'Confetti'), fire('co2', 'CO2'), fire('pyro', 'Pyro'), fire('strobe', 'Strobe'))),
       h('section', {}, h('h4', {}, 'Master redline'), this.redBar),
+      h('section', {}, h('h4', {}, `Stutters (frames over ${STUTTER_MS} ms)`), hitches, h('div', { class: 'row' }, copyHitches, clearHitches)),
       h('section', {}, h('h4', {}, 'Saves'), h('p', { class: 'dim' }, host.career.problems.join(' ') || 'Profile and progress loaded.'), erase),
     );
     host.career.changed.on('progress', () => this.sync());

@@ -409,3 +409,63 @@
   border: 1px solid var(--line-2);
   flex: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* the interface moves with the music (Settings → Appearance, on by    */
+/* default; TopBar sets --beat each frame, never with reduced motion)  */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --beat: 0;
+}
+
+:root.beat-ui .topbar {
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--venue) calc(45% + 55% * var(--beat)), transparent), transparent) bottom / 100% 2px no-repeat,
+    radial-gradient(120% 180% at 50% 0%, color-mix(in srgb, var(--venue) calc(8% + 7% * var(--beat)), transparent), transparent 60%),
+    linear-gradient(180deg, #0f141b, #0b0f14);
+}
+
+:root.beat-ui .tab.active {
+  text-shadow: 0 0 calc(12px * var(--beat)) color-mix(in srgb, var(--venue) 80%, transparent);
+}
+
+:root.beat-ui .hype-meter i {
+  transition: background 0.2s;
+}
+
+:root.beat-ui .hype-meter i.on {
+  box-shadow: 0 0 calc(4px + 9px * var(--beat)) color-mix(in srgb, var(--venue) 75%, transparent);
+}
+
+:root.beat-ui .gh-fill {
+  box-shadow: 0 0 calc(10px + 14px * var(--beat)) rgb(255 46 136 / 50%);
+}
+
+/* the vibe meter flows: a sheen runs through it, and its leading edge swells on the beat */
+:root.beat-ui .gh-fill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(105deg, rgb(255 255 255 / 0%) 0 14px, rgb(255 255 255 / 18%) 22px, rgb(255 255 255 / 0%) 30px 44px);
+  background-size: 88px 100%;
+  animation: gh-flow 1.8s linear infinite;
+}
+
+:root.beat-ui .gh-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  border-radius: 0 7px 7px 0;
+  background: radial-gradient(60% 90% at 100% 50%, rgb(255 255 255 / calc(35% + 45% * var(--beat))), transparent 70%);
+}
+
+@keyframes gh-flow {
+  to {
+    background-position: 88px 0;
+  }
+}

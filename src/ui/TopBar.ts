@@ -9,6 +9,9 @@ import type { AppContext } from '../app/context';
 import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText } from './dom';
 import { icon } from './icons';
+import { prefs } from '../core/prefs';
+
+const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 export interface TopBarActions {
   pickBoard(): void;
@@ -49,6 +52,7 @@ export class TopBar {
   private hypeCells: HTMLElement[];
   private hypeEl: HTMLElement;
   private beatLed: HTMLElement;
+  private beatVar = -1;
   private liveEl: HTMLElement;
   private liveCount: HTMLElement;
   private modeBtns = new Map<'simple' | 'pro', HTMLElement>();
@@ -143,7 +147,19 @@ export class TopBar {
     setText(this.venueShort, this.a.venueShort());
     const lit = Math.round(this.a.hype() * this.hypeCells.length);
     this.hypeCells.forEach((c, i) => setClass(c, 'on', i < lit));
-    this.beatLed.style.opacity = (0.15 + this.a.beat() * 0.85).toFixed(2);
+    const beat = this.a.beat();
+    this.beatLed.style.opacity = (0.15 + beat * 0.85).toFixed(2);
+    // the interface's accents breathe with the beat (Settings → Appearance; never with reduced motion)
+    const pulse = prefs.beatPulse && !motionQuery?.matches;
+    const root = document.documentElement;
+    if (root.classList.contains('beat-ui') !== pulse) root.classList.toggle('beat-ui', pulse);
+    if (pulse) {
+      const b = Math.round(beat * 20) / 20;
+      if (b !== this.beatVar) {
+        this.beatVar = b;
+        root.style.setProperty('--beat', String(b));
+      }
+    }
     const live = this.a.live();
     this.liveEl.hidden = live === null;
     if (live !== null) setText(this.liveCount, live);

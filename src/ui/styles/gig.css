@@ -894,7 +894,149 @@ body.gig-clean .lyric-hud {
   color: #0a0a0c;
   background: linear-gradient(180deg, #fff 0%, #c9ced6 45%, #6f7a8c 52%, #e8edf4 64%, #8c96a6 100%);
   box-shadow: 0 0 40px rgb(255 255 255 / 15%);
-  animation: res-pop 0.6s cubic-bezier(0.2, 1.6, 0.4, 1);
+  position: relative;
+  /* the stamp: it comes down from above the screen and lands at a slight angle (the sound plays as it hits) */
+  animation: res-stamp 0.5s cubic-bezier(0.3, 1.3, 0.5, 1) 0.22s both;
+  rotate: -4deg;
+}
+
+.res-grade::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 22px;
+  border: 3px solid currentColor;
+  opacity: 0;
+  pointer-events: none;
+  animation: res-ring 0.7s ease-out 0.42s;
+}
+
+.res-grade.g-D::after,
+.res-grade.g-C::after,
+.res-grade.g-B::after {
+  border-color: #e8edf4;
+}
+
+@keyframes res-stamp {
+  0% {
+    transform: scale(2.6) rotate(-14deg);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  78% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes res-ring {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* the crowd's peak again, behind the headline (the replay buffer's pictures, pushing in and crossfading) */
+.res-top.has-reel {
+  position: relative;
+  min-height: 150px;
+  padding: 16px;
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.res-top.has-reel > :not(.res-reel) {
+  position: relative;
+  z-index: 1;
+}
+
+.res-reel {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #07080b;
+}
+
+.res-reel img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.03);
+  transition: opacity 0.9s ease;
+}
+
+.res-reel img.on {
+  opacity: 0.6;
+  animation: res-push 2.4s linear both;
+}
+
+.res-reel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(8 10 14 / 92%) 0%, rgb(8 10 14 / 70%) 45%, rgb(8 10 14 / 30%) 100%);
+}
+
+.res-reel-label {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  z-index: 1;
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 70%);
+}
+
+.res-reel-label::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #e0243c;
+  vertical-align: 1px;
+}
+
+@keyframes res-push {
+  from {
+    transform: scale(1.03);
+  }
+  to {
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .res-grade {
+    animation: res-fade 0.4s ease 0.2s both;
+  }
+
+  .res-grade::after,
+  .res-reel img.on {
+    animation: none;
+  }
+
+  @keyframes res-fade {
+    from {
+      opacity: 0;
+    }
+  }
 }
 
 .res-grade.g-S {
@@ -906,13 +1048,6 @@ body.gig-clean .lyric-hud {
 .res-grade.g-A {
   background: linear-gradient(135deg, #ffb547, #ff2e88);
   color: #fff;
-}
-
-@keyframes res-pop {
-  from {
-    transform: scale(0.4) rotate(-8deg);
-    opacity: 0;
-  }
 }
 
 .res-head {
@@ -1104,6 +1239,29 @@ body.gig-clean .lyric-hud {
   background: rgb(255 255 255 / 6%);
   border: 1px solid var(--line);
   font-size: var(--text-sm);
+  /* in with the unlock chime, after the earnings have counted up */
+  animation: res-new-in 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) 2s both;
+}
+
+.res-new:nth-child(3) {
+  animation-delay: 2.12s;
+}
+
+.res-new:nth-child(n + 4) {
+  animation-delay: 2.24s;
+}
+
+@keyframes res-new-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .res-new {
+    animation: none;
+  }
 }
 
 .res-new small {

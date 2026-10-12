@@ -416,6 +416,20 @@ export class RecordingDesk {
     }
   }
 
+  /** the buffer's stills around a moment `secondsAgo` before now (the results screen's replay of the crowd's peak); the nearest few if none fall that close */
+  stillsAround(secondsAgo: number, before = 6, after = 4): Blob[] {
+    const at = this.host.pictureTime() - secondsAgo;
+    const near = this.replay.stillsBetween(at - before, at + after);
+    if (near.length) return near.map((s) => s.blob);
+    const all = this.replay.stillsBetween(-Infinity, Infinity);
+    return all
+      .map((s) => ({ s, d: Math.abs(s.t - at) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 4)
+      .sort((a, b) => a.s.t - b.s.t)
+      .map((x) => x.s.blob);
+  }
+
   /** save the buffer, then open the trim editor on the latest moment with this label */
   async replayMoment(label: string): Promise<void> {
     const rec = await this.saveMix(true);

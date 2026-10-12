@@ -11,7 +11,8 @@ import type { AppContext } from '../app/context';
 import type { FaderCurve } from '../audio/Channel';
 import { formatKey, makeKey } from '../analysis/keys';
 import { clearAllSettings, makeBackup, parseBackup, readAllSettings, restoreSettings } from '../core/backup';
-import { BEAT_CHOICES, DEFAULT_DECK_COLORS, KEY_NOTATIONS, onPrefs, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
+import { uiSound } from '../audio/uisound';
+import { BEAT_CHOICES, DEFAULT_DECK_COLORS, KEY_NOTATIONS, NIGHT_CHOICES, onPrefs, SCREENSAVER_CHOICES, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
 import { beatLabel } from '../audio/Deck';
 import { LENS_LOOKS } from '../three/looks';
 import type { Quality, Stage } from '../three/Stage';
@@ -235,6 +236,20 @@ export class SetupPanel {
       h('div', { class: 'set-row field', 'data-k': 'deck colours colors' }, h('span', {}, 'Deck colours'), deckCols),
       this.row('Key notation', notation, 'camelot open key musical harmonic', 'Library, decks, Set Builder and the board screens.'),
       this.row('Waveform colours', wave, 'waveform rgb 3-band blue colour color'),
+      this.row(
+        'Interface sounds',
+        this.slider(
+          () => prefs.uiSounds,
+          (v) => {
+            setPrefs({ uiSounds: v });
+            uiSound('toast');
+          },
+          { min: 0, max: 1, step: 0.05, fmt: (v) => (v === 0 ? 'Off' : `${Math.round(v * 100)}%`) },
+        ),
+        'sound sounds click clicks audio ui interface volume chime beep mute',
+        'Clicks and chimes on menus, dialogs, unlocks and the results. They never play into the mix or a recording, and the deck controls stay silent.',
+      ),
+      this.prefCheck('beatPulse', 'The interface moves with the music (accents pulse on the beat, meters flow)', 'pulse beat motion animate meter liquid', 'Always off when your system asks for reduced motion.'),
     );
   }
 
@@ -393,8 +408,20 @@ export class SetupPanel {
         },
         'strobe epilepsy photosensitive flash',
       ),
+      this.row(
+        'Free play: how long a night lasts outdoors',
+        this.prefSelect('nightMinutes', NIGHT_CHOICES.map((m) => [m, `${m} minutes of music`])),
+        'time of day sun sunset sunrise night sky outdoor open air beach rooftop festival length clock',
+        'At the open-air venues the sun moves with your set: sunset to dark, or dark to sunrise. In a gig it follows the set’s length.',
+      ),
       this.prefCheck('nowPlaying', 'Show the track name on the stage when a new track takes over', 'now playing title card lower third track name'),
       this.prefCheck('nextUp', 'Suggest the next track (on the stage, in the Library and on an empty deck)', 'next up suggestion recommend coach track'),
+      this.row(
+        'Screensaver: broadcast mode when you leave it playing',
+        this.prefSelect('screensaver', SCREENSAVER_CHOICES.map((m) => [m, m === 0 ? 'Never' : `After ${m} minutes without a touch`])),
+        'screensaver idle broadcast stream obs attract away',
+        'The stage fills the window and the camera cuts with the music. Any touch brings everything back. Broadcast mode is also in the ⋯ menu (⇧O).',
+      ),
       this.row(
         'Lights and visuals delay',
         this.slider(() => prefs.avOffset, (v) => setPrefs({ avOffset: v }), { min: -150, max: 400, step: 10, fmt: (v) => (v === 0 ? 'Auto' : `${v > 0 ? '+' : ''}${v} ms`) }),

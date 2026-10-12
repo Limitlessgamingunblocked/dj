@@ -10,6 +10,9 @@ import { AnalysisPool } from '../analysis/AnalysisPool';
 import { ControlRegistry } from '../core/controls';
 import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
+import { setUiAudio, wireUiSounds } from '../audio/uisound';
+import { Broadcast } from './broadcast';
+import { noteWork, stutters } from '../core/stutter';
 import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
 import { formatKey, setKeyNotation } from '../analysis/keys';
@@ -163,6 +166,8 @@ export class App implements AppContext {
   private last = 0;
   private frame = 0;
   private director = new Director();
+  /** the stage alone for streaming, and the idle screensaver (broadcast.ts) */
+  private broadcast!: Broadcast;
   private desk!: RecordingDesk;
   private mySets!: MySetsPanel;
   /** when the drop punch-in fires (performance.now), 0 for none */
@@ -349,6 +354,9 @@ export class App implements AppContext {
 
     this.engine = await AudioEngine.create();
     this.engine.isShift = () => this.reg.shift;
+    // interface clicks and chimes, straight to the output (never into the mix)
+    setUiAudio(this.engine.ctx);
+    wireUiSounds();
     this.applyPrefs(null);
     onPrefs((_, changed) => this.applyPrefs(changed));
     this.engine.autoGain = this.settings.autoGain;
@@ -495,6 +503,13 @@ export class App implements AppContext {
       callout: (c) => this.callout(c),
       venue: () => this.settings.venue,
       setVenue: (id) => this.setVenue(id),
+      walkInto: (id, flyer) => {
+        this.stage.arrivalFlyer = flyer;
+        this.setVenue(id);
+        // already here: walk in anyway, it's the night's start
+        if (!this.stage.arriving) this.stage.arrive();
+        this.stage.arrivalFlyer = null;
+      },
       venueName: (id) => venueById(id).name,
       gigVenues: () => {
         const p = this.career.progress;
@@ -516,7 +531,7 @@ export class App implements AppContext {
         this.desk.gigFinished(grade);
         this.markDaily();
       },
-      replay: () => (this.desk.replay.on ? { save: async () => !!(await this.desk.saveMix()), moment: (label) => void this.desk.replayMoment(label), clear: () => this.desk.replay.clear() } : null),
+      replay: () => (this.desk.replay.on ? { save: async () => !!(await this.desk.saveMix()), moment: (label) => void this.desk.replayMoment(label), clear: () => this.desk.replay.clear(), stills: (ago) => this.desk.stillsAround(ago) } : null),
       djName: () => nameService.text,
       autoDJOff: () => this.setAutoDJ(false),
       press: (id) => this.reg.press(id, 'ui'),
@@ -674,6 +689,7 @@ export class App implements AppContext {
       'cycle-view': () => this.setView(this.stage.view === 'booth' ? 'split' : this.stage.view === 'split' ? 'visual' : 'booth'),
       'board-full': () => this.boardFull(!this.boardMode),
       autodj: () => this.setAutoDJ(!this.autodj.on),
+      broadcast: () => this.broadcast.set(!this.broadcast.on),
       help: () => openHelp(),
       search: () => {
         this.showTab('library');
@@ -697,6 +713,7 @@ export class App implements AppContext {
   }
 
   private async decode(bytes: ArrayBuffer): Promise<PcmData> {
+    noteWork('track decode');
     const buf = await this.engine.ctx.decodeAudioData(bytes.slice(0));
     const channels: Float32Array[] = [];
     for (let i = 0; i < Math.min(2, buf.numberOfChannels); i++) channels.push(buf.getChannelData(i));
@@ -788,6 +805,20 @@ export class App implements AppContext {
     // the coach's pick for the next track, in free play and Auto DJ (a gig's HUD shows its own)
     this.nextCard = new NextUpCard(this.nextUp, { inGig: () => !!this.gigs.gig });
     this.stage.el.append(this.nextCard.el);
+    this.broadcast = new Broadcast({
+      shell: () => this.shell,
+      stageEl: this.stage.el,
+      reg: this.reg,
+      director: () => this.settings.director,
+      setDirector: (on) => this.setDirector(on, true),
+      announce: () => {
+        const e = this.engine;
+        const d = e.masterDeck?.playing ? e.masterDeck : e.decks.find((x) => x.playing && x.track);
+        if (d) this.announce(d, true);
+      },
+      // not over a dialog, the title or the naming scene
+      playing: () => this.engine.decks.some((d) => d.playing) && !document.body.classList.contains('modal-open') && !this.shell.classList.contains('titling') && !this.namingBusy,
+    });
     const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
     setTimeout(() => (hint.style.opacity = '0'), 10000);
@@ -930,6 +961,7 @@ export class App implements AppContext {
       { label: 'Auto DJ', checked: this.autodj.on, hint: '⇧A', action: () => this.setAutoDJ(!this.autodj.on) },
       { label: 'Board full screen', checked: this.boardMode, hint: '⇧B', action: () => this.boardFull(!this.boardMode) },
       { label: 'Full screen', checked: !!document.fullscreenElement && !this.boardMode, action: () => this.fullscreen() },
+      { label: 'Broadcast mode', hint: '⇧O', action: () => this.broadcast.set(true) },
       'sep',
       { label: 'MIDI controllers', action: () => this.showTab('settings') },
       { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
@@ -1394,6 +1426,7 @@ export class App implements AppContext {
         if (has('jumpBeats')) d.jumpBeats = prefs.jumpBeats;
       }
     if (has('lens') && this.stage) this.stage.lensPick = prefs.lens;
+    if (has('nightMinutes')) setClock.freeMinutes = prefs.nightMinutes;
     if (has('crowd')) {
       setCrowdScale(prefs.crowd);
       // the crowd is part of the venue build: build it again
@@ -1498,7 +1531,7 @@ export class App implements AppContext {
     const c = this.nowCard;
     if (!t || (!force && t.id === c.announced)) return;
     c.announced = t.id;
-    if (!prefs.nowPlaying) return;
+    if (!prefs.nowPlaying && !this.broadcast?.on) return;
     setText(c.title, t.meta.title);
     setText(c.artist, t.meta.artist || t.fileName);
     const key = d.currentKey();
@@ -1589,6 +1622,15 @@ export class App implements AppContext {
     const dt = clamp(raw, 0, 0.1);
     this.last = t;
     this.frame++;
+    // the stutter log (debug menu): a late frame is judged by what the one before it spent its time on
+    const w0 = performance.now();
+    let p0 = w0;
+    const lap = (part: string) => {
+      const now = performance.now();
+      stutters.part(part, now - p0);
+      p0 = now;
+    };
+    stutters.frame(raw * 1000, document.hidden);
     try {
       this.engine.update(dt);
       this.autodj.update();
@@ -1610,6 +1652,7 @@ export class App implements AppContext {
       this.creator?.update(dt);
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
       this.nextUp.update(dt);
+      this.broadcast.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);
@@ -1618,6 +1661,7 @@ export class App implements AppContext {
       this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       this.stage.lyric = this.lyrics.frame();
+      lap('audio + game');
       // a dialog over the stage: the club only needs a third of the frames
       this.stageDt += dt;
       const covered = document.body.classList.contains('modal-open');
@@ -1628,6 +1672,7 @@ export class App implements AppContext {
         // a drop the director didn't take (it's off, or the view is the visual player) doesn't wait for later
         this.clockDrop = false;
       }
+      lap('stage');
       if (this.fps.el) this.updateFps(raw);
       // four times a second, however slow the frames are
       this.slowT += raw;
@@ -1654,9 +1699,11 @@ export class App implements AppContext {
       if (this.frame % 3 === 0) this.midi.updateLeds();
       if (this.frame % 15 === 0) this.followSong();
       this.audioBanner.hidden = this.engine.running;
+      lap('panels');
     } catch (err) {
       console.error(err);
     }
+    stutters.end(performance.now() - w0);
     requestAnimationFrame((tt) => this.tick(tt));
   }
 }

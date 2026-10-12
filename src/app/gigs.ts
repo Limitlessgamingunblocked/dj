@@ -7,7 +7,8 @@
 import type { AudioEngine } from '../audio/AudioEngine';
 import { dressCodeBonus } from '../character/look';
 import type { Booking } from '../core/models';
-import { goalMet, played, seeded } from '../game/bookings';
+import { goalMet, played, PROMOTERS, seeded } from '../game/bookings';
+import type { CareerVenue } from '../game/progression';
 import { addPosts, postsForSet } from '../game/social';
 import { ASSISTS, Gig, isVibeEvent, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
@@ -25,7 +26,8 @@ import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent 
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
 import type { Features } from '../visualizer/AudioFeatures';
-import { openBookings } from '../ui/BookingsPanel';
+import { flyerInfo, openBookings } from '../ui/BookingsPanel';
+import { drawFlyer } from '../ui/flyer';
 import { GigHud } from '../ui/GigHud';
 import { openGigSetup, type GigVenue } from '../ui/GigSetup';
 import { showResults } from '../ui/Results';
@@ -57,6 +59,8 @@ export interface GigHost {
   callout(c: Callout): void;
   venue(): string;
   setVenue(id: string): void;
+  /** go to the gig's venue and walk in with the night's flyer (also into the room you're already in) */
+  walkInto(id: string, flyer: HTMLCanvasElement | null): void;
   venueName(id: string): string;
   /** the venues a gig can be played in, with their lock state */
   gigVenues(): GigVenue[];
@@ -76,7 +80,7 @@ export interface GigHost {
   /** a gig finished with this grade */
   finished(grade: 'S' | 'A' | 'B' | 'C' | 'D'): void;
   /** the replay buffer, for the results screen: null when it's off */
-  replay(): { save(): Promise<boolean>; moment(label: string): void; clear(): void } | null;
+  replay(): { save(): Promise<boolean>; moment(label: string): void; clear(): void; stills(secondsAgo: number): Blob[] } | null;
   /** a crowd reaction for the room to play (cheer, groan, boo) */
   crowd(what: 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant'): void;
   /** the board on the stage (for "play five boards") */
@@ -245,6 +249,23 @@ export class GigDirector {
     });
   }
 
+  /** the flyer for the night: the booking's, or one from the venue's own promoter for a set you picked */
+  private flyerFor(cfg: GigConfig, b: Booking | null): HTMLCanvasElement | null {
+    const promoters = PROMOTERS[cfg.venue as CareerVenue];
+    if (!b && !promoters) return null;
+    const c = document.createElement('canvas');
+    c.width = 300;
+    c.height = 400;
+    const venueName = this.host.venueName(cfg.venue);
+    drawFlyer(
+      c,
+      b
+        ? flyerInfo(b, this.host.djName(), venueName)
+        : { venue: cfg.venue, venueName, promoter: promoters[0], dj: this.host.djName(), slotLabel: SLOTS[cfg.slot].label, minutes: cfg.minutes, night: this.host.career.bookings.night, special: null },
+    );
+    return c;
+  }
+
   start(cfg: GigConfig, look?: string, crate?: string | null, booking: Booking | null = null, daily: DailySpec | null = null): void {
     if (this.gig) this.teardown();
     const e = this.host.engine;
@@ -252,7 +273,7 @@ export class GigDirector {
     // a fresh start: decks stopped, the set clock waits for the first track
     for (const d of e.decks) if (d.playing) d.pause();
     if (look) this.host.career.wearLook(look);
-    this.host.setVenue(cfg.venue);
+    this.host.walkInto(cfg.venue, this.flyerFor(cfg, booking));
     if (crate !== undefined) this.host.showCrate(crate);
     this.lastCfg = cfg;
     this.booking = booking;
@@ -406,6 +427,8 @@ export class GigDirector {
       daily: dailyOut,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
+      // the set clock runs from the first track to the end, so the peak was this long ago
+      peakStills: rp && r.peak.vibe > 0 ? rp.stills(Math.max(0, gig.t - r.peak.t)) : [],
       closed: () => rp?.clear(),
       // after a booking, "play again" goes back to the calendar for the next one
       again: () => (daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),

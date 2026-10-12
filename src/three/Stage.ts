@@ -16,6 +16,8 @@ import { DofPass } from './dof';
 import { ReflectPass, tagBright } from './reflect';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { ShowEnv } from './showenv';
+import { noteWork } from '../core/stutter';
 import type { AudioEngine } from '../audio/AudioEngine';
 import { Avatar, type AvatarInput } from '../character/Avatar';
 import { defaultLook } from '../character/look';
@@ -105,6 +107,9 @@ export class Stage {
   private fill: THREE.DirectionalLight;
   /** the studio light the indoor venues reflect */
   private roomEnv!: THREE.Texture;
+  /** indoors on Medium and High the hardware reflects the show's colours (showenv.ts) */
+  private showEnv = new ShowEnv();
+  private showEnvAge = 1;
   /** the lighting rules every room shares (Section 2.3): a spotlight on you when a vocal carries the track, the low end glowing on the floor under the booth */
   private djSpot: THREE.SpotLight;
   private underGlow: THREE.PointLight;
@@ -395,8 +400,16 @@ export class Stage {
   /** a walk into the venue waiting for its shaders to finish compiling */
   private pendingArrival = false;
   private arrivalCard: HTMLElement | null = null;
+  /** the night's flyer, shown with the venue's name on the next walk in (a gig) */
+  arrivalFlyer: HTMLCanvasElement | null = null;
+
+  /** a walk in is waiting to start or under way */
+  get arriving(): boolean {
+    return this.pendingArrival || this.rig.arriving;
+  }
 
   setVenue(def: VenueDef, o: { arrive?: boolean } = {}): void {
+    noteWork('venue build');
     if (this.venue) {
       this.scene.remove(this.venue.group);
       this.venue.dispose();
@@ -443,7 +456,19 @@ export class Stage {
     name.textContent = def.name;
     const place = document.createElement('span');
     place.textContent = def.place;
-    card.append(name, place);
+    const text = document.createElement('div');
+    text.className = 'arrival-text';
+    text.append(name, place);
+    card.append(text);
+    // a gig: its flyer slides in beside the name, pinned at a slight angle
+    const flyer = this.arrivalFlyer;
+    this.arrivalFlyer = null;
+    if (flyer) {
+      flyer.className = 'arrival-flyer';
+      flyer.setAttribute('aria-hidden', 'true');
+      card.classList.add('with-flyer');
+      card.prepend(flyer);
+    }
     this.el.append(card);
     this.arrivalCard = card;
     window.setTimeout(() => {
@@ -505,6 +530,7 @@ export class Stage {
    * view holds its last frame until they're ready (at most 4 s).
    */
   private precompile(): void {
+    noteWork('shader compile');
     const id = ++this.compiling;
     const done = () => {
       if (this.compiling === id) this.compiling = 0;
@@ -523,6 +549,7 @@ export class Stage {
   /* ------------------------------------------------------------------ */
 
   setBoard(def: BoardDef, finishId: string): void {
+    noteWork('board build');
     if (this.board) {
       this.scene.remove(this.board.root);
       this.board.root.traverse((o) => {
@@ -1079,8 +1106,17 @@ export class Stage {
       this.underGlow.color.copy(show.colors[1]);
       this.underGlow.intensity = atBooth ? 3.2 * show.bass * show.master * Math.min(1.2, show.intensity) : 0;
       const amb = venue?.ambient ?? 1;
-      // outside, things reflect the sky; inside, the studio light
-      this.scene.environment = venue?.environment ?? this.roomEnv;
+      // outside, things reflect the sky; inside, the show's colours (the studio light on Low)
+      let env = venue?.environment ?? null;
+      if (!env && this.quality !== 'low') {
+        this.showEnvAge += dt;
+        if (this.showEnvAge > 1 / 15) {
+          this.showEnv.update(this.renderer, show, this.showEnvAge);
+          this.showEnvAge = 0;
+        }
+        env = this.showEnv.texture;
+      }
+      this.scene.environment = env ?? this.roomEnv;
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;
       this.placeAvatar(show, sdt);
