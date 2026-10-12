@@ -12,6 +12,8 @@ import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { setUiAudio, wireUiSounds } from '../audio/uisound';
 import { Broadcast } from './broadcast';
+import { redeemCode } from '../game/codes';
+import { openCodeEntry } from '../ui/CodeEntry';
 import { noteWork, stutters } from '../core/stutter';
 import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
@@ -964,8 +966,17 @@ export class App implements AppContext {
       { label: 'Broadcast mode', hint: '⇧O', action: () => this.broadcast.set(true) },
       'sep',
       { label: 'MIDI controllers', action: () => this.showTab('settings') },
+      { label: 'Enter a code…', action: () => openCodeEntry({ redeem: (code) => this.redeemCode(code) }) },
       { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
     ]);
+  }
+
+  /** a code from the ⋯ menu's box (game/codes.ts): change the career, and say what changed */
+  private redeemCode(code: string): string | null {
+    const r = redeemCode(code, this.career.progress);
+    if (!r) return null;
+    this.career.setProgress(r.patch);
+    return r.message;
   }
 
   private hud!: { camBtn: HTMLElement; zoomChip: HTMLElement; expandBtn: HTMLElement; fullBtn: HTMLElement; framing: HTMLElement; pad: HTMLElement; padWidgets: Widget[] };

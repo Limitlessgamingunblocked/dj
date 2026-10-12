@@ -65,7 +65,7 @@ export function toNextTier(p: Pick<Progress, 'fame' | 'tier'>): number | null {
 /** why a venue is closed to you (null: it's open) */
 export function venueLock(id: string, p: Pick<Progress, 'tier' | 'setsPlayed' | 'unlocked' | 'sandbox'>): string | null {
   if (p.sandbox || !isCareerVenue(id)) return null;
-  if (id === 'basement') return p.setsPlayed < 1 ? 'Play a set in the Bedroom first' : null;
+  if (id === 'basement') return p.setsPlayed < 1 && !p.unlocked.includes('venue:basement') ? 'Play a set in the Bedroom first' : null;
   if (id === 'boat') {
     if (p.unlocked.includes('venue:boat')) return null;
     return p.tier < 5 ? 'Fame tier 5 brings a boat party offer' : 'Play the boat party booking offer';

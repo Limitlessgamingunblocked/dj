@@ -433,3 +433,29 @@ textarea.json {
 .help-keys {
   margin: 24px 0 8px;
 }
+
+/* "Enter a code" (⋯ menu) */
+.code-entry {
+  display: grid;
+  gap: 8px;
+  min-width: min(360px, 80vw);
+}
+.code-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.code-msg:empty {
+  display: none;
+}
+.code-entry.wrong {
+  animation: code-shake 0.36s ease;
+}
+@keyframes code-shake {
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .code-entry.wrong { animation: none; }
+}
