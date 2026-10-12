@@ -28,6 +28,8 @@ export interface AppContext {
   /** id of the venue being played */
   venueId(): string;
   setVenue(id: string): void;
+  /** why a crazy room is still locked (its unlock challenge), or null when it's open */
+  roomLock(id: string): string | null;
   /** the next-track coach: picks for what to play next, in every mode */
   nextUp: NextUp;
 }

@@ -13,6 +13,8 @@ import { updateAll, type Fixture } from './fixtures';
 import { ledScreen } from './led';
 import { nameService, type NameStyle } from '../../name/NameService';
 import type { ShowState } from './show';
+import type { Avatar } from '../../character/Avatar';
+import type { Look } from '../../core/models';
 
 export interface Pose {
   pos: THREE.Vector3;
@@ -89,6 +91,8 @@ export interface VenueScene {
   readonly environment?: THREE.Texture | null;
   /** off-screen renders the venue needs each frame (light maps), before the club is drawn */
   prerender?(renderer: THREE.WebGLRenderer, dt: number): void;
+  /** the DJ, for rooms that work with you (a blacklight glow, a hologram copying your moves); called again when your look changes */
+  attachDJ?(dj: Avatar, look: Look): void;
   dispose(): void;
 }
 

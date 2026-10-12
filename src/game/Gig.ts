@@ -31,6 +31,8 @@ export interface GigConfig {
   /** set length in minutes */
   minutes: number;
   assist: Assist;
+  /** a crazy room: a Room Battle against a rival, taking turns on the room's pads */
+  battle?: boolean;
 }
 
 // rewards and tiers live with the rest of the career (Section 9)

@@ -160,13 +160,13 @@ export class GigHud {
   }
 
   /** a B2B: who you're playing with, whose turn it is, the chemistry meter (Section 6.10) */
-  b2b(o: { name: string; color: string; chemistry: number; turn: 'you' | 'rival' } | null): void {
+  b2b(o: { name: string; color: string; chemistry: number; turn: 'you' | 'rival'; label?: string; meter?: string } | null): void {
     this.duo.hidden = !o;
     if (!o) return;
     this.duo.style.setProperty('--rc', o.color);
     this.duo.replaceChildren(
-      h('span', { class: 'gh-b2b-who' }, `B2B · ${o.name}`),
-      h('span', { class: 'gh-chem', role: 'meter', 'aria-label': 'Chemistry', 'aria-valuenow': String(Math.round(o.chemistry * 100)), 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: `width:${(o.chemistry * 100).toFixed(0)}%` })),
+      h('span', { class: 'gh-b2b-who' }, `${o.label ?? 'B2B'} · ${o.name}`),
+      h('span', { class: 'gh-chem', role: 'meter', 'aria-label': o.meter ?? 'Chemistry', 'aria-valuenow': String(Math.round(o.chemistry * 100)), 'aria-valuemin': 0, 'aria-valuemax': 100 }, h('i', { style: `width:${(o.chemistry * 100).toFixed(0)}%` })),
       h('span', { class: 'gh-turn' }, o.turn === 'you' ? 'Your turn' : `${o.name}’s turn`),
     );
   }

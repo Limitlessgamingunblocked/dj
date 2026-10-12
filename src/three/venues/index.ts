@@ -17,9 +17,10 @@ import { beach } from './beach';
 import { boat } from './boat';
 import { festival } from './festival';
 import { sunrise } from './sunrise';
+import { CRAZY_ROOMS } from './rooms';
 
-/** the career's rooms first (Section 5.2), then the real rooms */
-export const VENUES: VenueDef[] = [bedroom, basement, rooftop, warehouseRave, beach, boat, festival, sunrise, dc10, boilerRoom, berghain, printworks, allyPally, allyPallyRound, burningMan, warehouse];
+/** the career's rooms first (Section 5.2), then the real rooms, then the secret crazy rooms */
+export const VENUES: VenueDef[] = [bedroom, basement, rooftop, warehouseRave, beach, boat, festival, sunrise, dc10, boilerRoom, berghain, printworks, allyPally, allyPallyRound, burningMan, warehouse, ...CRAZY_ROOMS];
 
 export function venueById(id: string): VenueDef {
   return VENUES.find((v) => v.id === id) ?? VENUES[0];

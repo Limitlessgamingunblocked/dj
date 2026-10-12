@@ -31,6 +31,10 @@ export interface ResultsHooks {
   objective?: { text: string; met: boolean } | null;
   /** a B2B: the chemistry you built with the rival */
   chemistry?: { name: string; value: number; unlocked: boolean } | null;
+  /** a Room Battle: rounds won against the rival */
+  battle?: { name: string; you: number; rival: number } | null;
+  /** room moments that matched the drop */
+  roomMoments?: number;
   /** today's daily challenge: the objectives, the streak, the result to share */
   daily?: DailyOut | null;
   /** the replay buffer's pictures around the crowd's peak, played behind the headline */
@@ -225,6 +229,8 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     ),
     hooks.objective ? h('div', { class: `res-objective ${hooks.objective.met ? 'met' : 'missed'}` }, h('b', {}, hooks.objective.met ? 'Bonus hit: ' : 'Bonus missed: '), hooks.objective.text, hooks.objective.met ? ' (+25%)' : '') : null,
     hooks.daily ? dailyBlock(hooks.daily) : null,
+    hooks.battle ? h('div', { class: `res-objective ${hooks.battle.you > hooks.battle.rival ? 'met' : ''}` }, h('b', {}, `Room Battle vs ${hooks.battle.name}: ${hooks.battle.you > hooks.battle.rival ? 'you won' : hooks.battle.you === hooks.battle.rival ? 'a draw' : 'they won'} ${hooks.battle.you}–${hooks.battle.rival}`), ' · the crowd voted each round') : null,
+    hooks.roomMoments ? h('div', { class: 'res-objective met' }, h('b', {}, `Room moments on the drop: ${hooks.roomMoments}`), ` · +${hooks.roomMoments * 250} points`) : null,
     hooks.chemistry ? h('div', { class: `res-objective ${hooks.chemistry.value >= 0.75 ? 'met' : ''}` }, h('b', {}, `Chemistry with ${hooks.chemistry.name}: ${Math.round(hooks.chemistry.value * 100)}%`), hooks.chemistry.unlocked ? ' · their pieces are in your wardrobe' : hooks.chemistry.value >= 0.75 ? '' : ' · 75% unlocks their pieces') : null,
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
     news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_KIND[n.kind] ? h('small', {}, NEW_KIND[n.kind]) : null, n.label.replace(/\{name\}/g, hooks.dj)))) : null,

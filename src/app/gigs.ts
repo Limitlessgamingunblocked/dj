@@ -17,6 +17,9 @@ import { loadSetting, saveSetting } from '../core/settings';
 import { CHEMISTRY_UNLOCK, INTROS, RIVALS, rivalOf, type RivalId } from '../game/rivals';
 import type { ControlRegistry } from '../core/controls';
 import { B2B } from './b2b';
+import { RoomBattle } from '../game/roomBattle';
+import { isCrazyRoom } from '../game/rooms';
+import { roomShow } from '../three/venues/rooms/kit';
 import { Snapshot } from '../game/snapshot';
 import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
@@ -140,11 +143,35 @@ export class GigDirector {
   private heard = new Set<string>();
   /** the running set is today's daily challenge */
   private daily: DailySpec | null = null;
+  /** a Room Battle in a crazy room: the rival, and the room its pads were split for */
+  private battle: { game: RoomBattle; id: RivalId; room: string } | null = null;
+  /** room moments that matched the drop this set */
+  private roomMoments = 0;
+  /** the beat as of the last frame (a pad press scores by its timing) */
+  private beatNow = { phase: 0, inBar: 0 };
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
     moments.on((m) => {
       if (this.gig && m.label && m.venue === this.gig.config.venue) this.moment ??= m.label;
+    });
+    // a crazy room's drop moment: one you chose that suits the drop scores
+    roomShow.onMoment((e) => {
+      const gig = this.gig;
+      if (!gig || (gig.phase !== 'live' && gig.phase !== 'encore')) return;
+      this.moment ??= e.label;
+      if (e.matched) {
+        gig.meter.points += 250;
+        this.roomMoments++;
+        this.host.callout({ text: `${e.label}: right for the drop +250`, tone: 'hype' });
+      } else if (e.chosen) this.host.callout({ text: `${e.label}: not the drop for it`, tone: 'bad' });
+    });
+    // a Room Battle: your pads score on your turn, by their timing
+    roomShow.onPress((_id, from) => {
+      const gig = this.gig;
+      if (from !== 'you' || !gig || !this.battle || gig.phase === 'waiting' || gig.phase === 'over') return;
+      const pts = this.battle.game.press(performance.now() / 1000, this.beatNow.phase, this.beatNow.inBar);
+      if (pts) gig.meter.points += pts;
     });
   }
 
@@ -291,6 +318,14 @@ export class GigDirector {
         say: (who, text) => this.hud?.say(who, text),
       });
     }
+    this.endBattle();
+    this.roomMoments = 0;
+    if (cfg.battle && isCrazyRoom(cfg.venue)) {
+      const ids = Object.keys(RIVALS) as RivalId[];
+      const id = ids[Math.floor(Math.random() * ids.length)];
+      const tier = this.host.career.progress.tier;
+      this.battle = { game: new RoomBattle(RIVALS[id].name, Math.min(0.85, 0.35 + tier * 0.07)), id, room: '' };
+    }
     setClock.progress = 0;
     this.gig = new Gig(cfg);
     this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
@@ -333,6 +368,10 @@ export class GigDirector {
       const b2b = this.b2b;
       this.hud.say(`${b2b.name}:`, INTROS[b2b.rival].replace('{name}', dj).replace('{NAME}', dj.toUpperCase()));
       setTimeout(() => this.b2b === b2b && this.hud?.say('Promoter:', `Back to back with ${b2b.name}. You open: play a track, they answer, then it’s you again.`), 4200);
+    } else if (this.battle) {
+      const name = this.battle.game.rivalName;
+      this.hud.say('Room Battle:', `You and ${name} take turns on the room, 16 bars each. You go first, on the bright pads.`);
+      setTimeout(() => this.battle && this.hud?.say(`${name}:`, 'Let’s see what you do with the room.'), 4200);
     } else if (daily) {
       this.hud.say(`Daily #${daily.number}:`, `${slot.label}, ${cfg.minutes} minutes. ${daily.twist.label}.`);
       setTimeout(() => this.gig && this.daily === daily && this.hud?.say('Objectives:', daily.goals.map((g) => g.text).join(' · ')), 3200);
@@ -350,8 +389,48 @@ export class GigDirector {
     if (daily) this.gig.meter.vibe = Math.min(1, Math.max(0, this.gig.meter.vibe + daily.twist.vibe));
   }
 
+  /** the Room Battle's over: all the pads are yours again */
+  private endBattle(): void {
+    if (!this.battle) return;
+    this.battle = null;
+    roomShow.owned = null;
+    roomShow.held.clear();
+    roomShow.changed();
+  }
+
+  /** every frame of a Room Battle: split the pads once the room is up, play the rival's turn, the crowd's votes */
+  private updateBattle(dt: number, f: Features, gig: Gig, playing: boolean): void {
+    const b = this.battle;
+    const room = roomShow.current;
+    if (!b || !room || room.roomId !== gig.config.venue) return;
+    const acts = room.actions.slice(0, 6);
+    const half = Math.ceil(acts.length / 2);
+    if (b.room !== room.roomId) {
+      b.room = room.roomId;
+      roomShow.owned = acts.slice(0, half).map((a) => a.id);
+      roomShow.changed();
+    }
+    const rivalActs = acts.slice(half);
+    const g = b.game;
+    const u = g.update({ dt, bar: Math.floor(f.beatCount / 4), beat: f.beatCount, beatInBar: f.beatInBar, playing: playing && gig.phase !== 'waiting', dropHit: f.dropHit, vibe: gig.meter.vibe, rivalActions: rivalActs.length });
+    if (u.rivalPress !== null) {
+      const a = rivalActs[u.rivalPress];
+      if (a && roomShow.press(a.id, 'rival')) setTimeout(() => roomShow.release(a.id), a.kind === 'hold' ? 900 : 250);
+    }
+    if (u.turnChanged) this.hud?.say('Room Battle:', u.turnChanged === 'you' ? 'Your turn: 16 bars on your pads.' : `${g.rivalName}’s turn on the room.`);
+    if (u.round) {
+      const won = u.round.winner === 'you';
+      this.hud?.say('The crowd:', won ? `Went with you. ${u.round.you}–${u.round.rival}` : `Went with ${g.rivalName}. ${u.round.you}–${u.round.rival}`);
+      this.host.crowd(won ? 'cheer' : 'groan');
+      if (won) gig.meter.points += 500;
+    }
+    const rv = RIVALS[b.id];
+    this.hud?.b2b({ name: rv.name, color: rv.color, chemistry: g.share(), turn: g.turn, label: 'Room Battle', meter: 'Your share of the battle' });
+  }
+
   private teardown(): void {
     this.host.nextUp.gig = null;
+    this.endBattle();
     this.b2b?.stop();
     this.hud?.b2b(null);
     this.toolsWatch?.disconnect();
@@ -394,6 +473,8 @@ export class GigDirector {
       }
       chemistry = { name: duo.name, value: v, unlocked };
     }
+    const battle = this.battle ? { name: this.battle.game.rivalName, you: this.battle.game.you, rival: this.battle.game.rival } : null;
+    const roomMoments = this.roomMoments;
     c.setProgress(r.outcome.patch);
     // the calendar moves on a night; the booking keeps how it went
     c.setBookings(played(c.bookings, b?.id ?? null, b ? { grade: r.grade, met } : null));
@@ -424,6 +505,8 @@ export class GigDirector {
       next: nextGoal(c.progress),
       objective: b ? { text: b.objective, met } : null,
       chemistry,
+      battle,
+      roomMoments,
       daily: dailyOut,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
@@ -532,8 +615,11 @@ export class GigDirector {
     setClock.gig = !!gig && gig.phase !== 'over';
     if (gig) setClock.progress = gig.progress;
     else tickFreeClock(dt, decks.some((d) => d.playing));
+    this.beatNow.phase = f.beatPhase;
+    this.beatNow.inBar = f.beatInBar;
     if (gig) {
       events = gig.update(dt, decks, level, e.redline, f.dropHit);
+      if (this.battle) this.updateBattle(dt, f, gig, decks.some((d) => d.playing));
       if (this.b2b) {
         this.b2b.update(dt);
         const rv = RIVALS[this.b2b.rival as RivalId];

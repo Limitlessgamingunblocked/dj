@@ -19,6 +19,7 @@ import { HAIR, ITEMS, OUTFIT_SETS, type Unlock } from '../character/catalog';
 import { owned } from '../character/look';
 import type { Progress, Reputation } from '../core/models';
 import type { Grade, SlotId, VibeEvent } from './vibe';
+import { isCrazyRoom, roomLock, roomsOpenedBy } from './rooms';
 
 export const CAREER_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise'] as const;
 export type CareerVenue = (typeof CAREER_VENUES)[number];
@@ -64,6 +65,7 @@ export function toNextTier(p: Pick<Progress, 'fame' | 'tier'>): number | null {
 
 /** why a venue is closed to you (null: it's open) */
 export function venueLock(id: string, p: Pick<Progress, 'tier' | 'setsPlayed' | 'unlocked' | 'sandbox'>): string | null {
+  if (isCrazyRoom(id)) return roomLock(id, p);
   if (p.sandbox || !isCareerVenue(id)) return null;
   if (id === 'basement') return p.setsPlayed < 1 && !p.unlocked.includes('venue:basement') ? 'Play a set in the Bedroom first' : null;
   if (id === 'boat') {
@@ -376,6 +378,9 @@ export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): Se
     if (m?.cash) cash += m.cash;
   }
   const reputation = reputationFrom(stats, setsPlayed);
+  // the secret rooms this set opens
+  const rooms = roomsOpenedBy(s, { tier, setsPlayed, venuesPlayed, unlocked });
+  unlocked.push(...rooms.keys);
   const patch: Partial<Progress> = {
     fame,
     cash,
@@ -390,7 +395,7 @@ export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): Se
     reputation,
   };
   const after = { ...p, ...patch };
-  const news = [...newUnlocks(p, after), ...titles];
+  const news = [...newUnlocks(p, after), ...titles, ...rooms.names.map((n): NewThing => ({ kind: 'venue', label: `Secret room: ${n}` }))];
   if (tier > p.tier) news.unshift({ kind: 'tier', label: `Fame tier ${tier}: ${TIER_NAMES[tier - 1]}` });
   if (reputation && reputation !== p.reputation) news.push({ kind: 'reputation', label: `Reputation: ${REPUTATION[reputation].label}` });
   // two quiet sets in a row: a story moment, so something new comes every set or two (Section 9.8)

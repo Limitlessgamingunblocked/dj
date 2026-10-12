@@ -8,6 +8,7 @@ import { ASSISTS, SET_LENGTHS, type Assist, type GigConfig } from '../game/Gig';
 import { SLOTS, type SlotId } from '../game/vibe';
 import type { Look, Progress } from '../core/models';
 import type { Crate } from '../library/Library';
+import { isCrazyRoom } from '../game/rooms';
 import { h, setClass } from './dom';
 import { openModal } from './modal';
 
@@ -80,7 +81,19 @@ export function openGigSetup(o: SetupHooks): void {
     venueCards.append(b);
     return { b, v };
   });
-  const syncVenues = () => cards.forEach(({ b, v }) => setClass(b, 'active', v.id === cfg.venue));
+  // the crazy rooms can be played as a Room Battle
+  const battleBox = h('input', { type: 'checkbox', checked: !!cfg.battle }) as HTMLInputElement;
+  battleBox.addEventListener('change', () => (cfg.battle = battleBox.checked));
+  const battleSec = h(
+    'section',
+    { class: 'gs-battle' },
+    h('h3', {}, 'Room Battle'),
+    h('label', { class: 'toggle-row' }, battleBox, 'Take turns with a rival: 16 bars each on the room’s pads. You get half the pads, they get the rest, and the crowd votes each round.'),
+  );
+  const syncVenues = () => {
+    cards.forEach(({ b, v }) => setClass(b, 'active', v.id === cfg.venue));
+    battleSec.hidden = !isCrazyRoom(cfg.venue);
+  };
   syncVenues();
 
   const slot = chipRow<SlotId>('Slot', Object.values(SLOTS).map((s) => ({ id: s.id, label: s.label, title: s.brief })), () => cfg.slot, (v) => {
@@ -141,6 +154,7 @@ export function openGigSetup(o: SetupHooks): void {
       ? [terms, h('section', {}, h('h3', {}, 'Assist'), assist.row, assistNote)]
       : [
           h('section', {}, h('h3', {}, 'Where'), venueCards),
+          battleSec,
           h('section', {}, h('h3', {}, 'Slot'), slot.row, brief),
           h('div', { class: 'gs-two' }, h('section', {}, h('h3', {}, 'Set length'), len.row), h('section', {}, h('h3', {}, 'Assist'), assist.row, assistNote)),
         ]),
@@ -151,7 +165,7 @@ export function openGigSetup(o: SetupHooks): void {
   const m = openModal(bk?.daily ? 'Daily challenge' : bk ? 'Play the booking' : 'Free set', content, { wide: true });
   go.addEventListener('click', () => {
     m.close();
-    o.start(cfg, { look, crate });
+    o.start({ ...cfg, battle: !!cfg.battle && isCrazyRoom(cfg.venue) }, { look, crate });
   });
   dress.addEventListener('click', () => {
     m.close();

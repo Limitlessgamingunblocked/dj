@@ -335,7 +335,11 @@ export class Stage {
   /** what you look like (rebuilds the avatar) */
   setLook(look: Look, djName?: string): void {
     this.avatar.setLook(look, djName);
+    this.djLook = look;
+    this.venue?.attachDJ?.(this.avatar, look);
   }
+  /** what you look like now (for rooms that copy you) */
+  private djLook: Look = defaultLook();
 
   /** the part on the board for a control that just moved, and your hand to it */
   private handTo(id: string): void {
@@ -426,6 +430,7 @@ export class Stage {
       for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
     });
     this.scene.add(v.group);
+    v.attachDJ?.(this.avatar, this.djLook);
     // the floor's reflection shows the bright things: the screens, beams, lasers, lamps and neon
     this.reflect.floor = v.reflect ?? null;
     if (v.reflect) tagBright(v.group);

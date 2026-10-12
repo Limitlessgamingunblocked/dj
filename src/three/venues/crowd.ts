@@ -414,7 +414,7 @@ export const VERT_HEAD = /* glsl */ `
   attribute float aMat;
   attribute vec4 iSeed;
   attribute vec4 iInfo;
-  uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick, uCold, uSync, uHype, uRiders;
+  uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick, uCold, uSync, uHype, uRiders, uLook;
   varying float vMat;
   varying vec4 vSeed;
   varying vec2 vUv2;
@@ -471,6 +471,9 @@ export const VERT_HEAD = /* glsl */ `
     float wCheer = uCheer * step(0.12, iSeed.y) * (dancer + vip * 0.7);
     aL = mix(aL, vec3(2.25 + wave * 0.3, 0.45, 0.25), wCheer);
     aR = mix(aR, vec3(2.25 - wave * 0.3, 0.45, 0.25), wCheer);
+    // the room did something: some people point up at it
+    float wPoint = uLook * step(0.55, fract(iSeed.w * 5.7)) * dancer;
+    aR = mix(aR, vec3(0.45, 2.25, 0.1), wPoint);
     // phones: the filmers, plus (cold) people scrolling at chest height
     float wFilm = iInfo.y * smoothstep(0.3, 0.4, vnoise(uTime * 0.05 + iSeed.w * 11.0) + uCheer * 0.3) * (1.0 - wClap);
     // the filmer never puts it down; the VIP crew hold phone lights up through the breakdowns
@@ -522,6 +525,8 @@ export const VERT_HEAD = /* glsl */ `
     float nod = hit * bob * 3.0 + dj * 0.18 * hit;
     // security gives a slow nod when the set's going well
     nod += guard * smoothstep(0.75, 0.9, uHype) * 0.25 * max(0.0, sin(uTime * 1.2 + iSeed.x * 6.0));
+    // and everyone looks up at it
+    nod -= uLook * 0.55 * (0.6 + 0.4 * iSeed.z) * (1.0 - staff);
     // cold: chatting, turning to friends; euphoric: everyone moving as one
     float turn = (vnoise(uTime * 0.25 + iSeed.w * 23.0) - 0.5) * (0.5 + vip * 1.4 + uCold * 1.8 * (1.0 - marathon) + staff * 0.8) * (1.0 - dj * 0.8);
     float jumpPh = mix(iSeed.x, 0.0, uSync);
@@ -604,7 +609,7 @@ export const VERT_HEAD = /* glsl */ `
 
 const FRAG_HEAD = /* glsl */ `
   uniform sampler2D uSigns;
-  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat;
+  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat, uUV;
   uniform vec3 uRim, uRimFrom;
   float crowdHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   varying float vMat;
@@ -754,6 +759,14 @@ const FRAG_COLOR = /* glsl */ `
     float strand = sin(atan(p.x, p.z + 0.001) * 70.0 + p.y * 40.0 + vSeed.x * 20.0);
     col *= 0.88 + 0.16 * strand * (1.0 - smoothstep(0.004, 0.01, aa));
   }
+  // blacklight: white cloth glows blue-violet, bright colours fluoresce; skin and dark cloth stay dark
+  if (uUV > 0.001) {
+    float cloth = (m < 1.5 || (m > 3.5 && m < 6.5) || (m > 12.5 && m < 13.5) || (m > 15.5 && m < 16.5)) ? 1.0 : 0.0;
+    float lum = dot(col, vec3(0.299, 0.587, 0.114));
+    float sat = max(col.r, max(col.g, col.b)) - min(col.r, min(col.g, col.b));
+    vec3 uvCol = mix(vec3(0.55, 0.5, 1.0) * lum * 1.6, col * 1.5, clamp(sat * 2.0, 0.0, 1.0));
+    glow += uvCol * smoothstep(0.2, 0.6, lum + sat) * cloth * uUV * 1.1;
+  }
   diffuseColor.rgb = col;
   totalEmissiveRadiance += glow;
 `;
@@ -807,6 +820,8 @@ export class Crowd implements Fixture {
     uPhotos: { value: 0 },
     uShorts: { value: 0.1 },
     uSweat: { value: 0 },
+    uLook: { value: 0 },
+    uUV: { value: 0 },
     uRim: { value: new THREE.Color(0, 0, 0) },
     uRimFrom: { value: new THREE.Vector3(0, 3.5, 1.5) },
   };
@@ -1017,6 +1032,15 @@ export class Crowd implements Fixture {
         c.mesh.geometry = c.geos[want];
       }
     }
+  }
+
+  /** 0..1: heads go up and some people point (a room doing something overhead) */
+  set look(k: number) {
+    this.u.uLook.value = k;
+  }
+  /** 0..1: blacklight on the crowd (white and bright clothes glow) */
+  set uv(k: number) {
+    this.u.uUV.value = k;
   }
 
   update(s: ShowState, dt: number, camera?: THREE.Camera): void {

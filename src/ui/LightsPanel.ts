@@ -10,6 +10,8 @@ import type { Stage } from '../three/Stage';
 import { LASER_PATTERN_NAMES, LASER_PATTERNS, PALETTES, type ShowControls } from '../three/venues/show';
 import { h, setClass, setText } from './dom';
 import { venueCards } from './VenuePicker';
+import { RoomPanel } from './RoomPanel';
+import { isCrazyRoom } from '../game/rooms';
 import { hwButton, type Widget } from './widgets';
 
 export class LightsPanel {
@@ -28,6 +30,8 @@ export class LightsPanel {
   private customInputs: HTMLInputElement[] = [];
   private status: HTMLElement;
   private meter: HTMLElement;
+  /** the crazy rooms' own desk */
+  private room: RoomPanel;
 
   constructor(
     app: AppContext,
@@ -39,7 +43,9 @@ export class LightsPanel {
     this.cards = venueCards(
       () => app.venueId(),
       (id) => app.setVenue(id),
+      (id) => (isCrazyRoom(id) ? app.roomLock(id) : null),
     );
+    this.room = new RoomPanel(reg);
     app.events.on('venue', () => this.cards.refresh());
 
     const toggle = (label: string, title: string, get: () => boolean, set: (v: boolean) => void) => {
@@ -138,6 +144,7 @@ export class LightsPanel {
       'div',
       { class: 'pane lights-pane' },
       h('div', { class: 'lights-col' }, h('h3', {}, 'Venue'), this.cards.el),
+      this.room.el,
       h(
         'div',
         { class: 'lights-col desk' },
@@ -172,6 +179,7 @@ export class LightsPanel {
     for (const [id, b] of this.laserBtns) setClass(b, 'active', id === c.lasers);
     for (const [id, b] of this.patBtns) setClass(b, 'active', id === c.laserPattern);
     for (const w of this.widgets) w.update();
+    this.room.update();
     const phase = !s.playing ? 'Idle' : s.peak > 0.5 ? 'Peak' : s.build > 0.35 ? 'Build-up' : 'Groove';
     setText(this.status, `${phase} · bar ${s.bar + 1} · movers ${['sweep', 'fan', 'alternate', 'circles', 'ballyhoo', 'focus'][s.moverPattern] ?? ''} · lasers ${s.lasers > 0.05 ? LASER_PATTERN_NAMES[s.laserPattern] : 'off'}`);
     const cells = this.meter.children;

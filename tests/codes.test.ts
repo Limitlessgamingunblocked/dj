@@ -22,6 +22,7 @@ describe('codes', () => {
     const r = redeemCode('  fame ', p)!;
     expect(r.patch.fame).toBe(9000);
     expect(r.patch.unlocked!.filter((u) => u === 'venue:boat')).toHaveLength(1);
+    expect(r.patch.unlocked).toContain('room:mirror');
   });
 
   it('turns down anything that isn’t a code', () => {

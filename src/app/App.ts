@@ -12,7 +12,11 @@ import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { setUiAudio, wireUiSounds } from '../audio/uisound';
 import { Broadcast } from './broadcast';
+import { registerRoomControls } from './roomControls';
+import { roomShow } from '../three/venues/rooms/kit';
+import { roomNote, setRoomAudio } from '../audio/roomnotes';
 import { redeemCode } from '../game/codes';
+import { CRAZY_ROOM_IDS, roomLock } from '../game/rooms';
 import { openCodeEntry } from '../ui/CodeEntry';
 import { noteWork, stutters } from '../core/stutter';
 import { LENS_LOOKS } from '../three/looks';
@@ -98,7 +102,7 @@ import { cleanSettings, type Settings } from './settingsModel';
 
 const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash', 'dancers'] as const;
 /** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
-const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise'];
+const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise', ...CRAZY_ROOM_IDS];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
 /** what each venue sounds like round the music */
 const AMBIENCE: Record<string, Ambience> = { rooftop: 'glasses', beach: 'waves', boat: 'water', festival: 'field', sunrise: 'dawn', burningman: 'playa' };
@@ -200,6 +204,10 @@ export class App implements AppContext {
 
   venueId(): string {
     return this.settings.venue;
+  }
+
+  roomLock(id: string): string | null {
+    return roomLock(id, this.career.progress);
   }
 
   setVenue(id: string, initial = false): void {
@@ -359,6 +367,9 @@ export class App implements AppContext {
     // interface clicks and chimes, straight to the output (never into the mix)
     setUiAudio(this.engine.ctx);
     wireUiSounds();
+    // the crazy rooms' own notes (the Laser Grid's beams), outside the mix too
+    setRoomAudio(this.engine.ctx);
+    roomShow.note = (midi, vel) => roomNote(midi, vel);
     this.applyPrefs(null);
     onPrefs((_, changed) => this.applyPrefs(changed));
     this.engine.autoGain = this.settings.autoGain;
@@ -454,6 +465,7 @@ export class App implements AppContext {
     this.stage.reactiveLights = this.settings.reactiveLights;
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
+    registerRoomControls(this.reg);
     this.party = new Party({
       engine: this.engine,
       vibe: () => this.gigs?.meter.vibe ?? 0.6,
@@ -969,6 +981,34 @@ export class App implements AppContext {
       { label: 'Enter a code…', action: () => openCodeEntry({ redeem: (code) => this.redeemCode(code) }) },
       { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
     ]);
+  }
+
+  /**
+   * What the crazy rooms read from the decks: the lead track's key (the
+   * Laser Grid's notes) and how much you're breaking the music up (the Glitch
+   * Room): a scratch, the echo and how deep it runs, a short stutter loop.
+   */
+  private feedRoom(dt: number): void {
+    const e = this.engine;
+    const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing);
+    const key = lead?.currentKey();
+    if (key) {
+      roomShow.key.tonic = key.root;
+      roomShow.key.minor = key.minor;
+    }
+    let g = 0;
+    for (const d of e.decks) {
+      if (!d.playing && !d.scratching) continue;
+      if (d.scratching) g = 1;
+      if (d.loop.active && d.beatLen > 0) {
+        const beats = (d.loop.end - d.loop.start) / d.beatLen;
+        if (beats <= 0.5) g = Math.max(g, 1);
+        else if (beats <= 1) g = Math.max(g, 0.6);
+      }
+    }
+    const fx = e.fx;
+    if (fx.on && (fx.type === 'echo' || fx.type === 'pingpong')) g = Math.max(g, 0.35 + fx.depth * 0.5);
+    roomShow.glitch += (g - roomShow.glitch) * Math.min(1, dt * (g > roomShow.glitch ? 12 : 3));
   }
 
   /** a code from the ⋯ menu's box (game/codes.ts): change the career, and say what changed */
@@ -1664,6 +1704,7 @@ export class App implements AppContext {
       nameService.update({ playing: this.clock.playing, section: this.clock.section, beat: this.clock.position, bar: this.clock.bar, kick: f.kickPulse, depth: f.breakdown, dropHit: f.dropHit, reduceFlash: this.stage.show.controls.reduceFlash }, dt);
       this.nextUp.update(dt);
       this.broadcast.update(dt);
+      if (roomShow.current) this.feedRoom(dt);
       this.stage.hype = this.gigs.update(dt, f);
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);

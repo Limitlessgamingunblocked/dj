@@ -469,3 +469,50 @@
     background-position: 88px 0;
   }
 }
+
+/* the Room panel (crazy rooms) */
+.room-col {
+  grid-column: 1 / -1;
+}
+
+.hw.light-pad.room-pad {
+  --pad: var(--room-ui, #c48bff);
+}
+
+.hw.light-pad.room-pad.hold {
+  --pad: #ff5fb0;
+}
+
+.hw.light-pad.room-pad.toggle {
+  --pad: #5fd8ff;
+}
+
+.hw.light-pad.room-pad.scene {
+  --pad: #ffd23f;
+}
+
+.hw.light-pad.room-pad.rival {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}
+
+.room-scenes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+}
+
+.room-slot {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.room-slot > .btn:first-child {
+  min-width: 34px;
+  font-family: var(--font-label);
+}
+
+.room-col select {
+  max-width: 100%;
+}

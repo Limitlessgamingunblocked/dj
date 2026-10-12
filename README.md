@@ -145,7 +145,7 @@ Turn it on from the ⋯ menu (or Shift+A) and it mixes by itself, the way you wo
 ### The screen
 - **Title screen:** the game opens on DECKHOUSE in chrome with glowing sides, hanging over a slow camera glide through the club at night with the lights moving over it. Any key, click, tap or controller button starts: the name flies past the lens and the camera walks you in. (Open the page with `?title` to see it again.)
 - **Walking in:** switching venues is a short arrival shot instead of a cut. A card with the venue's name and city, then the camera comes in from the doors, over the crowd and up to the booth in about six seconds. Starting a gig walks you in too (even into the room you're in), with the night's flyer pinned beside the venue's name. A click, tap or scroll skips it.
-- **Codes** (⋯ menu → Enter a code…): type **FAME** to open every venue for gigs and max out your fame (the top tier, Legend, with everything the tiers unlock). Case doesn't matter; a wrong code just says it doesn't do anything.
+- **Codes** (⋯ menu → Enter a code…): type **FAME** to open every venue and secret room for gigs and max out your fame (the top tier, Legend, with everything the tiers unlock). Case doesn't matter; a wrong code just says it doesn't do anything.
 - **Broadcast mode** (⋯ menu or Shift+O): the stage alone, filling the window, for streaming the game or leaving it on a screen. The auto director cuts the camera with the music, each new track's name slides in, and the pointer hides when it's still. Esc, Shift+O or the Leave button (it shows when the pointer moves or you tap) bring everything back. As a **screensaver** (Settings → Show & venue) it comes on by itself after 2, 5 or 10 minutes without a touch while music plays, and any touch ends it.
 - **Photo mode** (camera menu, Shift+P, or Photo mode on the camera bar): the stage full screen with a camera's controls. Focus stays on you as the camera moves (*Focus on DJ*); tap anything in the picture to focus there instead, or set the distance. The aperture (f/1.4 to f/16) sets how shallow the focus is, and the lights behind open into soft bokeh. The camera can come right round you for a close portrait (outside photo mode you're hidden when it's that close, so you don't block the board). *Hold the moment* freezes the room (the lights, the crowd mid-jump, confetti in the air) while you still move the camera round it. Six filters (mono, noir, warm film, cool night, punch, faded), a thirds grid, and frames of 16:9, 4:5, square, 9:16 for a story and 2.39:1. The photo saves cropped to the frame. Esc leaves.
 - **One style everywhere:** every button uses the same set of line icons (one stroke weight, one grid), the type sits on one scale, and panels, menus, dialogs and toasts move the same way (a short rise and fade, eased the same). It all stays still with reduced motion.
@@ -348,6 +348,35 @@ The real venues are fan-made recreations and are not affiliated with or endorsed
 - **Screens**: LED walls (Alexandra Palace, Printworks, the warehouse) read as LED up close (pixels, tile seams, dimmer off-axis). The IMAG towers use a broadcast grade and go monochrome through build-ups.
 - **Lens and grade**: bright fixtures (beam lenses, lasers, strobes, flames) throw anamorphic streaks and faint ghosts; the brightest points turn into six-point stars (four on medium), and dust and smudges on the lens light up when a wall of light hits it; vignette and film grain (medium and high quality). Each venue has its own colour grade and tone mapping. AgX rolls lights off to white like a camera, for the warehouse, Printworks and Boiler Room; ACES keeps the blacks deep in Berghain and DC-10. Lens effects, tone mapping, grade and output run in one full-screen pass.
 
+### Crazy rooms
+Twelve secret rooms to DJ in, built to move with the music (`src/three/venues/rooms/`). Each opens when you meet its challenge in a set; the lock on the venue card says what it is.
+
+| Room | What it does | Opens when you… |
+|---|---|---|
+| Infinity Mirror Room | Mirrors on every surface reflecting each other into endless corridors, with lasers bouncing round. The panels tilt, spin and on the drop fold into a six-way kaleidoscope. | finish a set with an A or better |
+| LED Cube | Every surface is an LED screen: the visual player, the waveform or the spectrum on the walls, ripples on the floor where people stand on the kick. On the drop the room falls away into a tunnel, space or shatters. | land 5 named transitions in one set |
+| Kaleidoscope Dome | A dome of mirrored triangles, each tipped its own way, breaking the room into a kaleidoscope that turns with the melody and tints with its note. | play 3 sets |
+| Laser Grid Room | Pitch black with a grid of light beams at body height. People break the beams, and every break plays a note in the track's key. On the drop the grid closes into a cage round the booth. | land 3 perfect transitions in one set |
+| UV Blacklight Room | White clothes, teeth and tubes glow under UV, and glow paint splats over the walls and floor on the beat and drips down. | play a set in the Basement Club |
+| Sound Wave Room | Walls of pins and a ceiling of rods that move like a 3D equaliser: the bass pushes the walls out, hi-hats ripple across the ceiling. | keep the average vibe over 70 % for a whole set |
+| Fog Room | Thick fog with solid beams, and sculptures of light overhead: rings, a tunnel, a face, a star. | play a closing set |
+| Upside-Down Room | A second booth and crowd on the ceiling. Halfway through the set gravity flips and the camera rolls over to join them. | get called back for an encore |
+| Neon Maze | Arches of neon tubes that chase, flicker and pulse to the beat, and spell your DJ name on the back wall. | reach fame tier 3 |
+| Water Room | A shallow pool floor that mirrors the lights, rings out on the kick, and curtains of rain that freeze mid-air under the strobe. | play a set at the Beach Club Terrace |
+| Hologram Room | A giant hologram of you behind the crowd copying every move, floating faces and shapes that orbit the room. | play in 5 different venues |
+| Glitch Room | A clean white gallery that tears into pixels, wireframe and inverted colour when you scratch, echo out or stutter-loop. | finish a set with no mistakes |
+
+- **Room panel** (Show tab, in a crazy room): you're the room's lighting designer.
+  - Up to six pads play the room's own effects (hits, toggles and holds). Two more recall scenes. All eight are controls (`room.pad.1–8`), so they go on keys in Settings → Keyboard or on a controller with MIDI learn.
+  - The room's look is its mode, colour and level. Save it to four **scene slots** and recall one on a pad, or arm one to come in on the next drop.
+  - **On the drop**: pick the room's drop moment yourself, or leave it on Auto. In a gig, a moment you chose that suits the drop (a big one for a big drop, a softer one for a gentle one) scores +250.
+  - **What drives the room**: with stems, the drums drive the floor, the melody the walls and the vocals the ceiling. You can also swap them round, or let the drums drive everything.
+  - **Room sounds**: turns the light grid's notes on and off.
+- **The crowd reacts to the room**: they look up and point at the big moments, and more phones come up to film.
+- **Room Battle** (pre-gig screen, in a crazy room): you and a fictional rival take turns on the room, 16 bars each. You get the first half of the pads and they get the rest, dimmed on your panel. A press scores by timing: on the beat, more on the downbeat, double just after a drop, nothing for mashing. After both turns the crowd votes, counting presses and how the room felt, and a round won is +500. The results show the score.
+- **Photo angles**: each room's wide view is placed for its best shot (the endless corridor in the mirror room, into the dome, both crowds upside down, your name in neon, your hologram). The rig view looks straight down, which in the mirror rooms makes a kaleidoscope.
+- Safety: the light grid's body-height beams are light, not lasers; the real lasers stay overhead, at least 3 m above the crowd. Flicker, glitch, invert and strobe-freeze all follow Reduce flashing.
+
 ### Performance
 - **Graphics quality** (Settings): Low, Medium or High is the ceiling. With *Adjust automatically to keep it smooth* on (the default), the app steps down when frames run long. The steps are, in order: render resolution, crowd detail distance, lens streaks with ambient occlusion and floor reflections, the visual player's rate on the venue screens, then bloom inside the player. It steps back up when there's headroom. Low also turns off shadows, bloom, multisampling, lens effects, ambient occlusion and reflections.
 - **Crowd:** dancers are grouped into chunks that are skipped when off screen. Chunks far from the camera swap to a low-detail model with the same skeleton, about half the triangles.
@@ -401,6 +430,7 @@ src/setbuilder/            SmartDJ set generation: track profiles, artist styles
 src/lyrics/                lyric formats (LRC, tags, LRCLIB), vocal activity + alignment, lyrics clock
 src/three/                 stage, camera rig (incl. drone and the moving angles), lens pass and looks, board parts and presets, stickers
 src/three/venues/          venues, light show director, fixtures (beams, lasers, strobes…), crowd, pyro
+src/three/venues/rooms/    the crazy rooms and their shared engine (pads, scenes, drop moments, mirror probes)
 src/visualizer/            audio features, visual modes and their shader kit, the auto VJ, lyrics typography
 src/ui/                    software panels and widgets
 src/app/                   app shell, saved settings, control registry bindings, keyboard map, gigs (gigs.ts)
