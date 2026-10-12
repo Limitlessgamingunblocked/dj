@@ -121,7 +121,7 @@ class Beach extends OpenAir {
   ];
 
   constructor() {
-    super({ fog: 0xf6d8a8, fogDensity: 0.0016, hemiSky: 0xbcd4ee, hemiGround: 0xc8a878, hemi: 0.7, flashAt: V(0, 4, -6), flashRange: 24, sunYaw: 0.22, skyRadius: 900 }, BEACH_SKY, {
+    super({ fog: 0xf6d8a8, fogDensity: 0.0016, hemiSky: 0xbcd4ee, hemiGround: 0xc8a878, hemi: 0.7, flashAt: V(0, 4, -6), flashRange: 24, sunYaw: 0.22, skyRadius: 900, skyShow: { at: V(-10, 55, 170), scale: 1.4, fireworks: true } }, BEACH_SKY, {
       // clear sea air, fair-weather cloud and cirrus that lights up at sunset; the moon comes up over the land behind
       air: { turbidity: 1.4 },
       clouds: { cover: 0.22, cirrus: 0.45, wind: [0.2, -0.15] },
@@ -320,7 +320,10 @@ class Beach extends OpenAir {
     const SEA = -1.05;
     const ridge = (t: number) => 4 + 14 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.15)), 0.7) + 8 * t;
     const point = [new THREE.Vector2(95, 70), new THREE.Vector2(135, 150), new THREE.Vector2(165, 230), new THREE.Vector2(180, 310)];
-    this.group.add(headland(point, 50, ridge, { y0: SEA, seed: 431, color: '#3a3a30' }));
+    const cape = headland(point, 50, ridge, { y0: SEA, seed: 431, color: '#3a3a30' });
+    this.group.add(cape);
+    // after dark the visuals are projected onto the headland's cliffs
+    this.project(V(0, 8, 0), V(140, 8, 170), 26, 1.6, cape);
     const lh = new THREE.SplineCurve(point).getPointAt(0.9);
     this.add(new Lighthouse(V(lh.x, SEA + ridge(0.9) * 0.85, lh.y), { height: 26, night, d, period: 12 }));
     const shore = [new THREE.Vector2(-300, 500), new THREE.Vector2(-160, 560), new THREE.Vector2(-50, 610), new THREE.Vector2(55, 640)];

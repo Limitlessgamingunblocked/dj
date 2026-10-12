@@ -227,7 +227,7 @@ class Festival extends OpenAir {
   private carpet: THREE.MeshBasicMaterial;
 
   constructor() {
-    super({ fog: 0x1a1630, fogDensity: 0.0042, hemiSky: 0x2a2a5a, hemiGround: 0x0c0a10, hemi: 0.26, flashAt: V(0, 12, -14), flashRange: 60, sunYaw: Math.PI + 0.3, skyRadius: 900 }, FESTIVAL_SKY, {
+    super({ fog: 0x1a1630, fogDensity: 0.0042, hemiSky: 0x2a2a5a, hemiGround: 0x0c0a10, hemi: 0.26, flashAt: V(0, 12, -14), flashRange: 60, sunYaw: Math.PI + 0.3, skyRadius: 900, skyShow: { at: V(0, 75, 130), scale: 1.7, fireworks: true } }, FESTIVAL_SKY, {
       // summer haze over the fields; a few heaps of cloud and high streaks catching the last light; the full moon rising behind the stage
       air: { turbidity: 2.2 },
       clouds: { cover: 0.35, cirrus: 0.35, wind: [0.3, 0.12] },

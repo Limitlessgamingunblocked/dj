@@ -8,6 +8,32 @@
  */
 import type { ControlRegistry } from '../core/controls';
 import type { LightShow } from '../three/venues/show';
+import { skyCue } from '../three/venues/skyshow';
+
+/** the sky show's pads: fireworks (a volley and 15 s more), the drone show (auto → on → off) */
+export function registerSkyControls(reg: ControlRegistry): void {
+  let fwAt = 0;
+  reg.register({
+    id: 'sky.fireworks',
+    label: 'Sky: fireworks (open-air venues)',
+    kind: 'button',
+    press: () => {
+      skyCue.volley = 1;
+      skyCue.padFor = Math.max(skyCue.padFor, 15);
+      fwAt = performance.now();
+    },
+    lit: () => (performance.now() - fwAt < 900 ? '#ffd23f' : false),
+  });
+  reg.register({
+    id: 'sky.drones',
+    label: 'Sky: drone show (auto, on, off)',
+    kind: 'button',
+    press: () => {
+      skyCue.drones = skyCue.drones === 'auto' ? 'on' : skyCue.drones === 'on' ? 'off' : 'auto';
+    },
+    lit: () => (skyCue.drones === 'on' ? '#3dd6ff' : skyCue.drones === 'auto' ? '#1f6a80' : false),
+  });
+}
 
 export function registerLightControls(reg: ControlRegistry, show: LightShow, changed: () => void): void {
   const c = show.controls;

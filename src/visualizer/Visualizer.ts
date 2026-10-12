@@ -28,11 +28,12 @@ import { MODE_FACTORIES, MODE_INFO, type VisMode } from './modes';
 import { MORE_INFO, MORE_MODES } from './modes2';
 import { INFO3, MODES3 } from './modes3';
 import { INFO4, MODES4 } from './modes4';
+import { MY_INFO, MY_MODES } from './myvisual';
 import type { SongLook } from './songLook';
 
-const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES, ...MODES3, ...MODES4];
+const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES, ...MODES3, ...MODES4, ...MY_MODES];
 const DEFAULT_COLORS = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
-const INFO: ModeInfo[] = [...MODE_INFO, ...MORE_INFO, ...INFO3, ...INFO4];
+const INFO: ModeInfo[] = [...MODE_INFO, ...MORE_INFO, ...INFO3, ...INFO4, ...MY_INFO];
 
 const FinalShader = {
   uniforms: {
@@ -313,6 +314,9 @@ export class Visualizer {
     if (this.settings.songLooks) this.director.song(look.pool, look.first, look.pace);
   }
 
+  /** a VJ is choosing the modes: the auto VJ leaves the screens alone */
+  vjHold = false;
+
   static modeInfo(): ModeInfo[] {
     return INFO;
   }
@@ -381,9 +385,9 @@ export class Visualizer {
     f.safe = this.safe ? 1 : 0;
     this.bpm = f.bpm || 124;
     this.updateSong(f, dt);
-    // the screens always rotate: a mode picked by hand plays until the next change
+    // the screens always rotate: a mode picked by hand plays until the next change (a VJ holding it keeps it)
     const cut = this.director.tick(this.current.id, f);
-    if (cut) this.setMode(cut.id, { kind: cut.kind, beats: cut.beats });
+    if (cut && !this.vjHold) this.setMode(cut.id, { kind: cut.kind, beats: cut.beats });
     this.warmUp();
     this.current.update(f, dt);
     // the outgoing mode keeps playing under the transition

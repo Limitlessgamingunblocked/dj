@@ -25,6 +25,12 @@ import { crowdShow } from '../three/venues/crowdShow';
 import { afterSet, attending, loadLoyalty, saveLoyalty, type Regular } from '../game/regulars';
 import { genreOf } from '../library/genres';
 import type { DjMove } from '../character/Avatar';
+import { ghostAt, keepIfBest, loadGhost, type Ghost, type GhostPoint } from '../game/ghost';
+import { openHighlight } from '../ui/HighlightCard';
+import { skyCue } from '../three/venues/skyshow';
+
+/** the venues with a fireworks finale */
+const FINALE_VENUES = ['festival', 'beach', 'boat'];
 import { Snapshot } from '../game/snapshot';
 import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
@@ -102,6 +108,10 @@ export interface GigHost {
   nextUp: NextUp;
   /** the regulars' loyalty changed (the crowd's front row follows) */
   regularsChanged?(): void;
+  /** the stage as a picture (the highlight card's moment) */
+  snapshot?(): Promise<Blob | null>;
+  /** share these tracks (played in order) as a set code */
+  shareSet?(trackIds: string[]): void;
 }
 
 /** what the lighting tech says when you take the lights */
@@ -162,6 +172,17 @@ export class GigDirector {
   private fanCheered = new Set<string>();
   private moveAt = -1e9;
   private dropAt = -1e9;
+  /** the daily's ghost (your best run today) and this run's samples */
+  private ghost: Ghost | null = null;
+  private ghostRun: GhostPoint[] = [];
+  private ghostT = -1e9;
+  /** the tracks played this set, in order, and the picture of the crowd's peak */
+  private played: string[] = [];
+  private peakShot: Blob | null = null;
+  private peakSeen = 0;
+  private peakShotAt = -1e9;
+  /** the finale's fireworks have gone up this set (or this night, in free play) */
+  private finale = false;
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
@@ -334,6 +355,14 @@ export class GigDirector {
     this.endBattle();
     this.roomMoments = 0;
     this.fans = attending(loadLoyalty());
+    this.ghost = daily ? loadGhost(daily.key) : null;
+    this.ghostRun = [];
+    this.ghostT = -1e9;
+    this.played = [];
+    this.peakShot = null;
+    this.peakSeen = 0;
+    this.peakShotAt = -1e9;
+    this.finale = false;
     this.genreSecs = {};
     this.fanCheered.clear();
     this.moveAt = -1e9;
@@ -502,6 +531,15 @@ export class GigDirector {
     saveLoyalty(fanOut.loyalty);
     this.host.regularsChanged?.();
     const regulars = fanOut.changes.slice(0, 3).map((c) => ({ name: c.fan.name, style: c.fan.style, delta: c.delta }));
+    // the daily's ghost: keep this run if it's today's best
+    let ghostOut: { pts: GhostPoint[]; score: number; beat: boolean; first: boolean } | null = null;
+    if (this.daily && this.ghostRun.length > 3) {
+      const before = this.ghost;
+      const beat = keepIfBest({ key: this.daily.key, score: r.score, grade: r.grade, pts: this.ghostRun });
+      ghostOut = { pts: before?.pts ?? this.ghostRun, score: before?.score ?? r.score, beat: beat && !!before, first: !before };
+    }
+    const shot = this.peakShot;
+    const trackOrder = this.played.slice();
     const battle = this.battle ? { name: this.battle.game.rivalName, you: this.battle.game.you, rival: this.battle.game.rival } : null;
     const roomMoments = this.roomMoments;
     c.setProgress(r.outcome.patch);
@@ -537,6 +575,9 @@ export class GigDirector {
       battle,
       roomMoments,
       regulars,
+      ghost: ghostOut,
+      highlight: () => void openHighlight({ dj, grade: r.grade, venue: this.host.venueName(gig.config.venue), slot: SLOTS[gig.config.slot].label, score: r.score, peak: r.peak.vibe, peakAt: r.peak.t, best: r.best ? TRANSITION_LABEL[r.best.name] : null, date: new Date() }, shot ?? (rp ? (rp.stills(Math.max(0, gig.t - r.peak.t))[0] ?? null) : null)),
+      shareCode: trackOrder.length && this.host.shareSet ? () => this.host.shareSet!(trackOrder) : undefined,
       daily: dailyOut,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
@@ -547,6 +588,44 @@ export class GigDirector {
       again: () => (daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
+  }
+
+  /** the last track at the festival, the beach and the boat: fireworks */
+  private finaleWatch(gig: Gig | null): void {
+    const venue = gig ? gig.config.venue : this.host.venue();
+    if (!FINALE_VENUES.includes(venue)) return;
+    const last = gig ? gig.phase === 'encore' || (gig.phase === 'live' && gig.progress > 0.88) : setClock.progress > 0.92;
+    if (!gig && setClock.progress < 0.5) this.finale = false;
+    if (!last || this.finale) return;
+    this.finale = true;
+    skyCue.fireworksFor = gig ? Math.max(40, gig.remaining + 30) : 70;
+    this.host.callout({ text: 'Fireworks for the last track!', tone: 'hype' });
+    this.host.crowd('whoa');
+  }
+
+  /** the daily's ghost against you now */
+  private ghostNow(gig: Gig): { vibe: number; diff: number } | null {
+    if (!this.ghost || gig.phase === 'waiting') return null;
+    const g = ghostAt(this.ghost, gig.t);
+    if (!g) return null;
+    return { vibe: g.vibe, diff: Math.round(gig.meter.points * gig.multiplier) - g.score };
+  }
+
+  /** the daily's run, sampled for its ghost; a picture of the crowd at each new peak (for the highlight card) */
+  private sharingWatch(gig: Gig): void {
+    if (gig.phase === 'waiting') return;
+    if (this.daily && gig.t - this.ghostT >= 2) {
+      this.ghostT = gig.t;
+      this.ghostRun.push([Math.round(gig.t * 10) / 10, Math.round(gig.meter.vibe * 1000) / 1000, Math.round(gig.meter.points * gig.multiplier)]);
+    }
+    const v = gig.meter.vibe;
+    if (v > this.peakSeen + 0.03 && gig.t - this.peakShotAt > 12 && this.host.snapshot) {
+      this.peakSeen = v;
+      this.peakShotAt = gig.t;
+      void this.host.snapshot().then((b) => {
+        if (b) this.peakShot = b;
+      });
+    }
   }
 
   /** the genres the room's hearing, and a regular's cheer when their music comes on */
@@ -679,6 +758,7 @@ export class GigDirector {
     if (gig) setClock.progress = gig.progress;
     else tickFreeClock(dt, decks.some((d) => d.playing));
     if (f.dropHit && gig) this.dropAt = gig.t;
+    this.finaleWatch(gig);
     this.beatNow.phase = f.beatPhase;
     this.beatNow.inBar = f.beatInBar;
     if (gig) {
@@ -692,6 +772,8 @@ export class GigDirector {
       if (gig.assist === 'chill') this.chill(gig.t);
       const target = SLOTS[gig.config.slot].target(gig.progress);
       for (const d of decks) if (d.trackId && d.playing && d.audible > 0.12) this.heard.add(d.trackId);
+      for (const d of decks) if (d.trackId && d.playing && d.audible > 0.3 && this.played[this.played.length - 1] !== d.trackId && !this.played.includes(d.trackId)) this.played.push(d.trackId);
+      this.sharingWatch(gig);
       this.fanWatch(dt, decks, gig);
       this.updateCoach(gig);
       const req = gig.requests.current;
@@ -710,6 +792,7 @@ export class GigDirector {
         streak: { count: gig.streak.count, next: gig.streak.next },
         request: req ? { text: req.text, left: Math.max(0, (req.until - gig.t) / Math.max(1, req.until - req.at)) } : null,
         coach: this.coach ? { title: this.coach.title, artist: this.coach.artist, why: this.coach.why } : null,
+        ghost: this.ghostNow(gig),
       });
       this.chat?.update(dt, gig.meter.vibe, moodFor(gig.meter.vibe));
       this.crewTalk(dt, gig);

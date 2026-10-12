@@ -196,7 +196,7 @@ class Boat extends OpenAir {
   private echoBridge = false;
 
   constructor() {
-    super({ fog: 0x1a1830, fogDensity: 0.004, hemiSky: 0x2a3260, hemiGround: 0x0c0c14, hemi: 0.3, flashAt: V(0, 4, -6), flashRange: 18, sunYaw: Math.PI, skyRadius: 800 }, BOAT_SKY, {
+    super({ fog: 0x1a1830, fogDensity: 0.004, hemiSky: 0x2a3260, hemiGround: 0x0c0c14, hemi: 0.3, flashAt: V(0, 4, -6), flashRange: 18, sunYaw: Math.PI, skyRadius: 800, skyShow: { at: V(0, 45, 100), scale: 1.1, fireworks: true } }, BOAT_SKY, {
       // sea air, broken cloud; the moon rising astern
       air: { turbidity: 1.3 },
       clouds: { cover: 0.35, cirrus: 0.25, wind: [0.35, 0.05] },
@@ -308,6 +308,8 @@ class Boat extends OpenAir {
     const hull = new THREE.Mesh(hullGeo, navy);
     hull.position.set(0, LOWER_Y - 0.8, (TOP.z0 + TOP.z1) / 2 - bowLen / 2);
     this.group.add(hull);
+    // projectors on the rail throw the visuals down the hull's side (seen from the water, the drone and the camera boat)
+    this.project(V(16, LOWER_Y + 3, (TOP.z0 + TOP.z1) / 2 - bowLen / 2), V(0, LOWER_Y - 0.8, (TOP.z0 + TOP.z1) / 2 - bowLen / 2), 70, 1.8, hull);
     const bowDeckGeo = new THREE.BoxGeometry(TOP.x * 2 - 0.2, 0.2, bowLen);
     const bp = bowDeckGeo.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < bp.count; i++) if (bp.getZ(i) < 0) bp.setX(i, bp.getX(i) * 0.5);

@@ -167,6 +167,8 @@ class Rooftop extends OpenAir {
     // the city all round, in blocks that can light up one by one
     const sky = skyline({ seed: 260, inner: 120, outer: 520, from: -Math.PI, to: Math.PI, blocks: 16, minH: 30, maxH: 150, y: -DROP, lit: '#ffd9a0', density: 0.62 });
     this.group.add(sky.group);
+    // the visuals thrown across the street onto the towers behind the booth
+    this.project(V(0, 6, 3), V(0, 30, 220), 34, 2.2, sky.group);
     this.blocks = sky.blocks;
     this.beacons = beaconLights(sky.beacons);
     this.group.add(this.beacons.object);

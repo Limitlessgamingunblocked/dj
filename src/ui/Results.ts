@@ -35,6 +35,12 @@ export interface ResultsHooks {
   battle?: { name: string; you: number; rival: number } | null;
   /** room moments that matched the drop */
   roomMoments?: number;
+  /** the daily's ghost: your best run today (a faint line on the graph), and whether this run became it */
+  ghost?: { pts: [number, number, number][]; score: number; beat: boolean; first: boolean } | null;
+  /** make the highlight card */
+  highlight?(): void;
+  /** share the set as a code */
+  shareCode?(): void;
   /** the regulars who moved closer (or drifted) */
   regulars?: { name: string; style: string; delta: number }[];
   /** today's daily challenge: the objectives, the streak, the result to share */
@@ -70,7 +76,7 @@ function promoterLine(r: GigResults): string {
 }
 
 /** the vibe across the set, with the band the slot wanted behind it */
-function graph(r: GigResults): HTMLCanvasElement {
+function graph(r: GigResults, ghost?: [number, number, number][] | null): HTMLCanvasElement {
   // drawn near the size it's shown at in the wide dialog, so the axis text stays small
   const W = 1120;
   const H = 190;
@@ -120,6 +126,16 @@ function graph(r: GigResults): HTMLCanvasElement {
   g.strokeStyle = grad;
   g.lineWidth = 2.5;
   g.stroke();
+  // the ghost: your best run today, faint
+  if (ghost?.length) {
+    g.beginPath();
+    ghost.forEach((p, i) => (i ? g.lineTo(x(p[0]), y(p[1])) : g.moveTo(x(p[0]), y(p[1]))));
+    g.strokeStyle = 'rgba(255,255,255,0.35)';
+    g.lineWidth = 2;
+    g.setLineDash([6, 5]);
+    g.stroke();
+    g.setLineDash([]);
+  }
   // the peak
   if (r.peak.vibe > 0) {
     g.fillStyle = '#fff';
@@ -214,14 +230,21 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
       h('div', { class: 'res-nums' }, stat('Average vibe', `${Math.round(r.average * 100)}%`), stat('Score', r.score.toLocaleString(), r.score !== r.points ? `${r.points.toLocaleString()} × assist` : undefined), stat('Transitions', String(r.transitions)), stat('Best streak', r.bestStreak >= 2 ? `${r.bestStreak}` : '—', r.streakBonus ? `+${r.streakBonus.toLocaleString()}` : undefined), stat('Requests', r.requests.asked ? `${r.requests.met}/${r.requests.asked}` : '—'), stat('Mistakes', String(r.mistakes))),
     ),
   );
+  const card = h('button', { class: 'btn', type: 'button', title: 'A picture of the best moment, with your grade and score, to post' }, 'Highlight card');
+  card.addEventListener('click', () => hooks.highlight?.());
+  card.hidden = !hooks.highlight;
+  const share = h('button', { class: 'btn', type: 'button', title: 'A code with your tracklist and venue, for a friend to play' }, 'Share set code');
+  share.addEventListener('click', () => hooks.shareCode?.());
+  share.hidden = !hooks.shareCode;
   const again = h('button', { class: 'btn', type: 'button' }, 'Play again');
   const studio = h('button', { class: 'btn primary', type: 'button' }, 'Back to the decks');
   const content = h(
     'div',
     { class: 'results' },
     top,
-    graph(r),
-    h('div', { class: 'res-legend' }, h('i', { class: 'l-vibe' }), 'Vibe', h('i', { class: 'l-energy' }), 'Your energy', h('i', { class: 'l-target' }), `What a ${SLOTS[r.config.slot].label.toLowerCase()} wants`),
+    graph(r, hooks.ghost?.first ? null : hooks.ghost?.pts),
+    h('div', { class: 'res-legend' }, h('i', { class: 'l-vibe' }), 'Vibe', h('i', { class: 'l-energy' }), 'Your energy', h('i', { class: 'l-target' }), `What a ${SLOTS[r.config.slot].label.toLowerCase()} wants`, hooks.ghost && !hooks.ghost.first ? h('i', { class: 'l-ghost' }) : null, hooks.ghost && !hooks.ghost.first ? 'Your best run today' : null),
+    hooks.ghost ? h('div', { class: `res-objective ${hooks.ghost.beat ? 'met' : ''}` }, h('b', {}, hooks.ghost.first ? 'Ghost saved: ' : hooks.ghost.beat ? 'New best run! ' : 'Your ghost won: '), hooks.ghost.first ? 'play today’s daily again to race this run.' : hooks.ghost.beat ? 'this run is your ghost now.' : `best today is ${hooks.ghost.score.toLocaleString()} points.`) : null,
     h(
       'div',
       { class: 'res-cards' },
@@ -238,7 +261,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
     news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_KIND[n.kind] ? h('small', {}, NEW_KIND[n.kind]) : null, n.label.replace(/\{name\}/g, hooks.dj)))) : null,
     hooks.next ? h('p', { class: 'res-next' }, 'Next: ', hooks.next) : null,
-    h('div', { class: 'res-actions' }, save, again, studio),
+    h('div', { class: 'res-actions' }, save, card, share, again, studio),
   );
   const modal = openModal('Set complete', content, { wide: true });
   const stopReel = hooks.peakStills?.length ? peakReel(top, hooks.peakStills, `Crowd peak · ${mmss(r.peak.t)}`) : null;

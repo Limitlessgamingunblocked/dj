@@ -1928,3 +1928,35 @@ body.hub-open .app .main {
 .gh-end {
   color: #ff8fa3;
 }
+
+/* the daily's ghost: your best run, a faint marker on the meter */
+.gh-ghost {
+  --g: 0;
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: calc(var(--g) * 100%);
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 45%);
+  box-shadow: 0 0 8px rgb(255 255 255 / 50%);
+  transition: left 0.5s linear;
+}
+
+.gh-ghost-d {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #b6ff3b;
+  opacity: 0.85;
+}
+
+.gh-ghost-d.behind {
+  color: #ff8a8a;
+}
+
+.l-ghost {
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed rgb(255 255 255 / 45%);
+}

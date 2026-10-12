@@ -15,6 +15,12 @@ import { Broadcast } from './broadcast';
 import { registerRoomControls } from './roomControls';
 import { CrowdDirector } from './crowdDirector';
 import { openRoomEditor } from '../ui/RoomEditor';
+import { loadMyVisuals } from '../visualizer/myvisual';
+import { VjHost } from './vjhost';
+import { openVjPanel } from '../ui/VjPanel';
+import { openVisualEditor } from '../ui/VisualEditor';
+import { openSetCode, openShareCode, type SetCodeHooks } from '../ui/SetCodes';
+import { loadScenes } from '../three/venues/rooms/kit';
 import { customVenueId, loadCustomRooms } from '../three/venues/rooms/custom';
 import { loadLoyalty, REGULARS } from '../game/regulars';
 import { option } from '../character/look';
@@ -68,7 +74,7 @@ import { RecordingDesk } from './recording';
 import { MySetsPanel } from '../ui/MySetsPanel';
 import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
-import { registerLightControls, registerPartyControls } from './lightControls';
+import { registerLightControls, registerPartyControls, registerSkyControls } from './lightControls';
 import { Party } from './party';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
@@ -170,6 +176,8 @@ export class App implements AppContext {
   party!: Party;
   /** the crowd's dance style, moments, your DJ moves and their signs */
   crowdDir!: CrowdDirector;
+  /** VJ mode: someone else on the visuals and lights */
+  vj!: VjHost;
   private callouts!: HTMLElement;
   private lyrics!: LyricsEngine;
   private lyricHud!: HTMLElement;
@@ -212,6 +220,44 @@ export class App implements AppContext {
 
   venueId(): string {
     return this.settings.venue;
+  }
+
+  /** the tracks played this session, in order (set codes) */
+  private sessionPlayed: string[] = [];
+
+  private tracksOf(ids: string[]): { title: string; artist: string; bpm: number }[] {
+    return ids.map((id) => this.library.get(id)).filter((t): t is NonNullable<typeof t> => !!t).map((t) => ({ title: t.meta.title || t.fileName, artist: t.meta.artist, bpm: t.analysis?.bpm ? Math.round(t.analysis.bpm * 10) / 10 : 0 }));
+  }
+
+  private setCodeHooks(): SetCodeHooks {
+    return {
+      dj: () => nameService.text,
+      venue: () => this.settings.venue,
+      venueName: (id) => VENUES.find((v) => v.id === id)?.name ?? null,
+      played: () => this.tracksOf(this.sessionPlayed),
+      room: () => (roomShow.current ? { look: roomShow.current.look, scenes: loadScenes(roomShow.current.roomId, roomShow.current.modes.length) } : null),
+      library: () => this.library.list().map((t) => ({ id: t.id, title: t.meta.title || t.fileName, artist: t.meta.artist })),
+      load: (set, ids) => {
+        // the room's look and scenes go in first, so the room comes up with them
+        if (set.room) {
+          saveSetting(`roomLook:${set.venue}`, set.room.look);
+          saveSetting(`roomScenes:${set.venue}`, set.room.scenes);
+        }
+        const known = VENUES.some((v) => v.id === set.venue);
+        const lock = known ? venueLock(set.venue, this.career.progress) : 'not here';
+        if (known && !lock) {
+          if (this.settings.venue === set.venue) this.stage.setVenue(venueById(set.venue));
+          else this.setVenue(set.venue);
+        }
+        if (ids.length) {
+          const crate = this.library.createCrate(`${set.dj || 'Friend'}’s set`, 'crate', null);
+          this.library.addToCrate(crate.id, ids);
+          this.showTab('library');
+          this.libPanel.showCrate(crate.id);
+        }
+        toast(lock && known ? `${ids.length} tracks in a new crate. The venue is still locked for you: ${lock}.` : `${ids.length} track${ids.length === 1 ? '' : 's'} in a new crate${known ? '' : ' (the venue isn’t in your game)'}.`);
+      },
+    };
   }
 
   roomLock(id: string): string | null {
@@ -488,6 +534,26 @@ export class App implements AppContext {
     for (const k of LIGHT_KEYS) if (this.settings.lights[k] !== undefined) (this.stage.show.controls as unknown as Record<string, unknown>)[k] = this.settings.lights[k];
     registerLightControls(this.reg, this.stage.show, () => this.saveLights());
     registerRoomControls(this.reg);
+    registerSkyControls(this.reg);
+    loadMyVisuals();
+    this.vj = new VjHost({
+      reg: this.reg,
+      visualizer: this.stage.visualizer,
+      palette: () => this.stage.show.controls.palette,
+      setPalette: (id) => {
+        this.stage.show.controls.palette = id;
+        this.saveLights();
+      },
+      track: () => {
+        const e = this.engine;
+        const t = (e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing))?.track;
+        return t ? (t.meta.artist ? `${t.meta.artist} – ${t.meta.title || t.fileName}` : t.meta.title || t.fileName) : '';
+      },
+      bpm: () => this.clock.bpm || 0,
+      vibe: () => this.gigs?.meter.vibe ?? 0,
+      venue: () => venueById(this.settings.venue).name,
+      changed: (n) => this.callout({ text: n ? 'A VJ is on the visuals' : 'The VJ left', tone: 'good' }),
+    });
     this.party = new Party({
       engine: this.engine,
       vibe: () => this.gigs?.meter.vibe ?? 0.6,
@@ -578,6 +644,9 @@ export class App implements AppContext {
       reg: this.reg,
       loadTrack: (d, id) => this.loadTrack(d, id),
       nextUp: this.nextUp,
+      regularsChanged: () => this.crowdDir?.refreshRegulars(),
+      snapshot: () => this.stage.snapshot(),
+      shareSet: (ids) => void openShareCode({ ...this.setCodeHooks(), played: () => this.tracksOf(ids) }),
     });
     this.crowdDir = new CrowdDirector({
       reg: this.reg,
@@ -1020,6 +1089,10 @@ export class App implements AppContext {
       'sep',
       { label: 'MIDI controllers', action: () => this.showTab('settings') },
       { label: 'Enter a code…', action: () => openCodeEntry({ redeem: (code) => this.redeemCode(code) }) },
+      { label: 'VJ mode…', action: () => openVjPanel({ connected: () => this.vj.connected, attach: (l) => this.vj.attach(l) }) },
+      { label: 'Visual editor…', action: () => openVisualEditor({ show: (id) => this.stage.visualizer.setMode(id) }) },
+      { label: 'Share this set…', action: () => void openShareCode(this.setCodeHooks()) },
+      { label: 'Open a set code…', action: () => openSetCode(this.setCodeHooks()) },
       { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
       { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
     ]);
@@ -1748,6 +1821,7 @@ export class App implements AppContext {
       this.broadcast.update(dt);
       if (roomShow.current) this.feedRoom(dt);
       this.crowdDir.update(dt, f.dropHit);
+      this.vj.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);
@@ -1773,6 +1847,7 @@ export class App implements AppContext {
       this.slowT += raw;
       if (this.slowT >= 0.25) {
         this.slowT = 0;
+        for (const d of this.engine.decks) if (d.playing && d.track && !this.sessionPlayed.includes(d.track.id)) this.sessionPlayed.push(d.track.id);
         this.updateAutoChip();
         this.watchNowPlaying();
       }

@@ -35,6 +35,8 @@ export interface HudState {
   request: { text: string; left: number } | null;
   /** the coach's pick for the next track (Chill and Club) */
   coach: { title: string; artist: string; why: string } | null;
+  /** the daily's ghost: your best run's vibe now, and how far ahead (+) or behind you are on points */
+  ghost?: { vibe: number; diff: number } | null;
 }
 
 export interface HudHooks {
@@ -78,10 +80,14 @@ export class GigHud {
   private coachEl: HTMLElement;
   private coachText: HTMLElement;
   private coachWhy: HTMLElement;
+  private ghostEl: HTMLElement;
+  private ghostDiff: HTMLElement;
 
   constructor(private hooks: HudHooks) {
     this.bar = h('div', { class: 'gh-fill' });
-    const meter = h('div', { class: 'gh-meter', role: 'meter', 'aria-label': 'Vibe', 'aria-valuemin': 0, 'aria-valuemax': 100 }, this.bar, h('i', { class: 'gh-target', title: 'What the crowd wants right now' }));
+    this.ghostEl = h('i', { class: 'gh-ghost', title: 'Your best run of today’s daily', hidden: true });
+    this.ghostDiff = h('span', { class: 'gh-ghost-d', title: 'Points against your best run today', hidden: true });
+    const meter = h('div', { class: 'gh-meter', role: 'meter', 'aria-label': 'Vibe', 'aria-valuemin': 0, 'aria-valuemax': 100 }, this.bar, this.ghostEl, h('i', { class: 'gh-target', title: 'What the crowd wants right now' }));
     this.mood = h('span', { class: 'gh-mood' });
     this.timer = h('span', { class: 'gh-time', 'aria-label': 'Time left in the set' });
     this.rec = h('span', { class: 'gh-rec', title: 'Recording' }, 'REC');
@@ -127,7 +133,7 @@ export class GigHud {
         { class: 'gh-main' },
         h('div', { class: 'gh-row gh-top' }, this.where, this.rec, this.buf, this.timer),
         meter,
-        h('div', { class: 'gh-row gh-mid' }, this.mood, h('span', { class: 'spacer' }), this.streakEl, this.scoreEl),
+        h('div', { class: 'gh-row gh-mid' }, this.mood, h('span', { class: 'spacer' }), this.ghostDiff, this.streakEl, this.scoreEl),
         this.duo,
         this.reqEl,
         this.coachEl,
@@ -199,6 +205,16 @@ export class GigHud {
       setText(this.reqText, r.text);
       setVar(this.reqBar, '--left', r.left.toFixed(3));
       setClass(this.reqEl, 'late', r.left < 0.25);
+    }
+    const g = s.ghost;
+    if (this.ghostEl.hidden !== !g) {
+      this.ghostEl.hidden = !g;
+      this.ghostDiff.hidden = !g;
+    }
+    if (g) {
+      setVar(this.ghostEl, '--g', g.vibe.toFixed(3));
+      setText(this.ghostDiff, `${g.diff >= 0 ? '+' : '−'}${Math.abs(g.diff).toLocaleString()} vs best`);
+      setClass(this.ghostDiff, 'behind', g.diff < 0);
     }
     const c = s.coach;
     if (this.coachEl.hidden !== !c) this.coachEl.hidden = !c;

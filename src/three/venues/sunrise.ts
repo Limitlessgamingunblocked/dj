@@ -68,7 +68,7 @@ class Sunrise extends OpenAir {
   private amb = new THREE.Color();
 
   constructor() {
-    super({ fog: 0x0e1020, fogDensity: 0.006, hemiSky: 0x121838, hemiGround: 0x060608, hemi: 0.16, flashAt: V(0, 4, -8), flashRange: 26, sunYaw: 0.18, skyRadius: 900 }, SUNRISE_SKY, {
+    super({ fog: 0x0e1020, fogDensity: 0.006, hemiSky: 0x121838, hemiGround: 0x060608, hemi: 0.16, flashAt: V(0, 4, -8), flashRange: 26, sunYaw: 0.18, skyRadius: 900, skyShow: { at: V(0, 60, 140), scale: 1.4 } }, SUNRISE_SKY, {
       // mist in the valley, high cirrus that turns pink before the sun is up, and the old moon a thin crescent over the dawn
       air: { turbidity: 1.8 },
       clouds: { cover: 0.18, cirrus: 0.5, wind: [0.15, 0.1] },

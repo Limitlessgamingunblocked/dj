@@ -1,4 +1,6 @@
 /* Visual player settings: modes, post-processing, intensity. */
+import { openVisualEditor } from './VisualEditor';
+import { onMyVisuals } from '../visualizer/myvisual';
 import type { Stage, StageView } from '../three/Stage';
 import { LYRIC_STYLES } from '../visualizer/LyricsLayer';
 import { Visualizer } from '../visualizer/Visualizer';
@@ -41,6 +43,17 @@ export class VisualsPanel {
       }
       modes.append(h('section', { class: 'vis-group', 'data-energy': energy }, h('h4', {}, title, h('span', {}, note)), grid));
     }
+    // your own visuals: make or edit them
+    const make = h('button', { class: 'btn ghost', type: 'button', title: 'Build your own visual from layers' }, 'Make your own visual…');
+    make.addEventListener('click', () => openVisualEditor({ show: (id) => (vis.setMode(id), this.onChange()) }));
+    modes.prepend(h('div', { class: 'toggle-row' }, make));
+    onMyVisuals(() => {
+      for (const m of Visualizer.modeInfo()) {
+        const b = this.modeBtns.get(m.id);
+        const t = b?.querySelector('b');
+        if (t && t.textContent !== m.name) t.textContent = m.name;
+      }
+    });
     const views: [StageView, string][] = [
       ['booth', 'Booth (LED wall)'],
       ['split', 'Booth + picture-in-picture'],
