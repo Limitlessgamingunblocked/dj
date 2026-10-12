@@ -205,8 +205,12 @@ export function beaconLights(points: THREE.Vector3[]): { object: THREE.Points; u
 /* ------------------------------------------------------------------ */
 
 function frondTexture(): THREE.CanvasTexture {
-  return canvasTexture('palm-frond', 128, 512, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
+  // drawn at twice the old size (the fronds' edges were visibly pixelated up close)
+  return canvasTexture('palm-frond', 256, 1024, (g, W, H) => {
+    g.clearRect(0, 0, W, H);
+    g.scale(2, 2);
+    const w = W / 2;
+    const h = H / 2;
     // the midrib, and leaflets angled out along it
     g.strokeStyle = '#3d5a22';
     g.lineWidth = 5;
@@ -268,7 +272,8 @@ export function palmTree(seed: number, height = 7): { group: THREE.Group; trunk:
   group.add(tm);
   // the crown
   const top = pts[pts.length - 1];
-  const leaf = new THREE.MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, side: THREE.DoubleSide, roughness: 0.8, color: 0xc8d8a8 });
+  // alpha to coverage: the frond's cut-out edges are antialiased by the multisampling instead of stair-stepping
+  const leaf = new THREE.MeshStandardMaterial({ map: frondTexture(), alphaTest: 0.4, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 0.8, color: 0xc8d8a8 });
   const fronds: THREE.BufferGeometry[] = [];
   const n = 9 + Math.floor(r() * 4);
   for (let i = 0; i < n; i++) {

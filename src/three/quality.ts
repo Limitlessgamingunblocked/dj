@@ -3,13 +3,14 @@
  * frames run long, and back up when there's headroom, below the ceiling the
  * user picked (Low / Medium / High).
  *
- * Each step trades a little sharpness or detail for time:
+ * Effects and detail go first; sharpness last, and never below 80 %
+ * (a soft, half-resolution picture is what makes a game look cheap):
  *   level 0  full render scale, full crowd detail, all effects
- *   level 1  render scale 0.85
- *   level 2  render scale 0.72, crowd switches to low detail sooner
- *   level 3  render scale 0.6, lens streaks off, visual player at 30 fps
- *   level 4  render scale 0.5, crowd low detail almost everywhere, no bloom on the screens
- * Ambient occlusion and floor reflections go at level 3, with the lens streaks.
+ *   level 1  lens streaks off, crowd switches to low detail a little sooner
+ *   level 2  ambient occlusion and floor reflections off, visual player at 30 fps
+ *   level 3  render scale 0.9, no bloom inside the visual player
+ *   level 4  render scale 0.8, crowd low detail almost everywhere
+ * A sharpening pass in the output makes up for the lower render scales.
  *
  * Frame times are vsync-quantised (16.7 / 33.3 ms on a 60 Hz display), so
  * stepping down uses the share of slow frames over a window, and stepping up
@@ -34,10 +35,10 @@ export interface QualityStep {
 
 export const QUALITY_STEPS: QualityStep[] = [
   { renderScale: 1, crowdDetail: 1, lensFx: true, visualizerFull: true, visualizerBloom: true, surfaces: true },
-  { renderScale: 0.85, crowdDetail: 1, lensFx: true, visualizerFull: true, visualizerBloom: true, surfaces: true },
-  { renderScale: 0.72, crowdDetail: 0.7, lensFx: true, visualizerFull: true, visualizerBloom: true, surfaces: true },
-  { renderScale: 0.6, crowdDetail: 0.5, lensFx: false, visualizerFull: false, visualizerBloom: true, surfaces: false },
-  { renderScale: 0.5, crowdDetail: 0.3, lensFx: false, visualizerFull: false, visualizerBloom: false, surfaces: false },
+  { renderScale: 1, crowdDetail: 0.8, lensFx: false, visualizerFull: true, visualizerBloom: true, surfaces: true },
+  { renderScale: 1, crowdDetail: 0.6, lensFx: false, visualizerFull: false, visualizerBloom: true, surfaces: false },
+  { renderScale: 0.9, crowdDetail: 0.45, lensFx: false, visualizerFull: false, visualizerBloom: false, surfaces: false },
+  { renderScale: 0.8, crowdDetail: 0.3, lensFx: false, visualizerFull: false, visualizerBloom: false, surfaces: false },
 ];
 
 export interface AdaptiveOptions {

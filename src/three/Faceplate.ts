@@ -14,18 +14,33 @@ export interface FaceStyle {
   texture: 'matte' | 'brushed' | 'gloss';
 }
 
+/** print is drawn a little bigger and bolder than the real silk-screen: on screen it's read from much further away */
+const LEGIBLE = 1.24;
+/** line weights (ticks, outlines, scales) likewise */
+const LINE = 1.5;
+
+function mixHex(a: string, b: string, k: number): string {
+  const pa = new THREE.Color(a);
+  const pb = new THREE.Color(b);
+  return `#${pa.lerp(pb, k).getHexString()}`;
+}
+
 export class Faceplate {
   readonly canvas: HTMLCanvasElement;
   readonly g: CanvasRenderingContext2D;
   readonly ppm: number; // pixels per metre
   private ops: ((g: CanvasRenderingContext2D) => void)[] = [];
 
+  readonly style: FaceStyle;
+
   constructor(
     readonly w: number,
     readonly d: number,
-    readonly style: FaceStyle,
+    style: FaceStyle,
     ppm = 4200,
   ) {
+    // secondary print (scales, outlines, small labels) pulled towards the main print so it reads
+    this.style = { ...style, sub: mixHex(style.sub, style.print, 0.38) };
     const maxPx = 4096;
     this.ppm = Math.min(ppm, maxPx / Math.max(w, d));
     this.canvas = document.createElement('canvas');
@@ -55,7 +70,7 @@ export class Faceplate {
   ): void {
     this.draw((g) => {
       const [px, py] = this.px(x, z);
-      const size = this.m(o.size ?? 0.0032);
+      const size = this.m((o.size ?? 0.0032) * LEGIBLE);
       g.fillStyle = o.color ?? this.style.print;
       g.font = `${o.weight ?? 700} ${size}px ${o.font === 'mono' ? '"JetBrains Mono", monospace' : '"Barlow Condensed", "Arial Narrow", sans-serif'}`;
       g.textAlign = o.align ?? 'center';
@@ -78,7 +93,7 @@ export class Faceplate {
       }
       if (o.stroke) {
         g.strokeStyle = o.stroke;
-        g.lineWidth = this.m(o.line ?? 0.0004);
+        g.lineWidth = this.m((o.line ?? 0.0004) * LINE);
         g.stroke();
       }
     });
@@ -89,7 +104,7 @@ export class Faceplate {
       const [a, b] = this.px(x0, z0);
       const [c, d] = this.px(x1, z1);
       g.strokeStyle = color ?? this.style.sub;
-      g.lineWidth = this.m(width);
+      g.lineWidth = this.m(width * LINE);
       g.beginPath();
       g.moveTo(a, b);
       g.lineTo(c, d);
@@ -106,12 +121,13 @@ export class Faceplate {
       g.beginPath();
       g.roundRect(px, py, this.m(axis === 'x' ? len : w), this.m(axis === 'x' ? w : len), this.m(w / 2));
       g.fill();
-      g.strokeStyle = 'rgba(255,255,255,0.08)';
-      g.lineWidth = this.m(0.0003);
+      // a lit rim so the slot reads on a dark panel
+      g.strokeStyle = 'rgba(255,255,255,0.28)';
+      g.lineWidth = this.m(0.00045);
       g.stroke();
       const ticks = o.ticks ?? 10;
       g.strokeStyle = this.style.sub;
-      g.lineWidth = this.m(0.0003);
+      g.lineWidth = this.m(0.0003 * LINE);
       for (let i = 0; i <= ticks; i++) {
         const t = i / ticks;
         const major = i === 0 || i === ticks || (o.center && i === ticks / 2);
@@ -150,7 +166,7 @@ export class Faceplate {
       const [cx, cy] = this.px(x, z);
       const ticks = o.ticks ?? 11;
       g.strokeStyle = this.style.sub;
-      g.lineWidth = this.m(0.00035);
+      g.lineWidth = this.m(0.00035 * LINE);
       for (let i = 0; i < ticks; i++) {
         const t = i / (ticks - 1);
         const a = ((-150 + t * 300 - 90) * Math.PI) / 180;
@@ -176,7 +192,7 @@ export class Faceplate {
       }
       if (o.stroke) {
         g.strokeStyle = o.stroke;
-        g.lineWidth = this.m(o.line ?? 0.0005);
+        g.lineWidth = this.m((o.line ?? 0.0005) * LINE);
         g.stroke();
       }
     });
@@ -188,7 +204,7 @@ export class Faceplate {
     if (title) {
       this.draw((g) => {
         const [px, py] = this.px(x - w / 2 + 0.006, z - d / 2);
-        const size = this.m(0.0028);
+        const size = this.m(0.0028 * LEGIBLE);
         g.font = `700 ${size}px "Barlow Condensed", sans-serif`;
         const tw = g.measureText(title).width + this.m(0.003);
         g.fillStyle = this.style.base;
@@ -208,7 +224,7 @@ export class Faceplate {
     g.fillStyle = this.style.base;
     g.fillRect(0, 0, W, H);
     if (this.style.texture === 'brushed') {
-      g.globalAlpha = 0.07;
+      g.globalAlpha = 0.045;
       for (let y = 0; y < H; y += 2) {
         const v = Math.random() * 255;
         g.fillStyle = `rgb(${v},${v},${v})`;
@@ -216,18 +232,18 @@ export class Faceplate {
       }
       g.globalAlpha = 1;
     } else if (this.style.texture === 'matte') {
-      g.globalAlpha = 0.05;
-      for (let i = 0; i < (W * H) / 200; i++) {
+      g.globalAlpha = 0.03;
+      for (let i = 0; i < (W * H) / 260; i++) {
         const v = Math.random() * 255;
         g.fillStyle = `rgb(${v},${v},${v})`;
-        g.fillRect(Math.random() * W, Math.random() * H, 2, 2);
+        g.fillRect(Math.random() * W, Math.random() * H, 1, 1);
       }
       g.globalAlpha = 1;
     }
     for (const op of this.ops) op(g);
     const t = new THREE.CanvasTexture(this.canvas);
     t.colorSpace = THREE.SRGBColorSpace;
-    t.anisotropy = 8;
+    t.anisotropy = 16;
     t.generateMipmaps = true;
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;

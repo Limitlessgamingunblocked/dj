@@ -96,7 +96,13 @@ export const BEAM_FRAG = (haze: string) => /* glsl */ `
   varying vec2 vGobo;
   ${haze}
   ${GOBO_GLSL}
-  float ign(vec2 p) { return fract(52.9829189 * fract(dot(p, vec2(0.06711056, 0.00583715)))); }
+  // a per-pixel offset for the march: white noise (interleaved gradient noise has a diagonal
+  // structure that, with no temporal filter to average it, showed as stripes through every beam)
+  float ign(vec2 p) {
+    vec3 q = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    q += dot(q, q.yxz + 33.33);
+    return fract((q.x + q.y) * q.z);
+  }
   void main() {
     if (dot(vColor, vec3(1.0)) < 1e-4) discard;
     float tanA = max(1e-4, (uR1 - uR0) / uLen);
@@ -162,7 +168,8 @@ export const BEAM_FRAG = (haze: string) => /* glsl */ `
     float acc = 0.0;
     for (int i = 0; i < 7; i++) {
       if (float(i) >= steps) break;
-      float u = (float(i) + (steps > 1.5 ? j : 0.5)) / steps;
+      // a gentle jitter: enough to break the steps into a smooth gradient, not enough to read as grain
+      float u = (float(i) + (steps > 1.5 ? 0.5 + (j - 0.5) * 0.3 : 0.5)) / steps;
       vec3 p = ro + rd * (tIn + len * u);
       vec3 rel = p - A;
       float h = max(1e-4, dot(rel, vAxis));

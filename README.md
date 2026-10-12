@@ -216,6 +216,8 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
 ### Boards (3D, Three.js)
+- **Easy to read in any room:** a soft deck light over every board, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
+
 | Board | Class | Decks |
 |---|---|---|
 | Starter Two | Entry-level 2-channel controller, with a laptop on a stand running the DJ software | 2 |
@@ -429,7 +431,8 @@ Nineteen secret rooms to DJ in, built to move with the music (`src/three/venues/
 - Safety: the light grid's body-height beams are light, not lasers; the real lasers stay overhead, at least 3 m above the crowd. Flicker, glitch, invert, strobe-freeze and the cloud room's lightning all follow Reduce flashing.
 
 ### Performance
-- **Graphics quality** (Settings): Low, Medium or High is the ceiling. With *Adjust automatically to keep it smooth* on (the default), the app steps down when frames run long. The steps are, in order: render resolution, crowd detail distance, lens streaks with ambient occlusion and floor reflections, the visual player's rate on the venue screens, then bloom inside the player. It steps back up when there's headroom. Low also turns off shadows, bloom, multisampling, lens effects, ambient occlusion and reflections.
+- **Graphics quality** (Settings): Low, Medium or High is the ceiling (High by default). With *Adjust automatically to keep it smooth* on (the default), the app steps down when frames run long, effects first and sharpness last: lens streaks and crowd detail, then ambient occlusion, floor reflections and the visual player's rate on the venue screens, then bloom inside the player, and only then the render resolution, to 90 % and never below 80 %. It steps back up when there's headroom. Low also turns off shadows, bloom, multisampling, lens effects, ambient occlusion and reflections.
+- **Sharp picture:** a contrast-adaptive sharpening step in the output (stronger on the board and when the resolution is scaled down), the GPU's best texture filtering on every board and venue texture, depth-aware ambient occlusion (no halos round objects), smooth light beams (no dither stripes) and antialiased foliage.
 - **Crowd:** dancers are grouped into chunks that are skipped when off screen. Chunks far from the camera swap to a low-detail model with the same skeleton, about half the triangles.
 - **The sky** is worked out once into a small table (128 × 64) that is only redrawn when the sun or moon has moved enough to show, and the dome reads from it. The sky's reflection (a 32-pixel cube) is redrawn every four seconds, or straight away when the light jumps. The water is one mesh in rings, fine near the camera and coarse at the horizon. Dust in the beams is one draw of points lit in the vertex shader; it's off on Low.
 - **Photo mode's** depth of field is a pass that only runs while photo mode is open.

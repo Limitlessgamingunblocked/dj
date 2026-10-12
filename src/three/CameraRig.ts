@@ -205,7 +205,8 @@ export class CameraRig {
     const fitW = (size.x / 2 + 0.02) / (Math.tan(fov / 2) * aspect);
     const fitD = (size.z / 2 + 0.02) / Math.tan(fov / 2);
     const h = Math.max(fitW, fitD) * 1.04;
-    const perfDist = Math.max(fitW * 1.05, fitD * 1.6, 0.45);
+    // close enough that the board fills the frame: its controls are what you play
+    const perfDist = Math.max(fitW * 1.04, fitD * 1.18, 0.42);
     return {
       top: { pos: new THREE.Vector3(c.x, top + h, c.z + h * 0.02), target: new THREE.Vector3(c.x, top, c.z) },
       perf: { pos: new THREE.Vector3(c.x, top + perfDist * 0.78, c.z + size.z / 2 + perfDist * 0.55), target: new THREE.Vector3(c.x, top - 0.02, c.z - size.z * 0.08) },

@@ -50,13 +50,16 @@ const AO_FRAG = /* glsl */ `
     vec3 dy = abs(py1.z) < abs(py2.z) ? py1 : py2;
     vec3 n = normalize(cross(dx, dy));
     float dist = -P.z;
+    // the radius scales with the view: a hand's span across a club, a few centimetres on the board
+    // (a fixed half-metre radius at the decks darkened the whole desk round every object)
+    float rad = uRadius * clamp(dist / 6.0, 0.1, 1.0);
     // the radius in screen space, shrinking with distance
-    float rs = uRadius * uProjScale / max(0.1, dist);
+    float rs = rad * uProjScale / max(0.1, dist);
     // a 4x4 interleaved pattern of rotations: structured noise the blur removes cleanly
     vec2 cell = mod(floor(gl_FragCoord.xy), 4.0);
     float rot = (cell.x * 4.0 + cell.y) * 0.3927 + hash(cell) * 0.2;
     float occ = 0.0;
-    float r2 = uRadius * uRadius;
+    float r2 = rad * rad;
     for (int i = 0; i < 12; i++) {
       float fi = float(i);
       float a = rot + fi * 2.39996;
@@ -99,12 +102,37 @@ const BLUR_FRAG = /* glsl */ `
 const COMPOSITE_FRAG = /* glsl */ `
   uniform sampler2D tColor;
   uniform sampler2D tAO;
+  uniform sampler2D tDepth;
+  uniform mat4 uProjInv;
+  uniform vec2 uAoTexel;
   uniform float uStrength, uDebug;
   varying vec2 vUv;
   ${FINITE_GLSL}
   void main() {
     vec4 c = texture2D(tColor, vUv);
-    float ao = texture2D(tAO, vUv).r;
+    // depth-aware upsampling: of the four nearest half-resolution samples, take the one whose depth
+    // matches this pixel's, so the occlusion never bleeds across an edge into a halo
+    float d0 = texture2D(tDepth, vUv).x;
+    vec4 pv = uProjInv * vec4(vUv * 2.0 - 1.0, d0 * 2.0 - 1.0, 1.0);
+    float dist = -pv.z / pv.w;
+    vec2 g = vUv / uAoTexel - 0.5;
+    vec2 base = (floor(g) + 0.5) * uAoTexel;
+    vec2 fr = fract(g);
+    float tol = max(0.03, dist * 0.025);
+    float sum = 0.0;
+    float wsum = 0.0;
+    for (int j = 0; j < 2; j++)
+      for (int i = 0; i < 2; i++) {
+        vec2 s = texture2D(tAO, base + vec2(float(i), float(j)) * uAoTexel).rg;
+        // bilinear, but samples from another surface (across an edge) barely count
+        float wb = (i == 0 ? 1.0 - fr.x : fr.x) * (j == 0 ? 1.0 - fr.y : fr.y);
+        float w = wb * exp(-abs(s.g - dist) / tol) + 1e-5;
+        sum += s.r * w;
+        wsum += w;
+      }
+    float ao = sum / wsum;
+    // nothing on the same surface nearby (a thin edge): mostly unshadowed
+    ao = mix(1.0, ao, clamp(wsum * 3.0, 0.0, 1.0));
     // light isn't in shadow: lamps, screens, beams and lasers keep their full brightness
     float l = dot(finite3(c.rgb), vec3(0.2126, 0.7152, 0.0722));
     float k = mix(ao, 1.0, smoothstep(0.6, 1.8, l));
@@ -222,7 +250,7 @@ export class AOPass extends Pass {
       depthWrite: false,
     });
     this.blurMat = new THREE.ShaderMaterial({ uniforms: { tAO: { value: null }, uDir: { value: new THREE.Vector2() } }, vertexShader: VERT, fragmentShader: BLUR_FRAG, depthTest: false, depthWrite: false });
-    this.compMat = new THREE.ShaderMaterial({ uniforms: { tColor: { value: null }, tAO: { value: null }, uStrength: { value: 1 }, uDebug: { value: 0 } }, vertexShader: VERT, fragmentShader: COMPOSITE_FRAG, depthTest: false, depthWrite: false });
+    this.compMat = new THREE.ShaderMaterial({ uniforms: { tColor: { value: null }, tAO: { value: null }, tDepth: { value: null }, uProjInv: { value: new THREE.Matrix4() }, uAoTexel: { value: new THREE.Vector2(1, 1) }, uStrength: { value: 1 }, uDebug: { value: 0 } }, vertexShader: VERT, fragmentShader: COMPOSITE_FRAG, depthTest: false, depthWrite: false });
     this.quad = new FullScreenQuad(this.aoMat);
   }
 
@@ -273,6 +301,9 @@ export class AOPass extends Pass {
     const cu = this.compMat.uniforms;
     cu.tColor.value = readBuffer.texture;
     cu.tAO.value = this.aoRT.texture;
+    cu.tDepth.value = depth;
+    (cu.uProjInv.value as THREE.Matrix4).copy(cam.projectionMatrixInverse);
+    (cu.uAoTexel.value as THREE.Vector2).copy(texel);
     cu.uStrength.value = this.strength;
     cu.uDebug.value = this.debug ? 1 : 0;
     this.quad.material = this.compMat;

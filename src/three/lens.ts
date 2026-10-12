@@ -51,7 +51,7 @@ const FRAG = /* glsl */ `
   uniform sampler2D tDirt;
   uniform float uDirt, uStar, uStarThr, uStarDirs;
   uniform vec2 uRes;
-  uniform float uTime, uStreak, uTaps, uGhost, uDistort, uBlur, uCA, uGrain, uVignette, uThreshold;
+  uniform float uTime, uStreak, uTaps, uGhost, uDistort, uBlur, uCA, uGrain, uVignette, uThreshold, uSharpen;
   uniform vec3 uTint;
   uniform float uContrast, uSaturation, uLift;
   // lens looks
@@ -141,7 +141,27 @@ const FRAG = /* glsl */ `
       }
       c /= 7.0;
     } else {
-      c = texture2D(tDiffuse, uv).rgb;
+      c = finite3(texture2D(tDiffuse, uv).rgb);
+      if (uSharpen > 0.001) {
+        // contrast-adaptive sharpening (after AMD's CAS): sharpen where the detail is soft,
+        // hold back on edges that are already hard, in a compressed range so lights don't ring
+        vec2 px = 1.0 / uRes;
+        vec3 a = finite3(texture2D(tDiffuse, uv + vec2(0.0, -px.y)).rgb);
+        vec3 b = finite3(texture2D(tDiffuse, uv + vec2(-px.x, 0.0)).rgb);
+        vec3 e = finite3(texture2D(tDiffuse, uv + vec2(px.x, 0.0)).rgb);
+        vec3 f = finite3(texture2D(tDiffuse, uv + vec2(0.0, px.y)).rgb);
+        vec3 cc = c / (1.0 + c);
+        vec3 ca2 = a / (1.0 + a);
+        vec3 cb = b / (1.0 + b);
+        vec3 ce = e / (1.0 + e);
+        vec3 cf = f / (1.0 + f);
+        vec3 mn = min(cc, min(min(ca2, cb), min(ce, cf)));
+        vec3 mx = max(cc, max(max(ca2, cb), max(ce, cf)));
+        vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, vec3(1e-4)), 0.0, 1.0));
+        vec3 w = -amp * mix(0.125, 0.2, clamp(uSharpen, 0.0, 1.0));
+        vec3 sh = clamp((cc + (ca2 + cb + ce + cf) * w) / (1.0 + 4.0 * w), 0.0, 0.999);
+        c = sh / (1.0 - sh);
+      }
     }
     if (uTilt > 0.001) {
       // tilt-shift: sharp in a band just below the middle, blurred above and below it
@@ -378,6 +398,7 @@ export class LensOutputPass extends Pass {
     uBlur: { value: 0 },
     uCA: { value: 0 },
     uGrain: { value: 0.035 },
+    uSharpen: { value: 0.4 },
     uVignette: { value: 0.3 },
     uThreshold: { value: 1.6 },
     uTint: { value: new THREE.Color(1, 1, 1) },

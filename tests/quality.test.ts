@@ -54,11 +54,16 @@ describe('adaptive quality', () => {
     expect(q.level).toBe(0);
   });
 
-  it('steps get cheaper monotonically', () => {
+  it('steps get cheaper monotonically, effects before sharpness', () => {
+    const cost = (s: (typeof QUALITY_STEPS)[number]) => s.renderScale * 10 + s.crowdDetail + (s.lensFx ? 1 : 0) + (s.surfaces ? 1 : 0) + (s.visualizerFull ? 1 : 0) + (s.visualizerBloom ? 1 : 0);
     for (let i = 1; i < QUALITY_STEPS.length; i++) {
-      expect(QUALITY_STEPS[i].renderScale).toBeLessThan(QUALITY_STEPS[i - 1].renderScale);
+      expect(QUALITY_STEPS[i].renderScale).toBeLessThanOrEqual(QUALITY_STEPS[i - 1].renderScale);
       expect(QUALITY_STEPS[i].crowdDetail).toBeLessThanOrEqual(QUALITY_STEPS[i - 1].crowdDetail);
+      expect(cost(QUALITY_STEPS[i])).toBeLessThan(cost(QUALITY_STEPS[i - 1]));
     }
+    // the picture never goes soft: at least 80 % resolution, and the first steps keep it all
+    expect(Math.min(...QUALITY_STEPS.map((s) => s.renderScale))).toBeGreaterThanOrEqual(0.8);
+    expect(QUALITY_STEPS[2].renderScale).toBe(1);
   });
 
   it('picks crowd detail by distance', () => {

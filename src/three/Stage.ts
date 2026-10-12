@@ -73,6 +73,24 @@ interface Zone {
 }
 
 /** the composer's buffers: half float for the glow, multisampled, with the depth kept for the ambient occlusion */
+/** the sharpest texture filtering the GPU has, on every texture under `root` (print and floors stay crisp at an angle) */
+function sharpenTextures(root: THREE.Object3D, maxAniso: number): void {
+  const want = Math.min(16, Math.max(1, maxAniso));
+  const keys = ['map', 'emissiveMap', 'roughnessMap', 'metalnessMap', 'normalMap', 'bumpMap', 'aoMap', 'alphaMap', 'clearcoatMap'] as const;
+  root.traverse((o) => {
+    const m = (o as THREE.Mesh).material;
+    for (const mm of Array.isArray(m) ? m : m ? [m] : []) {
+      for (const k of keys) {
+        const t = (mm as unknown as Record<string, THREE.Texture | null | undefined>)[k];
+        if (t && t.isTexture && t.anisotropy < want && t.image && !(t as THREE.DataTexture).isDataTexture && !t.isRenderTargetTexture) {
+          t.anisotropy = want;
+          t.needsUpdate = true;
+        }
+      }
+    }
+  });
+}
+
 function composerTarget(samples: number): THREE.WebGLRenderTarget {
   return new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples, depthTexture: new THREE.DepthTexture(1, 1) });
 }
@@ -104,6 +122,8 @@ export class Stage {
   view: StageView = 'booth';
   quality: Quality = 'medium';
   readonly keyLight: THREE.SpotLight;
+  /** the shadowless light over the board that keeps its controls readable */
+  readonly deckLight: THREE.SpotLight;
   private fill: THREE.DirectionalLight;
   /** the studio light the indoor venues reflect */
   private roomEnv!: THREE.Texture;
@@ -265,6 +285,11 @@ export class Stage {
     this.underGlow = new THREE.PointLight(0xff2e88, 0, 3.2, 1.6);
     this.underGlow.position.set(0, 0.12, -0.75);
     this.scene.add(this.djSpot, this.djSpot.target, this.underGlow);
+    // the deck light: a soft, shadowless light just over the board, so its print, caps and
+    // faders read in every venue, however dark the room (like the gooseneck lamps in real booths)
+    this.deckLight = new THREE.SpotLight(0xf2f5ff, 3.2, 3, 0.9, 0.85, 1.4);
+    this.deckLight.castShadow = false;
+    this.scene.add(this.deckLight, this.deckLight.target);
     // you, as seen from the crowd and venue cameras
     this.avatar = new Avatar(defaultLook());
     this.scene.add(this.avatar.object);
@@ -430,6 +455,7 @@ export class Stage {
       for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
     });
     this.scene.add(v.group);
+    sharpenTextures(v.group, this.renderer.capabilities.getMaxAnisotropy());
     v.attachDJ?.(this.avatar, this.djLook);
     // the floor's reflection shows the bright things: the screens, beams, lasers, lamps and neon
     this.reflect.floor = v.reflect ?? null;
@@ -570,6 +596,7 @@ export class Stage {
       });
     }
     this.boardDef = def;
+    this.highlight(null);
     this.board = buildBoard(def, finishId, { stickers: this.stickers });
     this.board.root.position.y = TABLE_Y;
     this.scene.add(this.board.root);
@@ -577,7 +604,30 @@ export class Stage {
     this.ctx.accent = this.board.finish.accent;
     this.board.root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.board.root);
-    this.rig.setBounds(box, def.id);
+    // the camera frames the hardware you play (its chassis), not a laptop or stand behind it:
+    // fitting those in left the controls small at the bottom of the frame
+    const hw = new THREE.Box3();
+    for (const u of this.board.units) hw.union(new THREE.Box3().setFromObject(u.group));
+    this.rig.setBounds(hw.isEmpty() ? box : hw, def.id);
+    // the deck light sits over the front of the board, aimed at its middle, wide enough to cover it
+    const bc = box.getCenter(new THREE.Vector3());
+    const bs = box.getSize(new THREE.Vector3());
+    this.deckLight.position.set(bc.x, box.max.y + 0.75, bc.z + bs.z * 0.45 + 0.35);
+    this.deckLight.target.position.set(bc.x, box.max.y - 0.02, bc.z - bs.z * 0.05);
+    this.deckLight.angle = Math.min(1.2, Math.atan2(Math.max(bs.x, bs.z) * 0.62, 0.9));
+    this.deckLight.distance = 3;
+    // crisp print at any angle, and the hardware's own sheen
+    sharpenTextures(this.board.root, this.renderer.capabilities.getMaxAnisotropy());
+    this.board.root.traverse((o) => {
+      const m = (o as THREE.Mesh).material;
+      for (const mm of Array.isArray(m) ? m : m ? [m] : []) {
+        const std = mm as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial && !std.userData.envBoosted) {
+          std.userData.envBoosted = true;
+          std.envMapIntensity *= 1.6;
+        }
+      }
+    });
     this.boardTop = box.max.y;
     this.computeZones();
     this.focusedZone = null;
@@ -1020,7 +1070,10 @@ export class Stage {
       this.drags.delete(e.pointerId);
       this.lastDragEnd = performance.now();
       d.part.up?.(this.info(e, d), this.ctx);
-      if (!this.drags.size) this.tooltip.hidden = true;
+      if (!this.drags.size) {
+        this.tooltip.hidden = true;
+        this.highlight(null);
+      }
     };
     el.addEventListener('pointerup', end, { capture: true });
     el.addEventListener('pointercancel', end, { capture: true });
@@ -1028,7 +1081,10 @@ export class Stage {
     el.addEventListener('pointerleave', () => {
       this.pointerInside = false;
         this.canvas.style.cursor = '';
-      if (!this.drags.size) this.tooltip.hidden = true;
+      if (!this.drags.size) {
+        this.tooltip.hidden = true;
+        this.highlight(null);
+      }
     });
     el.addEventListener(
       'wheel',
@@ -1069,6 +1125,56 @@ export class Stage {
     this.canvas.style.cursor = part ? part.cursor : 'grab';
     if (part) this.showTooltip(part, this.hoverXY.x, this.hoverXY.y);
     else this.tooltip.hidden = true;
+    this.highlight(part);
+  }
+
+  /** the control under the pointer: a glowing outline on the panel round it, the size of the control */
+  private hoverOutline: THREE.Mesh | null = null;
+  private outlined: Part | null = null;
+  private highlight(part: Part | null): void {
+    if (part === this.outlined) return;
+    this.outlined = part;
+    if (this.hoverOutline) {
+      this.scene.remove(this.hoverOutline);
+      this.hoverOutline.geometry.dispose();
+      (this.hoverOutline.material as THREE.Material).dispose();
+      this.hoverOutline = null;
+    }
+    if (!part) return;
+    const box = new THREE.Box3().setFromObject(part.object);
+    if (box.isEmpty()) return;
+    const size = box.getSize(new THREE.Vector3());
+    const pad = 0.0022;
+    const w = size.x + pad * 2;
+    const d = size.z + pad * 2;
+    const t = Math.max(0.0007, Math.min(w, d) * 0.06);
+    const rr = (ww: number, dd: number, r: number) => {
+      const sh = new THREE.Shape();
+      const x0 = -ww / 2;
+      const y0 = -dd / 2;
+      const rad = Math.min(r, ww / 2, dd / 2);
+      sh.moveTo(x0 + rad, y0);
+      sh.lineTo(x0 + ww - rad, y0);
+      sh.quadraticCurveTo(x0 + ww, y0, x0 + ww, y0 + rad);
+      sh.lineTo(x0 + ww, y0 + dd - rad);
+      sh.quadraticCurveTo(x0 + ww, y0 + dd, x0 + ww - rad, y0 + dd);
+      sh.lineTo(x0 + rad, y0 + dd);
+      sh.quadraticCurveTo(x0, y0 + dd, x0, y0 + dd - rad);
+      sh.lineTo(x0, y0 + rad);
+      sh.quadraticCurveTo(x0, y0, x0 + rad, y0);
+      return sh;
+    };
+    const outer = rr(w, d, Math.min(w, d) * 0.35);
+    outer.holes.push(new THREE.Path(rr(w - t * 2, d - t * 2, Math.min(w, d) * 0.3).getPoints(24).reverse()));
+    const geo = new THREE.ShapeGeometry(outer, 8);
+    geo.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshBasicMaterial({ color: this.ctx.accent || '#2ec4f1', transparent: true, opacity: 0.9, toneMapped: false, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+    const m = new THREE.Mesh(geo, mat);
+    const c = box.getCenter(new THREE.Vector3());
+    m.position.set(c.x, box.min.y + 0.0004, c.z);
+    m.renderOrder = 3;
+    this.hoverOutline = m;
+    this.scene.add(m);
   }
 
   /* ------------------------------------------------------------------ */
@@ -1169,8 +1275,12 @@ export class Stage {
     this.ao.enabled = this.quality !== 'low' && this.adaptive.step.surfaces;
     // the floor's reflection: not on Low, not when the adaptive step drops it, and not looking down on the board
     this.reflect.enabled = this.ao.enabled && this.reflect.planes.length > 0 && this.rig.view !== 'top';
-    // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky
-    this.bloom.strength = 0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1;
+    // close on the board (the board angles, or zoomed in on a section) the picture stays clean
+    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth';
+    // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky;
+    // on the board, LEDs glow a little rather than blooming into blobs over the controls
+    this.bloom.strength = (0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1) * (close ? 0.45 : 1);
+    this.bloom.radius = close ? 0.18 : 0.4;
     // cinematic lens: streaks and ghosts off the brightest fixtures, the drone's wide lens and speed blur
     const drone = this.rig.droneFx;
     const a = drone.amount;
@@ -1178,9 +1288,7 @@ export class Stage {
     const lensFx = this.quality !== 'low' && this.adaptive.step.lensFx;
     lu.uTime.value = this.ctx.now;
     lu.uTaps.value = lensFx ? (this.quality === 'high' ? 11 : 7) : 0;
-    // close on the board (the board angles, or zoomed in on a section) the lens stays clean: a desk
-    // lamp's ghost smeared over the decks reads as a bug, not as cinema
-    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth';
+    // close on the board the lens stays clean: a desk lamp's ghost smeared over the decks reads as a bug, not as cinema
     lu.uStreak.value = (0.2 + show.flash * 0.25 + show.drop * 0.1) * (close ? 0.15 : 1);
     lu.uGhost.value = !lensFx || close ? 0 : 0.2 * (this.venue?.lensGhost ?? 1);
     // dirt on the front element lights up when a wall of light hits it; stars on the brightest points
@@ -1221,7 +1329,12 @@ export class Stage {
     lu.uDistort.value = 0.34 * a + L.distort;
     lu.uCA.value = 0.014 * a + L.ca;
     lu.uBlur.value = a * (0.15 + THREE.MathUtils.clamp((drone.speed - 2.5) / 5, 0, 1) * 0.6);
-    lu.uGrain.value = (this.quality === 'low' ? 0 : 0.03 + 0.03 * a) + L.grain;
+    // no film grain by default (it read as noise, and sharpening made it worse): only the drone's
+    // speed and the looks that are meant to be grainy (VHS, CCTV, night vision) add it
+    lu.uGrain.value = (this.quality === 'low' ? 0 : 0.03 * a) + L.grain;
+    // crisp: sharpen the board more, the wide shots gently, and more when the render is scaled down
+    const scaled = 1 - Math.min(1, this.renderer.getPixelRatio() / Math.min(window.devicePixelRatio || 1, 2));
+    lu.uSharpen.value = (L.grain > 0.01 ? 0 : close ? 0.5 : 0.22) + scaled * 0.8;
     lu.uVignette.value = Math.min(1.2, 0.2 + 0.25 * a + L.vignette);
     lu.uFish.value = L.fish < 0.002 ? 0 : L.fish;
     lu.uMono.value = L.mono < 0.002 ? 0 : L.mono;

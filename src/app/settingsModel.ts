@@ -53,7 +53,7 @@ export const DEFAULTS: Settings = {
   venue: 'bedroom',
   view: 'booth',
   camera: 'perf',
-  quality: 'medium',
+  quality: 'high',
   uiMode: 'simple',
   autoQuality: true,
   autoGain: true,

@@ -214,7 +214,7 @@ export class MovingHeads implements Fixture {
     this.beamMat.uniforms.uHaze.value = 1.05;
     const tier = fxTier();
     // steps through each beam: one on low (no wisps), four on medium, seven on high
-    this.beamMat.uniforms.uSteps.value = tier === 'low' ? 1 : tier === 'medium' ? 4 : 7;
+    this.beamMat.uniforms.uSteps.value = tier === 'low' ? 2 : tier === 'medium' ? 5 : 7;
     // an energy budget: a big rig's beams each run lower, so thirty of them don't add up to a white frame
     this.beamMat.uniforms.uGain.value = 8 * (this.gain / 1.2) * Math.min(1, Math.sqrt(12 / n));
     for (let i = 0; i < n; i++) {

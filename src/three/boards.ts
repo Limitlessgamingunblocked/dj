@@ -703,8 +703,10 @@ function aioScreen(b: BoardBuild, u: Unit): void {
   put(u.button('deck.2.load', 0, 0, { label: 'Load the selected track to deck 2', w: 0.022, d: 0.011, led: '#ffffff' }), 0.016, -0.026);
   // the side panel's print
   const c = document.createElement('canvas');
-  c.width = 264;
-  c.height = 480;
+  // three times the old resolution: the side panel's print was the blurriest thing on the board
+  const SC = 3;
+  c.width = 264 * SC;
+  c.height = 480 * SC;
   const g = c.getContext('2d')!;
   g.fillStyle = '#0e0f12';
   g.fillRect(0, 0, c.width, c.height);
@@ -714,7 +716,7 @@ function aioScreen(b: BoardBuild, u: Unit): void {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   const label = (s: string, x: number, z: number, size = 17) => {
-    g.font = `700 ${size}px "Barlow Condensed", "Arial Narrow", sans-serif`;
+    g.font = `700 ${size * SC * 1.15}px "Barlow Condensed", "Arial Narrow", sans-serif`;
     g.fillText(s, px(x), py(z));
   };
   label('BACK', -0.016, -0.115);
@@ -725,6 +727,7 @@ function aioScreen(b: BoardBuild, u: Unit): void {
   label('2', 0.016, -0.015, 20);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
   const print = new THREE.Mesh(new THREE.PlaneGeometry(sw - 0.003, slen - 0.003), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, metalness: 0.2 }));
   print.rotation.x = -Math.PI / 2;
   print.position.set(0, 0.0003, -slen / 2);

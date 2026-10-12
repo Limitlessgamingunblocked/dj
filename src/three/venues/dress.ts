@@ -1328,7 +1328,7 @@ export class Dresser implements Fixture {
       const t = chainLinkTexture().clone();
       t.userData = {};
       t.repeat.set(1, 1);
-      this.mats.set('chainlink', (mat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.4, metalness: 0.6, roughness: 0.5, side: THREE.DoubleSide, color: 0xb8bdc2 })));
+      this.mats.set('chainlink', (mat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.4, alphaToCoverage: true, metalness: 0.6, roughness: 0.5, side: THREE.DoubleSide, color: 0xb8bdc2 })));
     }
     const g = new THREE.PlaneGeometry(len, h);
     const uv = g.attributes.uv as THREE.BufferAttribute;

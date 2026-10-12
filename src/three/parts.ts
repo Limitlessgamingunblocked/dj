@@ -97,7 +97,11 @@ function surfaceWorldY(o: THREE.Object3D, localY: number): number {
 
 function setEmissive(m: THREE.MeshStandardMaterial, color: string, level: number, gain = 2.2): void {
   m.emissive.set(color);
-  m.emissiveIntensity = level * gain;
+  // white (and near-white) LEDs carry all three channels at once: at the same gain they burn out
+  // into a blob that hides the button, so they glow at about half the gain of coloured ones
+  const e = m.emissive;
+  const white = Math.min(e.r, e.g, e.b) / Math.max(e.r, e.g, e.b, 1e-4);
+  m.emissiveIntensity = level * gain * (1 - 0.5 * white * white);
 }
 
 /* ------------------------------------------------------------------ */
@@ -155,12 +159,14 @@ export class KnobPart extends Part {
     body.castShadow = true;
     this.spin.add(body);
     if (style !== 'chrome') {
-      const capMat = capColor ? new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.35, metalness: 0.4 }) : M.plasticDark;
+      // a satin clear-coated cap: its highlight shows the knob's shape even in a dark room
+      const capMat = new THREE.MeshPhysicalMaterial({ color: capColor ?? '#2c3037', roughness: 0.32, metalness: 0.15, clearcoat: 0.7, clearcoatRoughness: 0.25 });
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.8, r * 0.8, 0.0006, 32), capMat);
       cap.position.y = h + 0.0002;
       this.spin.add(cap);
     }
-    const ind = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.0008, r * 0.14), 0.0008, r * 0.62), style === 'chrome' ? M.black : M.white);
+    // the pointer: a bold line from near the middle to the edge, so the value reads at a glance
+    const ind = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.0011, r * 0.2), 0.0008, r * 0.72), style === 'chrome' ? M.black : M.white);
     ind.position.set(0, h + 0.0006, -r * 0.5);
     this.spin.add(ind);
     // side notch line so rotation reads from low camera angles too
@@ -307,7 +313,7 @@ export class FaderPart extends Part {
     this.cap = new THREE.Mesh(geo, mat);
     this.cap.position.y = h / 2;
     this.cap.castShadow = true;
-    const line = new THREE.Mesh(new THREE.BoxGeometry(axis === 'x' ? 0.0012 : w * 0.85, 0.0004, axis === 'x' ? d * 0.85 : 0.0012), M.white);
+    const line = new THREE.Mesh(new THREE.BoxGeometry(axis === 'x' ? 0.0018 : w * 0.9, 0.0004, axis === 'x' ? d * 0.9 : 0.0018), M.white);
     line.position.y = h / 2 + h * 0.08 + 0.0002;
     this.cap.add(line);
     this.capTop = h;
@@ -389,8 +395,9 @@ function symbolTexture(text: string, color = '#ffffff'): THREE.CanvasTexture {
   let t = symbolCache.get(k);
   if (t) return t;
   const c = document.createElement('canvas');
-  c.width = c.height = 128;
+  c.width = c.height = 256;
   const g = c.getContext('2d')!;
+  g.scale(2, 2);
   g.fillStyle = color;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
@@ -406,6 +413,7 @@ function symbolTexture(text: string, color = '#ffffff'): THREE.CanvasTexture {
   } else g.fillText(text, 64, 66);
   t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 16;
   symbolCache.set(k, t);
   return t;
 }
@@ -446,7 +454,7 @@ export class ButtonPart extends Part {
     this.object.add(this.body);
     this.addHit(this.body);
     if (opts.symbol) {
-      const s = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, w * 0.8), new THREE.MeshBasicMaterial({ map: symbolTexture(opts.symbol, shape === 'big' ? '#e8ecf2' : '#c7ced9'), transparent: true, depthWrite: false }));
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, w * 0.8), new THREE.MeshBasicMaterial({ map: symbolTexture(opts.symbol, '#f2f5fa'), transparent: true, depthWrite: false }));
       s.rotation.x = -Math.PI / 2;
       s.position.y = h / 2 + 0.0003;
       this.body.add(s);
@@ -467,9 +475,10 @@ export class ButtonPart extends Part {
     const key = `${st.on}|${st.color}|${st.level.toFixed(2)}|${flash}|${this.pressed}`;
     if (key !== this.lastKey) {
       this.lastKey = key;
-      const lvl = st.on ? st.level : 0.04;
+      // unlit buttons keep a faint glow of their colour (backlit caps), so you can see where they are
+      const lvl = st.on ? st.level : 0.1;
       if (this.ringMat) {
-        setEmissive(this.ringMat, st.color, st.on ? st.level : 0.05, 3);
+        setEmissive(this.ringMat, st.color, st.on ? st.level : 0.12, 3);
         setEmissive(this.mat, st.color, st.on ? st.level * 0.25 : 0, 1);
       } else setEmissive(this.mat, st.on ? st.color : this.led, lvl + flash * 0.5, 2.4);
       this.body.position.y = this.restY - (this.pressed ? 0.0012 : 0);
@@ -503,7 +512,7 @@ export class PadPart extends Part {
     super();
     this.id = id;
     this.label = label;
-    this.mat = new THREE.MeshStandardMaterial({ color: '#1c1f24', roughness: 0.62, metalness: 0, emissive: '#000000' });
+    this.mat = new THREE.MeshStandardMaterial({ color: '#2b2f36', roughness: 0.55, metalness: 0, emissive: '#000000' });
     this.body = new THREE.Mesh(new RoundedBoxGeometry(size, 0.0045, size, 2, size * 0.12), this.mat);
     this.body.position.y = 0.00225;
     this.body.castShadow = true;
@@ -525,8 +534,10 @@ export class PadPart extends Part {
     const key = `${color}|${lvl.toFixed(2)}|${this.pressed}`;
     if (key === this.lastKey) return;
     this.lastKey = key;
-    setEmissive(this.mat, color, lvl, 2.6);
-    this.mat.color.set(lvl > 0 ? color : '#1c1f24').multiplyScalar(lvl > 0 ? 0.25 : 1);
+    // unlit pads glow faintly white so the grid reads; lit ones take their colour
+    if (lvl > 0) setEmissive(this.mat, color, lvl, 2.6);
+    else setEmissive(this.mat, '#9aa3b5', 0.05, 1);
+    this.mat.color.set(lvl > 0 ? color : '#2b2f36').multiplyScalar(lvl > 0 ? 0.25 : 1);
     this.body.position.y = 0.00225 - (this.pressed ? 0.0012 : 0);
   }
 
