@@ -20,6 +20,9 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
+    # the same app zipped: opens on any macOS, and when a .dmg won't mount
+    - target: zip
+      arch: [arm64, x64]
   # no Apple developer certificate: adhoc-sign.cjs signs it ad hoc so it opens (after "Open Anyway")
   identity: null
   hardenedRuntime: false
