@@ -475,7 +475,7 @@ export class SetupPanel {
       clear(body);
       const state = installState();
       if (state === 'desktop') {
-        body.append(h('p', { class: 'note' }, "You're playing the desktop app. It works offline; your library and career stay on this computer."));
+        body.append(h('p', { class: 'note' }, "You're playing the desktop app. It works offline, keeps itself up to date (new versions download in the background), and your library and career stay on this computer."));
         return;
       }
       if (state === 'installed') {

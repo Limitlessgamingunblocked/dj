@@ -57,6 +57,9 @@ jobs:
         run: |
           npm ci
           npx electron-builder ${{ matrix.target }} --publish never -c.extraMetadata.version=1.0.${{ github.run_number }}
+      - name: Pack the game files for the app's updater
+        if: runner.os == 'Linux'
+        run: node desktop/pack-web.mjs 1.0.${{ github.run_number }}
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
@@ -65,6 +68,8 @@ jobs:
             desktop/release/*-mac-*.zip
             desktop/release/*.exe
             desktop/release/*.AppImage
+            desktop/release/update.json
+            desktop/release/deckhouse-web-*.pack.gz
           if-no-files-found: error
           retention-days: 14
 
@@ -96,6 +101,8 @@ jobs:
           - **Linux:** \`Deckhouse-DJ-…-linux-x86_64.AppImage\`
 
           **First launch on a Mac:** double-click the .zip and drag the Deckhouse DJ app it unpacks into Applications (or open the .dmg and drag it from there). The app isn't signed with an Apple developer certificate, so the first time you open it macOS says it can't check it. Click Done, then open System Settings → Privacy & Security, scroll down and click **Open Anyway** next to Deckhouse DJ. After that it opens like any app.
+
+          **Updates:** once installed, the app updates itself: new versions of the game download in the background and it asks to restart.
 
           **First launch on Windows:** if SmartScreen says it protected your PC, click **More info → Run anyway**.
           NOTES

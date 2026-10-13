@@ -8,6 +8,8 @@ directories:
   buildResources: build
 files:
   - main.cjs
+  - updater.cjs
+  - webpack-format.cjs
   - package.json
 extraResources:
   - from: ../dist

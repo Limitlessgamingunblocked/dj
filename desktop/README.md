@@ -19,6 +19,14 @@ every push to the default branch and replaces that release.
   stops it, click **More info → Run anyway**.
 - **Linux:** `…-linux-x86_64.AppImage`: make it executable and run it.
 
+**Updates:** the app keeps itself up to date. A few seconds after it opens (and every few hours) it checks
+the latest release; when there's a new version of the game it downloads it in the background and asks
+whether to restart the game now or start it next time. Only the game files are replaced (the release's
+`update.json` and `deckhouse-web-<version>.pack.gz`, written by `pack-web.mjs`), which is why this works
+without an Apple certificate. When the app itself has to change (raise `deckhouseShell` in `package.json`
+whenever `main.cjs`, `updater.cjs` or Electron change), older apps offer to download the new installer instead.
+Updates follow the default branch: anything merged there reaches installed apps on its own.
+
 Your library, career and settings are kept in the app's own data folder, not the browser's,
 so they start fresh the first time (Settings → Your settings → Export / Import moves settings across).
 

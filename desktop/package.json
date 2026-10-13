@@ -6,6 +6,8 @@
   "description": "Deckhouse DJ as a desktop game: the web build in its own window, offline.",
   "author": "Deckhouse DJ",
   "main": "main.cjs",
+  "//": "deckhouseShell: raise it when main.cjs or Electron changes, so older apps offer the new installer instead of taking game updates",
+  "deckhouseShell": 1,
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --publish never"
