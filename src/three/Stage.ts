@@ -377,7 +377,7 @@ export class Stage {
     const part = this.board.parts.find((p) => (p.id !== null && reg.resolveId(p.id) === id) || (p.alt !== null && reg.resolveId(p.alt) === id));
     if (!part) return;
     const at = new THREE.Vector3();
-    this.avatar.touch(() => (part.object.parent ? part.grip(at) : null));
+    this.avatar.touch(() => (part.object.parent ? part.grip(at) : null), part.hold, () => part.turn());
   }
 
   /** you at the decks, facing the room, or where a scene has put you */
@@ -607,7 +607,11 @@ export class Stage {
     this.hits = this.board.parts.flatMap((p) => p.hit);
     this.ctx.accent = this.board.finish.accent;
     this.board.root.updateMatrixWorld(true);
+    // the cables running off behind the units are not part of what the light and camera frame
+    const cables = this.board.cables;
+    cables?.removeFromParent();
     const box = new THREE.Box3().setFromObject(this.board.root);
+    if (cables) this.board.root.add(cables);
     // the camera frames the hardware you play (its chassis), not a laptop or stand behind it:
     // fitting those in left the controls small at the bottom of the frame
     const hw = new THREE.Box3();
