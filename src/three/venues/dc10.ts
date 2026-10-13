@@ -35,6 +35,10 @@ class DC10 extends VenueBase {
   readonly views: VenueViews = {
     wide: { pos: V(-1.45, 2.3, 1.75), target: V(0.9, 1.3, -5.5) },
     wideLabel: 'Over the shoulder',
+    director: {
+      style: 'stream',
+      landmarks: [{ label: 'The fan wheels', from: { pos: V(-3, 1.9, -3), target: V(-8.4, 2.4, -8) }, to: { pos: V(-2, 2, -3.4), target: V(8.4, 2.4, -12.5) }, fov: 44 }],
+    },
     crowd: { pos: V(-2.4, 2.6, -11.5), target: V(0.3, 2.0, 0) },
     // the security camera in the corner behind the booth, clear of the mirror ball; the rig under the low ceiling
     extra: { cctv: { pos: V(7.6, 4.2, 1.9), target: V(-1.5, 0.4, -6.5) }, rig: { pos: V(1.3, 4.2, -3.0), target: V(0, 0.95, 0.35) } },

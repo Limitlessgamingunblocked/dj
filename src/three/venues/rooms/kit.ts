@@ -443,6 +443,14 @@ export abstract class CrazyRoom extends VenueBase implements RoomControls {
     this.views = {
       wide: { pos: V(-w * 0.75, h * 0.55, -d * 0.85), target: V(0, 1.4, -1) },
       wideLabel: 'Back of the room',
+      director: {
+        style: 'festival',
+        scale: Math.min(4, d * 0.4),
+        landmarks: [
+          { label: 'The room', from: { pos: V(w * 0.8, h * 0.75, -d * 0.15), target: V(-w * 0.3, h * 0.3, -d * 0.8) }, to: { pos: V(w * 0.7, h * 0.7, -d * 0.3), target: V(-w * 0.5, h * 0.3, -d * 0.6) }, fov: 50 },
+          { label: 'Up at the ceiling', from: { pos: V(-w * 0.4, 1.4, -d * 0.7), target: V(0, h, -d * 0.35) }, to: { pos: V(-w * 0.2, 1.4, -d * 0.75), target: V(w * 0.2, h, -d * 0.3) }, fov: 56 },
+        ],
+      },
       crowd: { pos: V(0.8, 1.6, -d * 0.35), target: V(0, 1.5, 0.4) },
       drone: [V(0, h * 0.6, -d * 0.9), V(w * 0.7, h * 0.55, -d * 0.6), V(w * 0.6, h * 0.5, -d * 0.15), V(0, h * 0.55, -1.5), V(-w * 0.6, h * 0.5, -d * 0.15), V(-w * 0.7, h * 0.55, -d * 0.6)],
       extra: {

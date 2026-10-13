@@ -41,6 +41,13 @@ class Printworks extends VenueBase {
   readonly views: VenueViews = {
     wide: { pos: V(-10.3, 10.4, -4.6), target: V(1.5, 3.5, -30) },
     wideLabel: 'Gantry',
+    director: {
+      style: 'festival',
+      landmarks: [
+        { label: 'The light rig', from: { pos: V(0, 2.4, -40), target: V(0, 11, -12) }, to: { pos: V(0, 2.6, -34), target: V(0, 10, -8) }, fov: 52 },
+        { label: 'Down the press hall', from: { pos: V(2, 4.5, -96), target: V(0, 3, 0) }, to: { pos: V(1.5, 4.8, -90), target: V(0, 3, 0) }, fov: 16 },
+      ],
+    },
     // a high stage in a long hall: a long crane, the rig camera out over the front rows, the camcorder in the crowd
     extra: { crane: { radius: 5.5, low: 2.0, high: 5.5 }, rig: { pos: V(2.5, 7.5, -7.5), target: V(0, 0.9, 0.2) }, camcorder: { pos: V(1.0, 0.65, -4.6), target: V(0, 1.4, 0.6) } },
     crowd: { pos: V(3.6, 2.4, -17.5), target: V(0, 2.2, 0) },

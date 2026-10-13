@@ -28,7 +28,8 @@ import type { Features } from '../visualizer/AudioFeatures';
 import { Visualizer } from '../visualizer/Visualizer';
 import { buildBoard, type BoardDef } from './boards';
 import type { BoardBuild } from './builder';
-import { CameraRig, type ViewId } from './CameraRig';
+import { CameraRig, type ActiveShot, type ViewId } from './CameraRig';
+import { guardScale, landmarkPose, scalePose, SHOTS, venueScale, type ShotId, type ShotPose } from './shots';
 import { FX } from './fx';
 import { FINITE_GLSL, LensOutputPass, NEUTRAL_GRADE } from './lens';
 import { approachLook, copyLook, lookFor, LOOKS, type LensLook } from './looks';
@@ -192,7 +193,10 @@ export class Stage {
   /** the auto director is cutting the camera (hover zoom stays out of its way) */
   directing = false;
   /** a cut through a quick dip to black: k is the picture's brightness */
-  private fade: { k: number; phase: 'none' | 'out' | 'in'; view: ViewId | null } = { k: 1, phase: 'none', view: null };
+  /** a cut through black: what to switch to once it's dark */
+  private fade: { k: number; phase: 'none' | 'out' | 'in'; go: (() => void) | null } = { k: 1, phase: 'none', go: null };
+  /** the lens look on the director's own moves when the look is on Auto (the cinematic style letterboxes) */
+  shotLook: LensLook = 'none';
   /** a photo was asked for: called with the canvas right after the next frame is drawn */
   private shotWanted: ((src: HTMLCanvasElement) => void) | null = null;
   /** called with the canvas after every frame (recording, the replay buffer's video), same task as the draw */
@@ -513,7 +517,7 @@ export class Stage {
     this.pendingArrival = false;
     const v = this.rig.view;
     const end = (v !== 'custom' ? this.rig.poseOf(v) : null) ?? { pos: this.camera.position.clone(), target: this.rig.controls.target.clone() };
-    if (this.rig.arrive(end)) this.fade = { k: 0, phase: 'in', view: null };
+    if (this.rig.arrive(end)) this.fade = { k: 0, phase: 'in', go: null };
   }
 
   /** how far away the first solid thing under a point on the screen is (photo mode's tap to focus) */
@@ -779,16 +783,69 @@ export class Stage {
     else this.rig.goTo(v);
   }
 
-  /** Cut to an angle through a quick dip to black (the auto director, and moves too long to fly). */
-  cutTo(v: ViewId): void {
+  /** Cut to an angle: through a quick dip to black (moves too long to fly), or straight there on the beat (the director). */
+  cutTo(v: ViewId, cut: 'dip' | 'hard' = 'dip'): void {
+    this.cutWith(() => this.rig.goTo(v, true), cut);
+  }
+
+  private cutWith(go: () => void, cut: 'dip' | 'hard'): void {
     this.focusedZone = null;
-    this.fade.view = v;
+    if (cut === 'hard' || this.view === 'visual') {
+      go();
+      this.fade = { k: 1, phase: 'none', go: null };
+      return;
+    }
+    this.fade.go = go;
     // asked again while it's going dark: just change where it cuts to
     if (this.fade.phase !== 'out') this.fade.phase = 'out';
-    if (this.view === 'visual') {
-      this.rig.goTo(v, true);
-      this.fade = { k: 1, phase: 'none', view: null };
+  }
+
+  /**
+   * Cut to one of the director's moves (shots.ts) or the venue's landmarks,
+   * paced to run `seconds`. The move is pulled in towards the booth if a wall
+   * or ceiling is in the way. False if there's no such landmark here.
+   */
+  cutToShot(take: { id: ShotId | 'landmark'; landmark: number; side: number; seconds: number }, cut: 'dip' | 'hard' = 'hard'): boolean {
+    const views = this.venue?.views ?? null;
+    let shot: ActiveShot;
+    if (take.id === 'landmark') {
+      const l = views?.director?.landmarks?.[take.landmark];
+      if (!l) return false;
+      shot = { label: l.label, close: false, hand: 0.06, seconds: take.seconds, pose: (u) => scalePose(landmarkPose(l, u), 1) };
+    } else {
+      const def = SHOTS[take.id];
+      const ctx = { box: this.rig.board.clone(), scale: venueScale(views), fov: this.rig.normalFov };
+      const raw = (u: number): ShotPose => def.pose(ctx, u, take.side);
+      const k = guardScale([raw(0), raw(0.5), raw(1)], (a, b) => this.clearance(a, b));
+      shot = { label: def.label, close: !!def.close, hand: def.hand, seconds: take.seconds, pose: (u) => scalePose(raw(u), k) };
     }
+    this.cutWith(() => this.rig.playShot(shot), cut);
+    return true;
+  }
+
+  private clearRay = new THREE.Raycaster();
+  /** How far from `from` towards `to` before something solid in the venue (not people, glass, haze or light) is in the way. */
+  private clearance(from: THREE.Vector3, to: THREE.Vector3): number {
+    const v = this.venue;
+    if (!v) return Infinity;
+    const dir = to.clone().sub(from);
+    const len = dir.length();
+    if (len < 1e-3) return Infinity;
+    const ray = this.clearRay;
+    ray.set(from, dir.divideScalar(len));
+    ray.near = 0.3;
+    ray.far = len + 0.5;
+    const avatar = this.avatar.object;
+    const solid = (o: THREE.Object3D): boolean => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || (m as unknown as { isInstancedMesh?: boolean }).isInstancedMesh || (m as unknown as { isSkinnedMesh?: boolean }).isSkinnedMesh) return false;
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+      if (!mat || !mat.visible || mat.transparent || !mat.depthWrite || (mat as THREE.MeshBasicMaterial).blending === THREE.AdditiveBlending) return false;
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) if (!p.visible || p === avatar) return false;
+      return true;
+    };
+    for (const h of ray.intersectObject(v.group, true)) if (solid(h.object)) return h.distance;
+    return Infinity;
   }
 
   /** The next frame as a PNG, with the lens look and the text it burns in. */
@@ -1276,7 +1333,7 @@ export class Stage {
     // the floor's reflection: not on Low, not when the adaptive step drops it, and not looking down on the board
     this.reflect.enabled = this.ao.enabled && this.reflect.planes.length > 0 && this.rig.view !== 'top';
     // close on the board (the board angles, or zoomed in on a section) the picture stays clean
-    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth';
+    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth' || !!this.rig.shot?.close;
     // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky;
     // on the board, LEDs glow a little rather than blooming into blobs over the controls
     this.bloom.strength = (0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1) * (close ? 0.45 : 1);
@@ -1303,8 +1360,9 @@ export class Stage {
     const fd = this.fade;
     if (fd.phase === 'out') {
       fd.k = Math.max(0, fd.k - dt / 0.16);
-      if (fd.k === 0 && fd.view) {
-        this.rig.goTo(fd.view, true);
+      if (fd.k === 0 && fd.go) {
+        fd.go();
+        fd.go = null;
         fd.phase = 'in';
       }
     } else if (fd.phase === 'in') {
@@ -1318,7 +1376,7 @@ export class Stage {
     // for daylight, raise it to match, or the whole bright sky blooms into a veil over the picture
     this.bloom.threshold = BLOOM_THRESHOLD / Math.min(1, Math.max(0.05, r.toneMappingExposure));
     // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
-    const lookId = this.rig.focused ? 'none' : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
+    const lookId = this.rig.focused ? 'none' : this.rig.shot ? (this.lensPick === 'auto' ? this.shotLook : this.lensPick) : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
     if (lookId !== this.lookId) {
       this.lookId = lookId;
       this.lookHold = 1e9;

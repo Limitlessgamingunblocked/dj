@@ -73,7 +73,8 @@ import { NextUp } from './nextup';
 import { NextUpCard } from '../ui/NextUpCard';
 import { roomFor } from '../audio/room';
 import { venueLock } from '../game/progression';
-import { Director, sectionOf } from '../three/director';
+import { Director, sectionOf, styleFor, STYLE_LABELS, type DirectorMenu, type DirectorPick } from '../three/director';
+import { SHOTS as SHOT_TABLE, type ShotId } from '../three/shots';
 import { RecordingDesk } from './recording';
 import { MySetsPanel } from '../ui/MySetsPanel';
 import { AutoDJ } from './autodj';
@@ -1355,7 +1356,8 @@ export class App implements AppContext {
     const { camBtn, zoomChip, framing } = this.hud;
     if (this.boardMode && !this.hud.pad.classList.contains('folded')) for (const w of this.hud.padWidgets) w.update();
     const v = this.stage.rig.view;
-    setText(camBtn, `${this.settings.director ? 'Auto · ' : ''}${v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
+    const shot = this.stage.rig.shot;
+    setText(camBtn, `${this.settings.director ? 'Auto · ' : ''}${shot ? shot.label : v === 'custom' ? 'Custom view' : this.stage.rig.label(v)} ▾`);
     if (this.boardMode) for (const b of framing.children) setClass(b as HTMLElement, 'active', (b as HTMLElement).dataset.view === v);
     const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
@@ -1533,6 +1535,21 @@ export class App implements AppContext {
     items.push(
       'sep',
       { label: 'Auto director', checked: this.settings.director, action: () => this.setDirector(!this.settings.director) },
+      { header: 'Director style' },
+      ...(Object.keys(STYLE_LABELS) as DirectorPick[]).map(
+        (k): MenuItem => ({
+          label: STYLE_LABELS[k],
+          checked: this.settings.directorStyle === k,
+          action: () => {
+            this.settings.directorStyle = k;
+            this.save();
+            // picking a style is asking for the director
+            if (!this.settings.director) this.setDirector(true);
+            else this.director.reset();
+          },
+        }),
+      ),
+      'sep',
       {
         label: 'Zoom to the pointer',
         checked: this.stage.autoZoom,
@@ -1753,15 +1770,31 @@ export class App implements AppContext {
     c.timer = window.setTimeout(() => c.el.classList.remove('on'), 6500);
   }
 
+  /** what this venue offers the director, in the style picked */
+  private directorMenu(): DirectorMenu {
+    const d = this.stage.venue?.views.director;
+    const style = styleFor(this.settings.directorStyle, d?.style);
+    const calm = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || !prefs.cameraMotion;
+    return { style, open: !!d?.open, landmarks: d?.landmarks?.length ?? 0, calm };
+  }
+
   /** the auto director's call for this frame: cut, or stay */
   private direct(): void {
     const s = this.stage.show.state;
     // cuts land on the clock's bars and drops; the show supplies how built-up / peaking it is
     const drop = this.clockDrop;
-    const v = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop }, this.stage.rig.view);
+    // two decks audible at once: a mix is under way
+    let up = 0;
+    for (let i = 0; i < this.deckCount(); i++) if (this.engine.decks[i]?.playing && Math.max(...this.meters.ch[i]) > 0.04) up++;
+    const menu = this.directorMenu();
+    this.stage.shotLook = menu.style === 'cinematic' ? 'cinema' : 'none';
+    const take = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop, mixing: up >= 2 }, menu);
     this.clockDrop = false;
-    if (v) {
-      this.stage.cutTo(v);
+    if (take) {
+      const id = take.id;
+      if (id === 'landmark' || id in SHOT_TABLE) {
+        if (!this.stage.cutToShot({ id: id as ShotId | 'landmark', landmark: take.landmark, side: take.side, seconds: take.seconds }, take.cut)) this.stage.cutTo('wide', take.cut);
+      } else this.stage.cutTo(id as ViewId, take.cut);
       // the drop punch-in lands once the cut has (Section 2.5)
       if (drop) this.punchAt = performance.now() + 220;
     }

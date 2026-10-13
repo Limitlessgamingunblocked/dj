@@ -309,6 +309,13 @@ class AllyPally extends VenueBase {
       this.views = {
         wide: { pos: V(-7.5, 7.4, 4.6), target: V(1.5, 5.4, -55) },
         wideLabel: 'From the stage',
+        director: {
+          style: 'festival',
+          landmarks: [
+            { label: 'The organ and the rose window', from: { pos: V(0, FL + 3.2, -24), target: V(0, 13, -103) }, to: { pos: V(0, FL + 3.6, -30), target: V(0, 14, -103) }, fov: 24 },
+            { label: 'Under the roof', from: { pos: V(9, FL + 2, -12), target: V(0, 22, -40) }, to: { pos: V(7, FL + 2, -16), target: V(-2, 22, -50) }, fov: 54 },
+          ],
+        },
         // a big stage behind a barrier: the camcorder is out in the crowd, the rig camera high on the front truss
         extra: { crane: { radius: 5.5, low: 1.8, high: 5.2 }, rig: { pos: V(3.2, 8.5, -8), target: V(0, 1, 0.2) }, camcorder: { pos: V(1.6, 0.4, -7.6), target: V(0, 1.5, 0.6) }, vertigo: { near: 2.4, far: 8, height: 1.9 } },
         crowd: { pos: V(4.2, FL + 1.95, -14.6), target: V(0, 3.9, 4) },
@@ -328,6 +335,13 @@ class AllyPally extends VenueBase {
       this.views = {
         wide: { pos: V(0, FL + 9.0, -52.6), target: V(0, FL + 4.0, 0) },
         wideLabel: 'From the organ gallery',
+        director: {
+          style: 'festival',
+          landmarks: [
+            { label: 'The organ and the rose window', from: { pos: V(2, FL + 2.6, -14), target: V(0, 13, -58) }, to: { pos: V(1, FL + 3, -20), target: V(0, 14, -58) }, fov: 26 },
+            { label: 'Under the roof', from: { pos: V(8, FL + 2, -8), target: V(0, 22, -30) }, to: { pos: V(6, FL + 2, -10), target: V(-2, 22, 20) }, fov: 54 },
+          ],
+        },
         extra: { crane: { radius: 4.5, low: 1.8, high: 4.5 }, camcorder: { pos: V(1.8, 0.6, -6.2), target: V(0, 1.35, 0.4) } },
         crowd: { pos: V(5.4, FL + 1.75, -8.6), target: V(0, 1.4, 0) },
         drone: [

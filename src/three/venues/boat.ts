@@ -168,6 +168,15 @@ class Boat extends OpenAir {
     // from the bow, low on the lower deck: both decks packed, the booth at the top
     wide: { pos: V(2.2, LOWER_Y + 1.7, -23.5), target: V(0, 1.4, 0) },
     wideLabel: 'From the bow',
+    director: {
+      style: 'cinematic',
+      open: true,
+      scale: 4,
+      landmarks: [
+        { label: 'The river ahead', from: { pos: V(1.4, 2.7, 2), target: V(0, 0, -120) }, to: { pos: V(-1.4, 2.9, 2.6), target: V(0, 0, -120) }, fov: 46 },
+        { label: 'The banks going by', from: { pos: V(4.2, 1.8, -6), target: V(34, 2, -36) }, to: { pos: V(4.2, 1.9, -8), target: V(34, 2, 6) }, fov: 40 },
+      ],
+    },
     crowd: { pos: V(-1.4, 1.7, -7), target: V(0, 1.4, 0.8) },
     drone: [V(0, 4.5, 9), V(9, 3, 2), V(10, 1, -12), V(6, 2.5, -30), V(0, 4, -36), V(-6, 2.5, -30), V(-10, 1, -12), V(-9, 3, 2), V(0, 6, 12)],
     extra: { cctv: { pos: V(4.3, 3.2, 3.6), target: V(0, 0.4, -8) }, crane: { radius: 4, low: 1.2, high: 3.4 } },

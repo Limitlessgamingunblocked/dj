@@ -42,6 +42,28 @@ export interface VenueViews {
     crane?: { radius: number; low: number; high: number };
     vertigo?: { near: number; far: number; height: number };
   };
+  /** how the auto director shoots this place (director.ts, shots.ts) */
+  director?: VenueDirecting;
+}
+
+/** A shot of something this place is known for: held, or moving from one pose to another over the shot. */
+export interface Landmark {
+  label: string;
+  from: Pose;
+  to?: Pose;
+  /** vertical field of view, degrees (a long lens on something far away) */
+  fov?: number;
+}
+
+export interface VenueDirecting {
+  /** the kind of video this place is usually filmed as (the director's Auto style) */
+  style?: 'festival' | 'stream' | 'cinematic';
+  /** open sky above: aerial shots are allowed */
+  open?: boolean;
+  /** how far the cameras reach, metres (defaults to the crane's radius) */
+  scale?: number;
+  /** the place's signature sights */
+  landmarks?: Landmark[];
 }
 
 export interface LiveFeed {

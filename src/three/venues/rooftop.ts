@@ -114,6 +114,15 @@ class Rooftop extends OpenAir {
     // from the railing at the front corner, back at the booth and the tower, the city behind
     wide: { pos: V(10.4, 4.6, -16.2), target: V(-0.8, 1.4, 1.2) },
     wideLabel: 'From the railing',
+    director: {
+      style: 'cinematic',
+      open: true,
+      scale: 4,
+      landmarks: [
+        { label: 'The city', from: { pos: V(-10, 3.2, -14.4), target: V(60, 2, -150) }, to: { pos: V(-9.5, 3.3, -14.2), target: V(-50, 2, -150) }, fov: 40 },
+        { label: 'Your name on the tower', from: { pos: V(5, 1.6, -9), target: V(0, 2.6, 6.2) }, to: { pos: V(3, 1.9, -7.5), target: V(0, 2.7, 6.2) }, fov: 30 },
+      ],
+    },
     crowd: { pos: V(-1.2, 1.7, -6.5), target: V(0, 1.4, 0.8) },
     drone: [V(0, 3.2, 3.2), V(4, 2.6, 0.5), V(8.5, 2.4, -4), V(9.5, 3.4, -12), V(14, 6, -18), V(0, 8, -22), V(-14, 6, -18), V(-9.5, 3.4, -12), V(-8.5, 2.4, -4), V(-4, 2.6, 0.5)],
     extra: { cctv: { pos: V(-10.6, 3.4, -14.6), target: V(0, 1, -2) }, crane: { radius: 4, low: 1.2, high: 3.4 } },
