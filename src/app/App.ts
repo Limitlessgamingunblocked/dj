@@ -648,6 +648,7 @@ export class App implements AppContext {
       autoDJOff: () => this.setAutoDJ(false),
       press: (id) => this.reg.press(id, 'ui'),
       signature: (what) => (this.stage.venue as { signature?(w: string): void } | null)?.signature?.(what),
+      react: (what) => this.stage.avatar.react(what),
       crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
       boardId: () => this.boardDef.id,
       venueThumb: (id, g, w, h) => venueById(id).thumb(g, w, h),
