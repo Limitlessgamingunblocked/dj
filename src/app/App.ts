@@ -121,7 +121,7 @@ import { seeded } from '../game/bookings';
 import { getCrewTier, setCrewTier } from '../three/venues/crew';
 import { cleanSettings, type Settings } from './settingsModel';
 
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash', 'dancers'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
 /** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
 const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise', ...CRAZY_ROOM_IDS];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */

@@ -129,11 +129,7 @@ One gig a day, the same for everyone who plays it that day.
   - Settings → Show & venue turns it off.
 - The results show your best streak and how many requests you met.
 
-### Party: hype dancers and the air horn
-- **Hype dancers:** two glam go-go dancers on glowing podiums either side of the booth, in every club (not the Bedroom).
-  - They dance on the beat: a new move every two bars (sway, waving, hair flips, pointing at you, body rolls).
-  - They clap overhead through the build and jump on the drop.
-  - Show → Party switches them off.
+### Party: the air horn
 - **The air horn** (Show → Party, or Shift+J) works as often as you like.
 - **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
 - **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.
@@ -238,7 +234,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
 ### Boards (3D, Three.js)
-- **Easy to read in any room:** a soft deck light over every board, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
+- **Easy to read in any room:** a soft deck light over every board that comes up by itself when the room is dark, no contact-shadow smudges or mirrored glare on the hardware, the drinks and laptop kept off the controls, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
 
 | Board | Class | Decks |
 |---|---|---|
