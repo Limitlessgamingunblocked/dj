@@ -7,7 +7,7 @@ name: Desktop app
 on:
   push:
     # the repository's default branch
-    branches: [main, claude/3d-dj-mixer-app-8tzoh3, claude/installable-all-updates]
+    branches: [main, claude/3d-dj-mixer-app-8tzoh3, claude/installable-all-updates, claude/quiet-all-updates]
     paths-ignore: ['**.md', 'docs/**', 'Deckhouse-DJ.html']
   pull_request:
     paths-ignore: ['**.md', 'docs/**', 'Deckhouse-DJ.html']
@@ -71,7 +71,7 @@ jobs:
   release:
     name: Publish the release
     needs: build
-    if: github.event_name != 'pull_request' && (github.ref_name == github.event.repository.default_branch || github.ref_name == 'claude/installable-all-updates')
+    if: github.event_name != 'pull_request' && (github.ref_name == github.event.repository.default_branch || github.ref_name == 'claude/installable-all-updates' || github.ref_name == 'claude/quiet-all-updates')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -89,6 +89,7 @@ jobs:
           # the preview branch (every update, merged or not) gets a pre-release of its own
           TAG=desktop-latest; FLAG=--latest; TITLE="Deckhouse DJ desktop"
           if [ "$GITHUB_REF_NAME" = "claude/installable-all-updates" ]; then TAG=desktop-preview; FLAG=--prerelease; TITLE="Deckhouse DJ desktop preview, with every update"; fi
+          if [ "$GITHUB_REF_NAME" = "claude/quiet-all-updates" ]; then TAG=desktop-preview-quiet; FLAG=--prerelease; TITLE="Deckhouse DJ desktop preview, every update, crowd murmur and boat engine off"; fi
           gh release delete $TAG --cleanup-tag --yes || true
           cat > notes.md <<NOTES
           The Deckhouse DJ desktop game, built from ${GITHUB_SHA::7}.

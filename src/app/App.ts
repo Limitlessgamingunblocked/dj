@@ -1916,7 +1916,7 @@ export class App implements AppContext {
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);
       this.engine.crowd.dawn = this.settings.venue === 'sunrise' ? Math.max(0, (setClock.progress - 0.55) / 0.45) : 0;
-      this.engine.crowd.update(dt, this.stage.hype, this.clock.playing);
+      this.engine.crowd.update(dt);
       this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       const lyricFrames = this.lyrics.frames();
