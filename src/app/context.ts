@@ -3,6 +3,7 @@ import type { ControlRegistry } from '../core/controls';
 import type { Emitter } from '../core/emitter';
 import type { LibraryTrack } from '../core/types';
 import type { Library } from '../library/Library';
+import type { LyricsAI } from '../lyrics/LyricsAI';
 import type { NextUp } from './nextup';
 
 export interface AppEvents extends Record<string, unknown> {
@@ -37,4 +38,6 @@ export interface AppContext {
   regulars(): { name: string; style: string; color: string; loyalty: number; front: boolean; here: boolean }[];
   /** the next-track coach: picks for what to play next, in every mode */
   nextUp: NextUp;
+  /** AI lyrics: listens to a track for its words */
+  lyricsAi: LyricsAI;
 }
