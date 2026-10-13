@@ -70,9 +70,10 @@ export const SHOTS: Record<ShotId, ShotDef> = {
     close: true,
     hand: 0.6,
     pose(c, u, side) {
-      const { ctr, top, front } = frame(c);
-      // a slow slide along the front of the booth, the mixer and hands sharp, the DJ above
-      return { pos: V(ctr.x + side * lerp(0.62, 0.3, u), top + 0.36, front - 0.42), target: V(ctr.x + side * lerp(0.12, -0.02, u), top + 0.1, ctr.z + 0.12), fov: 38 };
+      const { ctr, top } = frame(c);
+      const half = (c.box.max.x - c.box.min.x) / 2;
+      // clamped to the side of the booth, looking down across the decks and the mixer to the hands, creeping in
+      return { pos: V(ctr.x + side * (half + lerp(0.38, 0.26, u)), top + lerp(0.46, 0.4, u), ctr.z + 0.22), target: V(ctr.x - side * lerp(0.06, 0.12, u), top + 0.04, ctr.z - 0.03), fov: 42 };
     },
   },
   ots: {

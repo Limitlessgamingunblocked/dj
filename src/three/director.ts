@@ -54,6 +54,8 @@ export interface DirectorMenu {
   landmarks: number;
   /** less motion asked for: no quick drop montage */
   calm?: boolean;
+  /** takes that don't work in this venue */
+  skip?: CamId[];
 }
 
 export interface Take {
@@ -167,6 +169,7 @@ export function sectionOf(s: Pick<DirectorInput, 'playing' | 'build' | 'peak'>):
 
 /** Can this take be used here? (no aerials under a roof, no landmarks where there are none) */
 export function available(id: CamId, menu: DirectorMenu): boolean {
+  if (menu.skip?.includes(id)) return false;
   if (id === 'aerial') return menu.open;
   if (id === 'landmark') return menu.landmarks > 0;
   return true;
@@ -248,6 +251,7 @@ export class Director {
     const style = menu.style;
     const section = sectionOf(s);
     const newBar = s.bar !== this.lastBar;
+    const prevBar = this.lastBar;
     if (newBar && s.playing) {
       if (this.barSeenAt >= 0 && s.bar === this.lastBar + 1) {
         const d = s.t - this.barSeenAt;
@@ -322,9 +326,11 @@ export class Director {
       this.pending = false;
       return this.cut(want, s, menu, want === 'mix' || style !== 'cinematic' ? 'hard' : 'dip');
     }
-    // a phrase line: the shot's run is up and the bar is on the phrase grid
+    // a phrase line: the shot's run is up and a line of the phrase grid has just gone by
+    // (crossed, not landed on: a slow frame can skip the bar itself)
     const grid = Math.min(this.len, 4);
-    if (bars >= this.len && s.bar % grid === 0 && since > (this.len <= 1 ? 1.2 : MIN_HOLD)) {
+    const crossed = Math.floor(s.bar / grid) !== Math.floor(prevBar / grid);
+    if (bars >= this.len && crossed && since > (this.len <= 1 ? 1.2 : MIN_HOLD)) {
       return this.cut(want, s, menu, style === 'cinematic' && want !== 'peak' ? 'dip' : 'hard');
     }
     return null;
@@ -335,9 +341,9 @@ export class Director {
     this.moment = moment;
     let id = nextShot(POOLS[style][moment], this.current, this.recent, this.rand(), menu);
     // a build opens on the push in, if the style has one
-    if (moment === 'build' && POOLS[style].build.includes('pushin') && this.current !== 'pushin') id = 'pushin';
+    if (moment === 'build' && available('pushin', menu) && this.current !== 'pushin') id = 'pushin';
     // the mix opens on the hands
-    if (moment === 'mix' && this.current !== 'hands') id = 'hands';
+    if (moment === 'mix' && available('hands', menu) && this.current !== 'hands') id = 'hands';
     let len = BARS[style][moment];
     // the peak: now and then a quick two-bar shot so the cutting doesn't go square
     if (moment === 'peak' && style === 'festival' && this.rand() < 0.3) len = 2;

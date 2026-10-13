@@ -140,6 +140,8 @@ class Bedroom extends VenueBase {
     wideLabel: 'Stream cam',
     director: {
       style: 'stream',
+      // just you in your room: nobody to turn round to
+      skip: ['reverse', 'jib', 'ots', 'pullback'],
     },
     crowd: { pos: V(1.65, 1.85, 2.75), target: V(-0.1, 1.05, 0.1) },
     drone: [V(1.4, 1.9, 2.6), V(-1.5, 1.9, 2.4), V(-1.6, 1.7, 0.6), V(0, 1.9, -0.4), V(1.6, 1.7, 0.6)],

@@ -1776,7 +1776,7 @@ export class App implements AppContext {
     const d = this.stage.venue?.views.director;
     const style = styleFor(this.settings.directorStyle, d?.style);
     const calm = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) || !prefs.cameraMotion;
-    return { style, open: !!d?.open, landmarks: d?.landmarks?.length ?? 0, calm };
+    return { style, open: !!d?.open, landmarks: d?.landmarks?.length ?? 0, calm, skip: d?.skip };
   }
 
   /** the auto director's call for this frame: cut, or stay */

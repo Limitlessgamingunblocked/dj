@@ -173,8 +173,8 @@ class Boat extends OpenAir {
       open: true,
       scale: 4,
       landmarks: [
-        { label: 'The river ahead', from: { pos: V(1.4, 2.7, 2), target: V(0, 0, -120) }, to: { pos: V(-1.4, 2.9, 2.6), target: V(0, 0, -120) }, fov: 46 },
-        { label: 'The banks going by', from: { pos: V(4.2, 1.8, -6), target: V(34, 2, -36) }, to: { pos: V(4.2, 1.9, -8), target: V(34, 2, 6) }, fov: 40 },
+        { label: 'The river ahead', from: { pos: V(1.2, 2.4, -13.4), target: V(0, -1, -120) }, to: { pos: V(-1.2, 2.6, -13.6), target: V(0, -1, -120) }, fov: 50 },
+        { label: 'The banks going by', from: { pos: V(4.2, 2.4, -6), target: V(34, -2, -40) }, to: { pos: V(4.2, 2.5, -8), target: V(34, -2, 4) }, fov: 56 },
       ],
     },
     crowd: { pos: V(-1.4, 1.7, -7), target: V(0, 1.4, 0.8) },

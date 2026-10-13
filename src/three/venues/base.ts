@@ -64,6 +64,8 @@ export interface VenueDirecting {
   scale?: number;
   /** the place's signature sights */
   landmarks?: Landmark[];
+  /** moves that don't work here (no crowd to turn round to, people pressed round the booth) */
+  skip?: ('hands' | 'ots' | 'hero' | 'profile' | 'tele' | 'pushin' | 'pullback' | 'jib' | 'reverse' | 'orbit' | 'aerial')[];
 }
 
 export interface LiveFeed {
