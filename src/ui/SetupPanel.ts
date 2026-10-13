@@ -22,6 +22,7 @@ import { KeysEditor } from './keysTable';
 import { openModal } from './modal';
 import { soundCardControls } from './SoundCardControls';
 import { toast } from './toast';
+import { DESKTOP_DOWNLOADS, installState, manualInstallHint, onInstallChange, promptInstall } from '../pwa/install';
 
 export { shortcutsTable } from './keysTable';
 
@@ -76,7 +77,7 @@ export class SetupPanel {
       }
     });
 
-    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.performance(), this.data(), this.keyboard());
+    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.performance(), this.install(), this.data(), this.keyboard());
     this.el = h('div', { class: 'pane settings-pane' }, h('div', { class: 'settings-search' }, this.search), grid);
     onPrefs(() => this.syncs.forEach((f) => f()));
     this.renderAnchors();
@@ -465,6 +466,40 @@ export class SetupPanel {
       this.check('Show the frame rate on the stage', () => s.fpsMeter, (v) => this.hooks.setFpsMeter(v), 'fps frame rate meter speed ms'),
       h('p', { class: 'note set-row', 'data-k': 'quality low medium high' }, 'Automatic adjustment lowers detail when frames run slow, up to the quality you pick.'),
     );
+  }
+
+  /** install the game as an app: the browser's install, or the desktop download */
+  private install(): HTMLElement {
+    const body = h('div', { class: 'set-row', 'data-k': 'install app desktop offline download mac windows dock' });
+    const render = () => {
+      clear(body);
+      const state = installState();
+      if (state === 'desktop') {
+        body.append(h('p', { class: 'note' }, "You're playing the desktop app. It works offline; your library and career stay on this computer."));
+        return;
+      }
+      if (state === 'installed') {
+        body.append(h('p', { class: 'note' }, "Deckhouse is installed: open it from your Dock, Start menu or apps like any game. It works offline once it's loaded."));
+        return;
+      }
+      const row = h('div', { class: 'toggle-row' });
+      if (state === 'ready') {
+        const btn = h('button', { class: 'btn primary', type: 'button' }, icon('download', 16), 'Install Deckhouse');
+        btn.addEventListener('click', async () => {
+          if (await promptInstall()) toast('Installed: Deckhouse is in your apps');
+        });
+        row.append(btn);
+      }
+      const dl = h('a', { class: 'btn', href: DESKTOP_DOWNLOADS, target: '_blank', rel: 'noopener' }, 'Get the desktop app (Mac, Windows, Linux)');
+      row.append(dl);
+      body.append(
+        row,
+        h('p', { class: 'note' }, state === 'ready' ? 'Install puts Deckhouse in its own window with a Dock or Start menu icon, and it keeps working offline.' : manualInstallHint()),
+      );
+    };
+    render();
+    onInstallChange(render);
+    return this.card('Install the game', 'install app desktop offline download mac windows dock start menu', body);
   }
 
   private data(): HTMLElement {

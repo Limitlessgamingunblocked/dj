@@ -1,0 +1,100 @@
+# Builds the desktop game (desktop/) for Mac, Windows and Linux.
+# Pull requests: builds them, to check they still pack.
+# Pushes to the default branch (or Run workflow on it): also publishes them as the
+# "Deckhouse DJ desktop" release, which https://github.com/Limitlessgamingunblocked/dj/releases/latest points at.
+name: Desktop app
+
+on:
+  push:
+    # the repository's default branch
+    branches: [main, claude/3d-dj-mixer-app-8tzoh3]
+    paths-ignore: ['**.md', 'docs/**', 'Deckhouse-DJ.html']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**', 'Deckhouse-DJ.html']
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Mac, os: macos-latest, target: --mac }
+          - { name: Windows, os: windows-latest, target: --win }
+          - { name: Linux, os: ubuntu-latest, target: --linux }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: Build the game
+        run: |
+          npm ci
+          npm run build
+      - name: Test the game
+        if: runner.os == 'Linux'
+        run: npm test
+      - name: Pack the desktop app
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # electron-builder fetches its own copy of Electron for each target
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: |
+          npm ci
+          npx electron-builder ${{ matrix.target }} --publish never -c.extraMetadata.version=1.0.${{ github.run_number }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.name }}
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.exe
+            desktop/release/*.AppImage
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish the release
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Replace the desktop release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la out
+          gh release delete desktop-latest --cleanup-tag --yes || true
+          cat > notes.md <<NOTES
+          The Deckhouse DJ desktop game, built from ${GITHUB_SHA::7}.
+
+          - **Mac (Apple Silicon: M1 and later):** \`Deckhouse-DJ-…-mac-arm64.dmg\`
+          - **Mac (Intel):** \`Deckhouse-DJ-…-mac-x64.dmg\`
+          - **Windows:** \`Deckhouse-DJ-…-win-x64.exe\`
+          - **Linux:** \`Deckhouse-DJ-…-linux-x86_64.AppImage\`
+
+          **First launch on a Mac:** open the .dmg and drag Deckhouse DJ into Applications. The app isn't signed with an Apple developer certificate, so the first time you open it macOS says it can't check it. Click Done, then open System Settings → Privacy & Security, scroll down and click **Open Anyway** next to Deckhouse DJ. After that it opens like any app.
+
+          **First launch on Windows:** if SmartScreen says it protected your PC, click **More info → Run anyway**.
+          NOTES
+          gh release create desktop-latest out/* --target "$GITHUB_SHA" --title "Deckhouse DJ desktop (build ${{ github.run_number }})" --notes-file notes.md --latest

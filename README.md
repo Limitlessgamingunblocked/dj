@@ -8,6 +8,10 @@ It also builds DJ sets: the **Set Builder** tab (SmartDJ) turns your library int
 
 **No install:** download [`Deckhouse-DJ.html`](Deckhouse-DJ.html) and open it in Chrome or Edge. It is the whole app in one file, rebuilt with `npm run build:single`.
 
+**Install it as a game:**
+- **Desktop app (Mac, Windows, Linux):** download it from the [latest release](https://github.com/Limitlessgamingunblocked/dj/releases/latest). On a Mac, the first launch needs System Settings → Privacy & Security → **Open Anyway**, as it isn't signed with an Apple certificate. See [desktop/README.md](desktop/README.md).
+- **From the website:** in Chrome or Edge, click the install icon in the address bar, or **Settings → Install the game → Install Deckhouse**. It gets its own window and Dock / Start menu icon and keeps working offline.
+
 ## Becoming a game
 
 The project is turning into **DeckHouse DJ, a house-music DJ career game** (bedroom to sunrise closing set), built in stages:

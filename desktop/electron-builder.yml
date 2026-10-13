@@ -1,0 +1,46 @@
+# Packs the desktop game: the web build (../dist, from `npm run build` at the
+# repository root) goes in as resources/web. See desktop/README.md.
+appId: app.deckhouse.dj
+productName: Deckhouse DJ
+artifactName: Deckhouse-DJ-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: build
+files:
+  - main.cjs
+  - package.json
+extraResources:
+  - from: ../dist
+    to: web
+afterPack: ./build/adhoc-sign.cjs
+publish: null
+mac:
+  category: public.app-category.music
+  icon: build/icon.png
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  # no Apple developer certificate: adhoc-sign.cjs signs it ad hoc so it opens (after "Open Anyway")
+  identity: null
+  hardenedRuntime: false
+  extendInfo:
+    NSCameraUsageDescription: Air DJ uses the camera to follow your hands.
+    NSMicrophoneUsageDescription: Deckhouse listens to your DJ controller's sound card inputs.
+dmg:
+  title: Deckhouse DJ
+win:
+  icon: build/icon-full.png
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: true
+  shortcutName: Deckhouse DJ
+linux:
+  icon: build/icon-full.png
+  category: Game
+  target:
+    - target: AppImage
+      arch: [x64]

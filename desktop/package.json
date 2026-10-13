@@ -1,0 +1,17 @@
+{
+  "name": "deckhouse-dj-desktop",
+  "productName": "Deckhouse DJ",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deckhouse DJ as a desktop game: the web build in its own window, offline.",
+  "author": "Deckhouse DJ",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.16.1"
+  }
+}
