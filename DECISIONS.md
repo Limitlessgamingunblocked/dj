@@ -687,3 +687,4 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
 264. **Booth clutter keeps off the hardware.** The cup, bottle and laptop on a booth are tagged `deskProp`. When a board is set up, each one that overlaps the hardware slides out past its edge if that's within 14 cm, and is put away otherwise.
 265. **Nobody stands in the booth in a crazy room.** `RoomKit.people` drops spots within 1.8 m either side of the decks and 1.4 m in front or behind, unless the room puts its booth somewhere else. The Cloud Room's crowd area also started behind the booth front.
 266. **Board print is 1.4× the real silk-screen** (was 1.24×). At 1× and in board full screen it's about 6 px tall, which is readable. Zooming to a section makes it twice that.
+267. **No hype dancers.** The two go-go dancers on podiums either side of the booth are gone, along with their Show → Party toggle (`HypeSquad`). The avatar's `hype` routine stays in `Avatar.ts`, unused.

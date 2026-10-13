@@ -125,11 +125,7 @@ One gig a day, the same for everyone who plays it that day.
   - Settings → Show & venue turns it off.
 - The results show your best streak and how many requests you met.
 
-### Party: hype dancers and the air horn
-- **Hype dancers:** two glam go-go dancers on glowing podiums either side of the booth, in every club (not the Bedroom).
-  - They dance on the beat: a new move every two bars (sway, waving, hair flips, pointing at you, body rolls).
-  - They clap overhead through the build and jump on the drop.
-  - Show → Party switches them off.
+### Party: the air horn
 - **The air horn** (Show → Party, or Shift+J) works as often as you like.
 - **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
 - **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.
