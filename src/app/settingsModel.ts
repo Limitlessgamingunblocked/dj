@@ -75,7 +75,7 @@ export const DEFAULTS: Settings = {
   replay: {},
 };
 
-const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'];
+const VIEW_IDS: ViewId[] = ['top', 'perf', 'booth', 'wide', 'crowd', 'fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone', 'hero', 'hands'];
 
 /**
  * Saved settings over the defaults, keeping only fields the app knows with the

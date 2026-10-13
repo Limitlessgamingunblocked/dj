@@ -7,6 +7,7 @@ import { openScratchChallenges } from '../ui/ScratchChallenge';
 import { openLabel, openMashupBuilder, type MashupHooks } from '../ui/MashupBuilder';
 import { saveFile } from '../core/download';
 import { AudioEngine } from '../audio/AudioEngine';
+import { xfaderGains } from '../audio/Mixer';
 import type { Ambience } from '../audio/crowd';
 import { SAMPLE_NAMES } from '../audio/synth';
 import { AnalysisPool } from '../analysis/AnalysisPool';
@@ -1514,9 +1515,9 @@ export class App implements AppContext {
     const angle = (v: ViewId): MenuItem => ({ label: rig.label(v), checked: rig.view === v, action: () => this.pickAngle(v) });
     const items: MenuItem[] = [
       { header: 'Board' },
-      ...(['top', 'perf', 'booth'] as ViewId[]).map(angle),
+      ...(['top', 'perf', 'booth', 'hands'] as ViewId[]).map(angle),
       { header: 'Room' },
-      ...(['wide', 'crowd'] as ViewId[]).map(angle),
+      ...(['wide', 'crowd', 'hero'] as ViewId[]).map(angle),
       { header: 'Moving' },
       ...(['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'drone'] as ViewId[]).map(angle),
     ];
@@ -1745,17 +1746,36 @@ export class App implements AppContext {
     c.timer = window.setTimeout(() => c.el.classList.remove('on'), 6500);
   }
 
+  /** two decks can be heard at once: a blend is going on (past the channel faders and the crossfader) */
+  private blending(): boolean {
+    const mx = this.engine.mixer;
+    const [a, b] = xfaderGains(mx.xfader, mx.xcurve, mx.hamster);
+    let n = 0;
+    for (let i = 0; i < this.deckCount(); i++) {
+      const d = this.engine.decks[i];
+      const ch = this.engine.channels[i];
+      if (!d?.playing || !ch) continue;
+      const xf = ch.state.assign === 'A' ? a : ch.state.assign === 'B' ? b : 1;
+      const [l, r] = this.meters.ch[i];
+      if (Math.max(l, r) * ch.state.fader * xf > 0.05) n++;
+    }
+    return n >= 2;
+  }
+
   /** the auto director's call for this frame: cut, or stay */
   private direct(): void {
     const s = this.stage.show.state;
     // cuts land on the clock's bars and drops; the show supplies how built-up / peaking it is
     const drop = this.clockDrop;
-    const v = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop }, this.stage.rig.view);
+    const cut = this.director.update(
+      { t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop, mixing: this.blending(), track: this.engine.masterDeck?.track?.id ?? null },
+      this.stage.rig.view,
+    );
     this.clockDrop = false;
-    if (v) {
-      this.stage.cutTo(v);
+    if (cut) {
+      this.stage.cutTo(cut.view, cut.style === 'cut');
       // the drop punch-in lands once the cut has (Section 2.5)
-      if (drop) this.punchAt = performance.now() + 220;
+      if (drop) this.punchAt = performance.now() + (cut.style === 'cut' ? 30 : 220);
     }
     if (this.punchAt && performance.now() >= this.punchAt) {
       this.punchAt = 0;

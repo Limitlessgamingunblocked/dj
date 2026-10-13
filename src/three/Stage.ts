@@ -779,9 +779,18 @@ export class Stage {
     else this.rig.goTo(v);
   }
 
-  /** Cut to an angle through a quick dip to black (the auto director, and moves too long to fly). */
-  cutTo(v: ViewId): void {
+  /**
+   * Cut to an angle through a quick dip to black (moves too long to fly, the
+   * auto director's soft cuts), or straight there on this frame (`hard`: the
+   * director's cuts on the beat).
+   */
+  cutTo(v: ViewId, hard = false): void {
     this.focusedZone = null;
+    if (hard) {
+      this.rig.goTo(v, true);
+      this.fade = { k: 1, phase: 'none', view: null };
+      return;
+    }
     this.fade.view = v;
     // asked again while it's going dark: just change where it cuts to
     if (this.fade.phase !== 'out') this.fade.phase = 'out';

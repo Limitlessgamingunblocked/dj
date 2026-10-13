@@ -12,7 +12,7 @@ import { loadSetting, saveSetting } from '../core/settings';
 import type { Features } from '../visualizer/AudioFeatures';
 import type { VenueViews } from './venues/base';
 
-export type ViewId = 'top' | 'perf' | 'booth' | 'wide' | 'crowd' | 'fisheye' | 'crane' | 'rig' | 'cctv' | 'camcorder' | 'vertigo' | 'drone';
+export type ViewId = 'top' | 'perf' | 'booth' | 'wide' | 'crowd' | 'fisheye' | 'crane' | 'rig' | 'cctv' | 'camcorder' | 'vertigo' | 'drone' | 'hero' | 'hands';
 export interface CameraAnchor {
   name: string;
   pos: [number, number, number];
@@ -32,15 +32,19 @@ export const VIEW_LABELS: Record<ViewId, string> = {
   camcorder: '90s camcorder',
   vertigo: 'Dolly zoom',
   drone: 'Drone FPV',
+  hero: 'Over the shoulder',
+  hands: 'On the hands',
 };
 
 /**
  * Angles that move on their own, computed every frame: a fisheye clamped to
  * the booth (the bass shakes it), a crane sweeping round the DJ, a camera up in
  * the lighting rig, a panning security camera, someone in the front rows
- * filming on a camcorder, and a dolly zoom that pulls back while zooming in.
+ * filming on a camcorder, a dolly zoom that pulls back while zooming in, the
+ * hero shot (low behind the DJ, past their shoulder at the crowd, pushing in
+ * slowly) and a slider low across the decks on the DJ's hands.
  */
-export const LIVE_VIEWS: ViewId[] = ['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo'];
+export const LIVE_VIEWS: ViewId[] = ['fisheye', 'crane', 'rig', 'cctv', 'camcorder', 'vertigo', 'hero', 'hands'];
 
 const DRONE_FOV = 94;
 /** how far you can zoom out from what the camera looks at (preset shots may sit further out) */
@@ -111,6 +115,8 @@ export class CameraRig {
   private tmpA = new THREE.Vector3();
   private tmpB = new THREE.Vector3();
   private booth = new THREE.Vector3(0, 1.45, 0.3);
+  /** which side of the board the hands slider is on (it swaps each time it's picked) */
+  private handsSide = 1;
   /** the title screen's slow glide through the room (the drone's path, with a steady lens) */
   private flyby: { curve: THREE.CatmullRomCurve3; length: number; u: number; t: number } | null = null;
   /** walking into a venue: a path from the back of the room over the crowd to where the camera's going */
@@ -220,6 +226,8 @@ export class CameraRig {
       cctv: this.livePose('cctv', null, 0),
       camcorder: this.livePose('camcorder', null, 0),
       vertigo: this.livePose('vertigo', null, 0),
+      hero: this.livePose('hero', null, 0),
+      hands: this.livePose('hands', null, 0),
     };
   }
 
@@ -288,6 +296,32 @@ export class CameraRig {
         const frame = 2 * vz.near * Math.tan(THREE.MathUtils.degToRad(this.baseFov) / 2);
         return { pos: V(0, vz.height, target.z - d), target, fov: THREE.MathUtils.radToDeg(2 * Math.atan(frame / 2 / d)) };
       }
+      case 'hero': {
+        // low behind the DJ, looking up past their shoulder at the crowd: the festival hero shot.
+        // It looks at where the crowd's own camera stands, so it finds the dance floor in every room
+        const crowd = this.venueViews?.crowd.pos ?? V(0, 1.2, -6);
+        const p = x.hero ?? { pos: V(0.62, 1.18, this.box.max.z + 1.25), target: V(crowd.x * 0.5, crowd.y + 0.55, crowd.z) };
+        const pos = p.pos.clone();
+        const target = p.target.clone();
+        // a slow push in towards the DJ over 8 bars, drifting across their back
+        const k = 0.5 - 0.5 * Math.cos(cyc);
+        pos.lerp(this.tmpA.set(pos.x * 0.6, pos.y + 0.05, pos.z - (pos.z - this.box.max.z) * 0.35), k);
+        pos.x += Math.sin(cyc * 0.5) * 0.18;
+        if (!still) pos.y += Math.sin(t * 1.1) * 0.006;
+        return { pos, target };
+      }
+      case 'hands': {
+        // just over the front edge of the board, off to one side, looking down across it at the DJ's
+        // hands on the jogs and the mixer; it slides slowly along the board
+        const c = this.box.getCenter(new THREE.Vector3());
+        const size = this.box.getSize(new THREE.Vector3());
+        const top = this.box.max.y;
+        const side = this.handsSide;
+        const u = Math.sin(cyc * 0.5);
+        const pos = V(c.x + side * size.x * (0.3 + 0.08 * u), top + 0.2, this.box.min.z - 0.16);
+        const target = V(c.x - side * size.x * 0.08 + 0.05 * u, top - 0.02, c.z + size.z * 0.15);
+        return { pos, target };
+      }
       default:
         return { pos: this.camera.position.clone(), target: this.controls.target.clone() };
     }
@@ -304,6 +338,7 @@ export class CameraRig {
     if (LIVE_VIEWS.includes(v)) {
       // live angles fly in from wherever the camera is, then keep moving (update())
       if (this.view !== v) this.liveT = 0;
+      if (v === 'hands' && this.view !== v) this.handsSide = -this.handsSide;
       this.view = v;
       this.focused = false;
       const p = this.livePose(v, null, this.liveT);

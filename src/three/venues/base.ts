@@ -41,6 +41,8 @@ export interface VenueViews {
     camcorder?: Pose;
     crane?: { radius: number; low: number; high: number };
     vertigo?: { near: number; far: number; height: number };
+    /** the hero shot: behind the DJ, past their shoulder at the crowd */
+    hero?: Pose;
   };
 }
 

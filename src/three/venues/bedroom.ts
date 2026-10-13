@@ -140,7 +140,7 @@ class Bedroom extends VenueBase {
     wideLabel: 'Stream cam',
     crowd: { pos: V(1.65, 1.85, 2.75), target: V(-0.1, 1.05, 0.1) },
     drone: [V(1.4, 1.9, 2.6), V(-1.5, 1.9, 2.4), V(-1.6, 1.7, 0.6), V(0, 1.9, -0.4), V(1.6, 1.7, 0.6)],
-    extra: { cctv: { pos: V(-1.95, 2.35, 2.95), target: V(0, 1, 0) }, crane: { radius: 1.6, low: 1.2, high: 2.1 }, vertigo: { near: 1.1, far: 2.6, height: 1.4 } },
+    extra: { cctv: { pos: V(-1.95, 2.35, 2.95), target: V(0, 1, 0) }, crane: { radius: 1.6, low: 1.2, high: 2.1 }, hero: { pos: V(0.55, 1.55, 1.95), target: V(-0.1, 1.15, -0.5) }, vertigo: { near: 1.1, far: 2.6, height: 1.4 } },
   };
   private ledStrip: THREE.ShaderMaterial;
   private stripLight: THREE.PointLight;
