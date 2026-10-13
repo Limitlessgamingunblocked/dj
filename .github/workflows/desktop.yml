@@ -32,8 +32,8 @@ jobs:
           - { name: Linux, os: ubuntu-latest, target: --linux }
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -49,6 +49,7 @@ jobs:
         run: npm test
       - name: Pack the desktop app
         working-directory: desktop
+        shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           # electron-builder fetches its own copy of Electron for each target
