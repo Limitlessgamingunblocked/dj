@@ -81,7 +81,7 @@ describe('auto director: cutting with the music', () => {
   });
 
   it('a build opens on a push in, then cuts every 4 bars (festival)', () => {
-    const cuts = run(new Director(seeded(3)), FEST, 25, (bar) => ({ build: bar >= 8 ? 0.8 : 0 }));
+    const cuts = run(new Director(seeded(3)), FEST, 25, (bar) => ({ build: bar >= 8 ? 0.7 : 0 }));
     const inBuild = cuts.filter((c) => c.bar >= 8);
     expect(inBuild[0].bar).toBe(8);
     expect(inBuild[0].id).toBe('pushin');
@@ -89,6 +89,34 @@ describe('auto director: cutting with the music', () => {
     expect(inBuild[0].seconds).toBeCloseTo(8, 0);
     expect(inBuild.map((c) => c.bar)).toEqual([8, 12, 16, 20, 24]);
     for (const c of inBuild) expect(POOLS.festival.build).toContain(c.id);
+  });
+
+  it('the cuts speed up as a festival build climbs: every 2 bars, then close-ups every bar at the top', () => {
+    const mid = run(new Director(seeded(3)), FEST, 17, (bar) => ({ build: bar >= 8 ? 0.8 : 0 }));
+    const midBuild = mid.filter((c) => c.bar >= 8).map((c) => c.bar);
+    expect(midBuild).toEqual([8, 10, 12, 14, 16]);
+    const top = run(new Director(seeded(4)), FEST, 14, (bar) => ({ build: bar < 8 ? 0 : 0.95 }));
+    const tight = top.filter((c) => c.bar > 8);
+    expect(tight.map((c) => c.bar)).toEqual([9, 10, 11, 12, 13]);
+    for (const c of tight) expect(POOLS.festival.tension).toContain(c.id);
+    // a club stream keeps its calmer pace at the top of a build
+    const club = run(new Director(seeded(4)), CLUB, 24, (bar) => ({ build: bar < 8 ? 0 : 0.95 }));
+    const clubCuts = club.filter((c) => c.bar > 8).map((c) => c.bar);
+    for (let i = 1; i < clubCuts.length; i++) expect(clubCuts[i] - clubCuts[i - 1]).toBeGreaterThanOrEqual(4);
+  });
+
+  it('a new track out front goes back to the place on the next bar line, once its blend is done', () => {
+    const d = new Director(seeded(9));
+    const cuts = run(d, FEST, 24, (bar) => ({ track: bar < 13 ? 'a' : 'b', mixing: bar >= 10 && bar < 14 }));
+    const after = cuts.filter((c) => c.bar >= 14);
+    expect(after[0].bar).toBe(14);
+    expect(POOLS.festival.open).toContain(after[0].id);
+    // switching on with a track playing isn't a change
+    const first = run(new Director(seeded(9)), FEST, 6, () => ({ track: 'a' }));
+    expect(first).toHaveLength(1);
+    // in a build the new track waits its turn: the build's own cuts come first
+    const build = run(new Director(seeded(10)), FEST, 12, (bar) => ({ track: bar < 9 ? 'a' : 'b', build: bar >= 8 ? 0.7 : 0 }));
+    for (const c of build.filter((x) => x.bar >= 9)) expect(POOLS.festival.open).not.toContain(c.id);
   });
 
   it('gives the drop its shot on the beat, then three quick one-bar cuts, then the peak', () => {
