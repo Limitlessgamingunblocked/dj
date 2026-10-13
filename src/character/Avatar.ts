@@ -184,6 +184,10 @@ interface Reach {
   twist: number;
   /** a button: seconds into the tap (-1 waiting for the hand to arrive) */
   tap: number;
+  /** this frame: where the wrist goes and how the hand turns (in the avatar's space), and whether the control is there */
+  wrist: THREE.Vector3;
+  q: THREE.Quaternion;
+  ok: boolean;
 }
 
 /** how long a hand stays on a control after it last moved */
@@ -775,8 +779,8 @@ export class Avatar {
         // the top teeth, just behind the upper lip: they show in a grin, a shout or a wince
         // (an arc, curving back round the face with the lips)
         const R = 0.03;
-        const arc = (0.024 * lw) / R;
-        const teeth = this.mesh(new THREE.TorusGeometry(R, 0.0032, 6, 16, arc).rotateZ(Math.PI / 2 - arc / 2).rotateX(Math.PI / 2).translate(0, 0, -R), this.std(0xf2eee6, { roughness: 0.35 }), lip, V(0, -0.0028, -0.0028));
+        const arc = (0.019 * lw) / R;
+        const teeth = this.mesh(new THREE.TorusGeometry(R, 0.0032, 6, 16, arc).rotateZ(Math.PI / 2 - arc / 2).rotateX(Math.PI / 2).translate(0, 0, -R), this.std(0xf2eee6, { roughness: 0.35 }), lip, V(0, -0.0022, -0.0014));
         teeth.scale.set(1, 1.15, 1);
       } else {
         fr.lower = lip;
@@ -1783,13 +1787,18 @@ export class Avatar {
       cur.hold = hold;
       cur.turn = turn;
       if (hold === 'press') cur.tap = -1;
-    } else this.reaching[side] = { get, age: 0, w: 0, hold, turn, turn0: t0, twist: 0, tap: -1 };
+    } else this.reaching[side] = { get, age: 0, w: 0, hold, turn, turn0: t0, twist: 0, tap: -1, wrist: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
   }
 
-  /** the hands that are on controls, laid over the pose */
+  /**
+   * The hands that are on controls, laid over the pose. First where each
+   * wrist has to be (in the avatar's space), then, if a control is further
+   * than an arm goes, a lean over the decks, then the arms reach.
+   */
   private applyReach(dt: number): void {
     const b = this.bones;
     let updated = false;
+    let lean = 0;
     for (const side of ['l', 'r'] as const) {
       const r = this.reaching[side];
       if (!r) continue;
@@ -1801,6 +1810,7 @@ export class Avatar {
         continue;
       }
       const at = r.get();
+      r.ok = !!at;
       if (!at) continue;
       if (!updated) {
         this.object.updateMatrixWorld(true);
@@ -1808,18 +1818,19 @@ export class Avatar {
       }
       const k = side === 'l' ? 1 : -1;
       const hold = r.hold;
-      let local: THREE.Vector3;
+      const p = r.wrist;
       if (hold === 'grip') {
-        local = b[`shoulder_${side}`].worldToLocal(this.ikT.copy(at));
+        const local = b[`shoulder_${side}`].worldToLocal(p.copy(at));
         // the wrist a hand's length short of the control, a little above it
         const len = local.length();
         if (len > 1e-4) local.multiplyScalar(Math.max(0.05, len - 0.07) / len);
         local.y += 0.03;
+        this.object.worldToLocal(b[`shoulder_${side}`].localToWorld(p));
       } else {
         // the hand's own way of holding this control, and the point of it that touches it
         const fr = HOLD_FRAME[hold];
-        const q = handFrame(k * fr.fingers[0], fr.fingers[1], fr.fingers[2], k * fr.palm[0], fr.palm[1], fr.palm[2], this.handQ);
-        const p = this.object.worldToLocal(this.ikT.copy(at));
+        const q = handFrame(k * fr.fingers[0], fr.fingers[1], fr.fingers[2], k * fr.palm[0], fr.palm[1], fr.palm[2], r.q);
+        this.object.worldToLocal(p.copy(at));
         const turned = r.turn ? r.turn() : 0;
         if (hold === 'knob') {
           // the wrist turns with the knob, as far as a wrist goes (then the fingers slip round it)
@@ -1848,16 +1859,33 @@ export class Avatar {
         }
         // the wrist: the touching point back along the hand
         p.sub(tmpA.set(k * fr.touch[0], fr.touch[1], fr.touch[2]).applyQuaternion(q));
-        local = b[`shoulder_${side}`].worldToLocal(this.object.localToWorld(p));
       }
+      // how far past an arm's length it is
+      const sh = this.object.worldToLocal(b[`shoulder_${side}`].getWorldPosition(tmpB));
+      const over = sh.distanceTo(p) - (this.d.upperArm + this.d.foreArm) * 0.95;
+      lean = Math.max(lean, cl(over * 1.8, 0, 0.5) * r.w);
+    }
+    if (!updated) return;
+    // too far to reach standing up: lean in over the decks (the eyes staying on them)
+    if (lean > 0) {
+      b.spine.rotation.x += lean * 0.6;
+      b.chest.rotation.x += lean * 0.4;
+      b.neck.rotation.x -= lean * 0.5;
+      this.object.updateMatrixWorld(true);
+    }
+    for (const side of ['l', 'r'] as const) {
+      const r = this.reaching[side];
+      if (!r || !r.ok) continue;
+      const k = side === 'l' ? 1 : -1;
+      const local = b[`shoulder_${side}`].worldToLocal(this.object.localToWorld(this.ikT.copy(r.wrist)));
       const { q, bend } = twoBoneIK(local, this.d.upperArm, this.d.foreArm, new THREE.Vector3(k * 0.9, -0.55, -0.45), this.ikQ);
       const ua = b[`upper_arm_${side}`];
       ua.quaternion.slerp(q, r.w);
       const fa = b[`forearm_${side}`];
       fa.rotation.x += (-bend - fa.rotation.x) * r.w;
       // the hand onto it, and a glance down at what the hand's doing
-      if (hold === 'grip') b[`hand_${side}`].rotation.x += (-0.45 - b[`hand_${side}`].rotation.x) * r.w;
-      else this.orientHand(side, this.handQ, r.w);
+      if (r.hold === 'grip') b[`hand_${side}`].rotation.x += (-0.45 - b[`hand_${side}`].rotation.x) * r.w;
+      else this.orientHand(side, r.q, r.w);
       b.neck.rotation.x += 0.08 * r.w;
     }
   }
