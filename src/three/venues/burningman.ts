@@ -670,7 +670,7 @@ class BurningMan extends OpenAir {
 
     // burners: fur, goggles, sequins, dust
     const clothes = ['#f2efe8', '#e8c8d8', '#c8a070', '#2a2420', '#d8b060', '#a8b8c8', '#ff5a2a', '#3ad7ff', '#8a6a4a', '#c86a8a', '#e8e2d4', '#1b1d22'];
-    this.crowd = new Crowd(crowdArea(-13, 13, -4.2, -17, 1.5, 1990, { y: PL }), { seed: 1991, phones: 0.05, drinks: 0.12, signs: 3, clothes, riders: 3, booth: V(0, 0, 0.2), shorts: 0.45 });
+    this.crowd = new Crowd(crowdArea(-13, 13, -4.2, -17, 1.5, 1990, { y: PL }), { seed: 1991, phones: 0.05, drinks: 0.12, signs: 3, clothes, riders: 3, booth: V(0, 0, 0.2), shorts: 0.45, look: 'playa' });
     this.group.add(this.crowd.object);
     const crew = vipCrew(crewArc(0, 1.8, 3.2, 0.6, 2.8), 1992, clothes);
     if (crew) this.add(crew);
