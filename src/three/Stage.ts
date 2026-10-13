@@ -98,6 +98,12 @@ function composerTarget(samples: number): THREE.WebGLRenderTarget {
 
 /** how bright (in the scene's light, at exposure 1) a pixel must be to bloom */
 const BLOOM_THRESHOLD = 0.93;
+/** the deck light's intensity in a room with light of its own */
+const DECK_LIGHT = 3.2;
+/** the bloom threshold's multiplier close on the board */
+const CLOSE_BLOOM = 2.4;
+/** how bright (linear, at exposure 1) the board's patch of the frame should be at least: the deck light lifts it there */
+const DECK_LEVEL = 0.05;
 
 export class Stage {
   readonly el: HTMLElement;
@@ -210,6 +216,11 @@ export class Stage {
   private lensText: { el: HTMLElement; tl: HTMLElement; tr: HTMLElement; bl: HTMLElement; br: HTMLElement; shown: string; at: number; since: number };
   private zones: Zone[] = [];
   private boardTop = TABLE_Y;
+  /** the hardware you play (no cables or laptop), in world space */
+  private hwBox = new THREE.Box3();
+  /** how much the deck light is lifted for a dark room (1: as set) */
+  private deckBoost = 1;
+  private tmpV = new THREE.Vector3();
   private pointerInside = false;
   private zoneCandidate: string | null = null;
   private zoneSince = 0;
@@ -261,7 +272,14 @@ export class Stage {
     this.renderer.shadowMap.autoUpdate = false;
 
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.roomEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    // the studio's skylight straight overhead is far brighter than its other panels: looking down on
+    // the board, every metal jog, platter and cap mirrored it as a white disc that bloomed
+    const studio = new RoomEnvironment();
+    studio.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.MeshLambertMaterial | undefined;
+      if (m && o.position.y > 19 && m.emissiveIntensity) m.emissiveIntensity *= 0.12;
+    });
+    this.roomEnv = pmrem.fromScene(studio, 0.04).texture;
     this.scene.environment = this.roomEnv;
     this.scene.environmentIntensity = 0.45;
     pmrem.dispose();
@@ -291,7 +309,7 @@ export class Stage {
     this.scene.add(this.djSpot, this.djSpot.target, this.underGlow);
     // the deck light: a soft, shadowless light just over the board, so its print, caps and
     // faders read in every venue, however dark the room (like the gooseneck lamps in real booths)
-    this.deckLight = new THREE.SpotLight(0xf2f5ff, 3.2, 3, 0.9, 0.85, 1.4);
+    this.deckLight = new THREE.SpotLight(0xf2f5ff, DECK_LIGHT, 3, 0.9, 0.85, 1.4);
     this.deckLight.castShadow = false;
     this.scene.add(this.deckLight, this.deckLight.target);
     // you, as seen from the crowd and venue cameras
@@ -476,10 +494,70 @@ export class Stage {
     // open air: see out to the horizon
     this.camera.far = v.far ?? 160;
     this.camera.updateProjectionMatrix();
+    this.clearDesk();
     this.precompile();
     // walking in: doors, over the crowd, the booth (once it's ready to draw)
     this.pendingArrival = !!o.arrive && this.view !== 'visual' && !this.avatarSpot;
     if (this.pendingArrival) this.showArrivalCard(def);
+  }
+
+  /**
+   * The drinks and the laptop on the booth (tagged deskProp) stay off the hardware: a four-deck
+   * setup fills the desk they were put on, and they stood in a jog or over a player. Each one
+   * slides out past the board's edge if that's a short way, and is put away if it isn't.
+   */
+  private clearDesk(): void {
+    if (!this.venue || this.hwBox.isEmpty()) return;
+    const keep = this.hwBox.clone().expandByVector(this.tmpV.set(0.04, 0.5, 0.04));
+    const mid = keep.getCenter(new THREE.Vector3());
+    const props: THREE.Object3D[] = [];
+    this.venue.group.traverse((o) => {
+      if (o.userData.deskProp) props.push(o);
+    });
+    for (const o of props) {
+      const home = (o.userData.deskHome as THREE.Vector3 | undefined) ?? (o.userData.deskHome = o.position.clone());
+      o.position.copy(home);
+      o.visible = true;
+      o.updateMatrixWorld(true);
+      const b = new THREE.Box3().setFromObject(o);
+      if (!b.intersectsBox(keep)) continue;
+      const out = (b.min.x + b.max.x) / 2 >= mid.x ? keep.max.x - b.min.x : keep.min.x - b.max.x;
+      if (Math.abs(out) > 0.14) {
+        o.visible = false;
+        continue;
+      }
+      const wp = o.getWorldPosition(new THREE.Vector3());
+      wp.x += out;
+      o.position.copy(o.parent ? o.parent.worldToLocal(wp) : wp);
+    }
+  }
+
+  /**
+   * The deck light comes up in a dark room (an empty festival stage, the crazy rooms between drops) so
+   * the board still reads, and back down as the room's own light arrives: it meters the board's patch
+   * of the frame and steers its brightness towards DECK_LEVEL, never below the light as set.
+   */
+  private liftDeckLight(dt: number): void {
+    let want = 1;
+    if (this.exposure.enabled && this.exposure.ready && this.board && !this.hwBox.isEmpty()) {
+      // the board's rectangle on screen
+      let x0 = 1;
+      let y0 = 1;
+      let x1 = -1;
+      let y1 = -1;
+      for (let i = 0; i < 8; i++) {
+        const p = this.tmpV.set(i & 1 ? this.hwBox.max.x : this.hwBox.min.x, i & 2 ? this.hwBox.max.y : this.hwBox.min.y, i & 4 ? this.hwBox.max.z : this.hwBox.min.z).project(this.camera);
+        x0 = Math.min(x0, p.x);
+        y0 = Math.min(y0, p.y);
+        x1 = Math.max(x1, p.x);
+        y1 = Math.max(y1, p.y);
+      }
+      const level = this.exposure.level((x0 + 1) / 2, (y0 + 1) / 2, (x1 + 1) / 2, (y1 + 1) / 2);
+      // on screen and measured: nudge towards the level (what's measured includes the light's own work)
+      want = level > 0 && x1 > -1 && x0 < 1 && y1 > -1 && y0 < 1 ? THREE.MathUtils.clamp(this.deckBoost * Math.sqrt(DECK_LEVEL / level), 1, 2.6) : this.deckBoost;
+    }
+    this.deckBoost += (want - this.deckBoost) * (1 - Math.exp(-Math.min(dt, 0.1) * 2));
+    this.deckLight.intensity = DECK_LIGHT * this.deckBoost;
   }
 
   /** the venue's name over the walk in */
@@ -630,13 +708,17 @@ export class Stage {
       const m = (o as THREE.Mesh).material;
       for (const mm of Array.isArray(m) ? m : m ? [m] : []) {
         const std = mm as THREE.MeshStandardMaterial;
-        if (std.isMeshStandardMaterial && !std.userData.envBoosted) {
+        // plastics and rubber only: metal is mostly reflection, and looking down on a jog, a platter
+        // or an aluminium cap it mirrored the studio light overhead as a white, blooming disc
+        if (std.isMeshStandardMaterial && !std.userData.envBoosted && std.metalness < 0.5) {
           std.userData.envBoosted = true;
           std.envMapIntensity *= 1.6;
         }
       }
     });
     this.boardTop = box.max.y;
+    this.hwBox.copy(hw.isEmpty() ? box : hw);
+    this.clearDesk();
     this.computeZones();
     this.focusedZone = null;
     this.rig.focused = false;
@@ -1336,10 +1418,22 @@ export class Stage {
     this.bloom.enabled = this.quality !== 'low';
     // contact shadow: not on Low, and not when the adaptive step drops it
     this.ao.enabled = this.quality !== 'low' && this.adaptive.step.surfaces;
+    // close on the board, no occlusion on the hardware or the desk round it (it smudged the print and
+    // ringed every jog and knob); the crowd and the room behind still get it
+    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth' || !!this.rig.shot?.close;
+    if (close && !this.hwBox.isEmpty()) {
+      const cam = this.camera.position;
+      let far = 0;
+      for (let i = 0; i < 8; i++) {
+        this.tmpV.set(i & 1 ? this.hwBox.max.x : this.hwBox.min.x, i & 2 ? this.hwBox.max.y : this.hwBox.min.y, i & 4 ? this.hwBox.max.z : this.hwBox.min.z);
+        far = Math.max(far, this.tmpV.distanceTo(cam));
+      }
+      this.ao.clearTo = far + 0.35;
+      this.ao.clearSoft = 0.8;
+    } else this.ao.clearTo = 0;
     // the floor's reflection: not on Low, not when the adaptive step drops it, and not looking down on the board
     this.reflect.enabled = this.ao.enabled && this.reflect.planes.length > 0 && this.rig.view !== 'top';
     // close on the board (the board angles, or zoomed in on a section) the picture stays clean
-    const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth' || !!this.rig.shot?.close;
     // glow, not fog: with dozens of beams and lasers on a drop, a strong bloom turns the frame milky;
     // on the board, LEDs glow a little rather than blooming into blobs over the controls
     this.bloom.strength = (0.42 + show.kick * 0.12 + show.drop * 0.14 + show.flash * 0.1) * (close ? 0.45 : 1);
@@ -1378,9 +1472,12 @@ export class Stage {
     lu.uFade.value = fd.k;
     // auto exposure (the security camera's auto gain pumps harder)
     r.toneMappingExposure = this.baseExposure * (this.exposure.enabled ? this.exposure.exposure : 1);
+    this.liftDeckLight(dt);
     // the bloom's threshold is in the scene's light before exposure: when the camera stops down
     // for daylight, raise it to match, or the whole bright sky blooms into a veil over the picture
-    this.bloom.threshold = BLOOM_THRESHOLD / Math.min(1, Math.max(0.05, r.toneMappingExposure));
+    // and close on the board only light sources glow (LEDs, pads, screens): lit metal and white caps
+    // under the deck light crossed the room's threshold and bloomed into rings and blobs
+    this.bloom.threshold = (BLOOM_THRESHOLD * (close ? CLOSE_BLOOM : 1)) / Math.min(1, Math.max(0.05, r.toneMappingExposure));
     // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
     const lookId = this.rig.focused ? 'none' : this.rig.shot ? (this.lensPick === 'auto' ? this.shotLook : this.lensPick) : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
     if (lookId !== this.lookId) {

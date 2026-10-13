@@ -234,7 +234,7 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
 ### Boards (3D, Three.js)
-- **Easy to read in any room:** a soft deck light over every board, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
+- **Easy to read in any room:** a soft deck light over every board that comes up by itself when the room is dark, no contact-shadow smudges or mirrored glare on the hardware, the drinks and laptop kept off the controls, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
 
 | Board | Class | Decks |
 |---|---|---|
