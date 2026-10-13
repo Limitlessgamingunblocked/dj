@@ -12,6 +12,8 @@ import { SaveSystem } from '../core/SaveSystem';
 import { PROMOTERS, refreshOffers, seeded } from './bookings';
 import { circuitOffers, cleanCircuit, freeRun, loadCircuit, planTour, relDeclined, residencyOffer, saveCircuit, type CircuitSave } from './circuit';
 import { tierFor } from './progression';
+import { awardAchievements, type Earned } from './achievements';
+import { buy as shopBuy, type ShopEntry } from './shop';
 
 export class Career {
   profile: Profile;
@@ -94,6 +96,21 @@ export class Career {
     this.progress = PROGRESS.validate({ ...this.progress, ...patch });
     this.saves.autosave(PROGRESS, () => this.progress);
     this.changed.emit('progress', this.progress);
+  }
+
+  /** buy something in the shop; any achievement it reaches comes back too */
+  buy(e: ShopEntry): { ok: true; earned: Earned[] } | { ok: false; why: string } {
+    const r = shopBuy(this.progress, e);
+    if (!r.ok) return r;
+    this.setProgress(r.patch);
+    return { ok: true, earned: this.checkAchievements() };
+  }
+
+  /** award achievement levels reached outside a set (a clip, the daily streak, the shop) */
+  checkAchievements(): Earned[] {
+    const r = awardAchievements(this.progress);
+    if (r.patch) this.setProgress(r.patch);
+    return r.got;
   }
 
   setBookings(next: BookingsSave): void {

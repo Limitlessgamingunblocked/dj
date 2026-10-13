@@ -49,7 +49,8 @@ import {
   type Unlock,
   type Vibe,
 } from '../character/catalog';
-import { cloneLook, dressCodeBonus, LookHistory, option, owned, randomize, resetCategory, slider, slotMaterial, slotPattern, unlockText, wearSet, zoneColors, type Category } from '../character/look';
+import { forSale } from '../game/shop';
+import { cloneLook, dressCodeBonus, LookHistory, option, ownedThing, randomize, resetCategory, slider, slotMaterial, slotPattern, unlockText, wearSet, zoneColors, type Category } from '../character/look';
 import type { Look } from '../core/models';
 import type { Career } from '../game/Career';
 import { nameService } from '../name/NameService';
@@ -599,8 +600,8 @@ export class CharacterCreator {
         this.chips('Iris style', IRIS_STYLES.map((i) => i.id), option(this.look, 'iris_style'), (v) => this.edit((l) => (l.options.iris_style = v)), {
           name: (v) => IRIS_STYLES.find((i) => i.id === v)!.label,
           locked: (v) => {
-            const u = IRIS_STYLES.find((i) => i.id === v)!.unlock;
-            return owned(u, p) ? null : u;
+            const it = IRIS_STYLES.find((i) => i.id === v)!;
+            return ownedThing('iris', it, p) ? null : it.unlock;
           },
         }),
         h('p', { class: 'creator-hint' }, 'UV-glow irises light up under the blacklight preview.'),
@@ -641,8 +642,8 @@ export class CharacterCreator {
           {
             name: (v) => HAIR.find((x) => x.id === v)!.label,
             locked: (v) => {
-              const u = HAIR.find((x) => x.id === v)!.unlock;
-              return owned(u, p) ? null : u;
+              const it = HAIR.find((x) => x.id === v)!;
+              return ownedThing('hair', it, p) ? null : it.unlock;
             },
           },
         ),
@@ -706,9 +707,9 @@ export class CharacterCreator {
     const p = this.host.career.progress;
     const sets = h('div', { class: 'creator-sets' });
     for (const s of OUTFIT_SETS) {
-      const ok = owned(s.unlock, p);
+      const ok = ownedThing('set', s, p);
       const worn = Object.entries(s.pieces).every(([slot, id]) => this.look.items[slot] === id);
-      const b = h('button', { class: `creator-set${worn ? ' active' : ''}`, type: 'button', disabled: !ok, title: ok ? `Wear ${s.label}` : `${s.label}: locked. ${unlockText(s.unlock)}` }, h('b', {}, s.label), h('span', {}, ok ? s.vibe : unlockText(s.unlock)), ok ? null : h('span', { class: 'creator-lock lock', 'aria-hidden': 'true' }));
+      const b = h('button', { class: `creator-set${worn ? ' active' : ''}`, type: 'button', disabled: !ok, title: ok ? `Wear ${s.label}` : `${s.label}: locked. ${unlockText(s.unlock)}` }, h('b', {}, s.label), h('span', {}, ok ? s.vibe : `${unlockText(s.unlock)}${forSale(s.unlock) ? ' · or buy it in the Shop' : ''}`), ok ? null : h('span', { class: 'creator-lock lock', 'aria-hidden': 'true' }));
       b.addEventListener('click', () => this.commit(wearSet(this.look, s)));
       sets.append(b);
     }
@@ -732,7 +733,7 @@ export class CharacterCreator {
       name: (v) => (v === 'none' ? 'None' : items.find((i) => i.id === v)!.label),
       locked: (v) => {
         const it = items.find((i) => i.id === v);
-        return it && !owned(it.unlock, p) ? it.unlock : null;
+        return it && !ownedThing('item', it, p) ? it.unlock : null;
       },
     });
     const kids: (Node | null)[] = [chips];
@@ -824,8 +825,8 @@ export class CharacterCreator {
       this.wardrobe.locked = (e.target as HTMLInputElement).checked;
       this.render();
     });
-    const shown = ITEMS.filter((i) => (this.wardrobe.slot === 'all' || i.slot === this.wardrobe.slot) && (this.wardrobe.vibe === 'all' || i.vibes.includes(this.wardrobe.vibe)) && (this.wardrobe.locked || owned(i.unlock, p)));
-    const ownedN = ITEMS.filter((i) => owned(i.unlock, p)).length;
+    const shown = ITEMS.filter((i) => (this.wardrobe.slot === 'all' || i.slot === this.wardrobe.slot) && (this.wardrobe.vibe === 'all' || i.vibes.includes(this.wardrobe.vibe)) && (this.wardrobe.locked || ownedThing('item', i, p)));
+    const ownedN = ITEMS.filter((i) => ownedThing('item', i, p)).length;
     const grid = h('div', { class: 'creator-items' }, ...shown.map((i) => this.itemCard(i)));
     return [
       this.section('Saved looks', looks),
@@ -835,7 +836,7 @@ export class CharacterCreator {
   }
 
   private itemCard(i: ItemDef): HTMLElement {
-    const ok = owned(i.unlock, this.host.career.progress);
+    const ok = ownedThing('item', i, this.host.career.progress);
     const wearing = this.look.items[i.slot] === i.id;
     const b = h(
       'button',
@@ -843,7 +844,7 @@ export class CharacterCreator {
       h('span', { class: 'creator-item-sw' }, ...i.colors.map((c) => h('i', { style: { background: c } }))),
       h('b', {}, i.label),
       h('span', {}, `${SLOT_LABEL[i.slot]} · ${i.vibes.join(', ')}`),
-      ok ? null : h('span', { class: 'creator-item-lock lock' }, unlockText(i.unlock)),
+      ok ? null : h('span', { class: 'creator-item-lock lock' }, unlockText(i.unlock), forSale(i.unlock) ? ' · or buy it in the Shop' : ''),
     );
     b.addEventListener('click', () =>
       this.edit((l) => {

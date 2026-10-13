@@ -38,6 +38,8 @@ const PATHS = {
   turnLeft: '<path d="M8 8H4V4"/><path d="M4.6 8A8 8 0 0 1 20 12"/>',
   turnRight: '<path d="M16 8h4V4"/><path d="M19.4 8A8 8 0 0 0 4 12"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  bag: '<path d="M5.5 8h13l-1 12h-11z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;
