@@ -39,7 +39,7 @@ Stage 2B added **your character**:
   - your groove, drop move and habits
 - **Tools:** randomise, undo / redo, reset a tab. Every change saves; keep as many looks as you like.
 - **That's you at the decks:** in every venue the DJ is your character, grooving your way.
-- The character is built in code until the Blender models exist (see TODO.md).
+- The body is modelled in Blender (MakeHuman's base mesh, through MPFB) and follows the code-built skeleton; the head, hair and outfits are still built in code until their Blender models exist (see TODO.md).
 
 Stage 3 made it **a game you can play a set in**:
 - **Play a gig:** the button in the top bar. Pick a venue, a slot (warm-up, peak time, closing, after-hours), a length (10, 20, 30 or 60 minutes), an assist level and your look, read the promoter's brief, and go.

@@ -15,7 +15,7 @@ keys, colour zones and the name surface, writes <name>.report.json and exports
 <name>.glb (Y up, modifiers applied, shape keys, skins and animations).
 Exit code 1 if any asset broke a rule and wasn't forced.
 
-TODO: untested so far: Blender isn't available in the build container (see TODO.md).
+Run for real on Blender 5.2 (character_dj_body_01).
 """
 import json
 import os

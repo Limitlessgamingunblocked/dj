@@ -8,7 +8,7 @@ haze-like world glow, so you can see whether the asset reads in a club.
 --uv adds a blacklight pass (deep violet light) for UV-glow materials.
 Writes <out>/<name>.png at 1024 x 1024 with Eevee.
 
-TODO: untested so far: Blender isn't available in the build container (see TODO.md).
+Run for real on Blender 5.2 (character_dj_body_01).
 """
 import math
 import os
