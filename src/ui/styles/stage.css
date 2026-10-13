@@ -803,3 +803,149 @@
     display: none;
   }
 }
+
+/* Air DJ: the webcam, mirrored, with the hands drawn over it (top right, under the stage tools) */
+.air-dj {
+  position: absolute;
+  right: 12px;
+  top: 48px;
+  width: min(240px, calc(50% - 24px));
+  max-height: calc(100% - 60px);
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 6px 8px 8px;
+  border-top: 3px solid var(--venue);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: rgba(5, 7, 10, 0.86);
+  backdrop-filter: blur(6px);
+  z-index: 4;
+}
+
+.air-dj .air-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.air-dj .air-label {
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--venue);
+}
+
+.air-dj .air-acts {
+  display: flex;
+  gap: 4px;
+}
+
+.air-dj .air-acts .btn {
+  min-height: 0;
+  padding: 0 6px;
+  line-height: 18px;
+}
+
+.air-dj .air-view {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-s);
+  background: #000;
+}
+
+.air-dj .air-video,
+.air-dj .air-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* the picture is a mirror; the landmarks are mirrored already, so the canvas isn't */
+.air-dj .air-video {
+  transform: scaleX(-1);
+  opacity: 0.75;
+}
+
+.air-dj .air-status {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.7);
+  font-size: var(--text-xs);
+  color: var(--text);
+}
+
+.air-dj.air-error .air-status {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--warn);
+}
+
+.air-dj .air-status[hidden],
+.air-dj .air-flash[hidden],
+.air-dj .air-help[hidden] {
+  display: none;
+}
+
+.air-dj .air-flash {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-label);
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow: 0 0 12px var(--venue);
+  pointer-events: none;
+}
+
+.air-dj .air-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.air-dj .air-chip {
+  overflow: hidden;
+  padding: 2px 6px;
+  border-left: 3px solid var(--c);
+  border-radius: var(--radius-s);
+  background: var(--panel-2);
+  font-size: var(--text-2xs);
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.air-dj .air-chip.on {
+  color: #fff;
+}
+
+.air-dj .air-help {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.air-dj .air-help b {
+  color: var(--text);
+}
+
+.air-dj .air-help .air-note {
+  margin-top: 2px;
+  color: var(--dim);
+}

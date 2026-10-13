@@ -2,6 +2,7 @@
 import { h } from './dom';
 import { openModal } from './modal';
 import { shortcutsTable } from './keysTable';
+import { openAirDjGuide } from './AirDjIntro';
 
 const SECTIONS: [string, string[]][] = [
   [
@@ -54,6 +55,14 @@ const SECTIONS: [string, string[]][] = [
     ],
   ],
   [
+    'Air DJ',
+    [
+      'Play with your hands in front of the webcam: ⋯ menu → Air DJ, or Shift+H.',
+      'Pinch to scratch, open palm for the filter, peace sign for beat FX, point for the crossfader.',
+      'Both palms up high and the crowd copies you. A fist rests.',
+    ],
+  ],
+  [
     'More',
     [
       'Auto DJ (Shift+A) mixes by itself until you touch a control.',
@@ -69,7 +78,13 @@ export function openHelp(): void {
     h(
       'div',
       { class: 'help' },
-      h('div', { class: 'help-grid' }, ...SECTIONS.map(([t, lines]) => h('section', {}, h('h3', {}, t), h('ul', {}, ...lines.map((l) => h('li', {}, l)))))),
+      h(
+        'div',
+        { class: 'help-grid' },
+        ...SECTIONS.map(([t, lines]) =>
+          h('section', {}, h('h3', {}, t), h('ul', {}, ...lines.map((l) => h('li', {}, l))), t === 'Air DJ' && h('button', { type: 'button', class: 'btn small help-more', onclick: () => openAirDjGuide() }, 'The Air DJ guide')),
+        ),
+      ),
       h('h3', { class: 'help-keys label' }, 'Keyboard'),
       shortcutsTable(),
     ),
