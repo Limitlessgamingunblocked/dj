@@ -7,7 +7,7 @@
  */
 import type { LibraryBrowser } from './deviceScreen';
 import * as THREE from 'three';
-import { faderCapGeometry, knurledKnob } from './realism';
+import { faderCapGeometry, grooves, knurledKnob, lathe, mergePieces, place, type Piece } from './realism';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { ControlRegistry } from '../core/controls';
 import { ledColor } from '../core/controls';
@@ -15,7 +15,7 @@ import type { AudioEngine } from '../audio/AudioEngine';
 import type { Deck } from '../audio/Deck';
 import { nearEnd } from '../core/prefs';
 import { clamp } from '../core/util';
-import { mats, slipmatTexture, strobeTexture, vinylTexture } from './materials';
+import { discUV, fingerprintRoughness, knurlNormal, mats, RECORD_R, slipmatTexture, strobeTexture, vinylMaps, wornCapRoughness } from './materials';
 
 export type DeckRef = 'L' | 'R' | number;
 
@@ -129,6 +129,9 @@ function knobGeometry(r: number, h: number): THREE.LatheGeometry {
 
 export type KnobStyle = 'rubber' | 'chrome' | 'cap' | 'mini';
 
+/** the controls a DJ turns most: their knobs show it */
+const WORN_KNOBS = /^(ch\.\d+\.(hi|mid|low|filter|trim)|mixer\.master|fx\.depth|deck\.\w+\.color)$/;
+
 export class KnobPart extends Part {
   private spin = new THREE.Group();
   private ring: THREE.InstancedMesh | null = null;
@@ -154,13 +157,15 @@ export class KnobPart extends Part {
     this.label = label;
     this.cursor = 'ns-resize';
     const M = mats();
+    // the knobs worked all night (EQs, filters, gain, master, FX depth) are rubbed to a sheen where the fingers hold them
+    const worn = !encoder && WORN_KNOBS.test(id);
     // knurled for grip: fine metal knurling on chrome knobs, rubber ridges on the rest
-    const body = new THREE.Mesh(style === 'chrome' ? knurledKnob(r, h, 60, 0.02) : style === 'mini' ? knobGeometry(r, h) : knurledKnob(r, h, 32, 0.045), style === 'chrome' ? M.chrome : M.rubber);
+    const body = new THREE.Mesh(style === 'chrome' ? knurledKnob(r, h, 60, 0.02) : style === 'mini' ? knobGeometry(r, h) : knurledKnob(r, h, 32, 0.045), style === 'chrome' ? M.chrome : worn ? M.rubberWorn : M.rubber);
     body.castShadow = true;
     this.spin.add(body);
     if (style !== 'chrome') {
       // a satin clear-coated cap: its highlight shows the knob's shape even in a dark room
-      const capMat = new THREE.MeshPhysicalMaterial({ color: capColor ?? '#2c3037', roughness: 0.32, metalness: 0.15, clearcoat: 0.7, clearcoatRoughness: 0.25 });
+      const capMat = new THREE.MeshPhysicalMaterial({ color: capColor ?? '#2c3037', roughness: 0.32, metalness: 0.15, clearcoat: 0.7, clearcoatRoughness: 0.25, roughnessMap: worn ? wornCapRoughness() : null, clearcoatRoughnessMap: worn ? wornCapRoughness() : null });
       const cap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.8, r * 0.8, 0.0006, 32), capMat);
       cap.position.y = h + 0.0002;
       this.spin.add(cap);
@@ -564,6 +569,36 @@ function formatClock(sec: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+let knurledRing: THREE.MeshStandardMaterial | null = null;
+let alloyTop: THREE.MeshStandardMaterial | null = null;
+let glassPrints: THREE.Texture | null = null;
+
+/** the jog ring's dark metal with a knurled rim */
+function jogRingKnurled(): THREE.MeshStandardMaterial {
+  if (knurledRing) return knurledRing;
+  knurledRing = mats().jogRing.clone();
+  knurledRing.normalMap = knurlNormal();
+  knurledRing.normalScale.set(1, 1);
+  knurledRing.roughness = 0.42;
+  return knurledRing;
+}
+
+/** a controller jog's brushed aluminium top, with faint fingerprints */
+function jogTopMetal(): THREE.MeshStandardMaterial {
+  return (alloyTop ??= new THREE.MeshStandardMaterial({ color: 0xb9bec7, metalness: 1, roughness: 1, roughnessMap: fingerprintRoughness(0.36, 0.2, true) }));
+}
+
+/** fingerprints for a display glass, turned to its uv (a cylinder cap's) so they sit on the near side */
+function jogGlassPrints(): THREE.Texture {
+  if (glassPrints) return glassPrints;
+  const t = fingerprintRoughness(0.1, 0.5).clone();
+  t.center.set(0.5, 0.5);
+  t.rotation = Math.PI / 2;
+  t.userData.shared = true;
+  t.needsUpdate = true;
+  return (glassPrints = t);
+}
+
 export class JogPart extends Part {
   /** the hand on the near side of the wheel, towards the DJ */
   grip(out: THREE.Vector3): THREE.Vector3 {
@@ -591,7 +626,8 @@ export class JogPart extends Part {
     this.cursor = 'grab';
     const M = mats();
     const ringH = 0.014;
-    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.01, ringH, 96, 1), M.jogRing);
+    // the rim is knurled for grip (a normal map: the light catches every ridge, for no extra geometry)
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.01, ringH, 128, 1), jogRingKnurled());
     ring.position.y = ringH / 2;
     ring.castShadow = true;
     ring.userData.zone = 'ring';
@@ -614,21 +650,47 @@ export class JogPart extends Part {
     const topR = r * 0.78;
     let topMat: THREE.Material;
     if (style === 'controller') {
-      topMat = M.aluminium;
+      topMat = jogTopMetal();
     } else {
       this.screenCanvas = document.createElement('canvas');
       this.screenCanvas.width = this.screenCanvas.height = 512;
       this.screen = new THREE.CanvasTexture(this.screenCanvas);
       this.screen.colorSpace = THREE.SRGBColorSpace;
       this.screen.anisotropy = 16;
-      topMat = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 0.1, metalness: 0.2, emissive: '#ffffff', emissiveMap: this.screen, emissiveIntensity: SCREEN_GAIN });
+      // glass over the display, smudged where the hand lands
+      topMat = new THREE.MeshStandardMaterial({ color: 0x050608, roughness: 1, roughnessMap: jogGlassPrints(), metalness: 0.2, emissive: '#ffffff', emissiveMap: this.screen, emissiveIntensity: SCREEN_GAIN });
     }
-    const plate = new THREE.Mesh(new THREE.CylinderGeometry(topR, topR, 0.004, 96), [M.jogRing, topMat, M.jogRing]);
-    plate.position.y = ringH + 0.002;
+    // the top: a moulded bezel standing a little proud round the rim, and the display (or the metal disc) set into it
+    const inR = style === 'controller' ? topR - 0.0012 : topR - 0.0065;
+    const bezel = new THREE.Mesh(
+      lathe(
+        [
+          [topR, 0],
+          [topR, 0.0044],
+          [topR - 0.0009, 0.0053],
+          [topR - 0.0035, 0.0055],
+          [inR + 0.0012, 0.0049],
+          [inR, 0.0041],
+          [inR - 0.0002, 0.0036],
+        ],
+        128,
+      ),
+      style === 'controller' ? M.jogRing : M.plasticDark,
+    );
+    bezel.position.y = ringH;
+    bezel.castShadow = true;
+    bezel.userData.zone = 'top';
+    const discGeo = new THREE.CircleGeometry(inR, 96).rotateX(-Math.PI / 2);
+    if (style !== 'controller') {
+      // the display was drawn for a cylinder cap's uv (a quarter turn round from a plain disc's)
+      const p = discGeo.getAttribute('position');
+      const uv = discGeo.getAttribute('uv') as THREE.BufferAttribute;
+      for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5 + p.getZ(i) / (2 * inR), 0.5 + p.getX(i) / (2 * inR));
+    }
+    const plate = new THREE.Mesh(discGeo, topMat);
+    plate.position.y = ringH + 0.0038;
     plate.userData.zone = 'top';
-    plate.castShadow = true;
-    // cylinder groups: 0 side, 1 top, 2 bottom → map top UVs for the screen
-    this.top.add(plate);
+    this.top.add(bezel, plate);
     if (style === 'controller') {
       const dot = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.05, r * 0.05, 0.001, 16), new THREE.MeshStandardMaterial({ color: '#111', emissive: accent, emissiveIntensity: 1.5 }));
       dot.position.set(0, ringH + 0.0045, -topR * 0.78);
@@ -639,6 +701,7 @@ export class JogPart extends Part {
     }
     this.object.add(this.top);
     this.addHit(plate);
+    this.addHit(bezel);
     if (style !== 'controller') {
       // CDJ-style jogs: the ring rotates, display stays put; we rotate only the marker (drawn)
       this.top.userData.static = true;
@@ -801,6 +864,83 @@ const artImages = new Map<string, HTMLImageElement>();
 /* turntable platter + record                                           */
 /* ------------------------------------------------------------------ */
 
+/** the platter's height above the plinth, the felt mat's thickness, and the record's (metres) */
+const PLATTER_H = 0.028;
+const MAT_H = 0.003;
+const REC_H = 0.0018;
+/** the record's playing surface sits a little below its label area and its rim */
+const REC_GROOVE_H = 0.0016;
+/** height of the record's grooved surface above the plinth: where a stylus rides */
+export const RECORD_TOP = PLATTER_H + MAT_H + REC_GROOVE_H;
+
+/**
+ * A 12-inch record, lathed: a raised label area, the thinner grooved field, a
+ * beaded rim, a centre hole. One mesh, planar uv across the disc.
+ */
+function recordGeometry(): THREE.BufferGeometry {
+  const R = RECORD_R;
+  const H = REC_H;
+  const G = REC_GROOVE_H;
+  return discUV(
+    lathe(
+      // out along the underside, round the rim, in across the top, down the hole (the lathe faces outward along this path)
+      [
+        [0.0037, 0],
+        [R - 0.0016, 0],
+        [R - 0.0004, 0.0002],
+        [R, H * 0.45],
+        [R - 0.0003, H * 0.95],
+        [R - 0.0012, H],
+        [R - 0.0034, G + 0.00005],
+        [R - 0.0048, G],
+        [0.0505, G],
+        [0.0498, H],
+        [0.0037, H],
+        [0.0037, 0],
+      ],
+      160,
+    ),
+    R,
+  );
+}
+
+/** the felt mat: a disc with a soft rounded edge */
+function slipmatGeometry(r: number): THREE.BufferGeometry {
+  return discUV(
+    lathe(
+      [
+        [r - 0.001, 0],
+        [r, MAT_H * 0.3],
+        [r - 0.0002, MAT_H * 0.85],
+        [r - 0.0012, MAT_H],
+        [0.004, MAT_H],
+        [0.004, 0],
+      ],
+      128,
+    ),
+    r,
+  );
+}
+
+let recordMat: THREE.MeshPhysicalMaterial | null = null;
+
+/** grooved vinyl: fine rings in colour, smooth gaps between tracks, and the radial anisotropic streak */
+function vinylMaterial(): THREE.MeshPhysicalMaterial {
+  if (recordMat) return recordMat;
+  const v = vinylMaps();
+  recordMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    map: v.map,
+    roughness: 1,
+    roughnessMap: v.rough,
+    metalness: 0,
+    anisotropy: 0.9,
+    anisotropyMap: v.aniso,
+    specularIntensity: 1,
+  });
+  return recordMat;
+}
+
 export class PlatterPart extends Part {
   /** the hand on the record, near side */
   grip(out: THREE.Vector3): THREE.Vector3 {
@@ -811,7 +951,7 @@ export class PlatterPart extends Part {
   private record = new THREE.Group();
   private labelTex: THREE.CanvasTexture;
   private labelCanvas: HTMLCanvasElement;
-  private labelFor = '';
+  private labelFor: string | null = null;
   private lastAngle = 0;
   private zone: 'top' | 'ring' = 'top';
   private topY: number;
@@ -829,7 +969,7 @@ export class PlatterPart extends Part {
     this.cursor = 'grab';
     const M = mats();
     const pr = 0.166;
-    const ph = 0.028;
+    const ph = PLATTER_H;
     const strobe = new THREE.MeshStandardMaterial({ color: 0xc9cdd4, roughness: 0.35, metalness: 0.9, map: strobeTexture() });
     (strobe.map as THREE.Texture).repeat.set(1, 1);
     const platterMesh = new THREE.Mesh(new THREE.CylinderGeometry(pr, pr, ph, 128, 1, true), strobe);
@@ -841,32 +981,52 @@ export class PlatterPart extends Part {
     platterTop.position.y = ph;
     platterTop.userData.zone = 'ring';
     this.platter.add(platterMesh, platterTop);
-    const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.151, 0.151, 0.003, 96), [new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.95 }), new THREE.MeshStandardMaterial({ map: slipmatTexture('DECKHOUSE', accent), roughness: 0.95 }), M.black]);
-    mat.position.y = ph + 0.0015;
+    // felt slipmat: the fibres scatter a soft sheen at grazing angles
+    const felt = new THREE.MeshPhysicalMaterial({ map: slipmatTexture('DECKHOUSE', accent), roughness: 1, metalness: 0, sheen: 1, sheenRoughness: 0.55, sheenColor: new THREE.Color(0x3a3a40) });
+    const mat = new THREE.Mesh(slipmatGeometry(0.151), felt);
+    mat.position.y = ph;
     mat.userData.zone = 'top';
+    mat.receiveShadow = true;
     this.platter.add(mat);
     this.object.add(this.platter);
 
-    // record
-    const vinyl = new THREE.MeshStandardMaterial({ map: vinylTexture(), roughness: 0.28, metalness: 0.15, color: 0xffffff });
-    const rec = new THREE.Mesh(new THREE.CylinderGeometry(0.1524, 0.1524, 0.0018, 128), [M.black, vinyl, M.black]);
-    rec.position.y = ph + 0.0045;
+    // record: lathed vinyl with its label on top
+    const rec = new THREE.Mesh(recordGeometry(), vinylMaterial());
+    rec.position.y = ph + MAT_H;
     rec.userData.zone = 'top';
     rec.castShadow = true;
+    rec.receiveShadow = true;
     this.labelCanvas = document.createElement('canvas');
-    this.labelCanvas.width = this.labelCanvas.height = 256;
+    this.labelCanvas.width = this.labelCanvas.height = 512;
     this.labelTex = new THREE.CanvasTexture(this.labelCanvas);
     this.labelTex.colorSpace = THREE.SRGBColorSpace;
-    const labelMesh = new THREE.Mesh(new THREE.CircleGeometry(0.05, 64), new THREE.MeshStandardMaterial({ map: this.labelTex, roughness: 0.6 }));
+    this.labelTex.anisotropy = 8;
+    // printed paper: matte, with a faint satin varnish
+    const labelMesh = new THREE.Mesh(new THREE.CircleGeometry(0.0496, 64), new THREE.MeshStandardMaterial({ map: this.labelTex, roughness: 0.55 }));
     labelMesh.rotation.x = -Math.PI / 2;
-    labelMesh.position.y = ph + 0.0056;
+    labelMesh.position.y = ph + MAT_H + REC_H + 0.00004;
     labelMesh.userData.zone = 'top';
     this.record.add(rec, labelMesh);
     this.object.add(this.record);
-    const spindle = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.018, 16), M.chrome);
-    spindle.position.y = ph + 0.009;
+    // the spindle: a polished pin with a chamfered tip, through the mat and the record
+    const spindle = new THREE.Mesh(
+      lathe(
+        [
+          [0.0062, 0],
+          [0.0062, 0.0012],
+          [0.0036, 0.0016],
+          [0.0036, 0.0125],
+          [0.0029, 0.0142],
+          [0.0016, 0.0149],
+          [0, 0.015],
+        ],
+        24,
+      ),
+      M.chrome,
+    );
+    spindle.position.y = ph;
     this.object.add(spindle);
-    this.topY = ph + 0.0055;
+    this.topY = ph + MAT_H + REC_H;
     this.addHit(rec);
     this.addHit(labelMesh);
     this.addHit(mat);
@@ -894,25 +1054,64 @@ export class PlatterPart extends Part {
     }
   }
 
+  /** a pressed record's centre label: the art (or a plain colour), the title, the small print round the rim */
   private drawLabel(d: Deck): void {
     const g = this.labelCanvas.getContext('2d')!;
-    const S = 256;
+    const S = 512;
+    const c = S / 2;
     g.fillStyle = this.accent;
     g.fillRect(0, 0, S, S);
     const art = d.track?.meta.art;
     const finish = () => {
-      g.fillStyle = 'rgba(0,0,0,0.35)';
-      g.fillRect(0, S * 0.62, S, S * 0.22);
+      // a band for the title, the way labels print it
+      g.fillStyle = 'rgba(0,0,0,0.38)';
+      g.fillRect(0, S * 0.63, S, S * 0.2);
       g.fillStyle = '#fff';
       g.textAlign = 'center';
-      g.font = '700 22px "Barlow Condensed", sans-serif';
-      g.fillText((d.track?.meta.title ?? '').slice(0, 22), S / 2, S * 0.7);
-      g.font = '600 16px "Barlow Condensed", sans-serif';
-      g.fillText((d.track?.meta.artist ?? '').slice(0, 26), S / 2, S * 0.78);
-      g.fillStyle = '#111';
+      g.textBaseline = 'middle';
+      g.font = '700 40px "Barlow Condensed", sans-serif';
+      g.fillText((d.track?.meta.title ?? '').slice(0, 22), c, S * 0.69);
+      g.font = '600 30px "Barlow Condensed", sans-serif';
+      g.fillText((d.track?.meta.artist ?? '').slice(0, 26), c, S * 0.775);
+      // the small print round the rim
+      g.save();
+      g.translate(c, c);
+      g.fillStyle = 'rgba(255,255,255,0.85)';
+      g.font = '600 19px "Barlow Condensed", sans-serif';
+      const rim = 'DECKHOUSE RECORDS  ·  33⅓ RPM  ·  STEREO  ·  SIDE A  ·  ALL RIGHTS RESERVED  ·  ';
+      const rr = S * 0.445;
+      const step = 0.0395;
+      for (let i = 0; i < rim.length; i++) {
+        const a = -Math.PI * 0.95 + i * step;
+        if (a > Math.PI * 0.95) break;
+        g.save();
+        g.rotate(a);
+        g.translate(0, -rr);
+        g.fillText(rim[i], 0, 0);
+        g.restore();
+      }
+      g.restore();
+      // side and speed either side of the hole
+      g.fillStyle = '#fff';
+      g.font = '700 30px "Barlow Condensed", sans-serif';
+      g.fillText('A', c - S * 0.2, c);
+      g.font = '600 20px "Barlow Condensed", sans-serif';
+      g.fillText('33⅓', c + S * 0.2, c);
+      // a fine printed ring at the edge, and the hole with its punched rim
+      g.strokeStyle = 'rgba(0,0,0,0.45)';
+      g.lineWidth = 3;
       g.beginPath();
-      g.arc(S / 2, S / 2, 7, 0, Math.PI * 2);
+      g.arc(c, c, S * 0.49, 0, Math.PI * 2);
+      g.stroke();
+      g.fillStyle = '#0a0a0a';
+      g.beginPath();
+      g.arc(c, c, 20, 0, Math.PI * 2);
       g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.35)';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(c, c, 22, 0, Math.PI * 2);
+      g.stroke();
       this.labelTex.needsUpdate = true;
     };
     if (art) {
@@ -925,7 +1124,7 @@ export class PlatterPart extends Part {
     } else {
       g.fillStyle = 'rgba(255,255,255,0.15)';
       g.beginPath();
-      g.arc(S / 2, S / 2, S * 0.36, 0, Math.PI * 2);
+      g.arc(c, c, S * 0.36, 0, Math.PI * 2);
       g.fill();
       finish();
     }
@@ -977,6 +1176,19 @@ export class PlatterPart extends Part {
 /* tonearm (needle drop)                                                */
 /* ------------------------------------------------------------------ */
 
+/** height of the arm's bearing axis above the plinth */
+const ARM_Y = 0.05;
+
+let cartMat: THREE.MeshStandardMaterial | null = null;
+
+/**
+ * The tonearm, modelled on the classic direct-drive DJ deck's S-shaped arm:
+ * a base with its height-adjust collar, a gimbal, the S-curved tube, a
+ * detachable headshell with a finger lift, a cartridge and stylus, and behind
+ * the pivot a counterweight with grooved rings. Beside it: the arm rest with
+ * its clip, the cue lift lever and the anti-skate dial. Static parts and
+ * swinging parts are each merged per material (5 draw calls in all).
+ */
 export class TonearmPart extends Part {
   private arm = new THREE.Group();
   private angle: number;
@@ -999,31 +1211,6 @@ export class TonearmPart extends Part {
     this.cursor = 'grab';
     const M = mats();
     this.object.position.set(pivot.x, 0, pivot.y);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.03, 0.012, 32), M.chrome);
-    base.position.y = 0.006;
-    this.object.add(base);
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.03, 16), M.black);
-    post.position.y = 0.025;
-    this.object.add(post);
-    // arm points along local −Z; rotating the group swings it
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, this.L, 12), M.chrome);
-    tube.rotation.x = Math.PI / 2;
-    tube.position.set(0, 0.04, -this.L / 2);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.006, 0.034), M.black);
-    head.position.set(0, 0.037, -this.L - 0.01);
-    const cart = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.016), new THREE.MeshStandardMaterial({ color: 0xd8d8d8, roughness: 0.4 }));
-    cart.position.set(0, 0.03, -this.L - 0.008);
-    const weight = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.026, 24), M.chrome);
-    weight.rotation.x = Math.PI / 2;
-    weight.position.set(0, 0.04, 0.045);
-    const lift = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 0.02), M.chrome);
-    lift.position.set(0.012, 0.038, -this.L - 0.02);
-    [tube, head, cart, weight, lift].forEach((m) => {
-      m.castShadow = true;
-      this.arm.add(m);
-      this.addHit(m);
-    });
-    this.object.add(this.arm);
 
     // arm angle θ: rotation.y of the group; stylus at pivot + L·(−sinθ, −cosθ)
     const D = pivot.distanceTo(center);
@@ -1036,6 +1223,133 @@ export class TonearmPart extends Part {
     this.end = angleFor(0.062);
     this.rest = angleFor(0.146) + 0.3;
     this.angle = this.rest;
+
+    /* the static base, rest and controls */
+    const chrome: Piece[] = [];
+    const black: Piece[] = [];
+    // plinth ring and the height-adjust collar with its grooved grip
+    chrome.push({ g: lathe([[0.036, 0], [0.036, 0.0022], [0.0345, 0.0034], [0.026, 0.0034], [0, 0.0034]], 48) });
+    black.push({ g: lathe([[0.0265, 0.0034], ...grooves(0.0265, 0.005, 0.0145, 7, 0.0009), [0.0265, 0.0165], [0.024, 0.0175], [0, 0.0175]], 36) });
+    // the pillar up to the gimbal, and the collar's lock lever
+    chrome.push({ g: new THREE.CylinderGeometry(0.0105, 0.0105, 0.022, 24), m: place(0, 0.0175 + 0.011, 0) });
+    chrome.push({ g: new THREE.BoxGeometry(0.003, 0.003, 0.016), m: place(-0.022, 0.013, 0.016, 0, -0.8, 0) });
+    chrome.push({ g: new THREE.SphereGeometry(0.0026, 10, 8), m: place(-0.0277, 0.013, 0.0218) });
+    // arm rest: a post with a rubber-lined cradle and a clip, out along the rest angle, clear of the platter
+    const dir = new THREE.Vector2(-Math.sin(this.rest), -Math.cos(this.rest));
+    const cl = new THREE.Vector2(center.x - pivot.x, center.y - pivot.y);
+    let s = 0.155;
+    while (s > 0.1 && dir.clone().multiplyScalar(s).distanceTo(cl) < 0.178) s -= 0.005;
+    const rx = dir.x * s;
+    const rz = dir.y * s;
+    const restY = ARM_Y - 0.0058;
+    chrome.push({ g: lathe([[0.0075, 0], [0.0075, 0.002], [0.0042, 0.003], [0.0034, 0.004], [0.0034, restY - 0.004], [0, restY - 0.004]], 20), m: place(rx, 0, rz) });
+    black.push({ g: new THREE.BoxGeometry(0.014, 0.004, 0.009), m: place(rx, restY - 0.002, rz, 0, this.rest, 0) });
+    for (const side of [-1, 1]) {
+      const ox = Math.cos(this.rest) * side * 0.0058;
+      const oz = -Math.sin(this.rest) * side * 0.0058;
+      black.push({ g: new THREE.BoxGeometry(0.0022, 0.0075, 0.008), m: place(rx + ox, restY + 0.0025, rz + oz, 0, this.rest, 0) });
+    }
+    // the clip that holds the arm in transit, swung open
+    chrome.push({ g: new THREE.TorusGeometry(0.0055, 0.0007, 6, 16, Math.PI), m: place(rx, restY + 0.0005, rz, 0, this.rest + 1.2, Math.PI / 2) });
+    // cue lift: a post with a lever towards the DJ
+    const lx = 0.034;
+    const lz = 0.03;
+    chrome.push({ g: lathe([[0.006, 0], [0.006, 0.0015], [0.0038, 0.0025], [0.0038, 0.024], [0.003, 0.025], [0, 0.025]], 16), m: place(lx, 0, lz) });
+    chrome.push({ g: new THREE.BoxGeometry(0.0034, 0.0024, 0.022), m: place(lx, 0.022, lz + 0.011, 0.12, 0, 0) });
+    black.push({ g: new THREE.CylinderGeometry(0.0028, 0.0028, 0.007, 12), m: place(lx, 0.0207, lz + 0.024, Math.PI / 2 + 0.12, 0, 0) });
+    // anti-skate dial: a knurled knob with a bright index notch, beside the base
+    const ax = -0.032;
+    const az = 0.03;
+    black.push({ g: lathe([[0.0105, 0], [0.0105, 0.0012], [0.0085, 0.0014], ...grooves(0.0085, 0.0014, 0.0072, 12, 0.0006), [0.0078, 0.0078], [0, 0.0078]], 36), m: place(ax, 0, az) });
+    chrome.push({ g: new THREE.CylinderGeometry(0.0062, 0.0062, 0.0006, 24), m: place(ax, 0.0081, az) });
+    chrome.push({ g: new THREE.BoxGeometry(0.0009, 0.0016, 0.0042), m: place(ax, 0.0079, az - 0.0052) });
+    for (let i = 0; i < 7; i++) {
+      const a = -1.6 + (i / 6) * 3.2;
+      chrome.push({ g: new THREE.BoxGeometry(0.0006, 0.0003, 0.0022), m: place(ax + Math.sin(a) * 0.0096, 0.0013, az - Math.cos(a) * 0.0096, 0, -a, 0) });
+    }
+    const baseChrome = new THREE.Mesh(mergePieces(chrome), M.chrome);
+    const baseBlack = new THREE.Mesh(mergePieces(black), M.plasticDark);
+    baseChrome.castShadow = baseBlack.castShadow = true;
+    this.object.add(baseChrome, baseBlack);
+
+    /* the swinging arm (points along local −Z) */
+    const aChrome: Piece[] = [];
+    const aBlack: Piece[] = [];
+    // gimbal: the bearing housing on top of the pillar, the horizontal bearing across it
+    aChrome.push({ g: lathe([[0.0125, 0.0395], [0.0125, 0.046], [0.0105, 0.0475], [0, 0.0475]], 32) });
+    aBlack.push({ g: new THREE.CylinderGeometry(0.0072, 0.0072, 0.03, 20), m: place(0, ARM_Y, 0.001, 0, 0, Math.PI / 2) });
+    for (const side of [-1, 1]) aChrome.push({ g: new THREE.CylinderGeometry(0.0045, 0.0045, 0.0016, 16), m: place(side * 0.0153, ARM_Y, 0.001, 0, 0, Math.PI / 2) });
+    // the headshell sits at the stylus end, turned in by the offset angle that keeps the stylus square to the groove
+    const off = -0.38;
+    const tip = new THREE.Vector3(0, RECORD_TOP + 0.0002, -this.L);
+    const hs = new THREE.Matrix4().compose(tip, new THREE.Quaternion().setFromEuler(new THREE.Euler(0, off, 0)), new THREE.Vector3(1, 1, 1));
+    const inHead = (m: THREE.Matrix4) => new THREE.Matrix4().multiplyMatrices(hs, m);
+    const cartH = 0.0172;
+    const plateY = cartH + 0.0012; // headshell plate, above the stylus tip
+    // the S: from the gimbal round to the headshell's collar
+    const collar = new THREE.Vector3(0, plateY + 0.0006, 0.031).applyMatrix4(hs);
+    collar.y = ARM_Y;
+    const sCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, ARM_Y, -0.006),
+      new THREE.Vector3(0.002, ARM_Y, -0.045),
+      new THREE.Vector3(0.016, ARM_Y, -0.105),
+      new THREE.Vector3(0.012, ARM_Y, -0.155),
+      new THREE.Vector3((0.012 + collar.x) / 2 - 0.003, ARM_Y, (-0.155 + collar.z) / 2),
+      collar,
+    ]);
+    aChrome.push({ g: new THREE.TubeGeometry(sCurve, 64, 0.0042, 12) });
+    // the headshell's locking collar and the plate
+    aChrome.push({ g: new THREE.CylinderGeometry(0.0056, 0.0056, 0.012, 16), m: inHead(place(0, plateY - 0.0002 + (ARM_Y - tip.y - plateY), 0.026, Math.PI / 2, 0, 0)) });
+    aBlack.push({ g: new THREE.CylinderGeometry(0.0062, 0.0062, 0.003, 16), m: inHead(place(0, ARM_Y - tip.y, 0.0335, Math.PI / 2, 0, 0)) });
+    // plate: a bent strip from the collar down to the cartridge mount
+    const plate = new RoundedBoxGeometry(0.019, 0.0022, 0.036, 2, 0.0009);
+    aBlack.push({ g: plate, m: inHead(place(0, plateY, 0.004, -0.04, 0, 0)) });
+    aBlack.push({ g: new THREE.BoxGeometry(0.008, 0.002, 0.008), m: inHead(place(0, plateY + 0.0012 + (ARM_Y - tip.y - plateY) * 0.5, 0.0205, -0.25, 0, 0)) });
+    // two cartridge screws on top
+    for (const z of [0.0005, 0.0095]) aChrome.push({ g: new THREE.CylinderGeometry(0.0011, 0.0011, 0.0008, 10), m: inHead(place(0, plateY + 0.0013, z)) });
+    // finger lift: a bent wire off the side, curling up
+    const lift = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.0085, plateY + 0.0006, -0.006),
+      new THREE.Vector3(0.0145, plateY + 0.0018, -0.009),
+      new THREE.Vector3(0.0205, plateY + 0.0055, -0.011),
+      new THREE.Vector3(0.0235, plateY + 0.0095, -0.0115),
+    ]);
+    aChrome.push({ g: new THREE.TubeGeometry(lift, 16, 0.0012, 6), m: hs });
+    aChrome.push({ g: new THREE.SphereGeometry(0.0016, 10, 8), m: inHead(place(0.0236, plateY + 0.0098, -0.0115)) });
+    // stylus: the cantilever down from the cartridge's nose, a pin-head tip
+    aChrome.push({ g: new THREE.CylinderGeometry(0.00028, 0.0004, 0.0062, 6), m: inHead(place(0, 0.0024, -0.0105, 1.05, 0, 0)) });
+    aChrome.push({ g: new THREE.ConeGeometry(0.0005, 0.0012, 6), m: inHead(place(0, 0.0005, -0.0132, Math.PI, 0, 0)) });
+    // counterweight: a stub behind the pivot carrying the weight, with grooved grip rings and a scale ring
+    aChrome.push({ g: new THREE.CylinderGeometry(0.0052, 0.0052, 0.062, 16), m: place(0, ARM_Y, 0.04, Math.PI / 2, 0, 0) });
+    const wz0 = 0.03;
+    const weight = lathe([[0.0052, 0], [0.0165, 0], [0.0172, 0.0012], ...grooves(0.0172, 0.0012, 0.013, 9, 0.0008), [0.0172, 0.03], [0.016, 0.0315], [0.0052, 0.0315]], 32);
+    aChrome.push({ g: weight, m: place(0, ARM_Y, wz0, Math.PI / 2, 0, 0) });
+    aBlack.push({ g: lathe([[0.0052, 0], [0.0174, 0], [0.0176, 0.0002], [0.0176, 0.0058], [0.0174, 0.006], [0.0052, 0.006]], 48), m: place(0, ARM_Y, wz0 + 0.0005 - 0.0068, Math.PI / 2, 0, 0) });
+    const armChrome = new THREE.Mesh(mergePieces(aChrome), M.chrome);
+    const armBlack = new THREE.Mesh(mergePieces(aBlack), M.plasticDark);
+    // the cartridge body: a tapered block under the headshell, with its stylus guard
+    cartMat ??= new THREE.MeshStandardMaterial({ color: 0xd23a2a, roughness: 0.38, metalness: 0.1 });
+    const body = new RoundedBoxGeometry(0.0158, cartH - 0.0035, 0.024, 2, 0.0018);
+    const pos = body.getAttribute('position') as THREE.BufferAttribute;
+    // narrower towards the nose and the bottom, like the real thing
+    for (let i = 0; i < pos.count; i++) {
+      const k = 1 - 0.18 * clamp((-pos.getZ(i) / 0.012 + 1) / 2, 0, 1) - 0.1 * clamp(0.5 - pos.getY(i) / (cartH - 0.0035), 0, 1);
+      pos.setX(i, pos.getX(i) * k);
+    }
+    body.computeVertexNormals();
+    const cart = new THREE.Mesh(
+      mergePieces([
+        { g: body, m: inHead(place(0, 0.0035 + (cartH - 0.0035) / 2, 0.003)) },
+        { g: new THREE.BoxGeometry(0.0085, 0.0034, 0.009), m: inHead(place(0, 0.0034, -0.0068)) },
+      ]),
+      cartMat,
+    );
+    for (const m of [armChrome, armBlack, cart]) {
+      m.castShadow = true;
+      this.arm.add(m);
+      this.addHit(m);
+    }
+    this.object.add(this.arm);
   }
 
   update(c: PartCtx): void {
@@ -1050,7 +1364,7 @@ export class TonearmPart extends Part {
   }
 
   private angleFromRay(ray: THREE.Ray): number | null {
-    const hit = planeHit(ray, surfaceWorldY(this.object, 0.04));
+    const hit = planeHit(ray, surfaceWorldY(this.object, ARM_Y));
     if (!hit) return null;
     this.object.worldToLocal(hit);
     return Math.atan2(-hit.x, -hit.z);
