@@ -52,7 +52,8 @@ export interface EncoderControl extends Base {
 
 export type Control = ContinuousControl | ButtonControl | JogControl | EncoderControl;
 
-export type ControlSource = 'ui' | '3d' | 'midi' | 'key';
+/** where a move came from ('air': Air DJ, your hands in front of the webcam) */
+export type ControlSource = 'ui' | '3d' | 'midi' | 'key' | 'air';
 
 interface RegistryEvents extends Record<string, unknown> {
   activity: { id: string; source: ControlSource };
@@ -65,7 +66,7 @@ export class ControlRegistry extends Emitter<RegistryEvents> {
   shift = false;
   /** performance.now() of the last activity per resolved id */
   readonly lastActivity = new Map<string, number>();
-  /** last activity that came from hardware (MIDI) or the keyboard, for flash feedback */
+  /** last activity that came from hardware (MIDI), the keyboard or Air DJ, for flash feedback */
   readonly lastExternal = new Map<string, number>();
 
   register(c: Control): void {
@@ -99,7 +100,7 @@ export class ControlRegistry extends Emitter<RegistryEvents> {
     const rid = this.resolveId(id);
     const now = performance.now();
     this.lastActivity.set(rid, now);
-    if (source === 'midi' || source === 'key') this.lastExternal.set(rid, now);
+    if (source === 'midi' || source === 'key' || source === 'air') this.lastExternal.set(rid, now);
     this.emit('activity', { id: rid, source });
   }
 

@@ -168,6 +168,14 @@ All in the bookings calendar (Play a gig).
 
 ### Playing: scratch challenges, stems, mashups, the harmonic wheel and your label
 In the ⋯ menu under **Play**.
+- **Air DJ** (⋯ menu → Air DJ, or Shift+H): play with your hands in front of the webcam, no controller needed. Each hand works the deck on its side of the picture:
+  - **pinch** thumb and index to grab the record, and move your hand left and right to scratch (with the jogs set to vinyl)
+  - **open palm** for the filter: raise it for the high-pass, lower it for the low-pass; take the hand away and it glides back to off
+  - **peace sign** holds the beat FX on that deck, higher for more
+  - **point** and slide your finger for the crossfader
+  - **both palms up high** for the "hands up" move, and the crowd copies you
+  - a **fist** rests. A small mirrored camera window on the stage shows the hands it sees and what each one is doing; the 3D board moves with you.
+  Hand tracking (MediaPipe) runs in the browser and the picture never leaves your device. Its model (about 10 MB) downloads the first time you turn it on.
 - **Scratch challenges** (opt-in, scored; not a tutorial): baby scratch, forward scratch, stabs and triplets on the jog wheel, a transformer on the fader, and a beat juggle across two decks, each against a click with the pattern scrolling in a lane. Every hit is judged on timing (perfect within 50 ms, good within 100 ms) and direction, for points and up to three stars; your best is kept. Use your controller's jog, the board on the stage, the record on screen (drag it round) or the arrow keys; the fader, the Cut button or Space; deck restarts or 1 and 2.
 - **Live stems:** each mixer channel has drums, bass, melody and vocals buttons (and knobs, `ch.N.stem.*`, for a controller). It's a filter split, not true source separation: bass is the lows, drums the highs (hats and snares), vocals the centre of the mids, melody the rest. The four always add back up to the original, so untouched the sound is unchanged.
 - **Mashup builder:** pick a track for the vocals and melody and a track for the beat. It matches the tempo (by resampling, like a turntable's pitch, so it says how far the key moves and how the keys sit), finds each track's best section and lays out the arrangement on a timeline: B's intro, A's top over B's beat, B's drop, A's best part, A over B again. Make it (rendered in the browser), listen, and save it to your library.
