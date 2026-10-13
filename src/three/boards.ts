@@ -79,6 +79,8 @@ function laptopStand(b: BoardBuild, x: number, z: number): void {
   const g = new THREE.Group();
   g.position.set(x, 0, z - D / 2);
   b.root.add(g);
+  // its legs stand right behind the mixer: cables between the units pass in front of them
+  b.cableLane = z + 0.009;
   const alu = new THREE.MeshStandardMaterial({ color: '#a3a9b1', metalness: 0.85, roughness: 0.3 });
   const shell = new THREE.MeshStandardMaterial({ color: '#2a2d33', metalness: 0.7, roughness: 0.35 });
   const keys = new THREE.MeshStandardMaterial({ color: '#0d0e10', roughness: 0.6 });
@@ -135,6 +137,7 @@ const starter: BoardDef = {
   ],
   build(b) {
     const u = b.unit(0, 0, 0.52, 0.29, 0.048, { radius: 0.012 });
+    u.rearPanel('starter');
     // mixer
     u.face.section(0, -0.004, 0.176, 0.28);
     u.knob('browse', 0, -0.126, { label: 'Browse library (turn) / load to left (click)', r: 0.0075, encoder: true, print: 'BROWSE', printAbove: false });
@@ -204,6 +207,7 @@ const pro: BoardDef = {
   ],
   build(b) {
     const u = b.unit(0, 0, 0.74, 0.4, 0.058, { radius: 0.014 });
+    u.rearPanel('controller');
     // the raised 9-inch centre display + browse
     u.screen(0, -0.163, 0.2, 0.1125, 1280, 720, (g, W, H, c) => drawCentreScreen(g, W, H, c), 0.95, 2);
     u.knob('browse', -0.118, -0.176, { label: 'Browse library', r: 0.0075, encoder: true, print: 'BROWSE', printAbove: false });
@@ -239,6 +243,7 @@ const pro: BoardDef = {
 
 function player(b: BoardBuild, side: DeckRef, x: number, every = 2): void {
   const u = b.unit(x, 0, 0.32, 0.43, 0.1, { radius: 0.012 });
+  u.rearPanel('player');
   const D = `deck.${side}`;
   const fixed = typeof side === 'number';
   // an 11-inch screen, as wide as the unit allows between the browse and deck buttons
@@ -278,6 +283,7 @@ function player(b: BoardBuild, side: DeckRef, x: number, every = 2): void {
 
 function clubMixer(b: BoardBuild): void {
   const u = b.unit(0, 0, 0.33, 0.43, 0.1, { radius: 0.01 });
+  u.rearPanel('mixer', { channels: 4 });
   const xs = [-0.125, -0.075, -0.025, 0.025];
   xs.forEach((x, i) => channelStrip(u, i + 1, x, -0.18, 0.029, { faderZ: 0.083, faderLen: 0.085, vuX: x + 0.021, knobR: 0.0088 }));
   xs.forEach((x, i) =>
@@ -326,6 +332,7 @@ function turntable(b: BoardBuild, side: DeckRef, x: number): void {
   const f = b.finish;
   const D = `deck.${side}`;
   const u = b.unit(x, 0, 0.453, 0.353, 0.075, { radius: 0.01 });
+  u.rearPanel('turntable');
   const pc = new THREE.Vector2(-0.045, 0.005);
   u.add(new PlatterPart(`${D}.jog`, 'Record / platter', side, f.accent), pc.x, pc.y);
   u.face.circle(pc.x, pc.y, 0.171, { stroke: 'rgba(0,0,0,0.35)', line: 0.002 });
@@ -345,6 +352,7 @@ function turntable(b: BoardBuild, side: DeckRef, x: number): void {
 
 function battleMixer(b: BoardBuild): void {
   const u = b.unit(0, 0, 0.27, 0.353, 0.075, { radius: 0.008 });
+  u.rearPanel('mixer', { channels: 2, model: 'BATTLE MIXER' });
   u.knob('browse', 0, -0.16, { label: 'Browse library', r: 0.0055, encoder: true });
   channelStrip(u, 1, -0.037, -0.14, 0.025, { faderZ: 0.035, faderLen: 0.045, vuX: -0.019, knobR: 0.0072 });
   channelStrip(u, 2, 0.037, -0.14, 0.025, { faderZ: 0.035, faderLen: 0.045, vuX: 0.019, knobR: 0.0072 });
@@ -462,6 +470,7 @@ const hybrid: BoardDef = {
 
 function rotaryMixer(b: BoardBuild): void {
   const u = b.unit(0, 0, 0.3, 0.353, 0.09, { radius: 0.006 });
+  u.rearPanel('mixer', { channels: 2, model: 'ROTARY MIXER' });
   const chX = [-0.085, 0.085];
   chX.forEach((x, i) => {
     const ch = i + 1;
@@ -749,6 +758,7 @@ const aio: BoardDef = {
   ],
   build(b) {
     const u = b.unit(0, 0, 0.728, 0.47, 0.07, { radius: 0.014 });
+    u.rearPanel('controller');
     aioMixer(u);
     aioDeck(u, 1, 0);
     aioDeck(u, 2, 0.468);
