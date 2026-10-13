@@ -7,6 +7,7 @@ import { openScratchChallenges } from '../ui/ScratchChallenge';
 import { openLabel, openMashupBuilder, type MashupHooks } from '../ui/MashupBuilder';
 import { saveFile } from '../core/download';
 import { AudioEngine } from '../audio/AudioEngine';
+import { xfaderGains } from '../audio/Mixer';
 import type { Ambience } from '../audio/crowd';
 import { SAMPLE_NAMES } from '../audio/synth';
 import { AnalysisPool } from '../analysis/AnalysisPool';
@@ -1777,12 +1778,19 @@ export class App implements AppContext {
     const s = this.stage.show.state;
     // cuts land on the clock's bars and drops; the show supplies how built-up / peaking it is
     const drop = this.clockDrop;
-    // two decks audible at once: a mix is under way
+    // two decks audible at once (past the channel faders and the crossfader, so a deck in the headphones doesn't count): a mix is under way
+    const mx = this.engine.mixer;
+    const [xa, xb] = xfaderGains(mx.xfader, mx.xcurve, mx.hamster);
     let up = 0;
-    for (let i = 0; i < this.deckCount(); i++) if (this.engine.decks[i]?.playing && Math.max(...this.meters.ch[i]) > 0.04) up++;
+    for (let i = 0; i < this.deckCount(); i++) {
+      const ch = this.engine.channels[i];
+      if (!this.engine.decks[i]?.playing || !ch) continue;
+      const xf = ch.state.assign === 'A' ? xa : ch.state.assign === 'B' ? xb : 1;
+      if (Math.max(...this.meters.ch[i]) * ch.state.fader * xf > 0.04) up++;
+    }
     const menu = this.directorMenu();
     this.stage.shotLook = menu.style === 'cinematic' ? 'cinema' : 'none';
-    const take = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop, mixing: up >= 2 }, menu);
+    const take = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop, mixing: up >= 2, track: this.engine.masterDeck?.track?.id ?? null }, menu);
     this.clockDrop = false;
     if (take) {
       const id = take.id;

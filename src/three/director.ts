@@ -7,7 +7,10 @@
  *  - Open on the place (a landmark, the aerial, the venue), then go to the DJ.
  *  - Mix near and far: the next shot is usually a different size from this one.
  *  - Two decks playing at once is the mix: go to the hands on the decks.
- *  - A build gets a slow push in on the DJ, then tighter shots near the top.
+ *  - A build gets a slow push in on the DJ, then the cuts speed up as it
+ *    climbs (every 4 bars, then 2, then every bar on close-ups at the top,
+ *    at a festival; the calmer styles just tighten).
+ *  - A new track out front: back to the place for a bar line.
  *  - The drop gets its shot on the beat (a pull back to the whole room, the
  *    crowd's reaction), then, at a festival, a few quick one-bar cuts.
  *  - Breakdowns are for the place: landmarks, the aerial, the wide.
@@ -38,6 +41,8 @@ export interface DirectorInput {
   dropHit: boolean;
   /** two decks are audible at once: a mix is happening */
   mixing?: boolean;
+  /** the track out front (a change is a new track) */
+  track?: string | null;
 }
 
 /** what this venue offers the director */
@@ -63,7 +68,7 @@ export interface Take {
   cut: 'hard' | 'dip';
 }
 
-export type Moment = Section | 'drop' | 'burst' | 'mix' | 'open';
+export type Moment = Section | 'drop' | 'burst' | 'mix' | 'open' | 'tension';
 
 /** how big the subject is in each take: the director mixes near and far */
 export const SIZE: Record<CamId, 'close' | 'mid' | 'far'> = {
@@ -105,6 +110,7 @@ export const POOLS: Record<DirectorStyle, Record<Moment, CamId[]>> = {
     burst: ['reverse', 'hero', 'wide', 'crowd', 'ots', 'jib', 'tele', 'fisheye'],
     peak: ['reverse', 'ots', 'crowd', 'jib', 'hero', 'tele', 'drone', 'crane', 'fisheye', 'wide', 'camcorder', 'landmark'],
     mix: ['hands', 'top', 'hands', 'profile', 'booth'],
+    tension: ['hands', 'fisheye', 'booth', 'hands', 'crowd', 'top', 'vertigo'],
   },
   stream: {
     open: ['wide', 'landmark'],
@@ -116,6 +122,7 @@ export const POOLS: Record<DirectorStyle, Record<Moment, CamId[]>> = {
     burst: ['crowd', 'fisheye', 'reverse'],
     peak: ['wide', 'crowd', 'camcorder', 'fisheye', 'hands', 'ots', 'profile'],
     mix: ['hands', 'hands', 'top', 'profile'],
+    tension: ['hands', 'fisheye', 'hero'],
   },
   cinematic: {
     open: ['aerial', 'landmark', 'landmark', 'wide'],
@@ -127,15 +134,20 @@ export const POOLS: Record<DirectorStyle, Record<Moment, CamId[]>> = {
     burst: ['reverse', 'ots'],
     peak: ['orbit', 'ots', 'aerial', 'reverse', 'landmark', 'tele', 'hero', 'wide'],
     mix: ['hands', 'profile', 'hands'],
+    tension: ['pushin', 'hands', 'ots'],
   },
 };
 
 /** bars a shot lasts, by style and moment */
 export const BARS: Record<DirectorStyle, Record<Moment, number>> = {
-  festival: { open: 8, idle: 8, groove: 8, breakdown: 8, build: 4, drop: 4, burst: 1, peak: 4, mix: 8 },
-  stream: { open: 8, idle: 16, groove: 16, breakdown: 16, build: 8, drop: 8, burst: 2, peak: 8, mix: 8 },
-  cinematic: { open: 16, idle: 16, groove: 16, breakdown: 16, build: 8, drop: 8, burst: 4, peak: 8, mix: 8 },
+  festival: { open: 8, idle: 8, groove: 8, breakdown: 8, build: 4, drop: 4, burst: 1, peak: 4, mix: 8, tension: 1 },
+  stream: { open: 8, idle: 16, groove: 16, breakdown: 16, build: 8, drop: 8, burst: 2, peak: 8, mix: 8, tension: 4 },
+  cinematic: { open: 16, idle: 16, groove: 16, breakdown: 16, build: 8, drop: 8, burst: 4, peak: 8, mix: 8, tension: 8 },
 };
+
+/** how deep the build is when the cuts speed up (festival: 4 bars → 2), and when the top's close-ups start */
+export const BUILD_FAST = 0.75;
+export const BUILD_TOP = 0.9;
 
 /** the quick cuts after a drop: how many (festival), each a bar */
 export const BURST = { festival: 3, stream: 0, cinematic: 0 } as const;
@@ -200,6 +212,9 @@ export class Director {
   private landmarkN = 0;
   private side = 1;
   private pending = false;
+  private track: string | null | undefined = undefined;
+  /** a new track came in: back to the place on the next bar line */
+  private newTrack = false;
 
   constructor(private rand: () => number = Math.random) {}
 
@@ -252,6 +267,10 @@ export class Director {
       this.quietSince = s.t;
     }
     const mixing = this.mixingSince >= 0 && s.t - this.mixingSince > this.barSec * 0.9;
+    if (s.track !== undefined) {
+      if (this.track !== undefined && s.track && s.track !== this.track) this.newTrack = true;
+      this.track = s.track;
+    }
 
     // the drop: its shot right away, on the beat, even just after a phrase cut
     if (s.dropHit && s.playing && (since > 0.8 || this.moment !== 'drop')) {
@@ -292,14 +311,20 @@ export class Director {
     // a mix starting: to the hands on the next bar (after a quiet spell, not at every wobble)
     const mixStart = mixing && this.moment !== 'mix' && s.t - this.quietSince > this.barSec * 2 && section !== 'peak';
     if (!newBar) return null;
-    const want: Moment = mixing && section !== 'peak' ? 'mix' : section;
+    const top = section === 'build' && s.build >= BUILD_TOP;
+    const want: Moment = top ? 'tension' : mixing && section !== 'peak' ? 'mix' : section;
+    // a new track out front (once its blend is done): show where we are, unless the music is building or peaking
+    if (this.newTrack && !mixing && since > MIN_HOLD && bars >= 1) {
+      this.newTrack = false;
+      if (section === 'groove' || section === 'breakdown') return this.cut('open', s, menu, style === 'cinematic' ? 'dip' : 'hard');
+    }
     if ((this.pending || mixStart) && since > MIN_HOLD && bars >= 1) {
       this.pending = false;
       return this.cut(want, s, menu, want === 'mix' || style !== 'cinematic' ? 'hard' : 'dip');
     }
     // a phrase line: the shot's run is up and the bar is on the phrase grid
     const grid = Math.min(this.len, 4);
-    if (bars >= this.len && s.bar % grid === 0 && since > MIN_HOLD) {
+    if (bars >= this.len && s.bar % grid === 0 && since > (this.len <= 1 ? 1.2 : MIN_HOLD)) {
       return this.cut(want, s, menu, style === 'cinematic' && want !== 'peak' ? 'dip' : 'hard');
     }
     return null;
@@ -316,6 +341,8 @@ export class Director {
     let len = BARS[style][moment];
     // the peak: now and then a quick two-bar shot so the cutting doesn't go square
     if (moment === 'peak' && style === 'festival' && this.rand() < 0.3) len = 2;
+    // the build speeds up as it climbs
+    if (moment === 'build' && s.build >= BUILD_FAST) len = Math.max(1, len / 2);
     // the drop's shot hands over to the montage after a bar; the montage's last shot runs like a peak shot
     if (moment === 'burst' && this.burstLeft === 0) len = BARS[style].peak;
     this.len = moment === 'drop' && this.burstLeft > 0 ? 1 : len;
