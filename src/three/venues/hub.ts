@@ -16,12 +16,15 @@ import { drawFlyer, type FlyerInfo } from '../../ui/flyer';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { LedStrings, speaker } from './fixtures';
 import { skyline } from './outdoor';
+import { HOME_NAMES, homeLevel } from '../../game/home';
 import { canvasTexture, concreteTexture, rng, windowsTexture } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
 export interface HubState {
   tier: number;
+  /** the home to build (default: the one the tier gives) */
+  home?: 0 | 1 | 2;
   dj: string;
   /** the gigs you've played, newest first */
   flyers: FlyerInfo[];
@@ -38,14 +41,7 @@ export function setHubState(s: HubState): void {
   state = s;
 }
 
-export const HOME_NAMES = ['Your bedroom', 'Your studio', 'The penthouse'] as const;
-/** the fame tier each home comes with */
-export const HOME_TIERS = [1, 3, 5] as const;
-
-/** which home you live in at a fame tier: 0 bedroom, 1 studio, 2 penthouse */
-export function homeLevel(tier: number): 0 | 1 | 2 {
-  return tier >= HOME_TIERS[2] ? 2 : tier >= HOME_TIERS[1] ? 1 : 0;
-}
+export { HOME_NAMES, HOME_TIERS, homeLevel } from '../../game/home';
 
 /** gold records for a career so far: one per tier from 3, one per 25 sets */
 export function goldRecords(tier: number, setsPlayed: number): number {
@@ -211,7 +207,7 @@ class Hub extends VenueBase {
   private t = 0;
 
   constructor() {
-    const level = homeLevel(state.tier);
+    const level = state.home ?? homeLevel(state.tier);
     const [W, D, H] = ROOMS[level];
     super({ fog: 0x0a0a10, fogDensity: 0.004, hemiSky: 0x8a90b0, hemiGround: 0x2a2018, hemi: 0.5, flashAt: V(0, H - 0.3, 0), flashRange: 8 });
     this.keyLight = { color: 0xffe2c0, intensity: 6 };

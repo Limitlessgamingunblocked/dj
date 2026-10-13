@@ -86,7 +86,8 @@ describe('milestones (Section 9.5)', () => {
     const o = applySet(p, set({ full: true, perfect: 1, average: 0.82, fullMinute: true }));
     expect(o.milestones).toEqual(expect.arrayContaining(['first_set', 'first_perfect', 'sold_out', 'vibe_full_minute']));
     expect(o.patch.unlocked).toContain('title:Debut');
-    expect(o.patch.cash).toBe(p.cash + o.rewards.cash + 50 + 150);
+    // milestone cash, plus the achievement levels the set reached (House Full, Milestone Hunter)
+    expect(o.patch.cash).toBe(p.cash + o.rewards.cash + 50 + 150 + o.achievements.reduce((s, g) => s + g.cash, 0));
     const again = applySet({ ...p, ...o.patch }, set({ full: true, perfect: 1 }));
     expect(again.milestones).not.toContain('first_set');
   });

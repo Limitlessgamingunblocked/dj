@@ -12,6 +12,7 @@ import type { CareerVenue } from '../game/progression';
 import { addPosts, postsForSet } from '../game/social';
 import { ASSISTS, Gig, isVibeEvent, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
+import { announceEarned } from '../ui/AchievementsPanel';
 import { cleanDaily, dailyFor, dailyMet, liveStreak, recordDaily, shareText, vibeSquares, type DailyRecord, type DailySave, type DailySpec } from '../game/daily';
 import { loadSetting, saveSetting } from '../core/settings';
 import { CHEMISTRY_UNLOCK, INTROS, RIVALS, rivalOf, type RivalId } from '../game/rivals';
@@ -599,6 +600,11 @@ export class GigDirector {
       const rec = recordDaily(cleanDaily(loadSetting<unknown>('daily', null)), daily, res);
       if (rec.official) saveSetting('daily', rec.save);
       const streak = liveStreak(rec.save, daily.key);
+      // the best streak counts towards Daily Habit
+      if (streak > (c.progress.stats.daily_streak ?? 0)) {
+        c.setProgress({ stats: { ...c.progress.stats, daily_streak: streak } });
+        announceEarned(c.checkAchievements());
+      }
       dailyOut = { number: daily.number, goals: daily.goals.map((g, i) => ({ text: g.text, met: met[i] })), official: rec.official, streak, share: shareText(daily, res, streak) };
     }
     this.teardown();

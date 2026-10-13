@@ -156,6 +156,16 @@ All in the bookings calendar (Play a gig).
   - **Fire alarm:** the speakers go quiet (your headphones still hear the decks) and the room waits. When it ends, drop something big to bring them back.
   The daily challenge, B2Bs and Room Battles have no night events. The debug menu can force one for the next set.
 
+### Home: the shop and achievements
+- **The shop** (Home → Shop) is where your cash goes:
+  - **Wardrobe early:** any piece, outfit set, hair style or eye style that fame or a count of sets would unlock, priced by how far off it is (about $130 for a Rooftop piece, $1,200 for a Sunrise one; a set costs 2.5 times a piece and comes with its pieces).
+  - **A bigger home:** move to the studio ($600) or the penthouse ($2,500) before your fame does it for you.
+  - Milestone, rival and secret-room pieces can't be bought; they stay earned. Locked wardrobe pieces say when the shop sells them.
+  - Buy asks once more ("Confirm $300") before it spends.
+- **Achievements** (Home → Achievements): 20 long-run goals, each with bronze, silver and gold levels (sets played, minutes in the booth, perfect transitions, bass swaps, long blends, key mixes, drops, S grades, encores, sold-out shows, objectives, venues, boards, fame, followers, cash earned, cash spent, clips, the daily streak and milestones). Each level pays $50, $200 or $750 the first time. The wall shows how far you are to each next level, your milestones and your career totals.
+  - New levels show on the results screen with what they paid, or as a toast when they come from a clip, the daily streak or the shop.
+  - An older career gets the levels it has already earned the first time the wall is opened.
+
 ### Playing: scratch challenges, stems, mashups, the harmonic wheel and your label
 In the ⋯ menu under **Play**.
 - **Scratch challenges** (opt-in, scored; not a tutorial): baby scratch, forward scratch, stabs and triplets on the jog wheel, a transformer on the fader, and a beat juggle across two decks, each against a click with the pattern scrolling in a lane. Every hit is judged on timing (perfect within 50 ms, good within 100 ms) and direction, for points and up to three stars; your best is kept. Use your controller's jog, the board on the stage, the record on screen (drag it round) or the arrow keys; the fader, the Cut button or Space; deck restarts or 1 and 2.

@@ -84,6 +84,21 @@ export function owned(unlock: Unlock, p: Pick<Progress, 'tier' | 'unlocked' | 's
   return false;
 }
 
+/** the wardrobe things the shop sells; a purchase is saved in unlocked as `buy:<kind>:<id>` */
+export type WearKind = 'item' | 'hair' | 'set' | 'iris';
+export const boughtKey = (kind: WearKind, id: string): string => `buy:${kind}:${id}`;
+
+/** Yours, by unlocking it or by buying it in the shop. */
+export function ownedThing(kind: WearKind, def: { id: string; unlock: Unlock }, p: Pick<Progress, 'tier' | 'unlocked' | 'sandbox' | 'setsPlayed'>): boolean {
+  return owned(def.unlock, p) || p.unlocked.includes(boughtKey(kind, def.id));
+}
+
+/** the fame tier an unlock comes with (null: it isn't a tier unlock) */
+export function unlockTier(u: Unlock): number | null {
+  const t = TIER_VENUES.findIndex((v) => v.includes(u));
+  return t > 0 ? t : null;
+}
+
 /** the crazy rooms whose outfits unlock by playing there */
 const ROOM_NAMES: Record<string, string> = { uv: 'UV Blacklight Room', mirror: 'Infinity Mirror Room', hologram: 'Hologram Room' };
 
@@ -153,7 +168,7 @@ export function randomize(l: Look, cat: Category, r: Rand, p: Pick<Progress, 'ti
     const iris = pick(r, EYE_COLORS);
     out.colors.iris_l = iris;
     out.colors.iris_r = r() < 0.06 ? pick(r, EYE_COLORS) : iris;
-    const fancy = IRIS_STYLES.filter((i) => owned(i.unlock, p));
+    const fancy = IRIS_STYLES.filter((i) => ownedThing('iris', i, p));
     out.options.iris_style = r() < 0.85 ? 'natural' : pick(r, fancy).id;
   }
   if (doing('skin')) {
@@ -161,7 +176,7 @@ export function randomize(l: Look, cat: Category, r: Rand, p: Pick<Progress, 'ti
     sl('skin', 0.8);
   }
   if (doing('hair')) {
-    const styles = HAIR.filter((h) => owned(h.unlock, p));
+    const styles = HAIR.filter((h) => ownedThing('hair', h, p));
     out.items.hair = pick(r, styles).id;
     const wild = r() < 0.2;
     out.colors.hair = wild ? pick(r, WILD_HAIR) : pick(r, NATURAL_HAIR);
@@ -182,10 +197,10 @@ export function randomize(l: Look, cat: Category, r: Rand, p: Pick<Progress, 'ti
   }
   if (doing('outfit')) {
     // a set as the base most of the time, then the odd swap; everything owned
-    const sets = OUTFIT_SETS.filter((s) => owned(s.unlock, p));
+    const sets = OUTFIT_SETS.filter((s) => ownedThing('set', s, p));
     const base = r() < 0.6 ? wearSet(out, pick(r, sets)) : out;
     for (const slot of SLOTS) {
-      const choices = ITEMS.filter((i) => i.slot === slot && owned(i.unlock, p));
+      const choices = ITEMS.filter((i) => i.slot === slot && ownedThing('item', i, p));
       const keepEmpty = slot !== 'top' && slot !== 'bottom' && slot !== 'shoes';
       if (r() < 0.35 || !base.items[slot]) base.items[slot] = keepEmpty && r() < 0.55 ? null : choices.length ? pick(r, choices).id : null;
     }

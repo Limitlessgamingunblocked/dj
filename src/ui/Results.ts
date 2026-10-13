@@ -56,7 +56,7 @@ const STAMP_AT = 420;
 /** how long each picture of the peak holds before the next fades in (ms) */
 const STILL_HOLD = 1300;
 
-const NEW_KIND: Record<string, string> = { venue: 'Venue', item: 'Wardrobe', set: 'Outfit', hair: 'Hair', title: 'Title', reputation: 'Reputation', story: 'Story' };
+const NEW_KIND: Record<string, string> = { venue: 'Venue', item: 'Wardrobe', set: 'Outfit', hair: 'Hair', title: 'Title', reputation: 'Reputation', story: 'Story', achievement: 'Achievement' };
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
