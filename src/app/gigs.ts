@@ -100,6 +100,8 @@ export interface GigHost {
   finished(grade: 'S' | 'A' | 'B' | 'C' | 'D'): void;
   /** the replay buffer, for the results screen: null when it's off */
   replay(): { save(): Promise<boolean>; moment(label: string): void; clear(): void; stills(secondsAgo: number): Blob[] } | null;
+  /** your character's face: a brow flash for a good transition, a wince at a mistake */
+  react?(what: 'nice' | 'oops'): void;
   /** a crowd reaction for the room to play (cheer, groan, boo) */
   crowd(what: 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant'): void;
   /** the board on the stage (for "play five boards") */
@@ -940,6 +942,8 @@ export class GigDirector {
     else if (ev.kind === 'drop' || ev.kind === 'comeback') roomShow.pop(ev.kind === 'drop' ? 'Drop' : 'Comeback', ev.points);
     else if (ev.kind === 'mistake') roomShow.pop('Miss', 0, true);
     if (ev.kind === 'comeback') this.host.mark('vibe', 'Comeback');
+    if (ev.kind === 'transition' || ev.kind === 'comeback') this.host.react?.('nice');
+    else if (ev.kind === 'mistake') this.host.react?.('oops');
     this.chat?.react(ev);
     if (!this.gig) return;
     // the room and the crew react

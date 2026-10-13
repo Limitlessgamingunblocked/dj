@@ -14,6 +14,12 @@
  *              the model's own proportions
  *   fingers    three joints each to the game's two: the tip curls with the
  *              middle joint
+ *   palms      the model stands palms forward, the game's hand palms back
+ *              (its fingers curl towards −Z): the model's hand and fingers
+ *              are turned half a turn about the arm to match, and each
+ *              forearm takes half the twist between its elbow and its hand
+ *              (there's no twist bone), so neither joint wrings more than
+ *              about a quarter turn
  *   regions    the mesh comes in skin regions (chest, neck, upper_arm_l…, as
  *              the game names the skin's parts). A region shows unless clothes
  *              cover it or it carries tattoos (tattoos are drawn for the
@@ -132,6 +138,8 @@ interface Link {
   axis?: 0 | 1 | 2;
   /** fingertips: also turn by this game joint's own rotation */
   extra?: THREE.Object3D;
+  /** forearms: twist about the long axis by half the way to the hand */
+  twist?: { hand: THREE.Object3D; base: number; fa: THREE.Quaternion; hand0: THREE.Quaternion };
   // this frame
   p: THREE.Vector3;
   q: THREE.Quaternion;
@@ -144,6 +152,8 @@ const _m = new THREE.Matrix4();
 const _inv = new THREE.Matrix4();
 const _p2 = new THREE.Vector3();
 const _qe = new THREE.Quaternion();
+const _qt = new THREE.Quaternion();
+const Y = new THREE.Vector3(0, 1, 0);
 const _s = new THREE.Vector3();
 const ID = new THREE.Quaternion();
 
@@ -236,22 +246,26 @@ export class ModelBody {
     for (const s of ['l', 'r'] as const) {
       link(`shoulder_${s}`, bones[`shoulder_${s}`], 'rigid');
       link(`upper_arm_${s}`, bones[`upper_arm_${s}`], 'game', { to: bones[`forearm_${s}`], toName: `forearm_${s}` });
+      // palms: the model's hand half a turn about the arm (pronated, as the
+      // game's is); the forearm a quarter turn at rest, then half the twist to the hand
+      const k = s === 'l' ? 1 : -1;
+      const turn = new THREE.Quaternion().setFromAxisAngle(Y, -k * Math.PI);
+      const back = turn.clone().invert();
       link(`forearm_${s}`, bones[`forearm_${s}`], 'game', { to: bones[`hand_${s}`], toName: `hand_${s}` });
-      link(`hand_${s}`, bones[`hand_${s}`], 'game');
+      const fa = this.links[this.links.length - 1];
+      if (fa?.game === bones[`forearm_${s}`]) fa.twist = { hand: bones[`hand_${s}`], base: (-k * Math.PI) / 2, fa: new THREE.Quaternion().setFromAxisAngle(Y, (-k * Math.PI) / 2), hand0: turn };
+      link(`hand_${s}`, bones[`hand_${s}`], 'game', { gameRest: back });
       const h = hands[s];
       if (h) {
-        // the game's fingers run from the little finger (x−) to the index (x+) on
-        // the left hand, the other way on the right: order them index first
-        const xs = h.fingers.map((f) => f.knuckle.position.x * (s === 'l' ? 1 : -1));
-        const order = h.fingers.map((_, i) => i).sort((a, b) => xs[b] - xs[a]);
+        // the game's fingers run index (next to the thumb) to little, as the model's do
         ['index', 'middle', 'ring', 'pinky'].forEach((name, k) => {
-          const f = h.fingers[order[k]];
+          const f = h.fingers[k];
           if (!f) return;
-          link(`${name}_01_${s}`, f.knuckle, 'rigid');
-          link(`${name}_02_${s}`, f.mid, 'rigid');
-          link(`${name}_03_${s}`, f.mid, 'rigid', { extra: f.mid });
+          link(`${name}_01_${s}`, f.knuckle, 'rigid', { gameRest: back });
+          link(`${name}_02_${s}`, f.mid, 'rigid', { gameRest: back });
+          link(`${name}_03_${s}`, f.mid, 'rigid', { gameRest: back, extra: f.mid });
         });
-        const tr = new THREE.Quaternion().setFromEuler(h.thumbRest);
+        const tr = back.clone().multiply(new THREE.Quaternion().setFromEuler(h.thumbRest));
         link(`thumb_01_${s}`, h.thumb, 'rigid', { gameRest: tr });
         link(`thumb_02_${s}`, h.thumb, 'rigid', { gameRest: tr });
         link(`thumb_03_${s}`, h.thumb, 'rigid', { gameRest: tr });
@@ -303,6 +317,15 @@ export class ModelBody {
       if (l.extra) {
         // the tip curls a little less than the middle joint
         _qe.copy(ID).slerp(l.extra.quaternion, 0.8);
+        l.q.copy(Q).multiply(_qe).multiply(l.r0);
+      }
+      if (l.twist) {
+        // the hand's twist past the forearm's quarter turn, about the forearm's long axis (y)
+        gp(l.twist.hand);
+        _qt.copy(Q).multiply(l.twist.fa).invert().multiply(this.gameQ.get(l.twist.hand)!).multiply(l.twist.hand0);
+        const past = 2 * Math.atan2(_qt.y, _qt.w);
+        const a = Math.atan2(Math.sin(past), Math.cos(past));
+        _qe.setFromAxisAngle(Y, (l.twist.base + a) / 2);
         l.q.copy(Q).multiply(_qe).multiply(l.r0);
       }
       if (l.at === 'game') l.p.copy(P);
