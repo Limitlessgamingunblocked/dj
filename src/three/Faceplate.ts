@@ -30,6 +30,8 @@ export class Faceplate {
   readonly g: CanvasRenderingContext2D;
   readonly ppm: number; // pixels per metre
   private ops: ((g: CanvasRenderingContext2D) => void)[] = [];
+  /** where hands work the panel: fader slots and the surrounds of jogs and platters */
+  private worn: ({ kind: 'slot'; x: number; z: number; len: number; axis: 'x' | 'z' } | { kind: 'ring'; x: number; z: number; r: number })[] = [];
 
   readonly style: FaceStyle;
 
@@ -114,6 +116,7 @@ export class Faceplate {
 
   /** Fader slot with a printed scale. axis 'z' = vertical fader, 'x' = horizontal. */
   slot(x: number, z: number, len: number, axis: 'x' | 'z', o: { ticks?: number; center?: boolean; labels?: [string, string]; width?: number } = {}): void {
+    this.worn.push({ kind: 'slot', x, z, len, axis });
     this.draw((g) => {
       const w = o.width ?? 0.0035;
       const [px, py] = this.px(axis === 'x' ? x - len / 2 : x - w / 2, axis === 'x' ? z - w / 2 : z - len / 2);
@@ -182,6 +185,7 @@ export class Faceplate {
   }
 
   circle(x: number, z: number, r: number, o: { stroke?: string; fill?: string; line?: number } = {}): void {
+    if (r > 0.05) this.worn.push({ kind: 'ring', x, z, r });
     this.draw((g) => {
       const [cx, cy] = this.px(x, z);
       g.beginPath();
@@ -217,6 +221,102 @@ export class Faceplate {
     }
   }
 
+  /** a seeded random source for the wear, from the panel's size (the same scuffs on every build) */
+  private wearRng(): () => number {
+    let a = (Math.round(this.w * 1e4) * 7919 + Math.round(this.d * 1e4)) & 0x7fffffff || 1;
+    return () => {
+      a = (a * 1103515245 + 12345) & 0x7fffffff;
+      return a / 0x7fffffff;
+    };
+  }
+
+  /**
+   * Light use, not dirt: a few faint hairline scuffs beside each fader slot,
+   * where the cap's edge and fingertips rub, and round the jogs and platters.
+   */
+  private scuffs(g: CanvasRenderingContext2D): void {
+    const r = this.wearRng();
+    const c = new THREE.Color(this.style.base);
+    const lit = c.r * 0.3 + c.g * 0.59 + c.b * 0.11 > 0.45;
+    const ink = (a: number) => (lit ? `rgba(30,30,32,${a})` : `rgba(210,214,222,${a})`);
+    g.lineCap = 'round';
+    g.lineWidth = Math.max(1, this.m(0.00018));
+    for (const w of this.worn) {
+      if (w.kind === 'slot') {
+        for (let i = 0; i < 9; i++) {
+          const along = (r() - 0.5) * w.len * 1.05;
+          const off = (r() < 0.5 ? -1 : 1) * (0.0028 + r() * 0.0065);
+          const len = 0.002 + r() * 0.007;
+          const tilt = (r() - 0.5) * 0.002;
+          const [x0, z0] = w.axis === 'z' ? [w.x + off, w.z + along] : [w.x + along, w.z + off];
+          const [x1, z1] = w.axis === 'z' ? [x0 + tilt, z0 + len] : [x0 + len, z0 + tilt];
+          g.strokeStyle = ink(0.05 + r() * 0.07);
+          g.beginPath();
+          g.moveTo(...this.px(x0, z0));
+          g.lineTo(...this.px(x1, z1));
+          g.stroke();
+        }
+      } else {
+        const [cx, cy] = this.px(w.x, w.z);
+        for (let i = 0; i < 10; i++) {
+          // mostly on the near side, where the hand comes in
+          const a = Math.PI * (0.05 + r() * 0.9);
+          const rr = this.m(w.r + 0.002 + r() * 0.01);
+          g.strokeStyle = ink(0.04 + r() * 0.05);
+          g.beginPath();
+          g.arc(cx, cy, rr, a, a + 0.05 + r() * 0.12);
+          g.stroke();
+        }
+      }
+    }
+  }
+
+  /**
+   * Roughness for the faceplate (multiplies the panel's own): polished bands
+   * along the fader slots and round the jogs, and a palm-worn strip along the
+   * front edge. Drawn at a quarter of the print's resolution: wear is soft.
+   */
+  wearMap(): THREE.CanvasTexture {
+    const k = 0.25;
+    const c = document.createElement('canvas');
+    c.width = Math.max(4, Math.round(this.canvas.width * k));
+    c.height = Math.max(4, Math.round(this.canvas.height * k));
+    const g = c.getContext('2d')!;
+    const px = (x: number, z: number): [number, number] => [(x + this.w / 2) * this.ppm * k, (z + this.d / 2) * this.ppm * k];
+    const m = (v: number) => v * this.ppm * k;
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, c.width, c.height);
+    // the front edge, where wrists rest
+    const front = g.createLinearGradient(0, c.height, 0, c.height - m(0.035));
+    front.addColorStop(0, 'rgba(150,150,150,0.8)');
+    front.addColorStop(1, 'rgba(150,150,150,0)');
+    g.fillStyle = front;
+    g.fillRect(0, c.height - m(0.035), c.width, m(0.035));
+    g.filter = `blur(${Math.max(1, m(0.0025))}px)`;
+    for (const w of this.worn) {
+      if (w.kind === 'slot') {
+        const [x, y] = px(w.x, w.z);
+        const [lw, lh] = w.axis === 'z' ? [m(0.02), m(w.len * 1.08)] : [m(w.len * 1.08), m(0.02)];
+        g.fillStyle = 'rgba(120,120,120,0.75)';
+        g.beginPath();
+        g.roundRect(x - lw / 2, y - lh / 2, lw, lh, Math.min(lw, lh) / 2);
+        g.fill();
+      } else {
+        const [x, y] = px(w.x, w.z);
+        g.strokeStyle = 'rgba(150,150,150,0.6)';
+        g.lineWidth = m(0.014);
+        g.beginPath();
+        // the near half, where hands come in
+        g.arc(x, y, m(w.r + 0.008), 0, Math.PI);
+        g.stroke();
+      }
+    }
+    g.filter = 'none';
+    const t = new THREE.CanvasTexture(c);
+    t.anisotropy = 4;
+    return t;
+  }
+
   render(): THREE.CanvasTexture {
     const g = this.g;
     const W = this.canvas.width;
@@ -241,6 +341,7 @@ export class Faceplate {
       g.globalAlpha = 1;
     }
     for (const op of this.ops) op(g);
+    this.scuffs(g);
     const t = new THREE.CanvasTexture(this.canvas);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 16;

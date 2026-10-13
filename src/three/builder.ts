@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { Faceplate, type FaceStyle } from './Faceplate';
 import { roundedRectPlane } from './materials';
+import { layCables, rearLayout, unitHardware, type CableJob, type Jack, type RearKind } from './rear';
+import { hashString } from './venues/tex';
 import {
   ButtonPart,
   FaderPart,
@@ -43,6 +45,13 @@ export class BoardBuild {
   readonly root = new THREE.Group();
   readonly parts: Part[] = [];
   readonly units: Unit[] = [];
+  /** the cables and plugs behind the units (left out of the board's framing) */
+  cables: THREE.Group | null = null;
+  /**
+   * When something stands on the desk right behind the mixer (a laptop stand's
+   * legs), cables between the units keep to a lane in front of it: this z.
+   */
+  cableLane: number | undefined;
 
   constructor(readonly finish: Finish) {}
 
@@ -59,12 +68,53 @@ export class BoardBuild {
 
   finishAll(): void {
     for (const u of this.units) u.finalize();
+    this.cables = this.patch();
+    this.root.add(this.cables);
+  }
+
+  /**
+   * Wire the rig as a booth is wired: each deck's line out into the mixer
+   * input pair on its side (outer decks to the outer pairs), the turntables'
+   * ground wires to the mixer's ground post, and the power, master and USB
+   * cables off the desk through a grommet behind each unit.
+   */
+  private patch(): THREE.Group {
+    const jobs: CableJob[] = [];
+    const grommets: THREE.Vector2[] = [];
+    const at = (u: Unit, j: Jack) => new THREE.Vector3(u.group.position.x + j.x, u.group.position.y + j.y, u.group.position.z - u.d / 2 - 0.0004);
+    const mixer = this.units.find((u) => u.jacks.some((j) => j.input));
+    if (mixer) {
+      const pairs = [...new Set(mixer.jacks.filter((j) => j.input).map((j) => j.input!.pair))];
+      const decks = this.units.filter((u) => u !== mixer && u.jacks.some((j) => j.out)).sort((p, q) => p.group.position.x - q.group.position.x);
+      const mixGnd = mixer.jacks.find((j) => j.kind === 'gnd');
+      decks.forEach((u, i) => {
+        const pair = pairs[decks.length === 1 ? 0 : Math.round((i * (pairs.length - 1)) / (decks.length - 1))];
+        for (const j of u.jacks) {
+          if (!j.out) continue;
+          const target = j.kind === 'gnd' ? mixGnd : mixer.jacks.find((m) => m.input && m.input.pair === pair && m.input.side === j.out);
+          if (target) jobs.push({ from: { jack: j, at: at(u, j) }, to: { jack: target, at: at(mixer, target) }, lane: this.cableLane });
+        }
+      });
+    }
+    for (const u of this.units) {
+      const floor = u.jacks.filter((j) => j.floor);
+      if (!floor.length) continue;
+      const x = u.group.position.x + floor.reduce((s, j) => s + j.x, 0) / floor.length;
+      const g = new THREE.Vector2(x, Math.max(-0.37, u.group.position.z - u.d / 2 - 0.115));
+      grommets.push(g);
+      for (const j of floor) jobs.push({ from: { jack: j, at: at(u, j) }, to: new THREE.Vector3(g.x, 0, g.y) });
+    }
+    return layCables(jobs, grommets, hashString(this.finish.id) + this.units.length);
   }
 }
 
 export class Unit {
   readonly group = new THREE.Group();
   readonly face: Faceplate;
+  /** the connectors on the rear panel */
+  jacks: Jack[] = [];
+  private topScrews = false;
+  private model = 'DJ EQUIPMENT';
 
   constructor(
     private board: BoardBuild,
@@ -78,6 +128,13 @@ export class Unit {
   ) {
     this.group.position.set(x, 0, z);
     this.face = new Faceplate(w, d, finish.face);
+  }
+
+  /** fit the rear panel's connectors for this kind of unit (cables are plugged into them when the board is finished) */
+  rearPanel(kind: RearKind, o: { channels?: number; model?: string } = {}): void {
+    this.jacks = rearLayout(kind, this.w, this.h, o.channels ?? 2);
+    this.topScrews = kind !== 'turntable';
+    this.model = o.model ?? { turntable: 'DIRECT DRIVE TURNTABLE', player: 'MULTI PLAYER', mixer: 'DJ MIXER', controller: 'DJ CONTROLLER', starter: 'DJ CONTROLLER' }[kind];
   }
 
   add<T extends Part>(p: T, x: number, z: number, y = 0): T {
@@ -154,22 +211,17 @@ export class Unit {
     const faceMat = new THREE.MeshStandardMaterial({
       map: tex,
       roughness: f.face.texture === 'gloss' ? 0.26 : f.face.texture === 'brushed' ? 0.44 : 0.62,
+      // where hands work the panel it is rubbed smoother: along the fader slots, round the jogs, the front edge
+      roughnessMap: this.face.wearMap(),
       metalness: f.face.texture === 'brushed' ? 0.35 : 0.08,
     });
     const top = new THREE.Mesh(roundedRectPlane(this.w - 0.0006, this.d - 0.0006, this.radius), faceMat);
     top.position.y = this.h + 0.0002;
     top.receiveShadow = true;
     this.group.add(top);
-    // rubber feet
-    const foot = new THREE.CylinderGeometry(0.008, 0.009, 0.006, 16);
-    const footMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.9 });
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const m = new THREE.Mesh(foot, footMat);
-        m.position.set(sx * (this.w / 2 - 0.02), -0.003, sz * (this.d / 2 - 0.02));
-        this.group.add(m);
-      }
-    }
+    // rubber feet, screws, the rear panel's print and connectors: two meshes in all
+    const hw = unitHardware({ w: this.w, d: this.d, h: this.h, radius: this.radius, body: f.body, jacks: this.jacks, topScrews: this.topScrews, model: this.model, seed: hashString(`${f.id}:${this.w}:${this.d}`) });
+    this.group.add(hw.dark, hw.metal);
     this.group.position.y += 0.006;
   }
 }
