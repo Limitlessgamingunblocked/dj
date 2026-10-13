@@ -89,6 +89,15 @@ class Beach extends OpenAir {
     // from the back of the deck: the booth, the sea and the sun behind it
     wide: { pos: V(-5.5, 3.6, -17), target: V(0.6, 1.8, 8) },
     wideLabel: 'Sunset over the booth',
+    director: {
+      style: 'cinematic',
+      open: true,
+      landmarks: [
+        { label: 'Sunset over the sea', from: { pos: V(-8, 2.4, 0.5), target: V(6, 3.5, 80) }, to: { pos: V(-6.5, 2.6, 2.5), target: V(12, 3.5, 80) }, fov: 42 },
+        { label: 'The lighthouse', from: { pos: V(1.5, 3.2, 2.2), target: V(176, 30, 288) }, to: { pos: V(2.5, 3.4, 2.6), target: V(178, 34, 290) }, fov: 13 },
+        { label: 'Down the deck', from: { pos: V(13, 1.3, -24), target: V(0, 2.2, 1) }, to: { pos: V(11, 1.6, -21.5), target: V(0, 2.2, 1) }, fov: 34 },
+      ],
+    },
     crowd: { pos: V(1.4, 1.8, -6.5), target: V(0, 1.6, 2.5) },
     drone: [V(0, 4, 8), V(8, 3.2, 4), V(14, 3.4, -6), V(10, 4.5, -22), V(0, 6, -30), V(-10, 4.5, -22), V(-14, 3.4, -6), V(-8, 3.2, 4), V(0, 2.6, 14)],
     extra: { cctv: { pos: V(15, 4.5, -30), target: V(0, 1, -4) }, crane: { radius: 5, low: 1.4, high: 4.2 } },

@@ -173,6 +173,10 @@ class Basement extends VenueBase {
     // the back corner, looking over heads at the booth
     wide: { pos: V(-4.1, 2.2, -8.6), target: V(0.4, 1.2, 0.2) },
     wideLabel: 'Back of the room',
+    director: {
+      style: 'stream',
+      landmarks: [{ label: 'The pipes', from: { pos: V(-2.5, 1.7, -6), target: V(0, 2.5, -1) }, to: { pos: V(-2, 1.7, -5), target: V(0.8, 2.5, 0) }, fov: 44 }],
+    },
     crowd: { pos: V(0.6, 1.55, -3.2), target: V(0, 1.35, 0.6) },
     drone: [V(0, 2.2, -8.5), V(3.6, 2.1, -6), V(3.4, 2.1, -2), V(0.6, 2.2, -1.2), V(-3.4, 2.1, -2.2), V(-3.8, 2.1, -6.4)],
     extra: { cctv: { pos: V(4.6, 2.5, -9.2), target: V(0, 1, -3) }, crane: { radius: 3, low: 1.2, high: 2.3 } },

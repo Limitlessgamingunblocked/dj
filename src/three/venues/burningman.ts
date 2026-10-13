@@ -480,6 +480,15 @@ class BurningMan extends OpenAir {
     // from the top deck of the next art car along: the crowd, the car, the Man in neon past it
     wide: { pos: V(-34, 9, -52), target: V(8, 0, 30) },
     wideLabel: 'From the next art car',
+    director: {
+      style: 'cinematic',
+      open: true,
+      landmarks: [
+        { label: 'The Man', from: { pos: V(0, 5.6, 3), target: V(MAN.x, MAN.y + 12, MAN.z) }, to: { pos: V(1, 5.9, 3.4), target: V(MAN.x, MAN.y + 16, MAN.z) }, fov: 12 },
+        { label: 'The octopus', from: { pos: V(-14, PL + 3, -10), target: V(-27, PL + 5, 2) }, to: { pos: V(-17, PL + 2.5, -12), target: V(-27, PL + 6, 2) }, fov: 40 },
+        { label: 'The open playa', from: { pos: V(-60, 6, -40), target: V(0, 2, 0) }, to: { pos: V(-55, 9, -32), target: V(0, 2, 0) }, fov: 30 },
+      ],
+    },
     crowd: { pos: V(-2.2, PL + 1.8, -11), target: V(0, 1.6, 0) },
     drone: [V(0, 8, 6), V(18, 5, -6), V(30, 8, -30), V(10, 12, -52), V(-30, 10, -38), V(-42, 7, -6), V(-28, 11, 18), V(0, 14, 32), V(40, 18, 90), V(24, 11, 34), V(10, 6, 12)],
     extra: {

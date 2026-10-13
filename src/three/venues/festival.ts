@@ -213,6 +213,15 @@ class Festival extends OpenAir {
     // out in the crowd, the whole stage and the screens
     wide: { pos: V(9, FL + 7, -46), target: V(0, 7, 4) },
     wideLabel: 'Out in the field',
+    director: {
+      style: 'festival',
+      open: true,
+      landmarks: [
+        { label: 'The stage from the field', from: { pos: V(0, FL + 2.8, -36), target: V(0, 8, 6) }, to: { pos: V(0, FL + 3.4, -25), target: V(0, 8.5, 6) }, fov: 40 },
+        { label: 'Over the field to the wheel', from: { pos: V(14, 11, -3), target: V(-100, 12, -152) }, to: { pos: V(10, 11.5, -5), target: V(-118, 14, -152) }, fov: 30 },
+        { label: 'The side screen', from: { pos: V(-15, FL + 3, -15), target: V(-30, FL + 12, 2) }, to: { pos: V(-13, FL + 3.2, -16), target: V(-2, 7, 5) }, fov: 44 },
+      ],
+    },
     crowd: { pos: V(-2.5, FL + 2.1, -9), target: V(0, 2.5, 2) },
     drone: [V(0, 6, 4), V(14, 5, -2), V(24, 9, -20), V(20, 14, -60), V(0, 22, -90), V(-20, 14, -60), V(-24, 9, -20), V(-14, 5, -2), V(0, 12, -18)],
     extra: { cctv: { pos: V(-21, 15, -2), target: V(0, FL, -24) }, rig: { pos: V(6, 15.5, -1), target: V(0, 0.9, 0.4) }, crane: { radius: 8, low: 1.4, high: 9 }, camcorder: { pos: V(3, FL + 1.8, -8), target: V(0, 3, 2) } },

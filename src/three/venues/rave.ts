@@ -106,6 +106,13 @@ class WarehouseRave extends VenueBase {
     // from the back of the floor, by the roller door
     wide: { pos: V(5, FL + 5.2, -33), target: V(0, 2.6, 3) },
     wideLabel: 'Back of the warehouse',
+    director: {
+      style: 'festival',
+      landmarks: [
+        { label: 'The roller door', from: { pos: V(-6, FL + 2.2, -16), target: V(0, FL + 4, -38) }, to: { pos: V(-4, FL + 2.4, -18), target: V(0, FL + 4, -38) }, fov: 46 },
+        { label: 'Up in the roof', from: { pos: V(8, FL + 1.8, -14), target: V(0, 11, -4) }, to: { pos: V(6, FL + 1.8, -12), target: V(0, 11, 0) }, fov: 50 },
+      ],
+    },
     crowd: { pos: V(-1.5, FL + 2, -7), target: V(0, 1.5, 1) },
     drone: [V(0, 6, 5), V(9, 5, 0), V(10.5, 6, -14), V(8, 8, -30), V(0, 9, -35), V(-8, 8, -30), V(-10.5, 6, -14), V(-9, 5, 0), V(0, 10, -12)],
     extra: { cctv: { pos: V(-12.5, 9, 5), target: V(0, FL + 2, -34) }, rig: { pos: V(5, H - 1.6, -3), target: V(0, 0.9, 0.3) }, crane: { radius: 6, low: 1.4, high: 6 } },

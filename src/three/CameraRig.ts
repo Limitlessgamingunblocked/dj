@@ -11,6 +11,18 @@ import { prefs } from '../core/prefs';
 import { loadSetting, saveSetting } from '../core/settings';
 import type { Features } from '../visualizer/AudioFeatures';
 import type { VenueViews } from './venues/base';
+import { easeShot, type ShotPose } from './shots';
+
+/** A director move playing (shots.ts): its pose at progress u (0..1, eased over `seconds`). */
+export interface ActiveShot {
+  label: string;
+  /** close on the board or the hands: the picture stays clean */
+  close: boolean;
+  /** hand-held drift, 0..1 */
+  hand: number;
+  seconds: number;
+  pose(u: number): ShotPose;
+}
 
 export type ViewId = 'top' | 'perf' | 'booth' | 'wide' | 'crowd' | 'fisheye' | 'crane' | 'rig' | 'cctv' | 'camcorder' | 'vertigo' | 'drone';
 export interface CameraAnchor {
@@ -124,6 +136,12 @@ export class CameraRig {
   private punchShake = false;
   /** the breakdown orbit: 0..1, how strongly a still shot drifts round the booth */
   orbit = 0;
+  /** a director move playing (the view reads 'custom' meanwhile); any other camera move ends it */
+  shot: ActiveShot | null = null;
+  private shotT = 0;
+  private shotFov: number | null = null;
+  /** the next frame takes the lens straight to where it's going (a cut, not a zoom) */
+  private snapFov = false;
 
   constructor(
     readonly camera: THREE.PerspectiveCamera,
@@ -150,6 +168,7 @@ export class CameraRig {
     c.addEventListener('change', () => {
       if (this.inUpdate || !this.interacting) return;
       this.userMoved = true;
+      this.shot = null;
       this.goalPos = null;
       this.goalTarget = null;
     });
@@ -174,6 +193,8 @@ export class CameraRig {
   /** the venue's own camera angles (wide / crowd) */
   setViews(v: VenueViews): void {
     this.venueViews = v;
+    // a move worked out for the last venue
+    if (this.shot) this.goTo(this.named, true);
     if (this.view === 'drone') this.startDrone();
     else if ((this.view === 'wide' || this.view === 'crowd') && !this.focused) this.goTo(this.view);
   }
@@ -182,9 +203,34 @@ export class CameraRig {
     return v === 'wide' && this.venueViews ? this.venueViews.wideLabel : VIEW_LABELS[v];
   }
 
-  /** an angle that moves on its own is showing */
+  /** an angle that moves on its own is showing (a director move counts) */
   get isLive(): boolean {
-    return LIVE_VIEWS.includes(this.view as ViewId);
+    return !!this.shot || LIVE_VIEWS.includes(this.view as ViewId);
+  }
+
+  /** the board's bounds (the director frames its moves on them) */
+  get board(): THREE.Box3 {
+    return this.box;
+  }
+
+  /** the normal lens, degrees */
+  get normalFov(): number {
+    return this.baseFov;
+  }
+
+  /** Play a director move from its first frame (a cut). */
+  playShot(s: ActiveShot): void {
+    this.skipArrival();
+    this.stopDrone();
+    this.shot = s;
+    this.shotT = 0;
+    this.view = 'custom';
+    this.focused = false;
+    const p = s.pose(0);
+    this.shotFov = p.fov ?? null;
+    this.snapFov = true;
+    this.base = { pos: p.pos.clone(), target: p.target.clone() };
+    this.setGoal(p.pos, p.target, true);
   }
 
   noteInteraction(): void {
@@ -295,6 +341,9 @@ export class CameraRig {
 
   goTo(v: ViewId, instant = false): void {
     this.skipArrival();
+    this.shot = null;
+    this.shotFov = null;
+    if (instant) this.snapFov = true;
     if (v === 'drone') {
       this.startDrone();
       return;
@@ -326,6 +375,8 @@ export class CameraRig {
       // take the drone's current shot as the starting point (the lens eases back on its own)
       this.stopDrone();
     }
+    this.shot = null;
+    this.shotFov = null;
     const c = this.controls;
     const m = this.move;
     const off = this.tmpA.copy(this.camera.position).sub(c.target);
@@ -356,6 +407,8 @@ export class CameraRig {
   /** Zoom in on a board section, framing `box` from above the DJ's side. */
   focusBox(box: THREE.Box3, instant = false): void {
     if (this.drone) return;
+    this.shot = null;
+    this.shotFov = null;
     const c = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const fov = THREE.MathUtils.degToRad(this.camera.fov);
@@ -442,6 +495,8 @@ export class CameraRig {
 
   goToAnchor(a: CameraAnchor): void {
     this.stopDrone();
+    this.shot = null;
+    this.shotFov = null;
     this.view = 'custom';
     this.focused = false;
     this.base = { pos: new THREE.Vector3(...a.pos), target: new THREE.Vector3(...a.target) };
@@ -626,11 +681,12 @@ export class CameraRig {
       this.camera.updateProjectionMatrix();
     }
     // lens: the drone flies wide, everything else uses the normal lens
-    const wantFov = this.drone ? DRONE_FOV : (this.lensFov ?? this.baseFov);
+    const wantFov = this.drone ? DRONE_FOV : (this.lensFov ?? this.shotFov ?? this.baseFov);
     if (Math.abs(this.camera.fov - wantFov) > 0.05) {
-      this.camera.fov += (wantFov - this.camera.fov) * Math.min(1, dt * 4);
+      this.camera.fov = this.snapFov ? wantFov : this.camera.fov + (wantFov - this.camera.fov) * Math.min(1, dt * 4);
       this.camera.updateProjectionMatrix();
     }
+    this.snapFov = false;
     this.droneFx.amount += ((this.drone ? 1 : 0) - this.droneFx.amount) * Math.min(1, dt * 4);
     if (this.move.yaw || this.move.pitch || this.move.zoom) this.applyMove(dt);
     if (this.flyby) {
@@ -667,9 +723,28 @@ export class CameraRig {
         this.controls.maxDistance = Math.max(MAX_ZOOM_OUT, this.camera.position.distanceTo(this.controls.target) + 0.5);
       }
     }
+    // a director move: on its path, paced to the shot's planned length, with a little hand-held drift
+    if (this.shot && !this.goalPos) {
+      const sh = this.shot;
+      this.shotT += dt;
+      const p = sh.pose(easeShot(this.shotT / sh.seconds));
+      if (sh.hand > 0 && !reducedMotion()) {
+        const t = this.shotT;
+        const a = sh.hand * Math.min(1, 0.4 + p.pos.distanceTo(p.target) * 0.15);
+        p.pos.x += (Math.sin(t * 0.83) * 0.014 + Math.sin(t * 2.1 + 1) * 0.004) * a;
+        p.pos.y += (Math.sin(t * 0.61 + 2) * 0.01 + Math.sin(t * 1.7) * 0.003) * a;
+        p.target.x += Math.sin(t * 0.47 + 0.5) * 0.03 * a;
+        p.target.y += Math.sin(t * 0.39 + 1.5) * 0.02 * a;
+      }
+      this.camera.position.copy(p.pos);
+      this.controls.target.copy(p.target);
+      this.base = { pos: p.pos, target: p.target };
+      this.controls.maxDistance = Math.max(MAX_ZOOM_OUT, p.pos.distanceTo(p.target) + 0.5);
+      if (p.fov !== undefined && Math.abs((this.shotFov ?? 0) - p.fov) > 0.01) this.shotFov = p.fov;
+    }
     // live angles: follow their path; the fly-in from the last angle comes from the same easing
     let liveFov: number | undefined;
-    if (this.isLive && !this.focused && !this.goalPos) {
+    if (this.isLive && !this.shot && !this.focused && !this.goalPos) {
       this.liveT += dt;
       const p = this.livePose(this.view as ViewId, f, this.liveT);
       this.livePos.copy(p.pos);
@@ -700,8 +775,10 @@ export class CameraRig {
       const want = this.tmpA.copy(this.controls.target).add(off);
       this.camera.position.lerp(want, 1 - Math.exp(-dt * 0.8));
     }
-    this.controls.update();
-    if (this.camera.position.y < -1.2) this.camera.position.y = -1.2;
+    // a director move goes where it's meant to (low angles look up past the orbit's limits)
+    if (this.shot) this.camera.lookAt(this.controls.target);
+    else this.controls.update();
+    if (this.camera.position.y < -1.2 && !this.shot) this.camera.position.y = -1.2;
     // the dolly zoom: the lens follows the camera's real distance so the DJ stays the same size
     if (liveFov !== undefined && this.lensFov === null) {
       const dNow = this.camera.position.distanceTo(this.controls.target);

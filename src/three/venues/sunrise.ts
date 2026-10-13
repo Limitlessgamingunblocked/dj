@@ -56,6 +56,15 @@ class Sunrise extends OpenAir {
     // up the hill behind everyone: the crowd, the little stage, the sky
     wide: { pos: V(-7, groundY(-7, -46) + 4.5, -46), target: V(0, -4, 40) },
     wideLabel: 'Up the hill',
+    director: {
+      style: 'cinematic',
+      open: true,
+      landmarks: [
+        { label: 'The valley at dawn', from: { pos: V(-4, 3.2, 3.6), target: V(0, -4, 200) }, to: { pos: V(4, 3.4, 4), target: V(14, -2, 200) }, fov: 42 },
+        { label: 'The balloons', from: { pos: V(0, 2.6, 3), target: V(-15, 23, 260) }, to: { pos: V(0.5, 2.6, 3), target: V(30, 12, 150) }, fov: 18 },
+        { label: 'Down the hill', from: { pos: V(8, groundY(8, -15) + 2, -15), target: V(0, 2, 6) }, to: { pos: V(5, groundY(5, -12) + 2.4, -12), target: V(0, 2, 6) }, fov: 38 },
+      ],
+    },
     crowd: { pos: V(1.4, 0.9, -6.2), target: V(0, 1.7, 6) },
     drone: [V(0, 5, 10), V(12, 4, 2), V(18, 6, -16), V(10, 9, -40), V(0, 12, -50), V(-10, 9, -40), V(-18, 6, -16), V(-12, 4, 2), V(0, 3, 24)],
     extra: { cctv: { pos: V(14, 4, 5), target: V(0, 0, -10) }, crane: { radius: 6, low: 1.4, high: 6 } },

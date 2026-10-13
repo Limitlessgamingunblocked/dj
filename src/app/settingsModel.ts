@@ -1,6 +1,7 @@
 /* The app's saved layout and stage settings (the user preferences are in core/prefs.ts). */
 import type { FaderCurve } from '../audio/Channel';
 import type { ViewId } from '../three/CameraRig';
+import type { DirectorPick } from '../three/director';
 import type { Quality, StageView } from '../three/Stage';
 import type { ShowControls } from '../three/venues/show';
 import type { VisSettings } from '../visualizer/Visualizer';
@@ -30,6 +31,8 @@ export interface Settings {
   camPad: boolean;
   /** the auto director cuts the camera with the music */
   director: boolean;
+  /** how it shoots: like a festival stream, a club stream, a location film, or the venue's own */
+  directorStyle: DirectorPick;
   /** frame rate shown over the stage */
   fpsMeter: boolean;
   /** the track on each deck when the page closed (deck number → track id), loaded again on start */
@@ -68,6 +71,7 @@ export const DEFAULTS: Settings = {
   lights: {},
   camPad: true,
   director: false,
+  directorStyle: 'auto',
   fpsMeter: false,
   lastTracks: {},
   namingLater: false,
@@ -95,6 +99,7 @@ export function cleanSettings(raw: unknown): Settings {
   if (!VIEW_IDS.includes(out.camera)) out.camera = DEFAULTS.camera;
   out.lastTracks = Object.fromEntries(Object.entries(out.lastTracks).filter(([k, v]) => /^[1-4]$/.test(k) && typeof v === 'string' && v.length < 200));
   if (r.boardHome === 'top' || r.boardHome === 'perf') out.boardHome = r.boardHome;
+  if (!['auto', 'festival', 'stream', 'cinematic'].includes(out.directorStyle)) out.directorStyle = DEFAULTS.directorStyle;
   const custom = out.lights.custom as unknown;
   if (custom !== undefined && !(Array.isArray(custom) && custom.length === 3 && custom.every((c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)))) delete out.lights.custom;
   return out;

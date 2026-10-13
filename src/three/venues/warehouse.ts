@@ -33,6 +33,9 @@ class Warehouse extends VenueBase {
   readonly views: VenueViews = {
     wide: { pos: V(2.6, 2.3, 3.3), target: V(0, 1.4, -3.2) },
     wideLabel: 'Club',
+    director: {
+      style: 'stream',
+    },
     crowd: { pos: V(1.4, 2.5, -7.6), target: V(0, 1.1, 0) },
     drone: [V(0, 3.2, 3.6), V(0.3, 2.4, 1.2), V(0.6, 1.95, -2.2), V(1.8, 2.1, -5.5), V(4.6, 2.9, -7.6), V(6.2, 2.3, -4.2), V(5.5, 1.5, -1.6), V(2.6, 1.6, -1.6), V(-1.2, 1.6, -1.0), V(-4.2, 1.8, -1.9), V(-6.2, 2.6, -5.5), V(-3.6, 3.6, -8.0), V(-1.5, 4.4, -3.0), V(-2.5, 3.8, 2.8)],
   };
