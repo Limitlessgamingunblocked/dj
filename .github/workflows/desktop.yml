@@ -62,6 +62,7 @@ jobs:
           name: desktop-${{ matrix.name }}
           path: |
             desktop/release/*.dmg
+            desktop/release/*-mac-*.zip
             desktop/release/*.exe
             desktop/release/*.AppImage
           if-no-files-found: error
@@ -89,12 +90,12 @@ jobs:
           cat > notes.md <<NOTES
           The Deckhouse DJ desktop game, built from ${GITHUB_SHA::7}.
 
-          - **Mac (Apple Silicon: M1 and later):** \`Deckhouse-DJ-…-mac-arm64.dmg\`
-          - **Mac (Intel):** \`Deckhouse-DJ-…-mac-x64.dmg\`
+          - **Mac (Apple Silicon: M1 and later):** \`Deckhouse-DJ-…-mac-arm64.zip\` (or the .dmg)
+          - **Mac (Intel):** \`Deckhouse-DJ-…-mac-x64.zip\` (or the .dmg)
           - **Windows:** \`Deckhouse-DJ-…-win-x64.exe\`
           - **Linux:** \`Deckhouse-DJ-…-linux-x86_64.AppImage\`
 
-          **First launch on a Mac:** open the .dmg and drag Deckhouse DJ into Applications. The app isn't signed with an Apple developer certificate, so the first time you open it macOS says it can't check it. Click Done, then open System Settings → Privacy & Security, scroll down and click **Open Anyway** next to Deckhouse DJ. After that it opens like any app.
+          **First launch on a Mac:** double-click the .zip and drag the Deckhouse DJ app it unpacks into Applications (or open the .dmg and drag it from there). The app isn't signed with an Apple developer certificate, so the first time you open it macOS says it can't check it. Click Done, then open System Settings → Privacy & Security, scroll down and click **Open Anyway** next to Deckhouse DJ. After that it opens like any app.
 
           **First launch on Windows:** if SmartScreen says it protected your PC, click **More info → Run anyway**.
           NOTES

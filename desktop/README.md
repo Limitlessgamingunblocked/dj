@@ -11,7 +11,7 @@ Download it from the [latest release](https://github.com/Limitlessgamingunblocke
 The **Desktop app** workflow (`.github/workflows/desktop.yml`) rebuilds it on
 every push to the default branch and replaces that release.
 
-- **Mac (M1 and later):** `…-mac-arm64.dmg`; **Intel Macs:** `…-mac-x64.dmg`. Open it and drag Deckhouse DJ into Applications.
+- **Mac (M1 and later):** `…-mac-arm64.zip`; **Intel Macs:** `…-mac-x64.zip` (a .dmg of each is there too). Double-click the zip and drag the app into Applications.
   The app has no Apple developer certificate, so the first launch is blocked:
   click Done, open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
   (Or in Terminal: `xattr -dr com.apple.quarantine "/Applications/Deckhouse DJ.app"`.)
