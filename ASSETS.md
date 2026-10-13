@@ -4,6 +4,5 @@ Every 3D asset in the game (Section 14.8). **Generated** by `node scripts/assets
 
 | Asset | Category | Triangles / budget | LODs | Rigged | Customisable | Preview | In-engine tested | Problems |
 |---|---|---:|---|---|---|---|---|---|
-| _none yet_ | | | | | | | | |
+| `character_dj_body_01` | character | 18,572 / 35,000 | — | Y | — | [png](assets/previews/character_dj_body_01.png) | Y |  |
 
-**No modelled assets yet.** Everything the player sees is still procedural (built in code), including the character, its hair and outfits (`src/character/Avatar.ts`) and the dressing room. Modelling needs Blender access; see TODO.md.

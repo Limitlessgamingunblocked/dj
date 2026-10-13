@@ -32,6 +32,7 @@ import type { Look } from '../core/models';
 import { FACE_SHAPE_BASE, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
+import { bodyReady, ModelBody, modelRegions, modelTuck, preloadBody, type BodyRegion, type Cover } from './modelBody';
 
 export type BoneName = 'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'shoulder_l' | 'upper_arm_l' | 'forearm_l' | 'hand_l' | 'shoulder_r' | 'upper_arm_r' | 'forearm_r' | 'hand_r' | 'thigh_l' | 'shin_l' | 'foot_l' | 'thigh_r' | 'shin_r' | 'foot_r';
 
@@ -103,6 +104,47 @@ function dims(l: Look): Dims {
     headR: 0.112 * Math.pow(H, 0.3),
   };
 }
+
+/** how a shell is cut: sleeves, collar, opening, hood, puffiness, length, cropped */
+interface ShellStyle {
+  sleeves: 'none' | 'short' | 'elbow' | 'long';
+  open?: number;
+  collar?: 'crew' | 'high' | 'shirt' | 'none';
+  hood?: boolean;
+  puffy?: boolean;
+  length?: number;
+  crop?: boolean;
+  push?: number;
+}
+
+/** each top's cut */
+const TOP_STYLE: Record<string, ShellStyle> = {
+  tee_vintage: { sleeves: 'elbow', collar: 'crew', push: 0.022, length: 0.03 },
+  tee_band: { sleeves: 'short', collar: 'crew' },
+  tee_plain: { sleeves: 'short', collar: 'crew' },
+  tee_smiley: { sleeves: 'short', collar: 'crew', push: 0.014 },
+  shirt_linen: { sleeves: 'elbow', collar: 'shirt', open: 0.5, push: 0.016 },
+  shirt_floral: { sleeves: 'short', collar: 'shirt', push: 0.016 },
+  shirt_white: { sleeves: 'short', collar: 'shirt' },
+  jersey_football: { sleeves: 'short', collar: 'crew', push: 0.014 },
+  techwear_top: { sleeves: 'long', collar: 'high', push: 0.012 },
+  hoodie: { sleeves: 'long', collar: 'none', hood: true, push: 0.022, length: 0.03 },
+  tank_mesh: { sleeves: 'none', collar: 'crew' },
+  longsleeve: { sleeves: 'long', collar: 'crew' },
+  crop_top: { sleeves: 'none', collar: 'crew', crop: true, push: 0.006 },
+  top_sequin: { sleeves: 'none', collar: 'none', crop: true, push: 0.008 },
+};
+
+/** each outer layer's cut */
+const OUTER_STYLE: Record<string, ShellStyle> = {
+  utility_vest: { sleeves: 'none', collar: 'high', open: 0.35, push: 0.034 },
+  jacket_sequin: { sleeves: 'long', collar: 'shirt', open: 0.55, push: 0.03 },
+  shellsuit_top: { sleeves: 'long', collar: 'high', push: 0.032 },
+  puffer_metallic: { sleeves: 'long', collar: 'high', puffy: true, push: 0.055 },
+  bomber: { sleeves: 'long', collar: 'crew', open: 0.3, push: 0.034 },
+  denim_jacket: { sleeves: 'long', collar: 'shirt', open: 0.45, push: 0.03 },
+  velvet_blazer: { sleeves: 'long', collar: 'shirt', open: 0.6, push: 0.028, length: 0.06 },
+};
 
 /** a capsule hanging down from its joint */
 function limb(r: number, len: number, r2 = r): THREE.BufferGeometry {
@@ -215,6 +257,9 @@ export class Avatar {
   private lastChest = new THREE.Vector3();
   private ikQ = new THREE.Quaternion();
   private ikT = new THREE.Vector3();
+  /** the modelled body, when it's loaded, and the skin regions it shows (the code builds the rest) */
+  private model: ModelBody | null = null;
+  private modelShows = new Set<BodyRegion>();
 
   constructor(look: Look, o: { djName?: string } = {}) {
     this.look = look;
@@ -222,6 +267,8 @@ export class Avatar {
     this.djName = o.djName ?? '';
     this.object.add(this.body);
     this.build();
+    // the modelled body loads once; avatars built before it arrived rebuild with it
+    if (!bodyReady()) preloadBody(() => this.setLook(this.look));
   }
 
   /** play a DJ move (hands up, jump, point, clap, fist pump, up on the booth) */
@@ -260,6 +307,8 @@ export class Avatar {
     this.springs = [];
     this.lids = [];
     this.hands = { l: null, r: null };
+    this.model?.dispose();
+    this.model = null;
     this.faceRig = { brows: [], lower: null, lowerY: 0, eyes: [] };
     this.headphones = null;
     this.headphonesHome = null;
@@ -325,23 +374,42 @@ export class Avatar {
       bone(`foot_${s}`, sn, V(0, -d.shin, 0));
     }
 
+    // the modelled body shows the skin regions clothes and tattoos leave free
+    const top = l.items.top;
+    const outer = l.items.outer;
+    const topCut: Cover | null = top ? (TOP_STYLE[top] ?? { sleeves: 'short' }) : null;
+    const outerCut: Cover | null = outer ? (OUTER_STYLE[outer] ?? { sleeves: 'long' }) : null;
+    this.modelShows = bodyReady() ? modelRegions(l, topCut, outerCut) : new Set();
+    const code = (r: BodyRegion) => !this.modelShows.has(r);
+
     // the body (under the clothes; clothes are shells around it)
-    this.mesh(lathe([[d.hipsR * 0.9, -0.09], [d.hipsR, -0.02], [(d.hipsR + d.waistR) / 2, 0.06], [d.waistR, 0.13]], d.depth * 1.05), this.skin('chest'), hips);
-    this.mesh(lathe([[d.waistR, -0.02], [d.chestR * 0.96, 0.1 * d.H], [d.chestR, 0.19 * d.H], [d.shoulder * 0.86, 0.3 * d.H], [d.shoulder * 0.55, 0.345 * d.H], [0.055, 0.37 * d.H]], d.depth), this.skin('chest'), spine);
-    this.mesh(new THREE.CylinderGeometry(0.048, 0.056, 0.11 * d.H, 16).translate(0, 0.04, 0), this.skin('neck'), neck);
+    if (code('chest')) this.mesh(lathe([[d.hipsR * 0.9, -0.09], [d.hipsR, -0.02], [(d.hipsR + d.waistR) / 2, 0.06], [d.waistR, 0.13]], d.depth * 1.05), this.skin('chest'), hips);
+    if (code('chest')) this.mesh(lathe([[d.waistR, -0.02], [d.chestR * 0.96, 0.1 * d.H], [d.chestR, 0.19 * d.H], [d.shoulder * 0.86, 0.3 * d.H], [d.shoulder * 0.55, 0.345 * d.H], [0.055, 0.37 * d.H]], d.depth), this.skin('chest'), spine);
+    if (code('neck')) this.mesh(new THREE.CylinderGeometry(0.048, 0.056, 0.11 * d.H, 16).translate(0, 0.04, 0), this.skin('neck'), neck);
     for (const [s, k] of [['l', 1], ['r', -1]] as const) {
-      this.mesh(new THREE.SphereGeometry(d.armR * 1.25, 16, 12), this.skin(`upper_arm_${s}`), b[`shoulder_${s}`]);
-      this.mesh(limb(d.armR * 1.1, d.upperArm, d.armR * 0.95), this.skin(`upper_arm_${s}`), b[`upper_arm_${s}`]);
-      this.mesh(limb(d.armR * 0.92, d.foreArm, d.armR * 0.7), this.skin(`forearm_${s}`), b[`forearm_${s}`]);
-      this.buildHand(s, k);
-      this.mesh(limb(d.legR * 1.15, d.thigh, d.legR * 0.88), this.skin('thigh'), b[`thigh_${s}`]);
-      this.mesh(limb(d.legR * 0.86, d.shin, d.legR * 0.6), this.skin(`calf_${s}`), b[`shin_${s}`]);
+      if (code(`upper_arm_${s}`)) {
+        this.mesh(new THREE.SphereGeometry(d.armR * 1.25, 16, 12), this.skin(`upper_arm_${s}`), b[`shoulder_${s}`]);
+        this.mesh(limb(d.armR * 1.1, d.upperArm, d.armR * 0.95), this.skin(`upper_arm_${s}`), b[`upper_arm_${s}`]);
+      }
+      if (code(`forearm_${s}`)) this.mesh(limb(d.armR * 0.92, d.foreArm, d.armR * 0.7), this.skin(`forearm_${s}`), b[`forearm_${s}`]);
+      this.buildHand(s, k, code(`hand_${s}`));
+      if (code(`thigh_${s}`)) this.mesh(limb(d.legR * 1.15, d.thigh, d.legR * 0.88), this.skin('thigh'), b[`thigh_${s}`]);
+      if (code(`calf_${s}`)) this.mesh(limb(d.legR * 0.86, d.shin, d.legR * 0.6), this.skin(`calf_${s}`), b[`shin_${s}`]);
     }
     this.buildHead();
     this.buildHair();
     this.buildClothes();
     this.buildAccessories();
-    void l;
+    if (this.modelShows.size) {
+      // the game's bones at rest, in the body's space (no rotations yet)
+      const rest = {} as Record<BoneName, THREE.Vector3>;
+      for (const name of Object.keys(b) as BoneName[]) {
+        const p = new THREE.Vector3();
+        for (let o: THREE.Object3D | null = b[name]; o && o !== this.body; o = o.parent) p.add(o.position);
+        rest[name] = p;
+      }
+      this.model = new ModelBody(this.body, b, rest, this.hands, this.modelShows, this.skin('body'), l, modelTuck(l, topCut, outerCut));
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -349,14 +417,16 @@ export class Avatar {
   /* ---------------------------------------------------------------- */
 
   /** a hand: the palm, four fingers in two segments on joints, a thumb (k: 1 left, -1 right) */
-  private buildHand(side: 'l' | 'r', k: number): void {
+  private buildHand(side: 'l' | 'r', k: number, meshes = true): void {
     const d = this.d;
     const hb = this.bones[`hand_${side}`];
     const mat = this.skin(`hand_${side}`);
     const w = d.armR * 1.55;
-    this.mesh(new THREE.CapsuleGeometry(d.armR * 0.62, 0.035, 4, 12).scale(w / (d.armR * 1.24), 1, 0.55).translate(0, -0.035, 0), mat, hb);
+    // the joints always; the meshes only where the modelled hand isn't showing
+    const add = (geo: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Object3D, pos?: THREE.Vector3) => (meshes ? this.mesh(geo, m, parent, pos) : geo.dispose());
+    add(new THREE.CapsuleGeometry(d.armR * 0.62, 0.035, 4, 12).scale(w / (d.armR * 1.24), 1, 0.55).translate(0, -0.035, 0), mat, hb);
     // knuckles: a little ridge across the back of the hand
-    this.mesh(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, -0.006), mat, hb);
+    add(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, -0.006), mat, hb);
     const fingers: HandRig['fingers'] = [];
     for (let i = 0; i < 4; i++) {
       const len = [0.044, 0.052, 0.05, 0.04][i];
@@ -366,20 +436,20 @@ export class Avatar {
       hb.add(knuckle);
       const l1 = len * 0.55;
       const l2 = len * 0.48;
-      this.mesh(new THREE.CapsuleGeometry(r0, l1, 3, 8).translate(0, -l1 / 2, 0), mat, knuckle);
+      add(new THREE.CapsuleGeometry(r0, l1, 3, 8).translate(0, -l1 / 2, 0), mat, knuckle);
       const mid = new THREE.Object3D();
       mid.position.set(0, -l1 - 0.001, 0);
       knuckle.add(mid);
-      this.mesh(new THREE.CapsuleGeometry(r0 * 0.9, l2, 3, 8).translate(0, -l2 / 2, 0), mat, mid);
+      add(new THREE.CapsuleGeometry(r0 * 0.9, l2, 3, 8).translate(0, -l2 / 2, 0), mat, mid);
       // the nail
-      this.mesh(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), this.std(new THREE.Color(0xf0d8cc), { roughness: 0.3 }), mid, V(0, -l2 * 0.72, -r0 * 0.85));
+      add(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), this.std(new THREE.Color(0xf0d8cc), { roughness: 0.3 }), mid, V(0, -l2 * 0.72, -r0 * 0.85));
       fingers.push({ knuckle, mid });
     }
     const thumb = new THREE.Object3D();
     thumb.position.set(k * w * 0.45, -0.022, 0.01);
     thumb.rotation.set(0, k * -0.5, k * 0.55);
     hb.add(thumb);
-    this.mesh(new THREE.CapsuleGeometry(0.0085, 0.034, 3, 8).translate(0, -0.017, 0), mat, thumb);
+    add(new THREE.CapsuleGeometry(0.0085, 0.034, 3, 8).translate(0, -0.017, 0), mat, thumb);
     this.hands[side] = { fingers, thumb, thumbRest: thumb.rotation.clone(), curl: 0.35 };
   }
 
@@ -1045,7 +1115,10 @@ export class Avatar {
     const item = (slot: Slot) => l.items[slot] ?? null;
 
     // tops and outer layers share a torso shell builder
-    const shell = (slot: Slot, push: number, o: { sleeves: 'none' | 'short' | 'elbow' | 'long'; open?: number; collar?: 'crew' | 'high' | 'shirt' | 'none'; hood?: boolean; puffy?: boolean; length?: number; crop?: boolean }) => {
+    // the modelled torso is fuller than the code-built one: cut tops a little looser round it
+    const fitTop = this.modelShows.has('chest') ? 0.012 : 0;
+    const shell = (slot: Slot, push: number, o: ShellStyle) => {
+      push += fitTop;
       const m = this.fabric(slot);
       const trim = this.fabric(slot, 2);
       const gap = o.open ?? 0;
@@ -1112,23 +1185,7 @@ export class Avatar {
 
     const top = item('top');
     if (top) {
-      const map: Record<string, Parameters<typeof shell>[2] & { push?: number }> = {
-        tee_vintage: { sleeves: 'elbow', collar: 'crew', push: 0.022, length: 0.03 },
-        tee_band: { sleeves: 'short', collar: 'crew' },
-        tee_plain: { sleeves: 'short', collar: 'crew' },
-        tee_smiley: { sleeves: 'short', collar: 'crew', push: 0.014 },
-        shirt_linen: { sleeves: 'elbow', collar: 'shirt', open: 0.5, push: 0.016 },
-        shirt_floral: { sleeves: 'short', collar: 'shirt', push: 0.016 },
-        shirt_white: { sleeves: 'short', collar: 'shirt' },
-        jersey_football: { sleeves: 'short', collar: 'crew', push: 0.014 },
-        techwear_top: { sleeves: 'long', collar: 'high', push: 0.012 },
-        hoodie: { sleeves: 'long', collar: 'none', hood: true, push: 0.022, length: 0.03 },
-        tank_mesh: { sleeves: 'none', collar: 'crew' },
-        longsleeve: { sleeves: 'long', collar: 'crew' },
-        crop_top: { sleeves: 'none', collar: 'crew', crop: true, push: 0.006 },
-        top_sequin: { sleeves: 'none', collar: 'none', crop: true, push: 0.008 },
-      };
-      const o = map[top] ?? { sleeves: 'short', collar: 'crew' };
+      const o = TOP_STYLE[top] ?? { sleeves: 'short', collar: 'crew' };
       shell('top', o.push ?? 0.01, o);
       // the band tee's faded print and the jersey's number on the chest
       const covered = !!l.items.outer && !['utility_vest', 'jacket_sequin', 'denim_jacket', 'velvet_blazer', 'bomber'].includes(l.items.outer ?? '');
@@ -1162,16 +1219,7 @@ export class Avatar {
     }
     const outer = item('outer');
     if (outer) {
-      const map: Record<string, Parameters<typeof shell>[2] & { push?: number }> = {
-        utility_vest: { sleeves: 'none', collar: 'high', open: 0.35, push: 0.034 },
-        jacket_sequin: { sleeves: 'long', collar: 'shirt', open: 0.55, push: 0.03 },
-        shellsuit_top: { sleeves: 'long', collar: 'high', push: 0.032 },
-        puffer_metallic: { sleeves: 'long', collar: 'high', puffy: true, push: 0.055 },
-        bomber: { sleeves: 'long', collar: 'crew', open: 0.3, push: 0.034 },
-        denim_jacket: { sleeves: 'long', collar: 'shirt', open: 0.45, push: 0.03 },
-        velvet_blazer: { sleeves: 'long', collar: 'shirt', open: 0.6, push: 0.028, length: 0.06 },
-      };
-      const o = map[outer] ?? { sleeves: 'long', collar: 'crew', open: 0.4 };
+      const o = OUTER_STYLE[outer] ?? { sleeves: 'long', collar: 'crew', open: 0.4 };
       shell('outer', o.push ?? 0.03, o);
       if (outer === 'utility_vest') for (const s of [-1, 1]) for (const y of [0.1, 0.2]) this.mesh(new THREE.BoxGeometry(0.06, 0.05, 0.02), this.fabric('outer', 2), b.spine, V(s * 0.07, y * d.H, d.chestR * d.depth + 0.04));
     }
@@ -1183,21 +1231,25 @@ export class Avatar {
       const baggy = ['cargos_baggy', 'cargos_black', 'cargo_tech', 'joggers'].includes(bottom) ? 0.028 : bottom === 'trousers_flared' ? 0.012 : 0.01;
       const shorts = bottom.startsWith('shorts');
       const skirt = bottom.startsWith('skirt');
+      // the modelled thighs are fuller than the code-built ones: cut shorts and skirts a little looser round them
+      const fit = this.modelShows.has('thigh_l') ? 0.022 : 0;
+      // and keep the waistband outside a top cut looser round the modelled torso
+      const waist = this.modelShows.has('chest') ? 0.016 : 0;
       if (skirt) {
         // a short flared skirt from the waist to mid-thigh, legs bare beneath
         // on a spring at the waist: it swings and flips with the hips
         const sk = new THREE.Object3D();
         sk.position.set(0, 0.1, 0);
         b.hips.add(sk);
-        this.mesh(lathe([[d.hipsR * 1.32 + 0.03, -0.3], [d.hipsR * 1.12 + 0.012, -0.12], [d.hipsR + 0.012, -0.03], [(d.hipsR + d.waistR) / 2 + 0.008, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.1).translate(0, -0.1, 0), m, sk);
+        this.mesh(lathe([[d.hipsR * 1.32 + 0.03 + fit, -0.3], [d.hipsR * 1.12 + 0.012 + fit, -0.12], [d.hipsR + 0.012 + fit, -0.03], [(d.hipsR + d.waistR) / 2 + 0.008 + fit / 2 + waist, 0.06], [d.waistR + 0.006 + waist, 0.12]], d.depth * 1.1 * (1 + fit * 3)).translate(0, -0.1, 0), m, sk);
         this.springs.push({ obj: sk, ox: 0, oz: 0, vx: 0, vz: 0, k: 0.25, body: true });
-        const band = this.mesh(new THREE.TorusGeometry(d.waistR + 0.008, 0.006, 6, 28), this.fabric('bottom', 2), b.hips, V(0, 0.115, 0));
+        const band = this.mesh(new THREE.TorusGeometry(d.waistR + 0.008 + waist, 0.006, 6, 28), this.fabric('bottom', 2), b.hips, V(0, 0.115, 0));
         band.rotation.x = Math.PI / 2;
         band.scale.set(1, d.depth * 1.1, 1);
-      } else this.mesh(lathe([[d.hipsR * 0.92 + baggy, -0.13], [d.hipsR + baggy, -0.03], [(d.hipsR + d.waistR) / 2 + baggy * 0.7, 0.06], [d.waistR + 0.006, 0.12]], d.depth * 1.07), m, b.hips);
+      } else this.mesh(lathe([[d.hipsR * 0.92 + baggy + fit + waist, -0.13], [d.hipsR + baggy + fit + waist, -0.03], [(d.hipsR + d.waistR) / 2 + baggy * 0.7 + waist, 0.06], [d.waistR + 0.006 + waist, 0.12]], d.depth * 1.07), m, b.hips);
       for (const s of ['l', 'r'] as const) {
         if (skirt) continue;
-        this.mesh(limb(d.legR * 1.15 + baggy, shorts ? d.thigh * 0.55 : d.thigh, d.legR * 0.95 + baggy), m, b[`thigh_${s}`]);
+        this.mesh(limb(d.legR * 1.15 + baggy + fit, shorts ? d.thigh * 0.55 : d.thigh, d.legR * 0.95 + baggy + fit), m, b[`thigh_${s}`]);
         if (!shorts) {
           const flare = bottom === 'trousers_flared';
           this.mesh(flare ? new THREE.CylinderGeometry(d.legR * 0.9 + baggy, d.legR * 1.6, d.shin * 0.96, 18, 1, true).translate(0, -d.shin * 0.48, 0) : limb(d.legR * 0.92 + baggy, d.shin * 0.96, d.legR * 0.7 + baggy), m, b[`shin_${s}`]);
@@ -1741,6 +1793,7 @@ export class Avatar {
     const gaze = dj ? (lookUp ? -0.06 : 0.3) : 0;
     for (const e of fr.eyes) e.rotation.x += (gaze - e.rotation.x) * Math.min(1, dt * 6);
     this.settle(dt);
+    this.model?.sync();
   }
 
   /**
