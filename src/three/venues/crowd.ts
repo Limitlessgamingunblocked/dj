@@ -29,6 +29,10 @@
  *     mesh, so chunks off screen are culled; chunks far from the camera swap
  *     to a low-detail model (a little under half the triangles). Both models
  *     share one set of vertex buffers.
+ *   – the front row: the couple of dozen dancers nearest the booth are one
+ *     more instanced mesh of their own, built from a detailed close-up model
+ *     and dressed for the venue's look (frontrow.ts). The same shader poses
+ *     them, so they dance in step; they replace their low-detail selves.
  */
 import * as THREE from 'three';
 import { nameService } from '../../name/NameService';
@@ -40,6 +44,7 @@ import { useLightMap, type LightMap } from './lightmap';
 import { rng } from './tex';
 import { CrowdSteam, sweatStep } from './airlife';
 import { crowdShow } from './crowdShow';
+import { FRONT_COMMON, FRONT_LIGHT, FRONT_VIS, frontFrag, frontGeometry, LOOK_CODE, type CrowdLook } from './frontrow';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender' | 'conga' | 'card';
 const ROLE_CODE: Record<CrowdRole, number> = { dancer: 0, sign: 1, vip: 2, dj: 3, marathon: 4, filmer: 5, towel: 6, barlean: 7, rider: 8, security: 9, bartender: 10, conga: 11, card: 12 };
@@ -85,6 +90,14 @@ export interface CrowdOptions {
   shorts?: number;
   /** body heat rising off the crowd at the peak (0 for none; default on for 40 or more people) */
   steam?: number;
+  /**
+   * The front row: how many of the dancers nearest the booth are drawn with
+   * the detailed close-up model (frontrow.ts) in place of the crowd's (default
+   * 24 in a crowd of 30 or more dancers, none in a smaller one).
+   */
+  frontRow?: number;
+  /** what the front row wears: club (default), dark (Berghain), beach, festival or playa */
+  look?: CrowdLook;
 }
 
 let shadowGeo: THREE.BufferGeometry | null = null;
@@ -104,7 +117,7 @@ export const PERSON_MATS = M;
  * wrist), never blocky segments.
  */
 /* the torso, hips to the base of the neck: the waist in, the ribcage, the slope of the shoulders */
-const TORSO: [number, number][] = [
+export const TORSO: [number, number][] = [
   [0, 0.94],
   [0.142, 0.94],
   [0.137, 0.98],
@@ -122,7 +135,7 @@ const TORSO: [number, number][] = [
   [0, 1.466],
 ];
 /* the lower leg, ankle to knee: the calf bulges high and the shin runs straight */
-const SHIN: [number, number][] = [
+export const SHIN: [number, number][] = [
   [0.034, 0.06],
   [0.038, 0.11],
   [0.045, 0.18],
@@ -133,7 +146,7 @@ const SHIN: [number, number][] = [
   [0.052, 0.52],
 ];
 /* the thigh, knee to hip: it fills out towards the hip */
-const THIGH: [number, number][] = [
+export const THIGH: [number, number][] = [
   [0.054, 0.49],
   [0.058, 0.56],
   [0.067, 0.65],
@@ -143,14 +156,14 @@ const THIGH: [number, number][] = [
   [0.086, 0.97],
 ];
 /* the upper arm, elbow to shoulder, and the forearm, wrist to elbow */
-const UPPER_ARM: [number, number][] = [
+export const UPPER_ARM: [number, number][] = [
   [0.041, 1.13],
   [0.044, 1.18],
   [0.049, 1.26],
   [0.052, 1.33],
   [0.052, 1.4],
 ];
-const FOREARM: [number, number][] = [
+export const FOREARM: [number, number][] = [
   [0.029, 0.875],
   [0.031, 0.91],
   [0.037, 0.98],
@@ -158,7 +171,7 @@ const FOREARM: [number, number][] = [
   [0.041, 1.14],
 ];
 /* the pelvis, under the torso, in the trousers: it carries the body's outline down to the legs */
-const PELVIS: [number, number][] = [
+export const PELVIS: [number, number][] = [
   [0.08, 0.83],
   [0.125, 0.86],
   [0.143, 0.9],
@@ -166,7 +179,7 @@ const PELVIS: [number, number][] = [
   [0.142, 0.99],
 ];
 /* the neck */
-const NECK: [number, number][] = [
+export const NECK: [number, number][] = [
   [0.054, 1.43],
   [0.047, 1.47],
   [0.044, 1.52],
@@ -175,7 +188,7 @@ const NECK: [number, number][] = [
 
 const personGeo: (THREE.BufferGeometry | null)[] = [null, null];
 
-function part(g: THREE.BufferGeometry, bone: number, mat: number): THREE.BufferGeometry {
+export function part(g: THREE.BufferGeometry, bone: number, mat: number): THREE.BufferGeometry {
   const n = g.attributes.position.count;
   g.setAttribute('aBone', new THREE.Float32BufferAttribute(new Float32Array(n).fill(bone), 1));
   g.setAttribute('aMat', new THREE.Float32BufferAttribute(new Float32Array(n).fill(mat), 1));
@@ -183,7 +196,7 @@ function part(g: THREE.BufferGeometry, bone: number, mat: number): THREE.BufferG
 }
 
 /** a body part turned from a profile (every other point at low detail), closed at both ends, centred on x, z */
-function turned(profile: [number, number][], radial: number, lo: boolean, x = 0, z = 0): THREE.BufferGeometry {
+export function turned(profile: [number, number][], radial: number, lo: boolean, x = 0, z = 0): THREE.BufferGeometry {
   const pts = lo ? profile.filter((_, i) => i % 2 === 0 || i === profile.length - 1) : profile;
   const first = pts[0];
   const last = pts[pts.length - 1];
@@ -195,7 +208,7 @@ function turned(profile: [number, number][], radial: number, lo: boolean, x = 0,
   ).translate(x, 0, z);
 }
 
-const smooth = (a: number, b: number, x: number) => {
+export const smooth = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
@@ -205,7 +218,7 @@ const smooth = (a: number, b: number, x: number) => {
  * the chin, the back of the jaw tucked into the neck, the forehead a touch
  * flatter. One surface, so the face shades as one piece.
  */
-function shapeHead(v: THREE.Vector3): THREE.Vector3 {
+export function shapeHead(v: THREE.Vector3): THREE.Vector3 {
   const t = Math.max(0, -v.y);
   let x = v.x * (1 - 0.3 * t * t);
   let z = v.z;
@@ -217,7 +230,7 @@ function shapeHead(v: THREE.Vector3): THREE.Vector3 {
 }
 
 /** a sphere made into the head (or, scaled out, the hair over it), welded so it shades without a seam */
-function headGeometry(ws: number, hs: number, thetaLen = Math.PI, hairline?: (phi: number) => number, thick = 0): THREE.BufferGeometry {
+export function headGeometry(ws: number, hs: number, thetaLen = Math.PI, hairline?: (phi: number) => number, thick = 0): THREE.BufferGeometry {
   const g = new THREE.SphereGeometry(1, ws, hs, 0, Math.PI * 2, 0, thetaLen);
   const pos = g.attributes.position;
   const v = new THREE.Vector3();
@@ -492,6 +505,12 @@ export const VERT_HEAD = /* glsl */ `
   varying float vSignRow;
   varying vec3 vRest;
   varying float vBone;
+  #ifdef CROWD_FRONT
+  varying float vMouth;
+  varying float vFilm;
+  float poseMouth;
+  float poseFilm;
+  #endif
   mat3 rotX(float a) { float c = cos(a), s = sin(a); return mat3(1.0, 0.0, 0.0, 0.0, c, s, 0.0, -s, c); }
   mat3 rotY(float a) { float c = cos(a), s = sin(a); return mat3(c, 0.0, -s, 0.0, 1.0, 0.0, s, 0.0, c); }
   mat3 rotZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0); }
@@ -729,6 +748,9 @@ export const VERT_HEAD = /* glsl */ `
     else if (aMat > 10.5) vis = sign;
     else if (aMat > 7.5) vis = step(0.5, max(wFilm, wLight));
     else if (aMat > 6.5) vis = step(0.5, wDrink);
+    #ifdef CROWD_FRONT
+    /*FRONT_VIS*/
+    #endif
     if (rider > 0.5 && up < 0.5) vis = 0.0;
     // the dance circle: the ring turns to face the soloist and steps back; the conga pushes through
     vec2 push = vec2(0.0);
@@ -773,6 +795,10 @@ const FRAG_HEAD = /* glsl */ `
   varying float vSignRow;
   varying vec3 vRest;
   varying float vBone;
+  #ifdef CROWD_FRONT
+  varying float vMouth;
+  varying float vFilm;
+  #endif
 `;
 
 const FRAG_COLOR = /* glsl */ `
@@ -795,7 +821,12 @@ const FRAG_COLOR = /* glsl */ `
   // antialiasing width for the painted details (they shrink to nothing at a distance)
   float aa = max(fwidth(p.y) * 1.5, 0.0012);
   bool shortsOn = fract(vSeed.z * 11.3) < uShorts;
-  if (m > 0.5 && m < 1.5) {
+  #ifdef CROWD_FRONT
+  if (vPick.y > 0.5) shortsOn = true;
+  #endif
+  // the front row's own parts are coloured after the crowd's (frontrow.ts)
+  if (m > 17.5) {}
+  else if (m > 0.5 && m < 1.5) {
     col = bottoms;
     crowdRough = jeans ? 0.84 : 0.8;
     // shorts end a hand above the knee, with a turned hem
@@ -814,6 +845,8 @@ const FRAG_COLOR = /* glsl */ `
     col = skin;
     crowdRough = mix(0.58, 0.3, uSweat);
     // the face, painted on the head's front: eyes with a catch light, brows, the mouth, a little colour in the cheeks
+    // (the front row has the real thing: frontrow.ts)
+    #ifndef CROWD_FRONT
     if (vBone > 8.5 && vBone < 9.5 && p.z > 0.05 && p.y > 1.5) {
       vec2 q = vec2(abs(p.x), p.y - 1.6);
       float socket = exp(-dot(q - vec2(0.031, 0.006), q - vec2(0.031, 0.006)) / 0.0004);
@@ -832,6 +865,7 @@ const FRAG_COLOR = /* glsl */ `
       float blush = exp(-dot(q - vec2(0.044, -0.02), q - vec2(0.044, -0.02)) / 0.00035);
       col = mix(col, col * vec3(1.12, 0.92, 0.9), blush * 0.6);
     }
+    #endif
   }
   else if (m > 2.5 && m < 3.5) {
     col = hair;
@@ -861,7 +895,7 @@ const FRAG_COLOR = /* glsl */ `
     if (uPhotos > 0.001) glow += vec3(16.0) * step(1.0 - 0.06 * uPhotos, crowdHash(vec2(vSeed.x * 113.0, floor(uTime * 9.0 + vSeed.z * 9.0))));
   }
   else if (m > 10.5 && m < 11.5) col = vCard > 0.5 ? vec3(0.42, 0.3, 0.18) : vec3(0.02);
-  else if (m > 16.5) { col = hair; crowdRough = 0.48; }
+  else if (m > 16.5 && m < 17.5) { col = hair; crowdRough = 0.48; }
   // a cap: black, the top's colour or stone
   else if (m > 15.5) { float cv = fract(vSeed.x * 9.7); col = cv < 0.45 ? vec3(0.025) : cv < 0.8 ? top * 0.85 : vec3(0.5, 0.46, 0.38); crowdRough = 0.7; }
   // the lower leg: trousers, or bare in shorts
@@ -919,10 +953,13 @@ const FRAG_COLOR = /* glsl */ `
     if (p.z > 0.03 && p.y > 0.42 && p.y < 0.6) col *= 1.0 + 0.3 * (1.0 - abs(p.y - 0.51) / 0.09);
   }
   // hair: strands, so it reads as hair and not a helmet
-  if ((m > 2.5 && m < 3.5) || (m > 13.5 && m < 14.5) || m > 16.5) {
+  if ((m > 2.5 && m < 3.5) || (m > 13.5 && m < 14.5) || (m > 16.5 && m < 17.5)) {
     float strand = sin(atan(p.x, p.z + 0.001) * 70.0 + p.y * 40.0 + vSeed.x * 20.0);
     col *= 0.88 + 0.16 * strand * (1.0 - smoothstep(0.004, 0.01, aa));
   }
+  #ifdef CROWD_FRONT
+  /*FRONT_FRAG*/
+  #endif
   // blacklight: white cloth glows blue-violet, bright colours fluoresce; skin and dark cloth stay dark
   if (uUV > 0.001) {
     float cloth = (m < 1.5 || (m > 3.5 && m < 6.5) || (m > 12.5 && m < 13.5) || (m > 15.5 && m < 16.5)) ? 1.0 : 0.0;
@@ -963,6 +1000,8 @@ const RIM_WHITE = new THREE.Color(1, 1, 1);
 export class Crowd implements Fixture {
   /** distance (m) inside which chunks use the detailed model; scaled by the adaptive quality */
   static detailDistance = 12;
+  /** dancers in the detailed front row of a big enough crowd (frontrow.ts); set by the quality setting */
+  static frontRow = 24;
   readonly object = new THREE.Group();
   private chunks: Chunk[] = [];
   private shadows: THREE.InstancedMesh[] = [];
@@ -998,6 +1037,7 @@ export class Crowd implements Fixture {
     uCards: { value: null as THREE.Texture | null },
     uRim: { value: new THREE.Color(0, 0, 0) },
     uRimFrom: { value: new THREE.Vector3(0, 3.5, 1.5) },
+    uOutfit: { value: 0 },
   };
   private hands = 0;
   private jump = 0;
@@ -1096,28 +1136,36 @@ export class Crowd implements Fixture {
     });
 
     n = spots.length;
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 });
     this.u.uSigns.value = signIdx.size ? signAtlas() : null;
     this.u.uCards.value = cardIdx.size ? cardAtlas() : null;
     this.hasCards = cardIdx.size > 0;
     this.u.uBooth.value.set(booth.x, booth.z);
     this.spots = spots;
     this.infoRole = info.filter((_, k) => k % 4 === 0);
-    mat.onBeforeCompile = (sh) => {
-      Object.assign(sh.uniforms, this.u);
-      sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', `#include <common>\n${VERT_HEAD}`)
-        .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\ncomputePose();\nobjectNormal = poseR * objectNormal;`)
-        .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * transformed + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;\nvRest = position;\nvBone = aBone;`);
-      sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', `#include <common>\n${FRAG_HEAD}`)
-        .replace('#include <color_fragment>', `#include <color_fragment>\n${FRAG_COLOR}`)
-        // sweat: skin goes glossy over a long peak
-        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = crowdRough;`)
-        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${FRAG_RIM}`);
+    this.u.uOutfit.value = LOOK_CODE[o.look ?? 'club'];
+    // one material for the crowd, one for the front row: the same shader, the front row's parts switched in
+    const makeMat = (front: boolean) => {
+      const m = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 });
+      if (front) m.defines = { CROWD_FRONT: '' };
+      m.onBeforeCompile = (sh) => {
+        Object.assign(sh.uniforms, this.u);
+        const common = front ? FRONT_COMMON : '';
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', `#include <common>\n${common}${front ? VERT_HEAD.replace('/*FRONT_VIS*/', FRONT_VIS) : VERT_HEAD}`)
+          .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\ncomputePose();\nobjectNormal = poseR * objectNormal;`)
+          .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * transformed + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;\nvRest = position;\nvBone = aBone;${front ? '\nvMouth = poseMouth;\nvFilm = poseFilm;' : ''}`);
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', `#include <common>\n${FRAG_HEAD}${common}`)
+          .replace('#include <color_fragment>', `#include <color_fragment>\n${front ? FRAG_COLOR.replace('/*FRONT_FRAG*/', frontFrag()) : FRAG_COLOR}`)
+          // sweat: skin goes glossy over a long peak
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = crowdRough;`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${FRAG_RIM}${front ? FRONT_LIGHT : ''}`);
+      };
+      m.customProgramCacheKey = () => (front ? 'crowd-front' : 'crowd');
+      if (o.lightMap) useLightMap(m, o.lightMap, 0.9);
+      return m;
     };
-    mat.customProgramCacheKey = () => 'crowd';
-    if (o.lightMap) useLightMap(mat, o.lightMap, 0.9);
+    const mat = makeMat(false);
 
     // per-person placement (facing, scale, clothes), then grouped into chunks
     const q = new THREE.Quaternion();
@@ -1137,16 +1185,30 @@ export class Crowd implements Fixture {
       const c = clothes[Math.floor(r() * clothes.length)];
       cols.push(shirt.get(i) ?? c);
     });
+    // the front row: the dancers nearest the booth (the barrier counts for more than the sides), drawn in detail
+    const isDancer = (i: number) => [0, 1, 4, 5, 6, 12].includes(info[i * 4]);
+    const nDancers = spots.reduce((k, _, i) => k + (isDancer(i) ? 1 : 0), 0);
+    const wantFront = Math.min(o.frontRow ?? (nDancers >= 30 ? Crowd.frontRow : 0), nDancers);
+    const front = new Set(
+      spots
+        .map((s, i) => ({ i, d: Math.hypot((s.x - booth.x) * 0.6, s.z - booth.z) }))
+        .filter(({ i }) => isDancer(i))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, wantFront)
+        .map(({ i }) => i),
+    );
     const cells = new Map<string, number[]>();
     spots.forEach((s, i) => {
-      const key = `${Math.floor(s.x / CHUNK)},${Math.floor(s.z / CHUNK)},${Math.round((s.y ?? 0) / 2)}`;
+      const key = front.has(i) ? 'front' : `${Math.floor(s.x / CHUNK)},${Math.floor(s.z / CHUNK)},${Math.round((s.y ?? 0) / 2)}`;
       let list = cells.get(key);
       if (!list) cells.set(key, (list = []));
       list.push(i);
     });
     const hi = personGeometry(0);
     const lo = personGeometry(1);
-    for (const idx of cells.values()) {
+    const frontMat = front.size ? makeMat(true) : null;
+    for (const [key, idx] of cells) {
+      const isFront = key === 'front';
       const k = idx.length;
       const cs = new Float32Array(k * 4);
       const ci = new Float32Array(k * 4);
@@ -1155,8 +1217,9 @@ export class Crowd implements Fixture {
         ci.set(info.slice(i * 4, i * 4 + 4), j * 4);
       });
       const inst = { iSeed: new THREE.InstancedBufferAttribute(cs, 4), iInfo: new THREE.InstancedBufferAttribute(ci, 4) };
-      const geos: [THREE.BufferGeometry, THREE.BufferGeometry] = [chunkGeometry(hi, inst), chunkGeometry(lo, inst)];
-      const mesh = new THREE.InstancedMesh(geos[0], mat, k);
+      // the front row: the detailed model up close, the crowd's low-detail one from far away
+      const geos: [THREE.BufferGeometry, THREE.BufferGeometry] = [chunkGeometry(isFront ? frontGeometry() : hi, inst), chunkGeometry(lo, inst)];
+      const mesh = new THREE.InstancedMesh(geos[0], isFront ? frontMat! : mat, k);
       idx.forEach((i, j) => {
         mesh.setMatrixAt(j, mats[i]);
         mesh.setColorAt(j, cols[i]);

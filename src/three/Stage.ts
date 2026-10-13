@@ -895,6 +895,8 @@ export class Stage {
       this.keyLight.shadow.map = null as unknown as THREE.WebGLRenderTarget;
     }
     this.renderer.shadowMap.enabled = q !== 'low';
+    // the crowd's detailed front row (venues built from now on): none on low
+    Crowd.frontRow = q === 'low' ? 0 : 24;
     // multisampling is the biggest fill cost: none on low
     const samples = q === 'low' ? 0 : 4;
     if (samples !== this.msaa) {
