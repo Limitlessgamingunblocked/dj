@@ -181,7 +181,7 @@ class Berghain extends VenueBase {
     const balconyCam = new THREE.Box2(new THREE.Vector2(-10.8, -12.6), new THREE.Vector2(-9.4, -9.4));
     const dark = ['#0b0b0d', '#141417', '#1c1c20', '#0f1012', '#2a2a2e', '#18181b'];
     // no phones and no signs: cameras get stickered at the door
-    this.add(new Crowd([...crowdArea(-10.5, 10.5, -2.2, -24, 1.25, 81, { y: -STAGE, avoid }), ...crowdArea(-12.6, -9.6, -5, -27, 1.1, 82, { y: 5.68, avoid: [balconyCam] })], { seed: 80, clothes: dark, drinks: 0.08 }));
+    this.add(new Crowd([...crowdArea(-10.5, 10.5, -2.2, -24, 1.25, 81, { y: -STAGE, avoid }), ...crowdArea(-12.6, -9.6, -5, -27, 1.1, 82, { y: 5.68, avoid: [balconyCam] })], { seed: 80, clothes: dark, drinks: 0.08, look: 'dark' }));
     this.add(new HazeLayer(new THREE.Box3(V(-12, 2, -28), V(12, 14, 0)), 6));
 
     this.wash(V(0, 9, -8), 1, 5, 22);
