@@ -373,7 +373,7 @@ export class Stage {
     const part = this.board.parts.find((p) => (p.id !== null && reg.resolveId(p.id) === id) || (p.alt !== null && reg.resolveId(p.alt) === id));
     if (!part) return;
     const at = new THREE.Vector3();
-    this.avatar.touch(() => (part.object.parent ? part.grip(at) : null));
+    this.avatar.touch(() => (part.object.parent ? part.grip(at) : null), part.hold, () => part.turn());
   }
 
   /** you at the decks, facing the room, or where a scene has put you */

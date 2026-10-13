@@ -9,6 +9,7 @@ import type { LibraryBrowser } from './deviceScreen';
 import * as THREE from 'three';
 import { faderCapGeometry, knurledKnob } from './realism';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import type { HandHold } from '../character/Avatar';
 import type { ControlRegistry } from '../core/controls';
 import { ledColor } from '../core/controls';
 import type { AudioEngine } from '../audio/AudioEngine';
@@ -79,6 +80,14 @@ export abstract class Part {
   /** where a hand takes hold of this part (world space): a little above it, by default */
   grip(out: THREE.Vector3): THREE.Vector3 {
     return this.object.localToWorld(out.set(0, 0.025, 0));
+  }
+
+  /** how the DJ's hand holds it (Avatar.touch): pinched, ridden, flat on it, pressed */
+  hold: HandHold = 'press';
+
+  /** how far it has turned (radians): a knob's twist, a platter's spin, for the hand to follow */
+  turn(): number {
+    return 0;
   }
 
   down?(p: PointerInfo, c: PartCtx): void;
@@ -153,6 +162,7 @@ export class KnobPart extends Part {
     this.id = id;
     this.label = label;
     this.cursor = 'ns-resize';
+    this.hold = 'knob';
     const M = mats();
     // knurled for grip: fine metal knurling on chrome knobs, rubber ridges on the rest
     const body = new THREE.Mesh(style === 'chrome' ? knurledKnob(r, h, 60, 0.02) : style === 'mini' ? knobGeometry(r, h) : knurledKnob(r, h, 32, 0.045), style === 'chrome' ? M.chrome : M.rubber);
@@ -191,6 +201,10 @@ export class KnobPart extends Part {
       this.ring.userData.color = ledRing;
       this.object.add(this.ring);
     }
+  }
+
+  turn(): number {
+    return this.spin.rotation.y;
   }
 
   update(c: PartCtx): void {
@@ -301,6 +315,7 @@ export class FaderPart extends Part {
     this.id = id;
     this.label = label;
     this.cursor = axis === 'x' ? 'ew-resize' : 'ns-resize';
+    this.hold = 'fader';
     const M = mats();
     // [across the slot, height, along it]: pro caps are about 20 × 11 × 11 mm, ridged on top
     const dims = { channel: [0.016, 0.0105, 0.0095], cross: [0.015, 0.0105, 0.009], tempo: [0.018, 0.0095, 0.011], mini: [0.0095, 0.0075, 0.007] }[size];
@@ -570,9 +585,15 @@ export class JogPart extends Part {
     return this.object.localToWorld(out.set(this.r * 0.15, this.topY + 0.01, this.r * 0.55));
   }
 
+  turn(): number {
+    return this.angle;
+  }
+
   private top = new THREE.Group();
   private ringLed: THREE.MeshStandardMaterial;
   private lastAngle = 0;
+  /** the wheel's angle, last frame */
+  private angle = 0;
   private topY: number;
   private screen: THREE.CanvasTexture | null = null;
   private screenCanvas: HTMLCanvasElement | null = null;
@@ -589,6 +610,7 @@ export class JogPart extends Part {
     this.id = id;
     this.label = label;
     this.cursor = 'grab';
+    this.hold = 'jog';
     const M = mats();
     const ringH = 0.014;
     const ring = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.01, ringH, 96, 1), M.jogRing);
@@ -650,7 +672,7 @@ export class JogPart extends Part {
     const ctl = c.reg.get(id);
     if (!ctl || ctl.kind !== 'jog') return;
     const d = c.deck(this.deckRef);
-    const angle = ctl.angle();
+    const angle = (this.angle = ctl.angle());
     if (!this.top.userData.static) this.top.rotation.y = angle;
     const touched = ctl.touched();
     const lvl = touched ? 1 : d.playing ? 0.55 : d.loaded ? 0.18 : 0.04;
@@ -807,12 +829,18 @@ export class PlatterPart extends Part {
     return this.object.localToWorld(out.set(0.03, this.topY + 0.01, 0.1));
   }
 
+  turn(): number {
+    return this.angle;
+  }
+
   private platter = new THREE.Group();
   private record = new THREE.Group();
   private labelTex: THREE.CanvasTexture;
   private labelCanvas: HTMLCanvasElement;
   private labelFor = '';
   private lastAngle = 0;
+  /** the record's angle, last frame */
+  private angle = 0;
   private zone: 'top' | 'ring' = 'top';
   private topY: number;
   private strobeGlow: THREE.MeshBasicMaterial;
@@ -827,6 +855,7 @@ export class PlatterPart extends Part {
     this.id = id;
     this.label = label;
     this.cursor = 'grab';
+    this.hold = 'jog';
     const M = mats();
     const pr = 0.166;
     const ph = 0.028;
@@ -884,7 +913,7 @@ export class PlatterPart extends Part {
     const d = c.deck(this.deckRef);
     this.platter.rotation.y = d.platterAngle;
     const ctl = c.reg.get(this.id!);
-    if (ctl && ctl.kind === 'jog') this.record.rotation.y = ctl.angle();
+    if (ctl && ctl.kind === 'jog') this.record.rotation.y = this.angle = ctl.angle();
     this.record.visible = d.loaded;
     this.strobeGlow.opacity = d.playing ? 0.5 : 0.15;
     const key = d.track?.id ?? '';
@@ -997,6 +1026,7 @@ export class TonearmPart extends Part {
     this.id = id;
     this.label = label;
     this.cursor = 'grab';
+    this.hold = 'grip';
     const M = mats();
     this.object.position.set(pivot.x, 0, pivot.y);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.03, 0.012, 32), M.chrome);

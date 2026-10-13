@@ -21,7 +21,16 @@
  *   moves    grooves locked to the beat (head nod, shoulder bounce, two-step,
  *            full body, still), hands on the decks, the signature drop move,
  *            a between-mix habit every 32 bars, blinking, sweat building up;
- *            a hand goes to whatever control you touch (two-bone reach)
+ *            a hand goes to whatever control you touch (two-bone reach) and
+ *            holds it the way that control is held: a knob pinched and the
+ *            wrist turning with it, fingertips riding a fader, the palm flat
+ *            on a platter going round with the record, a finger tapping a pad;
+ *            cueing, a hand holds the cup to the ear for two bars in four
+ *   face     expressions blended from the show: a stank face on the drop,
+ *            eyes shut and chin up in the breakdown, wide eyes at the top of
+ *            the build, mouthing along to a vocal, a grin when the room peaks,
+ *            a frown of focus on a control, a brow flash for a clean blend
+ *            and a wince at a mistake (brows, lids, cheeks, lip corners, jaw)
  *   hype     the dancers by the booth: a new move every two bars (sway, wave,
  *            hair flip, point at the DJ, body roll, clap in the build), and a
  *            jump on the drop
@@ -54,7 +63,16 @@ export interface AvatarInput {
   peak: number;
   build: number;
   kick: number;
+  /** how much a vocal carries the track (0..1): the mouth goes with it */
+  vocal?: number;
+  /** the crowd's energy (0..1): a grin when it's up */
+  hype?: number;
+  /** a hook line landing (0..1 envelope): sung a little harder */
+  accent?: number;
 }
+
+/** how a hand holds a control: pinch a knob, ride a fader, flat on a jog, press a button, or just a grip */
+export type HandHold = 'knob' | 'fader' | 'jog' | 'press' | 'grip';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const smooth = (a: number, b: number, x: number) => {
@@ -157,18 +175,206 @@ interface Reach {
   age: number;
   /** how far the hand has come (0 at its own pose, 1 on the control) */
   w: number;
+  /** how it's held, and how far the control has turned (for the wrist to follow) */
+  hold: HandHold;
+  turn: (() => number) | null;
+  /** a knob: its angle when the fingers took it; a platter: its angle last frame */
+  turn0: number;
+  /** the wrist's twist on a knob, or how far the record has carried the palm (radians) */
+  twist: number;
+  /** a button: seconds into the tap (-1 waiting for the hand to arrive) */
+  tap: number;
 }
 
 /** how long a hand stays on a control after it last moved */
 const REACH_HOLD = 0.75;
 
-/** a hand's fingers: four with a knuckle and a middle joint each, and a thumb */
+/** a hand's fingers: index to little, each with a knuckle and a middle joint, and a thumb */
 interface HandRig {
   fingers: { knuckle: THREE.Object3D; mid: THREE.Object3D }[];
   thumb: THREE.Object3D;
   thumbRest: THREE.Euler;
   /** 0 open, ~0.35 relaxed, ~0.9 a grip, 1.5 a fist */
   curl: number;
+  /** a shape laid over the curl (a pinch, a pointing finger…), and how far in it is */
+  pose: HandPose;
+  poseW: number;
+}
+
+/**
+ * Hand shapes for holding things. Per finger (index to little): the curl at
+ * the knuckle and the middle joint, and the fan (spread apart); the thumb's
+ * curl in across the palm, and how far it stands out from the hand (1 as built).
+ */
+type HandPose = 'pinch' | 'ride' | 'spread' | 'point' | 'cup';
+const HAND_POSES: Record<HandPose, { k: number[]; m: number[]; fan: number; thumb: number; out: number }> = {
+  // a knob between the thumb and the first two fingers, the others tucked away
+  pinch: { k: [0.6, 0.7, 1.35, 1.45], m: [0.45, 0.5, 1.4, 1.5], fan: 0, thumb: 0.15, out: 0.35 },
+  // two fingertips on a fader cap, the others curled under
+  ride: { k: [0.5, 0.5, 1.15, 1.3], m: [0.3, 0.3, 1.2, 1.3], fan: 0.02, thumb: 0.45, out: 0.75 },
+  // the palm flat on a platter, fingers spread round it
+  spread: { k: [0.12, 0.1, 0.12, 0.16], m: [0.08, 0.06, 0.08, 0.1], fan: 0.16, thumb: 0, out: 1.35 },
+  // the index out to press a button, the rest in a loose fist
+  point: { k: [0.12, 1.25, 1.4, 1.45], m: [0.06, 1.35, 1.45, 1.5], fan: 0, thumb: 0.6, out: 0.4 },
+  // cupped round a headphone cup
+  cup: { k: [0.45, 0.5, 0.55, 0.6], m: [0.35, 0.4, 0.45, 0.5], fan: 0.06, thumb: 0.3, out: 0.9 },
+};
+const HOLD_POSE: Record<HandHold, HandPose | null> = { knob: 'pinch', fader: 'ride', jog: 'spread', press: 'point', grip: null };
+
+/**
+ * How the hand sits on each kind of control, in the avatar's own space (+Z
+ * towards the decks, +X its left; `k` mirrors for the left/right hand):
+ * the way the fingers point, the way the palm faces, and the point of the
+ * hand (in the hand's space) that touches the control.
+ */
+const HOLD_FRAME: Record<Exclude<HandHold, 'grip'>, { fingers: [number, number, number]; palm: [number, number, number]; touch: [number, number, number] }> = {
+  // from above, fingers down the side of the knob, palm towards the board
+  knob: { fingers: [-0.15, -1, 0.35], palm: [-0.3, -0.25, 1], touch: [-0.008, -0.088, -0.026] },
+  // fingers along the fader towards the board, palm down
+  fader: { fingers: [0, -0.7, 1], palm: [0, -1, -0.35], touch: [-0.008, -0.108, -0.016] },
+  // flat on the platter, fingers fanned forward and in
+  jog: { fingers: [-0.3, -0.12, 1], palm: [0, -1, 0.05], touch: [0, -0.06, -0.018] },
+  // the index straight down onto the button
+  press: { fingers: [-0.1, -1, 0.5], palm: [-0.2, -0.3, 1], touch: [-0.022, -0.116, -0.004] },
+};
+
+/*
+ * The face's moving parts, each a channel the expressions push on:
+ *   brow     brows up (+) or down (-)
+ *   frown    brows in and down at the middle (+), or up at the middle, worried (-)
+ *   lids     upper lids closed (1) or wide open (-0.5)
+ *   squint   lower lids and cheeks up
+ *   jaw      mouth open
+ *   smile    mouth corners up (+) or down (-)
+ *   wide     mouth stretched wide
+ *   sneer    upper lip curled up on one side, nose wrinkled
+ *   pucker   lips pushed into an "oo"
+ *   pitch    head tipped back (-) or down (+)
+ *   roll     head tilted to the side
+ *   gaze     eyes down to the board
+ */
+const FACE_CH = ['brow', 'frown', 'lids', 'squint', 'jaw', 'smile', 'wide', 'sneer', 'pucker', 'pitch', 'roll', 'gaze'] as const;
+type FaceCh = (typeof FACE_CH)[number];
+const CH = Object.fromEntries(FACE_CH.map((c, i) => [c, i])) as Record<FaceCh, number>;
+const faceOf = (o: Partial<Record<FaceCh, number>>) => Float32Array.from(FACE_CH, (c) => o[c] ?? 0);
+
+/** the expressions, each a full set of channels; the face is a weighted sum of them */
+const EXPRESSIONS = {
+  // the drop: "that's filthy": brows crushed down, nose screwed up, lip curled, mouth open
+  stank: faceOf({ brow: -0.7, frown: 1, lids: 0.35, squint: 1, jaw: 0.4, smile: -0.35, wide: 0.15, sneer: 1, pitch: -0.1, roll: 0.1 }),
+  // the breakdown: eyes shut, chin up, lost in it
+  lost: faceOf({ brow: 0.45, frown: -0.5, lids: 1, jaw: 0.15, smile: 0.3, pitch: -0.55, roll: -0.14 }),
+  // the top of the build: eyes wide, brows up, "ooh"
+  rise: faceOf({ brow: 1, frown: -0.3, lids: -0.45, jaw: 0.3, pucker: 0.7, pitch: -0.12 }),
+  // the room at its peak: a big grin
+  grin: faceOf({ brow: 0.45, lids: 0.15, squint: 0.75, jaw: 0.35, smile: 1, wide: 0.8, pitch: -0.08 }),
+  // a hand on a control: a frown of concentration, eyes on it
+  focus: faceOf({ brow: -0.2, frown: 0.45, lids: 0.2, squint: 0.2, pucker: 0.15, pitch: 0.06, gaze: 1 }),
+  // a clean transition: a quick flash of the brows and half a smile
+  nice: faceOf({ brow: 1.1, lids: -0.3, smile: 0.6, wide: 0.2, jaw: 0.08, roll: 0.06 }),
+  // a mistake: a wince, teeth showing
+  oops: faceOf({ brow: 0.5, frown: -0.9, lids: 0.35, squint: 0.6, jaw: 0.18, smile: -0.7, wide: 0.6, roll: 0.1 }),
+};
+type Expression = keyof typeof EXPRESSIONS;
+const EXPRESSION_IDS = Object.keys(EXPRESSIONS) as Expression[];
+const STANK = EXPRESSION_IDS.indexOf('stank');
+const LOST = EXPRESSION_IDS.indexOf('lost');
+const cl = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+
+/** the parts of the face that move */
+interface FaceRig {
+  /** a brow per side on a pivot at its middle (s: 1 the left), where it sits at rest */
+  brows: { pivot: THREE.Object3D; s: number; x: number; y: number }[];
+  /** the lips: upper and lower, each in two halves hinged at the middle of the mouth */
+  upper: THREE.Object3D | null;
+  lower: THREE.Object3D | null;
+  upperY: number;
+  lowerY: number;
+  halves: { obj: THREE.Object3D; s: number; upper: boolean }[];
+  /** the dark inside of the mouth, and the top teeth */
+  inside: THREE.Object3D | null;
+  insideY: number;
+  eyes: THREE.Object3D[];
+  lowerLids: THREE.Object3D[];
+  /** the head (and a beard) with the cheek and jaw shape keys (FACE_MORPHS) */
+  morphs: THREE.Mesh[];
+  /** the wings of the nose, for the wrinkle */
+  nose: { obj: THREE.Object3D; y: number }[];
+}
+const noFace = (): FaceRig => ({ brows: [], upper: null, lower: null, upperY: 0, lowerY: 0, halves: [], inside: null, insideY: 0, eyes: [], lowerLids: [], morphs: [], nose: [] });
+
+const tmpQ = new THREE.Quaternion();
+const tmpQ2 = new THREE.Quaternion();
+const tmpM = new THREE.Matrix4();
+const tmpA = new THREE.Vector3();
+const tmpB = new THREE.Vector3();
+const tmpC = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
+/** a pseudo-random 0..1 for an integer (syllables, so they don't repeat every bar) */
+const hash01 = (n: number) => {
+  const x = Math.sin(n * 91.345 + 47.853) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/**
+ * The face's shape keys, on the head (and a beard over it): the cheeks
+ * rounding up (a smile, a squint) and the chin dropping with the jaw. `dirs`
+ * is each vertex's direction from the middle of the head (x right, y up,
+ * z front), as headPoint takes it.
+ */
+export const FACE_MORPHS = ['cheeks', 'jaw'] as const;
+function faceMorphs(g: THREE.BufferGeometry, dirs: Float32Array): void {
+  const p = g.attributes.position as THREE.BufferAttribute;
+  const n = g.attributes.normal as THREE.BufferAttribute;
+  const out: THREE.BufferAttribute[] = [];
+  const normals: THREE.BufferAttribute[] = [];
+  for (const key of FACE_MORPHS) {
+    const d = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const x = dirs[i * 3];
+      const y = dirs[i * 3 + 1];
+      const z = dirs[i * 3 + 2];
+      if (key === 'cheeks') {
+        // the apples of the cheeks, under the eyes either side of the nose: out and up
+        const w = Math.exp(-((Math.abs(x) - 0.5) ** 2 + (y + 0.2) ** 2 + (z - 0.84) ** 2) / 0.035);
+        const len = Math.hypot(p.getX(i), p.getY(i), p.getZ(i)) || 1;
+        d[i * 3] = (p.getX(i) / len) * 0.0035 * w;
+        d[i * 3 + 1] = (p.getY(i) / len) * 0.0035 * w + 0.003 * w;
+        d[i * 3 + 2] = (p.getZ(i) / len) * 0.0035 * w;
+      } else {
+        // the chin and the front of the jaw, below the mouth: down, as far as the lower lip goes
+        const w = smooth(-0.47, -0.62, y) * smooth(-0.2, 0.45, z) * (1 - smooth(0.4, 0.85, Math.abs(x)));
+        d[i * 3 + 1] = -0.012 * w;
+        d[i * 3 + 2] = -0.002 * w;
+      }
+    }
+    // the normals of the moved shape, as a difference too, so the light follows the cheeks
+    const moved = g.clone();
+    const mp = moved.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < d.length; i++) (mp.array as Float32Array)[i] += d[i];
+    moved.computeVertexNormals();
+    const mn = (moved.attributes.normal as THREE.BufferAttribute).array as Float32Array;
+    const dn = new Float32Array(mn.length);
+    for (let i = 0; i < dn.length; i++) dn[i] = mn[i] - (n.array as Float32Array)[i];
+    moved.dispose();
+    out.push(new THREE.BufferAttribute(d, 3));
+    normals.push(new THREE.BufferAttribute(dn, 3));
+  }
+  g.morphAttributes.position = out;
+  g.morphAttributes.normal = normals;
+  g.morphTargetsRelative = true;
+}
+
+/**
+ * A hand's orientation from where its fingers point and which way its palm
+ * faces (the hand's −Y down the fingers, −Z out of the palm).
+ */
+function handFrame(fx: number, fy: number, fz: number, px: number, py: number, pz: number, out: THREE.Quaternion): THREE.Quaternion {
+  const Y = tmpA.set(-fx, -fy, -fz).normalize();
+  const Z = tmpB.set(-px, -py, -pz);
+  Z.addScaledVector(Y, -Z.dot(Y)).normalize();
+  const X = tmpC.crossVectors(Y, Z);
+  return out.setFromRotationMatrix(tmpM.makeBasis(X, Y, Z));
 }
 
 export class Avatar {
@@ -204,17 +410,28 @@ export class Avatar {
   private reaching: { l: Reach | null; r: Reach | null } = { l: null, r: null };
   /** the fingers, so they can curl round a control or into a fist */
   private hands: { l: HandRig | null; r: HandRig | null } = { l: null, r: null };
-  /** the parts of the face that move: brows, lower lip, eyes */
-  private faceRig: { brows: THREE.Object3D[]; lower: THREE.Object3D | null; lowerY: number; eyes: THREE.Object3D[] } = { brows: [], lower: null, lowerY: 0, eyes: [] };
+  /** the parts of the face that move: brows, lids, cheeks, nose, lips, jaw, eyes */
+  private faceRig: FaceRig = noFace();
+  /** how much of each expression is on the face now, and the channels they add up to */
+  private exprW = new Float32Array(EXPRESSION_IDS.length);
+  private faceNow = new Float32Array(FACE_CH.length);
+  /** seconds since the last good transition (a brow flash) and mistake (a wince) */
+  private niceT = 1e9;
+  private oopsT = 1e9;
+  /** which side the lip curls on (a habit: each DJ has a side) */
+  private sneerSide = 1;
   /** listening in the headphones (a channel cued): the cup to the ear */
   cueing = false;
   /** a move from the pads, playing now */
   private perf: { id: DjMove; t: number; len: number } | null = null;
   private cueW = 0;
   private pressW = 0;
+  /** the upper lids, from the face (closed 1, wide open -0.5): blinking closes them on top of it */
+  private lidClose = 0;
   private lastChest = new THREE.Vector3();
   private ikQ = new THREE.Quaternion();
   private ikT = new THREE.Vector3();
+  private handQ = new THREE.Quaternion();
 
   constructor(look: Look, o: { djName?: string } = {}) {
     this.look = look;
@@ -228,6 +445,12 @@ export class Avatar {
   perform(id: DjMove): void {
     const m = DJ_MOVES.find((x) => x.id === id);
     if (m) this.perf = { id, t: 0, len: m.beats * (60 / 124) };
+  }
+
+  /** a face for the moment: a brow flash for a clean transition, a wince at a mistake */
+  react(what: 'nice' | 'oops'): void {
+    if (what === 'nice') this.niceT = 0;
+    else this.oopsT = 0;
   }
 
   /** the move playing now, if any */
@@ -260,7 +483,7 @@ export class Avatar {
     this.springs = [];
     this.lids = [];
     this.hands = { l: null, r: null };
-    this.faceRig = { brows: [], lower: null, lowerY: 0, eyes: [] };
+    this.faceRig = noFace();
     this.headphones = null;
     this.headphonesHome = null;
     this.prop = null;
@@ -337,6 +560,8 @@ export class Avatar {
       this.mesh(limb(d.legR * 1.15, d.thigh, d.legR * 0.88), this.skin('thigh'), b[`thigh_${s}`]);
       this.mesh(limb(d.legR * 0.86, d.shin, d.legR * 0.6), this.skin(`calf_${s}`), b[`shin_${s}`]);
     }
+    // the side the lip curls on, the way the head tilts: each look has its own
+    this.sneerSide = [...l.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 2 ? -1 : 1;
     this.buildHead();
     this.buildHair();
     this.buildClothes();
@@ -348,7 +573,13 @@ export class Avatar {
   /* head and face                                                     */
   /* ---------------------------------------------------------------- */
 
-  /** a hand: the palm, four fingers in two segments on joints, a thumb (k: 1 left, -1 right) */
+  /**
+   * A hand: the palm, four fingers in two segments on joints, a thumb (k: 1
+   * left, -1 right). The fingers curl towards the hand's −Z, so that's the
+   * palm: on the decks the palm faces down and the backs of the hands (the
+   * knuckles and nails) face up; the thumb sits on the inside, towards the
+   * other hand.
+   */
   private buildHand(side: 'l' | 'r', k: number): void {
     const d = this.d;
     const hb = this.bones[`hand_${side}`];
@@ -356,13 +587,15 @@ export class Avatar {
     const w = d.armR * 1.55;
     this.mesh(new THREE.CapsuleGeometry(d.armR * 0.62, 0.035, 4, 12).scale(w / (d.armR * 1.24), 1, 0.55).translate(0, -0.035, 0), mat, hb);
     // knuckles: a little ridge across the back of the hand
-    this.mesh(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, -0.006), mat, hb);
+    this.mesh(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, 0.006), mat, hb);
+    const nailMat = this.std(new THREE.Color(0xf0d8cc), { roughness: 0.3 });
     const fingers: HandRig['fingers'] = [];
-    for (let i = 0; i < 4; i++) {
-      const len = [0.044, 0.052, 0.05, 0.04][i];
-      const r0 = [0.0074, 0.0076, 0.0073, 0.0066][i];
+    // index (next to the thumb) to little
+    for (let f = 0; f < 4; f++) {
+      const len = [0.046, 0.052, 0.05, 0.04][f];
+      const r0 = [0.0074, 0.0076, 0.0073, 0.0066][f];
       const knuckle = new THREE.Object3D();
-      knuckle.position.set((i - 1.5) * (w / 4) * 0.95, -0.066, 0.004);
+      knuckle.position.set(k * (f - 1.5) * (w / 4) * 0.95, -0.066, -0.002);
       hb.add(knuckle);
       const l1 = len * 0.55;
       const l2 = len * 0.48;
@@ -371,30 +604,57 @@ export class Avatar {
       mid.position.set(0, -l1 - 0.001, 0);
       knuckle.add(mid);
       this.mesh(new THREE.CapsuleGeometry(r0 * 0.9, l2, 3, 8).translate(0, -l2 / 2, 0), mat, mid);
-      // the nail
-      this.mesh(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), this.std(new THREE.Color(0xf0d8cc), { roughness: 0.3 }), mid, V(0, -l2 * 0.72, -r0 * 0.85));
+      // the nail, on the back
+      this.mesh(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), nailMat, mid, V(0, -l2 * 0.72, r0 * 0.85));
       fingers.push({ knuckle, mid });
     }
+    // the thumb: on the inside of the hand, angled in and a little under the palm
     const thumb = new THREE.Object3D();
-    thumb.position.set(k * w * 0.45, -0.022, 0.01);
-    thumb.rotation.set(0, k * -0.5, k * 0.55);
+    thumb.position.set(-k * w * 0.45, -0.022, -0.008);
+    thumb.rotation.set(0.25, -k * 0.5, -k * 0.6);
     hb.add(thumb);
     this.mesh(new THREE.CapsuleGeometry(0.0085, 0.034, 3, 8).translate(0, -0.017, 0), mat, thumb);
-    this.hands[side] = { fingers, thumb, thumbRest: thumb.rotation.clone(), curl: 0.35 };
+    this.mesh(new THREE.BoxGeometry(0.009, 0.01, 0.0015), nailMat, thumb, V(0, -0.034, 0.0078));
+    this.hands[side] = { fingers, thumb, thumbRest: thumb.rotation.clone(), curl: 0.35, pose: 'pinch', poseW: 0 };
   }
 
-  /** curl the fingers towards `want` (and ease there) */
-  private curlHand(side: 'l' | 'r', want: number, dt: number): void {
+  /** curl the fingers towards `want`, or into a shape for holding something (and ease there) */
+  private curlHand(side: 'l' | 'r', want: number, dt: number, pose: HandPose | null = null): void {
     const h = this.hands[side];
     if (!h) return;
-    h.curl += (want - h.curl) * Math.min(1, dt * 12);
-    h.fingers.forEach((f, i) => {
+    const ease = Math.min(1, dt * 12);
+    h.curl += (want - h.curl) * ease;
+    if (pose) h.pose = pose;
+    h.poseW += ((pose ? 1 : 0) - h.poseW) * ease;
+    const p = HAND_POSES[h.pose];
+    const pw = h.poseW;
+    const k = side === 'l' ? 1 : -1;
+    for (let f = 0; f < 4; f++) {
+      const fg = h.fingers[f];
       // the little finger curls a touch more, the index a touch less
-      const c = h.curl * (0.9 + i * 0.06);
-      f.knuckle.rotation.x = c * 0.95;
-      f.mid.rotation.x = c * 1.15;
-    });
-    h.thumb.rotation.set(h.thumbRest.x + h.curl * 0.35, h.thumbRest.y, h.thumbRest.z * (1 - Math.min(1, h.curl) * 0.4));
+      const c = h.curl * (0.9 + f * 0.06);
+      fg.knuckle.rotation.x = c * 0.95 + (p.k[f] - c * 0.95) * pw;
+      fg.mid.rotation.x = c * 1.15 + (p.m[f] - c * 1.15) * pw;
+      // spread: fanned out from the middle of the hand
+      fg.knuckle.rotation.z = k * (f - 1.5) * p.fan * pw;
+    }
+    const tc = h.curl * 0.35 + (p.thumb - h.curl * 0.35) * pw;
+    const out = 1 - Math.min(1, h.curl) * 0.4;
+    h.thumb.rotation.set(h.thumbRest.x + tc, h.thumbRest.y, h.thumbRest.z * (out + (p.out - out) * pw));
+  }
+
+  /**
+   * Turn a hand (eased in by `w`) to `q`, an orientation in the avatar's own
+   * space, whatever the arm above it is doing.
+   */
+  private orientHand(side: 'l' | 'r', q: THREE.Quaternion, w: number): void {
+    const b = this.bones;
+    // the forearm's orientation in the avatar's space: up through the shoulder, upper arm and forearm
+    const fa = b[`forearm_${side}`];
+    const parentQ = tmpQ2.identity();
+    for (let o: THREE.Object3D | null = fa; o && o !== this.object; o = o.parent) parentQ.premultiply(o.quaternion);
+    const local = parentQ.invert().multiply(q);
+    b[`hand_${side}`].quaternion.slerp(local, w);
   }
 
   /** the face sliders with the face-shape preset underneath */
@@ -440,12 +700,14 @@ export class Avatar {
     const r = this.d.headR;
     const hg = new THREE.SphereGeometry(1, 48, 32);
     const p = hg.attributes.position as THREE.BufferAttribute;
+    const dirs = Float32Array.from(p.array as Float32Array);
     const v = new THREE.Vector3();
     for (let i = 0; i < p.count; i++) {
       this.headPoint(p.getX(i), p.getY(i), p.getZ(i), v);
       p.setXYZ(i, v.x, v.y, v.z);
     }
     hg.computeVertexNormals();
+    faceMorphs(hg, dirs);
     const { color, glow } = skinCanvas(l, { face: true, djName: this.djName, seed: 3 });
     const map = this.keep(toTexture(color, 1));
     map.wrapS = map.wrapT = THREE.ClampToEdgeWrapping;
@@ -458,6 +720,7 @@ export class Avatar {
     }
     this.skinMats.push(faceMat);
     const headMesh = this.mesh(hg, faceMat, head, V(0, r * 0.95, 0));
+    this.faceRig.morphs.push(headMesh);
     const at = (x: number, y: number, z: number, push = 0) => {
       const q = this.headPoint(x, y, z);
       if (push) q.add(q.clone().normalize().multiplyScalar(push));
@@ -478,22 +741,52 @@ export class Avatar {
     const tipP = at(0, -0.2 - (nl - 1) * 0.3, 1, 0.009 + f('nose_bridge') * 0.003);
     const tip = this.mesh(new THREE.SphereGeometry(0.0125 * (1 + f('nose_tip') * 0.35), 16, 12), plain, head, tipP);
     tip.scale.set(nw, 0.9, 0.95);
-    for (const s of [-1, 1]) this.mesh(new THREE.SphereGeometry(0.0085 * nw, 12, 8), plain, head, tipP.clone().add(V(s * 0.011 * nw, -0.004, -0.006)));
+    const fr = this.faceRig;
+    for (const s of [-1, 1]) {
+      const wing = this.mesh(new THREE.SphereGeometry(0.0085 * nw, 12, 8), plain, head, tipP.clone().add(V(s * 0.011 * nw, -0.004, -0.006)));
+      fr.nose.push({ obj: wing, y: wing.position.y });
+    }
 
-    // lips
+    // lips: upper and lower, each two halves hinged at the middle, so the corners can turn up or
+    // down and the mouth can open into a shape; the inside and the top teeth behind them
     const lipCol = l.colors.lips ? new THREE.Color(l.colors.lips) : skinCol.clone().lerp(new THREE.Color(0.55, 0.18, 0.2), 0.32).multiplyScalar(0.85);
     const lipMat = this.std(lipCol, { roughness: 0.4 });
     const lf = 1 + f('lip_fullness') * 0.5;
     const lw = 1 + f('lip_width') * 0.3;
     const mouth = at(0, -0.46, 1, 0.001);
-    const upper = this.mesh(limb(0.0048 * lf, 0.034 * lw).rotateZ(Math.PI / 2).translate(-0.017 * lw, 0, 0), lipMat, head, mouth.clone().add(V(0, 0.004, 0)));
-    upper.scale.set(1, 1 + f('lip_shape') * 0.2, 0.9);
-    const lower = this.mesh(limb(0.0058 * lf, 0.03 * lw).rotateZ(Math.PI / 2).translate(-0.015 * lw, 0, 0), lipMat, head, mouth.clone().add(V(0, -0.006, -0.001)));
-    lower.scale.set(1, 1, 0.9);
-    this.faceRig.lower = lower;
-    this.faceRig.lowerY = lower.position.y;
+    for (const isUpper of [true, false]) {
+      const lip = new THREE.Object3D();
+      lip.position.copy(mouth).add(isUpper ? V(0, 0.004, 0) : V(0, -0.006, -0.001));
+      head.add(lip);
+      const r0 = (isUpper ? 0.0048 : 0.0058) * lf;
+      const half = (isUpper ? 0.017 : 0.015) * lw;
+      for (const s of [-1, 1]) {
+        // each half from the middle out to the corner, thinner at the corner, swept back round the face
+        const hinge = new THREE.Object3D();
+        hinge.rotation.y = s * 0.3;
+        lip.add(hinge);
+        const m = this.mesh(limb(r0, half - r0 * 0.75, r0 * 0.75).rotateZ(s * Math.PI / 2), lipMat, hinge);
+        m.scale.set(1, isUpper ? 1 + f('lip_shape') * 0.2 : 1, 0.9);
+        fr.halves.push({ obj: hinge, s, upper: isUpper });
+      }
+      if (isUpper) {
+        fr.upper = lip;
+        fr.upperY = lip.position.y;
+        // the top teeth, just behind the upper lip: they show in a grin, a shout or a wince
+        // (an arc, curving back round the face with the lips)
+        const R = 0.03;
+        const arc = (0.024 * lw) / R;
+        const teeth = this.mesh(new THREE.TorusGeometry(R, 0.0032, 6, 16, arc).rotateZ(Math.PI / 2 - arc / 2).rotateX(Math.PI / 2).translate(0, 0, -R), this.std(0xf2eee6, { roughness: 0.35 }), lip, V(0, -0.0028, -0.0028));
+        teeth.scale.set(1, 1.15, 1);
+      } else {
+        fr.lower = lip;
+        fr.lowerY = lip.position.y;
+      }
+    }
     // the mouth's inside, seen when it opens
-    this.mesh(new THREE.SphereGeometry(0.012 * lw, 12, 8).scale(1.4, 0.7, 0.5), this.std(0x2a0d0d, { roughness: 0.9 }), head, mouth.clone().add(V(0, -0.002, -0.006)));
+    const inside = this.mesh(new THREE.SphereGeometry(0.012 * lw, 12, 8).scale(1.4, 0.7, 0.5), this.std(0x2a0d0d, { roughness: 0.9 }), head, mouth.clone().add(V(0, -0.002, -0.006)));
+    fr.inside = inside;
+    fr.insideY = inside.position.y;
 
     // ears
     const es = 1 + f('ear_size') * 0.25;
@@ -533,6 +826,7 @@ export class Avatar {
       this.lids.push(upperLid);
       const lowerLid = this.mesh(new THREE.SphereGeometry(er * 1.08, 20, 8, 0, Math.PI * 2, Math.PI * 0.78, Math.PI * 0.22), plain, lidPivot);
       lowerLid.rotation.x = 0.2;
+      fr.lowerLids.push(lowerLid);
       const lash = 0.6 + slider(l, 'lash_length') * 0.8;
       const lashes = this.mesh(new THREE.TorusGeometry(er * 1.1, 0.0009 * (1 + slider(l, 'lash_volume') * 1.5), 4, 16, Math.PI * 0.9), this.std(0x0c0a09), lidPivot, V(0, er * 0.15, er * 0.15));
       lashes.rotation.set(-0.9, 0, Math.PI * 0.05);
@@ -566,15 +860,16 @@ export class Avatar {
     for (const s of [-1, 1]) {
       const side = s > 0 ? 'left' : 'right';
       const segs: [number, number][][] = slit === 'both' || slit === side ? [pts.filter(([x]) => x < 0.55), pts.filter(([x]) => x > 0.75)] : [pts];
+      // on a pivot at the brow's middle, so it can lift, knit in and tilt
+      const pivot = new THREE.Object3D();
+      pivot.position.copy(at(s * 0.32, 0.29, 0.88, 0.003));
+      head.add(pivot);
       for (const seg of segs) {
         if (seg.length < 2) continue;
-        const curve = new THREE.CatmullRomCurve3(seg.map(([bx, by]) => at(s * (0.14 + bx * 0.36), 0.27 + by * 0.12 + bx * slider(l, 'eye_tilt') * 0.03, 0.88, 0.003)));
-        // on a pivot so the brows can lift
-        const pivot = new THREE.Object3D();
-        head.add(pivot);
+        const curve = new THREE.CatmullRomCurve3(seg.map(([bx, by]) => at(s * (0.14 + bx * 0.36), 0.27 + by * 0.12 + bx * slider(l, 'eye_tilt') * 0.03, 0.88, 0.003).sub(pivot.position)));
         this.mesh(new THREE.TubeGeometry(curve, 12, thick, 6, false), browMat, pivot);
-        this.faceRig.brows.push(pivot);
       }
+      fr.brows.push({ pivot, s, x: pivot.position.x, y: pivot.position.y });
     }
 
     // facial hair beyond stubble (stubble is painted on the skin)
@@ -597,6 +892,7 @@ export class Avatar {
     if (fh === 'short_beard' || fh === 'full_beard') {
       const bg = new THREE.SphereGeometry(1, 40, 18, Math.PI / 2 - 1.5, 3.0, Math.PI * 0.5, Math.PI * 0.48);
       const bp = bg.attributes.position as THREE.BufferAttribute;
+      const bdirs = Float32Array.from(bp.array as Float32Array);
       const push = fh === 'full_beard' ? 0.011 * fhLen : 0.0045 * fhLen;
       for (let i = 0; i < bp.count; i++) {
         const x = bp.getX(i);
@@ -611,7 +907,9 @@ export class Avatar {
         bp.setXYZ(i, q.x, q.y, q.z);
       }
       bg.computeVertexNormals();
-      this.mesh(bg, hairMat, head, headMesh.position.clone());
+      // the beard drops with the chin
+      faceMorphs(bg, bdirs);
+      this.faceRig.morphs.push(this.mesh(bg, hairMat, head, headMesh.position.clone()));
       if (fh === 'full_beard') {
         const curve = new THREE.CatmullRomCurve3([at(-0.4, -0.5, 0.88, 0.006), at(-0.15, -0.35, 1, 0.008), at(0.15, -0.35, 1, 0.008), at(0.4, -0.5, 0.88, 0.006)]);
         this.mesh(new THREE.TubeGeometry(curve, 16, 0.006 * fhLen, 6, false), hairMat, head);
@@ -1467,15 +1765,25 @@ export class Avatar {
    * hand on that side goes to it and stays while it keeps moving. `get`
    * gives where it is now, in world space.
    */
-  touch(get: () => THREE.Vector3 | null): void {
+  touch(get: () => THREE.Vector3 | null, hold: HandHold = 'grip', turn: (() => number) | null = null): void {
     const at = get();
     if (!at) return;
     const side: 'l' | 'r' = this.object.worldToLocal(this.ikT.copy(at)).x >= 0 ? 'l' : 'r';
     const cur = this.reaching[side];
+    const t0 = turn ? turn() : 0;
     if (cur) {
+      // a different control (somewhere else on the board): take hold of it afresh
+      const was = cur.get();
+      if (cur.hold !== hold || !was || was.distanceToSquared(at) > 0.02 * 0.02) {
+        cur.turn0 = t0;
+        cur.twist = 0;
+      }
       cur.get = get;
       cur.age = 0;
-    } else this.reaching[side] = { get, age: 0, w: 0 };
+      cur.hold = hold;
+      cur.turn = turn;
+      if (hold === 'press') cur.tap = -1;
+    } else this.reaching[side] = { get, age: 0, w: 0, hold, turn, turn0: t0, twist: 0, tap: -1 };
   }
 
   /** the hands that are on controls, laid over the pose */
@@ -1499,18 +1807,57 @@ export class Avatar {
         updated = true;
       }
       const k = side === 'l' ? 1 : -1;
-      const local = b[`shoulder_${side}`].worldToLocal(this.ikT.copy(at));
-      // the wrist a hand's length short of the control, a little above it
-      const len = local.length();
-      if (len > 1e-4) local.multiplyScalar(Math.max(0.05, len - 0.07) / len);
-      local.y += 0.03;
+      const hold = r.hold;
+      let local: THREE.Vector3;
+      if (hold === 'grip') {
+        local = b[`shoulder_${side}`].worldToLocal(this.ikT.copy(at));
+        // the wrist a hand's length short of the control, a little above it
+        const len = local.length();
+        if (len > 1e-4) local.multiplyScalar(Math.max(0.05, len - 0.07) / len);
+        local.y += 0.03;
+      } else {
+        // the hand's own way of holding this control, and the point of it that touches it
+        const fr = HOLD_FRAME[hold];
+        const q = handFrame(k * fr.fingers[0], fr.fingers[1], fr.fingers[2], k * fr.palm[0], fr.palm[1], fr.palm[2], this.handQ);
+        const p = this.object.worldToLocal(this.ikT.copy(at));
+        const turned = r.turn ? r.turn() : 0;
+        if (hold === 'knob') {
+          // the wrist turns with the knob, as far as a wrist goes (then the fingers slip round it)
+          const d = turned - r.turn0;
+          if (d > 1.1) r.turn0 = turned - 1.1;
+          if (d < -1.1) r.turn0 = turned + 1.1;
+          r.twist = turned - r.turn0;
+          q.premultiply(tmpQ.setFromAxisAngle(UP, r.twist + k * 0.25));
+        } else if (hold === 'jog') {
+          // the palm goes round with the record, springing back to the near side between pushes
+          let d = turned - r.turn0;
+          d -= Math.round(d / (Math.PI * 2)) * Math.PI * 2;
+          r.turn0 = turned;
+          r.twist = THREE.MathUtils.clamp(r.twist * Math.exp(-dt * 2.5) + d, -0.7, 0.7);
+          // round the platter's middle, about a palm's length further on
+          const R = 0.07;
+          p.x += -R * Math.sin(r.twist);
+          p.z += R - R * Math.cos(r.twist);
+          q.premultiply(tmpQ.setFromAxisAngle(UP, r.twist));
+        } else if (hold === 'press') {
+          // a tap once the hand is there: down onto it and up again, then resting just above
+          if (r.tap < 0 && r.w > 0.8) r.tap = 0;
+          if (r.tap >= 0) r.tap += dt;
+          const dip = r.tap >= 0 && r.tap < 0.26 ? Math.sin((r.tap / 0.26) * Math.PI) : 0;
+          p.y += r.tap > 0.26 ? 0.005 : 0.016 * (1 - dip);
+        }
+        // the wrist: the touching point back along the hand
+        p.sub(tmpA.set(k * fr.touch[0], fr.touch[1], fr.touch[2]).applyQuaternion(q));
+        local = b[`shoulder_${side}`].worldToLocal(this.object.localToWorld(p));
+      }
       const { q, bend } = twoBoneIK(local, this.d.upperArm, this.d.foreArm, new THREE.Vector3(k * 0.9, -0.55, -0.45), this.ikQ);
       const ua = b[`upper_arm_${side}`];
       ua.quaternion.slerp(q, r.w);
       const fa = b[`forearm_${side}`];
       fa.rotation.x += (-bend - fa.rotation.x) * r.w;
-      // fingers down onto it, and a glance down at what the hand's doing
-      b[`hand_${side}`].rotation.x += (-0.45 - b[`hand_${side}`].rotation.x) * r.w;
+      // the hand onto it, and a glance down at what the hand's doing
+      if (hold === 'grip') b[`hand_${side}`].rotation.x += (-0.45 - b[`hand_${side}`].rotation.x) * r.w;
+      else this.orientHand(side, this.handQ, r.w);
       b.neck.rotation.x += 0.08 * r.w;
     }
   }
@@ -1535,6 +1882,7 @@ export class Avatar {
     this.body.position.y = 0;
     if (this.mode === 'hype') {
       this.dance(s, beat, ph, hit, knee);
+      this.express(s, dt, beat, hit, 0);
       this.settle(dt);
       return;
     }
@@ -1711,42 +2059,145 @@ export class Avatar {
       this.applyReach(dt);
     }
 
-    // fingers: on the decks, round a control, open with hands up, a fist for the pump
+    // fingers: on the decks, round a control (in that control's shape), open with hands up, a fist for the pump
     const move = dropping ? option(l, 'drop_move') : '';
-    const gripping = (side: 'l' | 'r') => (this.reaching[side]?.w ?? 0) > 0.3;
     for (const side of ['l', 'r'] as const) {
       let want = dj ? 0.55 : 0.35;
+      let pose: HandPose | null = null;
       if (move === 'hands_up' || move === 'jump') want = 0.12;
       if (move === 'fist_pump' && side === 'r') want = 1.5;
       if (move === 'point' && side === 'r') want = 1.25;
       if (habitOn && side === 'r' && habit === 'sip') want = 1.1;
-      if (gripping(side) && !performing) want = 0.88;
+      const reach = this.reaching[side];
+      if (reach && reach.w > 0.3 && !performing) {
+        want = 0.88;
+        pose = HOLD_POSE[reach.hold];
+      } else if (side === 'l' && this.pressW > 0.3) pose = 'cup';
       if (performing) {
         const id = this.perf?.id;
         want = id === 'fist_pump' && side === 'r' ? 1.5 : id === 'point' && side === 'r' ? 1.25 : id === 'point' || id === 'fist_pump' ? want : 0.12;
+        pose = null;
       }
-      this.curlHand(side, want, dt);
+      this.curlHand(side, want, dt, pose);
     }
 
-    // the face: brows up through the build and on the drop, shouting along on the drop, eyes on the decks and up to the room
-    const fr = this.faceRig;
-    const drop = Math.max(0, 1 - this.dropT / (beatLen * 8));
-    const lift = Math.max(s.build * 0.7, drop);
-    for (const br of fr.brows) br.position.y += (lift * 0.0045 - br.position.y) * Math.min(1, dt * 8);
-    if (fr.lower) {
-      const open = drop * (0.55 + 0.45 * hit) + s.peak * 0.25 * hit;
-      fr.lower.position.y = fr.lowerY - open * 0.009;
-    }
+    // the face, and the eyes: on the decks, up to the room now and then
     const lookUp = dropping || s.peak > 0.5 || (bar % 4 === 3 && ph < 0.75);
-    const gaze = dj ? (lookUp ? -0.06 : 0.3) : 0;
-    for (const e of fr.eyes) e.rotation.x += (gaze - e.rotation.x) * Math.min(1, dt * 6);
+    this.express(s, dt, beat, hit, dj ? (lookUp ? -0.06 : 0.3) : 0);
     this.settle(dt);
   }
 
   /**
-   * Cueing in the headphones: worn on one ear, the head tips to that side and
-   * every few bars the hand comes up to press the cup in; worn on both, a
-   * hand on the cup now and then.
+   * The face: how much of each expression the moment calls for (eased in and
+   * out), summed into the face's channels, which move its parts. `gaze` is
+   * where the eyes would look anyway (down at the decks, up at the room).
+   */
+  private express(s: AvatarInput, dt: number, beat: number, hit: number, gaze: number): void {
+    const beatLen = 60 / 124;
+    const playing = s.playing ? 1 : 0;
+    this.niceT += dt;
+    this.oopsT += dt;
+    // what the moment wants, each 0..1
+    const stank = smooth(0, 0.08, this.dropT) * (1 - smooth(beatLen * 10, beatLen * 16, this.dropT));
+    const rise = smooth(0.84, 0.96, s.build) * playing * (1 - stank);
+    const lost = smooth(0.2, 0.5, s.build) * playing * (1 - rise) * (1 - stank);
+    const grin = Math.max(smooth(0.6, 0.92, s.hype ?? 0), s.peak * 0.85) * playing * (1 - stank) * (1 - lost) * (1 - rise);
+    const reach = Math.max(this.reaching.l?.w ?? 0, this.reaching.r?.w ?? 0);
+    const focus = (this.mode === 'dj' ? reach : 0) * (1 - stank) * (1 - lost) * (1 - grin * 0.6);
+    const nice = this.niceT < 1.2 ? smooth(0, 0.08, this.niceT) * (1 - smooth(0.6, 1.2, this.niceT)) : 0;
+    const oops = this.oopsT < 1.4 ? smooth(0, 0.06, this.oopsT) * (1 - smooth(0.7, 1.4, this.oopsT)) : 0;
+    const target = this.exprW;
+    for (let i = 0; i < EXPRESSION_IDS.length; i++) {
+      const id = EXPRESSION_IDS[i];
+      const want = id === 'stank' ? stank : id === 'lost' ? lost : id === 'rise' ? rise : id === 'grin' ? grin : id === 'focus' ? focus : id === 'nice' ? nice : oops;
+      // quick to come on, slower to let go (the flashes follow their own envelope)
+      const rate = id === 'nice' || id === 'oops' ? 30 : want > target[i] ? 7 : 2.5;
+      target[i] += (want - target[i]) * Math.min(1, dt * rate);
+    }
+    // the channels: the expressions summed
+    const F = this.faceNow;
+    F.fill(0);
+    for (let i = 0; i < EXPRESSION_IDS.length; i++) {
+      const w = target[i];
+      if (w < 1e-3) continue;
+      const e = EXPRESSIONS[EXPRESSION_IDS[i]];
+      for (let c = 0; c < F.length; c++) F[c] += e[c] * w;
+    }
+    const sw = target[STANK];
+    // the stank face nods hard into each kick, the mouth going with it
+    F[CH.pitch] += sw * 0.14 * hit;
+    F[CH.jaw] += sw * 0.3 * hit;
+    // mouthing along with a vocal: a syllable on each eighth (some held, some skipped), harder on a hook
+    const sing = Math.min(1, (s.vocal ?? 0) * 1.1 + (s.accent ?? 0) * 0.5) * playing * (1 - sw) * (1 - target[LOST] * 0.6);
+    if (sing > 0.02) {
+      const n = Math.floor(beat * 2);
+      const a = hash01(n);
+      const syl = a < 0.25 ? 0 : (0.45 + 0.55 * a) * Math.sin((((beat * 2) % 1) + 1) % 1 * Math.PI);
+      F[CH.jaw] += sing * 0.55 * syl;
+      F[CH.pucker] += sing * (hash01(n + 17) > 0.6 ? 0.7 : 0) * syl;
+      F[CH.brow] += sing * 0.25;
+    }
+
+    // and move the parts
+    const fr = this.faceRig;
+    const b = this.bones;
+    const brow = cl(F[CH.brow], -1, 1.2);
+    const frown = cl(F[CH.frown], -1, 1);
+    for (const br of fr.brows) {
+      br.pivot.position.y = br.y + brow * 0.0055 - Math.max(0, frown) * 0.0015;
+      br.pivot.position.x = br.x - br.s * Math.max(0, frown) * 0.004;
+      // the inner end down (a frown) or up (worried)
+      br.pivot.rotation.z = br.s * frown * 0.28;
+    }
+    const squint = cl(F[CH.squint], 0, 1);
+    this.lidClose = cl(F[CH.lids], -0.5, 1);
+    for (const lid of fr.lowerLids) lid.rotation.x = 0.2 - squint * 0.4;
+    const sneer = cl(F[CH.sneer], 0, 1);
+    for (const n of fr.nose) {
+      n.obj.position.y = n.y + sneer * 0.0025;
+      n.obj.scale.setScalar(1 + sneer * 0.18);
+    }
+    const jaw = cl(F[CH.jaw], 0, 1);
+    const smile = cl(F[CH.smile], -1, 1);
+    const wide = cl(F[CH.wide], 0, 1);
+    const pucker = cl(F[CH.pucker], 0, 1);
+    if (fr.upper && fr.lower) {
+      fr.upper.position.y = fr.upperY + jaw * 0.003 + sneer * 0.0015;
+      fr.lower.position.y = fr.lowerY - jaw * 0.012;
+      fr.upper.scale.set(1 - pucker * 0.3 + wide * 0.2, 1, 1 + pucker * 0.4);
+      fr.lower.scale.set(1 - pucker * 0.3 + wide * 0.2, 1, 1 + pucker * 0.4);
+    }
+    for (const h of fr.halves) {
+      // corners up or down; opened, the halves angle into a mouth shape (the corners stay together)
+      const open = h.upper ? -Math.atan(jaw * 0.2) : Math.atan(jaw * 0.6);
+      const curl = h.upper && h.s === this.sneerSide ? sneer * 0.35 : 0;
+      h.obj.rotation.z = h.s * (smile * 0.38 + open + curl);
+    }
+    // the shape keys: the cheeks round up with a smile or a squint, the chin drops with the jaw
+    const cheeks = cl(Math.max(squint * 0.8, F[CH.smile] * 0.9 + wide * 0.2), 0, 1);
+    for (const m of fr.morphs) {
+      const inf = m.morphTargetInfluences;
+      if (!inf) continue;
+      inf[0] = cheeks;
+      inf[1] = jaw;
+    }
+    if (fr.inside) {
+      fr.inside.scale.set(1 + wide * 0.25 - pucker * 0.3, 0.6 + jaw * 2.2, 1);
+      fr.inside.position.y = fr.insideY - jaw * 0.006;
+    }
+    // the head: back in the breakdown, nodding into the drop, tilted
+    b.head.rotation.x += cl(F[CH.pitch], -0.8, 0.5);
+    b.head.rotation.z += cl(F[CH.roll], -0.3, 0.3) * this.sneerSide;
+    // the eyes: down at the board when a hand's on something
+    const look = gaze + cl(F[CH.gaze], 0, 1) * 0.2;
+    for (const e of fr.eyes) e.rotation.x += (look - e.rotation.x) * Math.min(1, dt * 6);
+  }
+
+  /**
+   * Cueing in the headphones (a channel cued, the next track lined up): the
+   * head tips over to the cup on the left ear and, two bars in every four,
+   * the left hand comes up and holds the cup to the ear, palm round it,
+   * elbow out. A control to reach for takes the hand back down.
    */
   private cueGesture(beat: number, dt: number): void {
     const b = this.bones;
@@ -1754,24 +2205,30 @@ export class Avatar {
     if (!g || g.parent === b.hand_r || option(this.look, 'phones_wear') === 'neck') return;
     const on = this.cueing ? 1 : 0;
     this.cueW += (on - this.cueW) * Math.min(1, dt * 3);
-    if (this.cueW < 0.01) return;
+    if (this.cueW < 0.01) {
+      this.pressW = 0;
+      return;
+    }
     // the head over to the cup on the left ear, that shoulder up to meet it
     b.neck.rotation.z -= 0.2 * this.cueW;
     b.shoulder_l.position.y += 0.014 * this.cueW;
-    // two beats in every eight: the left hand presses the cup in
-    const press = this.cueing && ((beat % 8) + 8) % 8 < 2 && (this.reaching.l?.w ?? 0) < 0.2;
-    this.pressW += ((press ? 1 : 0) - this.pressW) * Math.min(1, dt * 7);
+    // eight beats in every sixteen: the left hand holds the cup to the ear
+    const hold = this.cueing && ((beat % 16) + 16) % 16 < 8 && (this.reaching.l?.w ?? 0) < 0.2;
+    this.pressW += ((hold ? 1 : 0) - this.pressW) * Math.min(1, dt * 5);
     if (this.pressW < 0.01) return;
+    // pressing it in, the head leans into the hand
+    b.neck.rotation.z -= 0.06 * this.pressW;
     this.object.updateMatrixWorld(true);
     const r = this.d.headR;
-    const ear = b.head.localToWorld(this.ikT.set(r * 1.25, r * 0.95, -r * 0.05));
-    const local = b.shoulder_l.worldToLocal(ear);
-    const len = local.length();
-    if (len > 1e-4) local.multiplyScalar(Math.max(0.05, len - 0.06) / len);
-    const { q, bend } = twoBoneIK(local, this.d.upperArm, this.d.foreArm, new THREE.Vector3(1, -0.2, -0.3), this.ikQ);
-    b.upper_arm_l.quaternion.slerp(q, this.pressW);
+    // the palm on the cup, fingers up the side of the head, then the wrist back from there
+    const q = handFrame(0.05, 1, -0.35, -1, 0.1, 0.15, this.handQ);
+    const cup = this.object.worldToLocal(b.head.localToWorld(this.ikT.set(r * 1.42, r * 0.85, -r * 0.05)));
+    cup.sub(tmpA.set(0, -0.05, -0.022).applyQuaternion(q));
+    const local = b.shoulder_l.worldToLocal(this.object.localToWorld(cup));
+    const { q: armQ, bend } = twoBoneIK(local, this.d.upperArm, this.d.foreArm, new THREE.Vector3(1, -0.4, -0.2), this.ikQ);
+    b.upper_arm_l.quaternion.slerp(armQ, this.pressW);
     b.forearm_l.rotation.x += (-bend - b.forearm_l.rotation.x) * this.pressW;
-    b.hand_l.rotation.z += (-0.9 - b.hand_l.rotation.z) * this.pressW;
+    this.orientHand('l', this.handQ, this.pressW);
   }
 
   /** the hype dancers' routine, locked to the beat */
@@ -1853,7 +2310,9 @@ export class Avatar {
     this.blinkAt -= dt;
     const blink = this.blinkAt < 0 ? 1 : 0;
     if (this.blinkAt < -0.12) this.blinkAt = 2.5 + Math.random() * 3.5;
-    for (const lid of this.lids) lid.rotation.x = blink ? 0.6 : -0.35;
+    // the lids where the face has them (shut in the breakdown, wide at the top of a build), a blink over that
+    const c = this.lidClose;
+    for (const lid of this.lids) lid.rotation.x = blink ? 0.6 : c >= 0 ? -0.35 + c * 0.95 : -0.35 + c * 0.4;
 
     // hair and clothes swing: springs pushed by how the head (hair) or the chest (clothes) moves
     this.object.updateMatrixWorld(true);
