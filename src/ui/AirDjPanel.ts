@@ -4,6 +4,7 @@
  */
 import type { HandView, Side } from '../app/airdj/gestures';
 import type { TrackerStatus } from '../app/airdj/tracker';
+import { GESTURES } from './AirDjIntro';
 import { h, setText } from './dom';
 
 /* the lines between MediaPipe's 21 hand landmarks */
@@ -17,14 +18,6 @@ const BONES: [number, number][] = [
 
 const SIDE_COLOR: Record<Side, string> = { L: 'var(--deck1)', R: 'var(--deck2)' };
 
-export const GESTURES: [string, string][] = [
-  ['🤏 Pinch', 'grab the record: move left and right to scratch'],
-  ['✋ Open palm', 'filter: raise for high-pass, lower for low-pass'],
-  ['✌️ Peace sign', 'beat FX on that deck while held, higher for more'],
-  ['☝️ Point', 'crossfader: slide your finger left and right'],
-  ['🙌 Both palms up high', 'hands up: the crowd copies you'],
-  ['✊ Fist', 'rest: does nothing'],
-];
 
 const STATUS: Record<TrackerStatus, string> = {
   off: 'Off',
@@ -44,7 +37,7 @@ export class AirDjPanel {
   private flash: HTMLElement;
   private colors: Record<Side, string> | null = null;
 
-  constructor(video: HTMLVideoElement, o: { close(): void }) {
+  constructor(video: HTMLVideoElement, o: { close(): void; guide(): void }) {
     video.className = 'air-video';
     this.canvas = h('canvas', { class: 'air-canvas', width: 320, height: 240 });
     this.ctx = this.canvas.getContext('2d')!;
@@ -56,8 +49,9 @@ export class AirDjPanel {
     this.help = h(
       'ul',
       { class: 'air-help', hidden: true },
-      GESTURES.map(([g, what]) => h('li', {}, h('b', {}, g), ' ', what)),
+      GESTURES.map((g) => h('li', {}, h('b', {}, `${g.icon} ${g.name.split(':')[0]}`), ' ', g.does)),
       h('li', { class: 'air-note' }, 'Each hand works the deck on its side. Scratching needs the jog set to vinyl (Settings → Decks).'),
+      h('li', {}, h('button', { type: 'button', class: 'btn small', onclick: () => o.guide() }, 'Full guide')),
     );
     const helpBtn = h('button', { class: 'btn small icon', type: 'button', title: 'Gestures', 'aria-label': 'Show the gestures', 'aria-expanded': 'false' }, '?');
     helpBtn.addEventListener('click', () => {

@@ -10,6 +10,7 @@
 import type { ControlRegistry, JogControl } from '../../core/controls';
 import { toast } from '../../ui/toast';
 import { AirDjPanel } from '../../ui/AirDjPanel';
+import { introSeen, openAirDjGuide } from '../../ui/AirDjIntro';
 import { AirDJ, type AirTarget, type Side } from './gestures';
 import { HandTracker, startError } from './tracker';
 
@@ -44,8 +45,6 @@ export class AirDjMode {
   private tracker = new HandTracker();
   private air: AirDJ;
   private panel: AirDjPanel;
-  /** shown the gestures once already (the first start opens them) */
-  private shownHelp = false;
 
   constructor(
     reg: ControlRegistry,
@@ -53,23 +52,23 @@ export class AirDjMode {
     private changed: (on: boolean) => void = () => {},
   ) {
     this.air = new AirDJ(bindTarget(reg));
-    this.panel = new AirDjPanel(this.tracker.video, { close: () => this.set(false) });
+    this.panel = new AirDjPanel(this.tracker.video, { close: () => this.set(false), guide: () => openAirDjGuide() });
     this.tracker.onStatus = (s) => this.panel.setStatus(s);
     this.tracker.onHands = (hands, dt) => this.panel.draw(this.air.update(hands, dt), this.air.handsUpFlash > 0);
   }
 
   set(on: boolean): void {
     if (on === this.on) return;
+    if (on && !navigator.mediaDevices?.getUserMedia) {
+      toast('Air DJ needs a webcam, and a browser that lets this page use it.', 'error');
+      return;
+    }
+    // the first time, the guide explains it all before the camera asks
+    if (on && !introSeen()) return openAirDjGuide(() => this.set(true));
     this.on = on;
     if (on) {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        this.on = false;
-        toast('Air DJ needs a webcam, and a browser that lets this page use it.', 'error');
-        return;
-      }
       this.panel.recolor();
-      this.panel.showHelp(!this.shownHelp);
-      this.shownHelp = true;
+      this.panel.showHelp(false);
       this.stageEl.append(this.panel.el);
       this.tracker.start().catch((e) => {
         const msg = startError(e);
