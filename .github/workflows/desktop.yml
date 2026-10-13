@@ -7,7 +7,7 @@ name: Desktop app
 on:
   push:
     # the repository's default branch
-    branches: [main, claude/3d-dj-mixer-app-8tzoh3]
+    branches: [main, claude/3d-dj-mixer-app-8tzoh3, claude/installable-all-updates]
     paths-ignore: ['**.md', 'docs/**', 'Deckhouse-DJ.html']
   pull_request:
     paths-ignore: ['**.md', 'docs/**', 'Deckhouse-DJ.html']
@@ -70,7 +70,7 @@ jobs:
   release:
     name: Publish the release
     needs: build
-    if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
+    if: github.event_name != 'pull_request' && (github.ref_name == github.event.repository.default_branch || github.ref_name == 'claude/installable-all-updates')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -85,7 +85,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           ls -la out
-          gh release delete desktop-latest --cleanup-tag --yes || true
+          # the preview branch (every update, merged or not) gets a pre-release of its own
+          TAG=desktop-latest; FLAG=--latest; TITLE="Deckhouse DJ desktop"
+          if [ "$GITHUB_REF_NAME" = "claude/installable-all-updates" ]; then TAG=desktop-preview; FLAG=--prerelease; TITLE="Deckhouse DJ desktop preview, with every update"; fi
+          gh release delete $TAG --cleanup-tag --yes || true
           cat > notes.md <<NOTES
           The Deckhouse DJ desktop game, built from ${GITHUB_SHA::7}.
 
@@ -98,4 +101,4 @@ jobs:
 
           **First launch on Windows:** if SmartScreen says it protected your PC, click **More info → Run anyway**.
           NOTES
-          gh release create desktop-latest out/* --target "$GITHUB_SHA" --title "Deckhouse DJ desktop (build ${{ github.run_number }})" --notes-file notes.md --latest
+          gh release create $TAG out/* --target "$GITHUB_SHA" --title "$TITLE (build ${{ github.run_number }})" --notes-file notes.md $FLAG
