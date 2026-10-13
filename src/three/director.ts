@@ -1,6 +1,6 @@
 /*
  * The auto director: cuts the camera with the music the way the crews who
- * stream big DJ sets do. The grammar (see DECISIONS 234):
+ * stream big DJ sets do. The grammar (see DECISIONS 236):
  *
  *  - Cut on the downbeat of a phrase, never mid-bar: shots last 4, 8 or 16
  *    bars, by how the set is going and the style.

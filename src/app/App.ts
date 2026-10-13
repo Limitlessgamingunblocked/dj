@@ -100,6 +100,7 @@ import { SamplerPanel } from '../ui/SamplerPanel';
 import { SetBuilderPanel } from '../ui/SetBuilderPanel';
 import { SetupPanel } from '../ui/SetupPanel';
 import { toast } from '../ui/toast';
+import { announceEarned } from '../ui/AchievementsPanel';
 import { TopBar } from '../ui/TopBar';
 import { VisualsPanel } from '../ui/VisualsPanel';
 import { WaveStrip } from '../ui/WaveStrip';
@@ -306,6 +307,7 @@ export class App implements AppContext {
     if (r.source !== 'clip' && r.source !== 'trim') return;
     const c = this.career;
     c.setProgress({ stats: { ...c.progress.stats, clips: (c.progress.stats.clips ?? 0) + 1 } });
+    announceEarned(c.checkAchievements());
     const post = clipPost({ dj: nameService.text, venueName: venueById(r.venue).name, venue: r.venue, followers: c.progress.followers, clip: r.id }, seeded(c.feed.seq * 13 + 1));
     c.setFeed(addPosts(c.feed, [post], new Date()));
     toast('Clip posted to your feed');

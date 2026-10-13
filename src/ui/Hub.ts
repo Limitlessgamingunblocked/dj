@@ -12,7 +12,11 @@ import { MILESTONE_BY_ID } from '../game/progression';
 import { nameService } from '../name/NameService';
 import type { Stage } from '../three/Stage';
 import type { ViewId } from '../three/CameraRig';
-import { goldRecords, homeLevel, HOME_NAMES, HOME_TIERS, hub, setHubState } from '../three/venues/hub';
+import { goldRecords, HOME_NAMES, HOME_TIERS, hub, setHubState } from '../three/venues/hub';
+import { homeOf } from '../game/home';
+import { achievementScore } from '../game/achievements';
+import { openAchievements } from './AchievementsPanel';
+import { openShop } from './ShopPanel';
 import { rivalOf } from '../game/rivals';
 import { SLOTS } from '../game/vibe';
 import * as THREE from 'three';
@@ -42,6 +46,8 @@ export class HubView {
   private prevVenue = '';
   private prevView: ViewId = 'perf';
   private t = 0;
+  /** the home the room was built as */
+  private built = 0;
 
   constructor(private host: HubHooks) {}
 
@@ -59,7 +65,7 @@ export class HubView {
       .reverse()
       .map((b) => ({ venue: b.venue, venueName: this.host.venueName(b.venue), promoter: b.promoter, dj, slotLabel: SLOTS[b.slot].label, minutes: b.minutes, night: b.night, special: b.special, rival: rivalOf(b.special)?.name }));
     const plaques = p.milestones.map((m) => MILESTONE_BY_ID.get(m)?.label ?? m);
-    return { tier: p.sandbox ? 7 : p.tier, dj, flyers, plaques, golds: goldRecords(p.tier, p.setsPlayed) };
+    return { tier: p.sandbox ? 7 : p.tier, home: homeOf(p), dj, flyers, plaques, golds: goldRecords(p.tier, p.setsPlayed) };
   }
 
   show(): void {
@@ -70,6 +76,7 @@ export class HubView {
     this.prevView = v === 'drone' || v === 'custom' ? 'perf' : v;
     setHubState(this.state());
     st.setVenue(hub);
+    this.built = homeOf(this.host.career.progress);
     // you, at home, grooving to whatever's on
     // mid-room and right of centre, clear of the panel on the left, turned to the camera
     st.avatarSpot = { pos: new THREE.Vector3(0.6, 0, -1.2), face: 0.3, input: () => this.input() };
@@ -94,6 +101,21 @@ export class HubView {
     requestAnimationFrame(() => st.resize());
   }
 
+  /** after a purchase or an award: the room (a new home) and the panel's numbers */
+  private refresh(): void {
+    if (!this.el) return;
+    const st = this.host.stage;
+    const home = homeOf(this.host.career.progress);
+    if (home !== this.built) {
+      setHubState(this.state());
+      st.setVenue(hub);
+      this.built = home;
+    }
+    const el = this.build();
+    this.el.replaceWith(el);
+    this.el = el;
+  }
+
   private input(): AvatarInput {
     const m = this.host.music();
     this.t += 1 / 60;
@@ -103,8 +125,8 @@ export class HubView {
   private build(): HTMLElement {
     const c = this.host.career;
     const p = c.progress;
-    const level = homeLevel(p.sandbox ? 7 : p.tier);
-    const next = level < 2 ? `${HOME_NAMES[level + 1]} at tier ${HOME_TIERS[level + 1]}` : null;
+    const level = homeOf(p);
+    const next = level < 2 ? `${HOME_NAMES[level + 1]} at tier ${HOME_TIERS[level + 1]}, or buy it in the Shop` : null;
     const lo = TIER_FAME[p.tier - 1] ?? 0;
     const hi = TIER_FAME[p.tier] ?? lo;
     const k = hi > lo ? Math.min(1, (p.fame - lo) / (hi - lo)) : 1;
@@ -149,6 +171,14 @@ export class HubView {
         station('shirt', 'Wardrobe', 'Change your look', leave(() => this.host.wardrobe())),
         station('record', 'Crates', 'Your records', leave(() => this.host.crates())),
         station('film', 'My Sets', 'Recordings and clips', leave(() => this.host.mySets())),
+        station('bag', 'Shop', `$${p.cash.toLocaleString()} to spend`, () => openShop({ career: c, bought: () => this.refresh() })),
+        (() => {
+          const sc = achievementScore(p);
+          return station('trophy', 'Achievements', `${sc.got} of ${sc.of} levels`, () => {
+            openAchievements(c);
+            this.refresh();
+          });
+        })(),
         station('phone', 'Phone', c.feed.posts.length ? `${c.feed.posts.length} post${c.feed.posts.length > 1 ? 's' : ''}` : 'Your feed', () => this.host.phone()),
       ),
       h('div', { class: 'hub-foot' }, back),
