@@ -33,7 +33,7 @@ class Berghain extends VenueBase {
     wideLabel: 'Balcony',
     director: {
       style: 'stream',
-      landmarks: [{ label: 'The hall', from: { pos: V(8, 6.5, -24), target: V(0, 2, 0) }, to: { pos: V(6, 6.8, -22), target: V(0, 2.2, 0) }, fov: 34 }],
+      landmarks: [{ label: 'The hall', from: { pos: V(3.6, 3.7, -15.5), target: V(0, 2, 0) }, to: { pos: V(2.4, 3.9, -14.5), target: V(0, 2.2, 0) }, fov: 36 }],
     },
     crowd: { pos: V(2.8, 2.3, -13.5), target: V(0, 1.6, 0) },
     // the booth sits in a niche: the crane and the rig camera reach out over the floor, the camcorder stands in the crowd

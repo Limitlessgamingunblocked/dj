@@ -56,6 +56,11 @@ describe('auto director: the shot grammar', () => {
     expect(available('aerial', CLUB)).toBe(false);
     expect(available('landmark', CLUB)).toBe(false);
     expect(available('aerial', FEST)).toBe(true);
+    // a venue can turn moves off; the mix then opens on something else
+    expect(available('reverse', { ...CLUB, skip: ['reverse'] })).toBe(false);
+    const room = { ...CLUB, skip: ['hands' as const] };
+    const cuts = run(new Director(seeded(4)), room, 14, (bar) => ({ mixing: bar >= 5 }));
+    expect(cuts.some((c) => c.id === 'hands')).toBe(false);
     for (let i = 0; i < 50; i++) expect(['aerial', 'landmark']).not.toContain(nextShot(POOLS.festival.breakdown, 'wide', [], i / 50, CLUB));
   });
 });
@@ -140,6 +145,19 @@ describe('auto director: cutting with the music', () => {
     // one on switching on, then one every 14 s or so over a minute
     expect(n).toBeGreaterThanOrEqual(Math.floor(60 / IDLE_SECONDS));
     expect(n).toBeLessThanOrEqual(6);
+  });
+
+  it('still cuts on the phrase line when slow frames skip the bar itself', () => {
+    const d = new Director(seeded(13));
+    const cuts: number[] = [];
+    // one frame every 2.6 s (bars are 2 s): some bars are never seen
+    for (let t = 0; t < 80; t += 2.6) {
+      const bar = Math.floor(t / 2);
+      if (d.update({ t, playing: true, bar, build: 0, peak: 0, dropHit: false }, FEST)) cuts.push(bar);
+    }
+    expect(cuts.length).toBeGreaterThanOrEqual(4);
+    // each one in the first bar past a 4-bar line
+    for (const b of cuts.slice(1)) expect(b % 4).toBeLessThanOrEqual(1);
   });
 
   it('measures the bar and decides once per show frame', () => {

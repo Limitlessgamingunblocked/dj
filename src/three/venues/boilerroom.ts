@@ -50,7 +50,9 @@ class BoilerRoom extends VenueBase {
     wideLabel: 'Stream cam',
     director: {
       style: 'stream',
-      landmarks: [{ label: 'Downtown', from: { pos: V(-3, 3.4, -6), target: V(20, 8, -60) }, to: { pos: V(-2.6, 3.6, -5.5), target: V(-20, 8, -60) }, fov: 40 }],
+      // the crowd is pressed round the DJ: a side-on camera only sees the nearest shoulder
+      skip: ['profile'],
+      landmarks: [{ label: 'Downtown', from: { pos: V(-1.4, 3.5, 3), target: V(3, 3, -40) }, to: { pos: V(1.4, 3.7, 3.2), target: V(-3, 3, -40) }, fov: 50 }],
     },
     crowd: { pos: V(-3.6, 2.5, -5.2), target: V(0, 1.3, 0.8) },
     drone: [V(0, 3.4, 4.8), V(0.2, 2.5, 1.6), V(0.4, 1.7, -0.9), V(0.5, 2.2, -3.4), V(2.6, 2.7, -6.6), V(5.8, 2.9, -4.2), V(6.6, 2.8, 0.2), V(4.6, 3.1, 4.2), V(1.8, 4.2, 7.0), V(-2.6, 3.6, 6.0), V(-6.2, 2.9, 2.4), V(-6.4, 2.7, -3.0), V(-3.0, 3.4, -6.4), V(-0.8, 4.6, -2.5)],

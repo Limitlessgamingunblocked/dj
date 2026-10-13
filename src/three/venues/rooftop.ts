@@ -120,7 +120,7 @@ class Rooftop extends OpenAir {
       scale: 4,
       landmarks: [
         { label: 'The city', from: { pos: V(-10, 3.2, -14.4), target: V(60, 2, -150) }, to: { pos: V(-9.5, 3.3, -14.2), target: V(-50, 2, -150) }, fov: 40 },
-        { label: 'Your name on the tower', from: { pos: V(5, 1.6, -9), target: V(0, 2.6, 6.2) }, to: { pos: V(3, 1.9, -7.5), target: V(0, 2.7, 6.2) }, fov: 30 },
+        { label: 'Your name on the tower', from: { pos: V(5, 2.6, -9), target: V(0, 2.6, 6.2) }, to: { pos: V(3, 2.8, -7.5), target: V(0, 2.7, 6.2) }, fov: 30 },
       ],
     },
     crowd: { pos: V(-1.2, 1.7, -6.5), target: V(0, 1.4, 0.8) },
