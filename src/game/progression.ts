@@ -16,10 +16,11 @@
  * applySet() at the end of a set and saves what comes back.
  */
 import { HAIR, ITEMS, OUTFIT_SETS, type Unlock } from '../character/catalog';
-import { owned } from '../character/look';
+import { ownedThing } from '../character/look';
 import type { Progress, Reputation } from '../core/models';
 import type { Grade, SlotId, VibeEvent } from './vibe';
 import { isCrazyRoom, roomLock, roomsOpenedBy } from './rooms';
+import { awardAchievements, earnedLabel, type Earned } from './achievements';
 
 export const CAREER_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise'] as const;
 export type CareerVenue = (typeof CAREER_VENUES)[number];
@@ -270,14 +271,14 @@ export function milestonesFor(s: SetSummary, after: Pick<Progress, 'stats' | 've
 /* ------------------------------------------------------------------ */
 
 export interface NewThing {
-  kind: 'venue' | 'item' | 'set' | 'hair' | 'tier' | 'title' | 'reputation' | 'story';
+  kind: 'venue' | 'item' | 'set' | 'hair' | 'tier' | 'title' | 'reputation' | 'story' | 'achievement';
   label: string;
 }
 
-const UNLOCKABLES: { kind: NewThing['kind']; label: string; unlock: Unlock }[] = [
-  ...ITEMS.map((i) => ({ kind: 'item' as const, label: i.label, unlock: i.unlock })),
-  ...OUTFIT_SETS.map((o) => ({ kind: 'set' as const, label: `${o.label} (outfit)`, unlock: o.unlock })),
-  ...HAIR.map((h) => ({ kind: 'hair' as const, label: `${h.label} (hair)`, unlock: h.unlock })),
+const UNLOCKABLES: { kind: 'item' | 'set' | 'hair'; id: string; label: string; unlock: Unlock }[] = [
+  ...ITEMS.map((i) => ({ kind: 'item' as const, id: i.id, label: i.label, unlock: i.unlock })),
+  ...OUTFIT_SETS.map((o) => ({ kind: 'set' as const, id: o.id, label: `${o.label} (outfit)`, unlock: o.unlock })),
+  ...HAIR.map((h) => ({ kind: 'hair' as const, id: h.id, label: `${h.label} (hair)`, unlock: h.unlock })),
 ];
 
 type Owns = Pick<Progress, 'tier' | 'setsPlayed' | 'unlocked' | 'sandbox'>;
@@ -286,7 +287,8 @@ type Owns = Pick<Progress, 'tier' | 'setsPlayed' | 'unlocked' | 'sandbox'>;
 export function newUnlocks(before: Owns, after: Owns): NewThing[] {
   const out: NewThing[] = [];
   for (const v of CAREER_VENUES) if (venueLock(v, before) && !venueLock(v, after)) out.push({ kind: 'venue', label: CAREER[v].name });
-  for (const u of UNLOCKABLES) if (u.unlock !== 'start' && !owned(u.unlock, before) && owned(u.unlock, after)) out.push({ kind: u.kind, label: u.label });
+  // a piece you bought in the shop was already yours
+  for (const u of UNLOCKABLES) if (u.unlock !== 'start' && !ownedThing(u.kind, u, before) && ownedThing(u.kind, u, after)) out.push({ kind: u.kind, label: u.label });
   return out;
 }
 
@@ -330,6 +332,8 @@ export interface SetOutcome {
   reputation: Reputation | null;
   /** a story moment this set brought ({name} is your DJ name) */
   story: string | null;
+  /** achievement levels reached */
+  achievements: Earned[];
 }
 
 const EMA = 0.4;
@@ -353,6 +357,9 @@ export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): Se
   add('drops', s.drops);
   add('minutes', Math.round(s.minutes));
   if (s.average >= 0.78 && s.full) add('sold_out', 1);
+  if (s.encore) add('encores', 1);
+  add(`grade:${s.grade}`, 1);
+  add('cash_earned', rewards.cash);
   if (booking) add(booking.met ? 'objectives_met' : 'objectives_missed', 1);
   // reputation: a running score per tag, so recent sets count most
   const scores = repScores(s);
@@ -412,7 +419,11 @@ export function applySet(p: Progress, s: SetSummary, booking?: BookingTerms): Se
     patch.cash = (patch.cash ?? p.cash) + (beat.cash ?? 0);
     news.push({ kind: 'story', label: beat.text });
   } else stats.quiet = (stats.quiet ?? 0) + 1;
-  return { patch, rewards, milestones, tierUp: tier > p.tier ? tier : null, unlocked: news, reputation, story };
+  // achievement levels the set reached: each pays once
+  const ach = awardAchievements({ ...p, ...patch });
+  if (ach.patch) Object.assign(patch, ach.patch);
+  for (const g of ach.got) news.push({ kind: 'achievement', label: `${earnedLabel(g)} (+$${g.cash})` });
+  return { patch, rewards, milestones, tierUp: tier > p.tier ? tier : null, unlocked: news, reputation, story, achievements: ach.got };
 }
 
 /** what's coming next, for the results screen and the hub ("Rooftop Bar at fame 80: 40 to go") */
