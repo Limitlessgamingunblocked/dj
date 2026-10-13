@@ -16,6 +16,7 @@ import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { setUiAudio, wireUiSounds } from '../audio/uisound';
 import { Broadcast } from './broadcast';
+import { AirDjMode } from './airdj/AirDjMode';
 import { registerRoomControls } from './roomControls';
 import { CrowdDirector } from './crowdDirector';
 import { openRoomEditor } from '../ui/RoomEditor';
@@ -196,6 +197,8 @@ export class App implements AppContext {
   private director = new Director();
   /** the stage alone for streaming, and the idle screensaver (broadcast.ts) */
   private broadcast!: Broadcast;
+  /** play with your hands in front of the webcam (airdj/) */
+  private airdj!: AirDjMode;
   private desk!: RecordingDesk;
   private mySets!: MySetsPanel;
   /** when the drop punch-in fires (performance.now), 0 for none */
@@ -821,6 +824,7 @@ export class App implements AppContext {
       'board-full': () => this.boardFull(!this.boardMode),
       autodj: () => this.setAutoDJ(!this.autodj.on),
       broadcast: () => this.broadcast.set(!this.broadcast.on),
+      airdj: () => this.airdj.set(!this.airdj.on),
       help: () => openHelp(),
       search: () => {
         this.showTab('library');
@@ -950,6 +954,7 @@ export class App implements AppContext {
       // not over a dialog, the title or the naming scene
       playing: () => this.engine.decks.some((d) => d.playing) && !document.body.classList.contains('modal-open') && !this.shell.classList.contains('titling') && !this.namingBusy,
     });
+    this.airdj = new AirDjMode(this.reg, this.stage.el);
     const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
     setTimeout(() => (hint.style.opacity = '0'), 10000);
@@ -1103,6 +1108,7 @@ export class App implements AppContext {
       { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
       'sep',
       { header: 'Play' },
+      { label: 'Air DJ (webcam hands)', checked: this.airdj.on, hint: '⇧H', action: () => this.airdj.set(!this.airdj.on) },
       { label: 'Harmonic wheel…', action: () => this.openHarmonic() },
       { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
