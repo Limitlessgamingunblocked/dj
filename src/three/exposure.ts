@@ -47,6 +47,30 @@ export function decodeHighlights(bytes: Uint8Array, cells: number, pct = 0.8): n
   return v[Math.min(v.length - 1, Math.floor(pct * v.length))];
 }
 
+/**
+ * The average brightness (linear, at exposure 1) of the cells whose centres fall in a rectangle of the
+ * frame, in uv (0..1, y up): how lit one thing in the picture is (the board, for the deck light).
+ * With no cell centre inside, the cell under the rectangle's middle.
+ */
+export function regionLevel(bytes: Uint8Array, w: number, h: number, x0: number, y0: number, x1: number, y1: number): number {
+  const cell = (i: number) => 2 ** ((bytes[i * 4] / 255) * 16 - 12);
+  let sum = 0;
+  let n = 0;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const u = (x + 0.5) / w;
+      const v = (y + 0.5) / h;
+      if (u >= x0 && u <= x1 && v >= y0 && v <= y1) {
+        sum += cell(y * w + x);
+        n++;
+      }
+    }
+  if (n) return sum / n;
+  const cx = Math.min(w - 1, Math.max(0, Math.floor(((x0 + x1) / 2) * w)));
+  const cy = Math.min(h - 1, Math.max(0, Math.floor(((y0 + y1) / 2) * h)));
+  return cell(cy * w + cx);
+}
+
 const W = 16;
 const H = 9;
 
@@ -89,10 +113,17 @@ export class ExposurePass extends Pass {
   private frame = 0;
   private last = performance.now();
   enabled = true;
+  /** a measurement has come back */
+  ready = false;
 
   constructor() {
     super();
     this.needsSwap = false;
+  }
+
+  /** the last measured brightness of a rectangle of the frame (uv, y up; see regionLevel), or 0 before the first */
+  level(x0: number, y0: number, x1: number, y1: number): number {
+    return this.ready ? regionLevel(this.buf, W, H, x0, y0, x1, y1) : 0;
   }
 
   render(renderer: THREE.WebGLRenderer, _write: THREE.WebGLRenderTarget, read: THREE.WebGLRenderTarget): void {
@@ -109,7 +140,10 @@ export class ExposurePass extends Pass {
     this.pending = true;
     renderer
       .readRenderTargetPixelsAsync(this.rt, 0, 0, W, H, this.buf)
-      .then(() => (this.measured = decodeHighlights(this.buf, W * H)))
+      .then(() => {
+        this.measured = decodeHighlights(this.buf, W * H);
+        this.ready = true;
+      })
       .catch(() => {})
       .finally(() => (this.pending = false));
   }
