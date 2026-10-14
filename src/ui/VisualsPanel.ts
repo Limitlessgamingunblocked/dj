@@ -1,4 +1,4 @@
-/* Visual player settings: modes, post-processing, intensity. */
+/* Visual player settings: modes, post-processing, intensity, lyrics, karaoke and AI lyrics. */
 import { openVisualEditor } from './VisualEditor';
 import { onMyVisuals } from '../visualizer/myvisual';
 import type { Stage, StageView } from '../three/Stage';
@@ -7,6 +7,9 @@ import { Visualizer } from '../visualizer/Visualizer';
 import type { Energy } from '../visualizer/kit';
 import { describeLook } from '../visualizer/songLook';
 import { clear, h, setClass } from './dom';
+import type { LyricsAI } from '../lyrics/LyricsAI';
+import { LISTEN_LANGUAGES, LISTEN_MODELS, type ListenQuality } from '../lyrics/aiModels';
+import { openLyricsAiGuide, withAiLyrics } from './LyricsAiGuide';
 
 const GROUPS: [Energy, string, string][] = [
   ['calm', 'Calm', 'Breakdowns and warm-ups'],
@@ -21,11 +24,14 @@ export class VisualsPanel {
   private styleBtns = new Map<string, HTMLElement>();
   private lookLine: HTMLElement;
   private lookId = '';
+  private hudInput: HTMLInputElement | null = null;
+  private aiInputs: { auto: HTMLInputElement; quality: Map<ListenQuality, HTMLElement>; lang: HTMLSelectElement } | null = null;
 
   constructor(
     private stage: Stage,
     private onChange: () => void,
     private setView: (v: StageView, fullscreen?: boolean) => void,
+    private ai?: LyricsAI,
   ) {
     const vis = stage.visualizer;
     // the modes in three groups by how hard they hit: the auto VJ uses the same groups
@@ -115,17 +121,19 @@ export class VisualsPanel {
     const lyricsBox = h(
       'div',
       { class: 'vis-lyrics' },
-      h('h3', {}, 'Lyrics on the screens'),
-      h('p', { class: 'note' }, 'Timed lyrics show word by word on the LED walls. Add lyrics from a deck’s ⋯ menu.'),
+      h('h3', {}, 'Lyrics and karaoke'),
+      h('p', { class: 'note' }, 'Timed lyrics show word by word on the LED walls, and as karaoke over the stage: the line being sung, each word filling with the deck’s colour as it’s sung, with both decks in a blend. Add lyrics from a deck’s ⋯ menu, or let the AI hear them.'),
       h('div', { class: 'toggle-row' }, h('span', { class: 'label' }, 'Style'), styleRow),
       h(
         'div',
         { class: 'toggle-row' },
         toggle('Show lyrics', () => s.lyrics, (v) => (s.lyrics = v), 'vis-lyr'),
         toggle('Hook lines fire strobes & haze', () => s.lyricHooks, (v) => (s.lyricHooks = v), 'vis-lyr-hooks'),
-        toggle('Subtitle over the booth', () => s.lyricHud, (v) => (s.lyricHud = v), 'vis-lyr-hud'),
+        toggle('Karaoke over the stage', () => s.lyricHud, (v) => (s.lyricHud = v), 'vis-lyr-hud', 'Shift+K'),
       ),
+      this.aiBox(),
     );
+    this.hudInput = lyricsBox.querySelector<HTMLInputElement>('#vis-lyr-hud');
 
     this.el = h(
       'div',
@@ -153,7 +161,66 @@ export class VisualsPanel {
     );
   }
 
+  /** AI lyrics: on or off for every track, the model, the language, the guide */
+  private aiBox(): HTMLElement | null {
+    const ai = this.ai;
+    if (!ai) return null;
+    const st = ai.settings;
+    const auto = h('input', { type: 'checkbox', id: 'vis-ai-auto' }) as HTMLInputElement;
+    auto.addEventListener('change', () => {
+      if (auto.checked && !st.agreed) {
+        auto.checked = false;
+        // the guide explains the download first; turning it on there switches this on
+        withAiLyrics(ai, () => {
+          st.auto = true;
+          ai.save();
+        });
+        return;
+      }
+      st.auto = auto.checked;
+      ai.save();
+    });
+    const quality = new Map<ListenQuality, HTMLElement>();
+    const qRow = h('div', { class: 'seg', role: 'group', 'aria-label': 'AI model' });
+    for (const q of Object.values(LISTEN_MODELS)) {
+      const b = h('button', { class: 'btn', type: 'button', title: `${q.note} (download ${q.size}, once)` }, q.name);
+      b.addEventListener('click', () => {
+        st.quality = q.id;
+        ai.save();
+      });
+      quality.set(q.id, b);
+      qRow.append(b);
+    }
+    const lang = h('select', { id: 'vis-ai-lang', 'aria-label': 'Language of the lyrics' }, ...LISTEN_LANGUAGES.map(([code, name]) => h('option', { value: code }, name))) as HTMLSelectElement;
+    lang.addEventListener('change', () => {
+      st.language = lang.value;
+      ai.save();
+    });
+    this.aiInputs = { auto, quality, lang };
+    const guide = h('button', { class: 'btn small', type: 'button' }, 'How AI lyrics works');
+    guide.addEventListener('click', () => openLyricsAiGuide(ai));
+    return h(
+      'div',
+      { class: 'vis-ai' },
+      h('h3', {}, 'AI lyrics'),
+      h('p', { class: 'note' }, 'The AI listens to songs with vocals, writes down the words and times each one, for the karaoke and the screens. It runs on this device: your music never leaves it.'),
+      h('div', { class: 'toggle-row' }, h('label', { for: 'vis-ai-auto', class: 'btn', style: { gap: '6px' } }, auto, 'Listen to every track I load that has no lyrics'), guide),
+      h('div', { class: 'toggle-row' }, h('span', { class: 'label' }, 'Model'), qRow, h('label', { class: 'label', for: 'vis-ai-lang' }, 'Language'), lang),
+    );
+  }
+
   update(): void {
+    if (this.hudInput) {
+      const s = this.stage.visualizer.settings;
+      if (this.hudInput.checked !== s.lyricHud) this.hudInput.checked = s.lyricHud;
+    }
+    if (this.aiInputs && this.ai) {
+      const st = this.ai.settings;
+      const on = st.auto && st.agreed;
+      if (this.aiInputs.auto.checked !== on) this.aiInputs.auto.checked = on;
+      for (const [id, b] of this.aiInputs.quality) setClass(b, 'active', id === st.quality);
+      if (this.aiInputs.lang.value !== st.language && document.activeElement !== this.aiInputs.lang) this.aiInputs.lang.value = st.language;
+    }
     for (const [id, b] of this.modeBtns) setClass(b, 'active', id === this.stage.visualizer.modeId);
     for (const [v, b] of this.viewBtns) setClass(b, 'active', v === this.stage.view);
     for (const [id, b] of this.styleBtns) setClass(b, 'active', id === this.stage.visualizer.settings.lyricStyle);

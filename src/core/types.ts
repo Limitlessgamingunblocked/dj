@@ -68,6 +68,8 @@ export interface LibraryTrack {
   error?: string;
   /** lyrics with timings (embedded, .lrc, pasted, looked up or tapped) */
   lyrics?: import('../lyrics/lyrics').Lyrics;
+  /** the AI listened for lyrics (so it doesn't listen again, even when it heard none) */
+  aiScan?: { at: number; model: string; words: number };
   /** the genre you picked for it (over its tag and the analyser's guess) */
   genre?: string;
 }

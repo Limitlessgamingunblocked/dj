@@ -53,6 +53,7 @@ export const KEY_DEFS: KeyDef[] = [
   { key: 'Shift+KeyB', action: 'board-full', label: 'Board full screen on / off (Esc leaves)' },
   { key: 'Shift+KeyA', action: 'autodj', label: 'Auto DJ on / off (mixes by itself)' },
   { key: 'Shift+KeyH', action: 'airdj', label: 'Air DJ on / off: play with your hands in front of the webcam' },
+  { key: 'Shift+KeyK', action: 'karaoke', label: 'Karaoke over the stage on / off' },
   { key: 'Shift+KeyO', action: 'broadcast', label: 'Broadcast mode on / off: the stage alone, for streaming (Esc leaves)' },
   { key: 'Shift+Slash', action: 'help', label: 'Help and every shortcut' },
   { key: 'Shift+ArrowLeft', id: 'cam.left', label: 'Camera: orbit left (hold)', group: 'Camera: orbit and tilt (hold)' },

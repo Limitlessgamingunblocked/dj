@@ -63,6 +63,14 @@ const SECTIONS: [string, string[]][] = [
     ],
   ],
   [
+    'Lyrics & karaoke',
+    [
+      'The AI hears the lyrics of any song with vocals and times every word: a deck’s ⋯ menu → Hear the lyrics with AI.',
+      'The line being sung shows over the stage, each word filling with colour as it’s sung, for both decks in a blend. Shift+K hides or shows it.',
+      'Have the words already? Paste them in the lyrics editor and press Time with AI.',
+    ],
+  ],
+  [
     'More',
     [
       'Auto DJ (Shift+A) mixes by itself until you touch a control.',
@@ -72,7 +80,7 @@ const SECTIONS: [string, string[]][] = [
   ],
 ];
 
-export function openHelp(): void {
+export function openHelp(guides: { aiLyrics?: () => void } = {}): void {
   openModal(
     'Help',
     h(
@@ -82,7 +90,7 @@ export function openHelp(): void {
         'div',
         { class: 'help-grid' },
         ...SECTIONS.map(([t, lines]) =>
-          h('section', {}, h('h3', {}, t), h('ul', {}, ...lines.map((l) => h('li', {}, l))), t === 'Air DJ' && h('button', { type: 'button', class: 'btn small help-more', onclick: () => openAirDjGuide() }, 'The Air DJ guide')),
+          h('section', {}, h('h3', {}, t), h('ul', {}, ...lines.map((l) => h('li', {}, l))), t === 'Air DJ' && h('button', { type: 'button', class: 'btn small help-more', onclick: () => openAirDjGuide() }, 'The Air DJ guide'), t === 'Lyrics & karaoke' && guides.aiLyrics && h('button', { type: 'button', class: 'btn small help-more', onclick: guides.aiLyrics }, 'The AI lyrics guide')),
         ),
       ),
       h('h3', { class: 'help-keys label' }, 'Keyboard'),
