@@ -1907,6 +1907,8 @@ export class App implements AppContext {
       this.broadcast.update(dt);
       if (roomShow.current) this.feedRoom(dt);
       this.crowdDir.update(dt, f.dropHit);
+      // crowd control (Air DJ): your character's arms go up and sway with yours too
+      this.stage.avatar.armSway = crowdShow.swayK > 0 ? { k: crowdShow.swayK, lean: crowdShow.swayNow } : null;
       this.vj.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
       this.nextCard?.update();

@@ -494,7 +494,7 @@ export const VERT_HEAD = /* glsl */ `
   attribute vec4 iSeed;
   attribute vec4 iInfo;
   uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick, uCold, uSync, uHype, uRiders, uLook;
-  uniform vec4 uStyle, uCircle, uCopy;
+  uniform vec4 uStyle, uCircle, uCopy, uSway;
   uniform float uSit, uLights, uWild, uCongaOn;
   uniform vec2 uBooth;
   uniform vec2 uConga[${CONGA}];
@@ -616,6 +616,20 @@ export const VERT_HEAD = /* glsl */ `
     aR = mix(aR, vec3(0.12, 1.95, 0.6), wFilm);
     float wDrink = iInfo.w * (1.0 - wClap) * (1.0 - wUp) * (1.0 - wCheer);
     aL = mix(aL, vec3(0.12, 0.45 + 0.08 * hit, 1.75), wDrink);
+    // crowd control: your hands in the air (Air DJ), and the room's go up and
+    // sway with them, mirrored the way people facing you copy you (your arms
+    // to your right, theirs to their left). The back follows a beat behind.
+    vec2 toBooth = uBooth - here;
+    float dBooth = length(toBooth);
+    vec2 toBoothN = toBooth / max(dBooth, 0.001);
+    vec2 djRight = vec2(toBoothN.y, -toBoothN.x);
+    vec2 ownX = vec2(IM[0].x, IM[0].z);
+    float sx = dot(ownX / max(length(ownX), 0.001), djRight);
+    float swayLean = mix(uSway.y, uSway.z, smoothstep(4.0, 14.0, dBooth)) * (0.75 + 0.5 * iSeed.y);
+    float ls = -swayLean * sx * 0.5 + 0.05 * sin(uBeat * 3.14159 + iSeed.x * 6.283);
+    float wSway = uSway.x * step(0.1, fract(iSeed.w * 4.7)) * (dancer + vip) * (1.0 - filmer);
+    aL = mix(aL, vec3(2.55 + ls, 0.22, 0.3 + 0.15 * abs(ls)), wSway);
+    aR = mix(aR, vec3(2.55 - ls, 0.22, 0.3 + 0.15 * abs(ls)), wSway);
     // a sign held up; waved about when their request's been played
     float wv = sin(uTime * 7.0 + iSeed.x * 6.283) * 0.35 * uWild;
     aL = mix(aL, vec3(-0.2 + wv, 2.75, 0.35), sign);
@@ -1028,6 +1042,7 @@ export class Crowd implements Fixture {
     uStyle: { value: new THREE.Vector4(0.25, 0.25, 0.25, 0.25) },
     uCircle: { value: new THREE.Vector4(0, 0, 2.2, 0) },
     uCopy: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uSway: { value: new THREE.Vector4(0, 0, 0, 0) },
     uSit: { value: 0 },
     uLights: { value: 0 },
     uWild: { value: 0 },
@@ -1335,6 +1350,8 @@ export class Crowd implements Fixture {
       u.uSync.value = Math.max(u.uSync.value, cw.jump);
     }
     u.uCopy.value.set(cw.point, cw.pump, cs.copy?.all ? 1 : 0, 0);
+    // crowd control: arms up, swaying with yours
+    u.uSway.value.set(cs.swayK, cs.swayNow, cs.swayLate, 0);
     u.uWild.value = cs.wild;
     if (this.hasCards) drawCards();
     // the dance circle

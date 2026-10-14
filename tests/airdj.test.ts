@@ -57,6 +57,12 @@ class Fake implements AirTarget {
   handsUp() {
     this.ups++;
   }
+  sway: number | null = null;
+  swayCalls = 0;
+  crowdSway(lean: number | null) {
+    this.sway = lean;
+    this.swayCalls++;
+  }
 }
 
 const DT = 1 / 30;
@@ -158,6 +164,49 @@ describe('Air DJ moves', () => {
     // the filters stayed put up there
     expect(t.filt.L).toBe(0.5);
     expect(t.filt.R).toBe(0.5);
+  });
+
+  it('crowd control: hands up, then the crowd sways with your arms until they come down', () => {
+    const t = new Fake();
+    const air = new AirDJ(t);
+    // hands up starts it (and fires the hands-up move)
+    hold(air, [hand('open', 0.4, 0.25), hand('open', 0.6, 0.25)], 15);
+    expect(t.ups).toBe(1);
+    expect(air.crowd).toBe(true);
+    expect(t.sway).not.toBeNull();
+    expect(Math.abs(t.sway!)).toBeLessThan(0.1);
+    // both arms over to your right (the picture's mirrored, so that's further right), lower than the hands-up band
+    hold(air, [hand('open', 0.55, 0.38), hand('open', 0.75, 0.38)], 6);
+    expect(t.sway!).toBeGreaterThan(0.5);
+    // and over to the left
+    hold(air, [hand('open', 0.2, 0.36), hand('open', 0.4, 0.36)], 6);
+    expect(t.sway!).toBeLessThan(-0.5);
+    // the arms in the air don't touch the filters
+    expect(t.filt.L).toBe(0.5);
+    expect(t.filt.R).toBe(0.5);
+    // bring them down and it lets go
+    hold(air, [hand('fist', 0.3, 0.8), hand('fist', 0.7, 0.8)], 30);
+    expect(air.crowd).toBe(false);
+    expect(t.sway).toBeNull();
+  });
+
+  it('crowd control holds through a moment with no hands, and needs hands up to start', () => {
+    const t = new Fake();
+    const air = new AirDJ(t);
+    // arms out at chest height: no crowd control
+    hold(air, [hand('open', 0.3, 0.5), hand('open', 0.7, 0.5)], 20);
+    expect(air.crowd).toBe(false);
+    expect(t.swayCalls).toBe(0);
+    hold(air, [hand('open', 0.4, 0.25), hand('open', 0.6, 0.25)], 15);
+    expect(air.crowd).toBe(true);
+    // the tracker loses the hands for a few frames: still on
+    hold(air, [], 5);
+    expect(air.crowd).toBe(true);
+    hold(air, [hand('open', 0.4, 0.3), hand('open', 0.6, 0.3)], 3);
+    expect(air.crowd).toBe(true);
+    air.release();
+    expect(air.crowd).toBe(false);
+    expect(t.sway).toBeNull();
   });
 
   it('lets everything go when the camera stops', () => {
