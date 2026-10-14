@@ -5,7 +5,8 @@
  *   – skin: 24 tones from very light to very deep, undertone, details
  *   – hair (43 styles), brows (15 shapes), facial hair, eyes (incl. fantasy
  *     irises), makeup, face paint, tattoos (54 designs), piercings
- *   – outfit pieces for 11 slots, materials, patterns, the 12 signature sets
+ *   – outfit pieces for 11 slots, materials, patterns, the robot DJ sets and
+ *     the 12 signature sets
  *   – DJ personality: groove, signature drop move, headphone and between-mix habits
  * Each item says how it unlocks (Section 9); `owned()` in look.ts applies it.
  */
@@ -248,6 +249,11 @@ export const ITEMS: ItemDef[] = [
   it('bucket_hat_smiley', 'head', 'Smiley bucket hat', 'milestone:acid', ['acid'], ['#ffd400', '#111111', '#ffffff'], 'cotton', 'smiley'),
   it('captain_hat', 'head', "Captain's hat", 'boat', ['nautical'], ['#f4f4f2', '#14213d', '#d4a64a']),
   it('hood_tech', 'head', 'Tech hood', 'warehouse', ['dark', 'techwear'], ['#0e0f12', '#1c1e23', '#3a3d44'], 'satin'),
+  // robot heads: they cover the face, hair and eyewear (zones: shell, visor or eyes, lights or ink)
+  it('helmet_chrome', 'head', 'Silver LED helmet', 'start', ['future', 'bold'], ['#eceff3', '#07080a', '#ff2a2a'], 'chrome'),
+  it('helmet_gold', 'head', 'Gold rainbow-visor helmet', 'start', ['future', 'glam'], ['#e0b04a', '#07080a', '#1a1b1f'], 'chrome'),
+  it('robot_smiley', 'head', 'Smiley robot head', 'start', ['bright', 'bold'], ['#e1261c', '#ffd21f', '#0a0a0a'], 'satin'),
+  it('robot_box', 'head', 'Box robot head', 'start', ['future', 'bright'], ['#dcdde0', '#e3261b', '#1b1c20'], 'satin'),
   // eyewear
   it('shades_oval', 'eyewear', 'Small oval shades', 'start', ['underground', 'smart'], ['#111111', '#2a2018', '#c9a24a']),
   it('shades_tinted', 'eyewear', 'Tinted shades', 'sunrise', ['bright', 'holiday'], ['#ffb38a', '#c9ced6', '#ff7aa8']),
@@ -308,11 +314,16 @@ export const ITEMS: ItemDef[] = [
   // the crazy rooms' outfits: play a set in the room to unlock its piece
   it('jacket_chrome', 'outer', 'Mirror chrome jacket', 'outfit:mirror', ['future', 'bold'], ['#e8ecf2', '#9aa4b4', '#ffffff'], 'chrome'),
   it('jacket_hologram', 'outer', 'Hologram jacket', 'outfit:hologram', ['future'], ['#5fe8ff', '#2a8cff', '#ffffff'], 'hologram'),
+  // the robot DJ's jacket: glossy black, white piping (zones: jacket, piping, collar and cuffs)
+  it('jacket_robot', 'outer', 'Piped robot jacket', 'start', ['future', 'dark'], ['#0d0e11', '#f2f3f5', '#1a1c21'], 'leather'),
   // wrists & hands
   it('watch_gold', 'wrists', 'Gold watch', 'beach', ['glam', 'holiday'], ['#d4a64a', '#111111', '#ffffff'], 'reflective'),
   it('watch_digital', 'wrists', 'Digital watch', 'set:4', ['sporty'], ['#111111', '#b6ff3b', '#c9ced6']),
   it('wristbands', 'wrists', 'Festival wristbands', 'festival', ['bold'], ['#ff2e88', '#3ad7ff', '#b6ff3b']),
   it('rings', 'wrists', 'Rings', 'set:3', ['glam'], ['#c9ced6', '#d4a64a', '#c9ced6'], 'reflective'),
+  // robot hands: segmented metal over the whole hand (zones: plates, joints, back plate)
+  it('gloves_chrome', 'wrists', 'Silver robot hands', 'start', ['future'], ['#eef1f4', '#16171a', '#9aa3b0'], 'chrome'),
+  it('gloves_gold', 'wrists', 'Gold robot hands', 'start', ['future', 'glam'], ['#e0b04a', '#16171a', '#f4d27a'], 'chrome'),
   // bottoms
   it('cargos_baggy', 'bottom', 'Baggy cargos', 'start', ['underground', 'sporty'], ['#5a5a4a', '#3a3a30', '#111111']),
   it('cargos_black', 'bottom', 'Black cargos', 'milestone:acid', ['dark', 'acid'], ['#111111', '#2a2d33', '#ffd400']),
@@ -327,6 +338,7 @@ export const ITEMS: ItemDef[] = [
   it('skirt_mini', 'bottom', 'Mini skirt', 'start', ['glam', 'bold'], ['#111111', '#2a2d33', '#ff2e88'], 'leather'),
   it('skirt_sequin', 'bottom', 'Sequin skirt', 'rooftop', ['glam'], ['#c9ced6', '#7a3cff', '#ffffff'], 'sequin'),
   it('jeans_straight', 'bottom', 'Straight jeans', 'start', ['smart'], ['#1f2c44', '#2c4466', '#c9a24a'], 'denim'),
+  it('pants_robot', 'bottom', 'Piped black trousers', 'start', ['future', 'dark'], ['#0d0e11', '#f2f3f5', '#1a1c21'], 'leather'),
   // socks
   it('socks_tennis', 'socks', 'Tennis socks', 'sunrise', ['bright', 'sporty'], ['#ffffff', '#d33a2c', '#1f4fa8']),
   it('socks_black', 'socks', 'Black socks', 'start', ['dark'], ['#111111', '#111111', '#2a2d33']),
@@ -342,12 +354,18 @@ export const ITEMS: ItemDef[] = [
   it('slippers', 'shoes', 'House slippers', 'start', ['cozy'], ['#4a4f5a', '#d9d6cf', '#ffb547'], 'velvet'),
   it('high_tops', 'shoes', 'High-tops', 'set:5', ['sporty'], ['#111111', '#ffffff', '#d33a2c']),
   it('gogo_boots', 'shoes', 'Go-go boots', 'rooftop', ['glam', 'bold'], ['#f4f4f2', '#c9ced6', '#111111'], 'leather'),
+  it('boots_robot', 'shoes', 'Black robot boots', 'start', ['future', 'dark'], ['#0d0e11', '#2a2d33', '#f2f3f5'], 'leather'),
   // bag & extra
   it('record_bag', 'bag', 'Record bag', 'set:16', ['underground'], ['#2a2018', '#8a5a32', '#c9a24a'], 'leather'),
   it('towel', 'bag', 'Towel over the shoulder', 'start', ['underground', 'sporty'], ['#f4f4f2', '#ff2e88', '#d9d6cf']),
 ];
 
 export const ITEM_BY_ID = new Map(ITEMS.map((i) => [i.id, i]));
+
+/** head items that replace the head (no face, hair, eyewear or headphones under them) */
+export const ROBOT_HEADS = new Set(['helmet_chrome', 'helmet_gold', 'robot_smiley', 'robot_box']);
+/** wrist items that are whole metal hands */
+export const ROBOT_HANDS = new Set(['gloves_chrome', 'gloves_gold']);
 
 export interface OutfitSet {
   id: string;
@@ -359,8 +377,16 @@ export interface OutfitSet {
   options?: Record<string, string>;
 }
 
-/** the 12 signature outfits (Section 4.7); every piece is also available on its own */
+/**
+ * the signature outfits (Section 4.7): the robot DJs first (the starting
+ * look is the first set), then the 12 from the brief. Every piece is also
+ * available on its own.
+ */
 export const OUTFIT_SETS: OutfitSet[] = [
+  { id: 'chrome_android', label: 'Silver Android', vibe: 'Robot DJ, silver unit', unlock: 'start', pieces: { head: 'helmet_chrome', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
+  { id: 'gold_android', label: 'Gold Android', vibe: 'Robot DJ, gold unit', unlock: 'start', pieces: { head: 'helmet_gold', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
+  { id: 'smiley_bot', label: 'Smiley Bot', vibe: 'Cartoon robot, all grins', unlock: 'start', pieces: { head: 'robot_smiley', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
+  { id: 'box_bot', label: 'Box Bot', vibe: 'Cartoon robot, red-eyed', unlock: 'start', pieces: { head: 'robot_box', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
   { id: 'afterhours', label: 'Afterhours Classic', vibe: 'Effortless 5am cool', unlock: 'start', pieces: { top: 'tee_vintage', bottom: 'cargos_baggy', shoes: 'trainers_chunky', eyewear: 'shades_oval' } },
   { id: 'terrace_king', label: 'Terrace King', vibe: 'Ibiza sunset', unlock: 'beach', pieces: { top: 'shirt_linen', neck: 'chain_gold', bottom: 'shorts_tailored', shoes: 'slides', head: 'bucket_hat' } },
   { id: 'warehouse_ghost', label: 'Warehouse Ghost', vibe: 'Anonymous and dark', unlock: 'warehouse', pieces: { top: 'techwear_top', outer: 'utility_vest', head: 'hood_tech', bottom: 'cargo_tech', shoes: 'boots_tactical' } },
