@@ -13,7 +13,8 @@ describe('character catalogue', () => {
     expect(HAIR.filter((h) => h.id !== 'bald').length).toBeGreaterThanOrEqual(40);
     expect(BROWS.length).toBeGreaterThanOrEqual(15);
     expect(TATTOOS.length).toBeGreaterThanOrEqual(50);
-    expect(OUTFIT_SETS).toHaveLength(12);
+    // the 12 from the brief and the four robot DJs
+    expect(OUTFIT_SETS).toHaveLength(16);
     expect(ITEMS.filter((i) => i.slot === 'headphones').length).toBeGreaterThanOrEqual(10);
     // every set's pieces exist and sit in their slot
     for (const s of OUTFIT_SETS) for (const [slot, id] of Object.entries(s.pieces)) expect(ITEM_BY_ID.get(id)?.slot).toBe(slot);
@@ -26,10 +27,11 @@ describe('character catalogue', () => {
 });
 
 describe('looks', () => {
-  it('starts as Afterhours Classic and wears any set', () => {
+  it('starts as the chrome robot DJ and wears any set', () => {
     const l = defaultLook();
-    expect(l.items.top).toBe('tee_vintage');
-    expect(l.items.eyewear).toBe('shades_oval');
+    expect(l.items.head).toBe('helmet_chrome');
+    expect(l.items.outer).toBe('jacket_robot');
+    expect(l.items.wrists).toBe('gloves_chrome');
     const tk = wearSet(l, OUTFIT_SETS.find((s) => s.id === 'terrace_king')!);
     expect(tk.items.top).toBe('shirt_linen');
     expect(tk.items.hair).toBe('crop');

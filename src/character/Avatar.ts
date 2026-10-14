@@ -31,6 +31,10 @@
  *            the build, mouthing along to a vocal, a grin when the room peaks,
  *            a frown of focus on a control, a brow flash for a clean blend
  *            and a wince at a mistake (brows, lids, cheeks, lip corners, jaw)
+ *   robot    the robot DJ: a helmet or cartoon robot head in place of the
+ *            face and hair (its LEDs, eyes and mouth follow the expressions,
+ *            see robot.ts), segmented chrome or gold hands, a glossy black
+ *            jacket and trousers with white piping
  *   hype     the dancers by the booth: a new move every two bars (sway, wave,
  *            hair flip, point at the DJ, body roll, clap in the build), and a
  *            jump on the drop
@@ -38,10 +42,11 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Look } from '../core/models';
-import { FACE_SHAPE_BASE, type FaceShape, type Slot } from './catalog';
+import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
 import { bodyReady, ModelBody, modelRegions, modelTuck, preloadBody, type BodyRegion, type Cover } from './modelBody';
+import { buildRobotHead, metalMat, robotFace, rubberMat, type RobotHead } from './robot';
 
 export type BoneName = 'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'shoulder_l' | 'upper_arm_l' | 'forearm_l' | 'hand_l' | 'shoulder_r' | 'upper_arm_r' | 'forearm_r' | 'hand_r' | 'thigh_l' | 'shin_l' | 'foot_l' | 'thigh_r' | 'shin_r' | 'foot_r';
 
@@ -133,6 +138,10 @@ interface ShellStyle {
   length?: number;
   crop?: boolean;
   push?: number;
+  /** the zone the collar, cuffs and hem take (2 unless said) */
+  trim?: 1 | 2 | 3;
+  /** white piping down the sleeves and over the shoulders (zone 2), the cuffs and collar ribbed */
+  piping?: boolean;
 }
 
 /** each top's cut */
@@ -162,6 +171,7 @@ const OUTER_STYLE: Record<string, ShellStyle> = {
   bomber: { sleeves: 'long', collar: 'crew', open: 0.3, push: 0.034 },
   denim_jacket: { sleeves: 'long', collar: 'shirt', open: 0.45, push: 0.03 },
   velvet_blazer: { sleeves: 'long', collar: 'shirt', open: 0.6, push: 0.028, length: 0.06 },
+  jacket_robot: { sleeves: 'long', collar: 'high', push: 0.03, trim: 3, piping: true },
 };
 
 /** a capsule hanging down from its joint */
@@ -325,6 +335,7 @@ type Expression = keyof typeof EXPRESSIONS;
 const EXPRESSION_IDS = Object.keys(EXPRESSIONS) as Expression[];
 const STANK = EXPRESSION_IDS.indexOf('stank');
 const LOST = EXPRESSION_IDS.indexOf('lost');
+const GRIN = EXPRESSION_IDS.indexOf('grin');
 const cl = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
 
 /** the parts of the face that move */
@@ -481,6 +492,9 @@ export class Avatar {
   /** the modelled body, when it's loaded, and the skin regions it shows (the code builds the rest) */
   private model: ModelBody | null = null;
   private modelShows = new Set<BodyRegion>();
+  /** a robot head in place of the face, and what its face does this frame */
+  private robot: RobotHead | null = null;
+  private robotIn = robotFace();
 
   constructor(look: Look, o: { djName?: string } = {}) {
     this.look = look;
@@ -537,6 +551,7 @@ export class Avatar {
     this.model?.dispose();
     this.model = null;
     this.faceRig = noFace();
+    this.robot = null;
     this.headphones = null;
     this.headphonesHome = null;
     this.prop = null;
@@ -612,7 +627,16 @@ export class Avatar {
     // the body (under the clothes; clothes are shells around it)
     if (code('chest')) this.mesh(lathe([[d.hipsR * 0.9, -0.09], [d.hipsR, -0.02], [(d.hipsR + d.waistR) / 2, 0.06], [d.waistR, 0.13]], d.depth * 1.05), this.skin('chest'), hips);
     if (code('chest')) this.mesh(lathe([[d.waistR, -0.02], [d.chestR * 0.96, 0.1 * d.H], [d.chestR, 0.19 * d.H], [d.shoulder * 0.86, 0.3 * d.H], [d.shoulder * 0.55, 0.345 * d.H], [0.055, 0.37 * d.H]], d.depth), this.skin('chest'), spine);
-    if (code('neck')) this.mesh(new THREE.CylinderGeometry(0.048, 0.056, 0.11 * d.H, 16).translate(0, 0.04, 0), this.skin('neck'), neck);
+    const robotHead = ROBOT_HEADS.has(l.items.head ?? '');
+    if (robotHead) {
+      // a robot's neck: black rubber in rings, up into the helmet
+      const rubber = this.keep(rubberMat());
+      this.mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.13 * d.H, 20).translate(0, 0.05, 0), rubber, neck);
+      for (let i = 0; i < 4; i++) {
+        const rib = this.mesh(new THREE.TorusGeometry(0.046 - i * 0.0015, 0.0045, 6, 24), rubber, neck, V(0, 0.005 + i * 0.026 * d.H, 0));
+        rib.rotation.x = Math.PI / 2;
+      }
+    } else if (code('neck')) this.mesh(new THREE.CylinderGeometry(0.048, 0.056, 0.11 * d.H, 16).translate(0, 0.04, 0), this.skin('neck'), neck);
     for (const [s, k] of [['l', 1], ['r', -1]] as const) {
       if (code(`upper_arm_${s}`)) {
         this.mesh(new THREE.SphereGeometry(d.armR * 1.25, 16, 12), this.skin(`upper_arm_${s}`), b[`shoulder_${s}`]);
@@ -625,8 +649,11 @@ export class Avatar {
     }
     // the side the lip curls on, the way the head tilts: each look has its own
     this.sneerSide = [...l.id].reduce((a, c) => a + c.charCodeAt(0), 0) % 2 ? -1 : 1;
-    this.buildHead();
-    this.buildHair();
+    // a robot head covers the face and hair (it's built with the accessories)
+    if (!robotHead) {
+      this.buildHead();
+      this.buildHair();
+    }
     this.buildClothes();
     this.buildAccessories();
     if (this.modelShows.size) {
@@ -651,17 +678,27 @@ export class Avatar {
    * palm: on the decks the palm faces down and the backs of the hands (the
    * knuckles and nails) face up; the thumb sits on the inside, towards the
    * other hand. `meshes` false builds only the joints (the modelled hand shows).
+   * Robot hands are the same rig in metal plates, black joints between them.
    */
   private buildHand(side: 'l' | 'r', k: number, meshes = true): void {
     const d = this.d;
     const hb = this.bones[`hand_${side}`];
-    const mat = this.skin(`hand_${side}`);
+    const robot = ROBOT_HANDS.has(this.look.items.wrists ?? '');
+    const zones = zoneColors(this.look, 'wrists');
+    const mat = robot ? this.keep(metalMat(zones[0])) : this.skin(`hand_${side}`);
+    const joint = robot ? this.keep(rubberMat(zones[1])) : mat;
     const w = d.armR * 1.55;
     // the joints always; the meshes only where the modelled hand isn't showing
     const add = (geo: THREE.BufferGeometry, m: THREE.Material, parent: THREE.Object3D, pos?: THREE.Vector3) => (meshes ? this.mesh(geo, m, parent, pos) : geo.dispose());
     add(new THREE.CapsuleGeometry(d.armR * 0.62, 0.035, 4, 12).scale(w / (d.armR * 1.24), 1, 0.55).translate(0, -0.035, 0), mat, hb);
     // knuckles: a little ridge across the back of the hand
-    add(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, 0.006), mat, hb);
+    add(new THREE.CapsuleGeometry(0.0062, w * 0.78, 3, 8).rotateZ(Math.PI / 2).translate(0, -0.063, 0.006), joint, hb);
+    if (robot) {
+      // a plate on the back of the hand, and a black cuff at the wrist
+      add(new THREE.BoxGeometry(w * 0.72, 0.036, 0.004).translate(0, -0.034, d.armR * 0.32), this.keep(metalMat(zones[2], 0.24)), hb);
+      const cuff = new THREE.TorusGeometry(d.armR * 0.82, 0.0055, 6, 20).rotateX(Math.PI / 2).translate(0, 0.002, 0);
+      add(cuff, joint, hb);
+    }
     const nailMat = this.std(new THREE.Color(0xf0d8cc), { roughness: 0.3 });
     const fingers: HandRig['fingers'] = [];
     // index (next to the thumb) to little
@@ -673,13 +710,21 @@ export class Avatar {
       hb.add(knuckle);
       const l1 = len * 0.55;
       const l2 = len * 0.48;
-      add(new THREE.CapsuleGeometry(r0, l1, 3, 8).translate(0, -l1 / 2, 0), mat, knuckle);
       const mid = new THREE.Object3D();
       mid.position.set(0, -l1 - 0.001, 0);
       knuckle.add(mid);
-      add(new THREE.CapsuleGeometry(r0 * 0.9, l2, 3, 8).translate(0, -l2 / 2, 0), mat, mid);
-      // the nail, on the back
-      add(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), nailMat, mid, V(0, -l2 * 0.72, r0 * 0.85));
+      if (robot) {
+        // plates a little short of each joint, a black ball in the gap
+        add(new THREE.CapsuleGeometry(r0 * 0.96, l1 * 0.7, 3, 10).translate(0, -l1 / 2, 0), mat, knuckle);
+        add(new THREE.SphereGeometry(r0 * 0.95, 10, 8), joint, knuckle);
+        add(new THREE.SphereGeometry(r0 * 0.85, 10, 8), joint, mid);
+        add(new THREE.CapsuleGeometry(r0 * 0.88, l2 * 0.72, 3, 10).translate(0, -l2 * 0.55, 0), mat, mid);
+      } else {
+        add(new THREE.CapsuleGeometry(r0, l1, 3, 8).translate(0, -l1 / 2, 0), mat, knuckle);
+        add(new THREE.CapsuleGeometry(r0 * 0.9, l2, 3, 8).translate(0, -l2 / 2, 0), mat, mid);
+        // the nail, on the back
+        add(new THREE.BoxGeometry(r0 * 1.3, l2 * 0.4, 0.0015), nailMat, mid, V(0, -l2 * 0.72, r0 * 0.85));
+      }
       fingers.push({ knuckle, mid });
     }
     // the thumb: on the inside of the hand, angled in and a little under the palm
@@ -688,7 +733,8 @@ export class Avatar {
     thumb.rotation.set(0.25, -k * 0.5, -k * 0.6);
     hb.add(thumb);
     add(new THREE.CapsuleGeometry(0.0085, 0.034, 3, 8).translate(0, -0.017, 0), mat, thumb);
-    add(new THREE.BoxGeometry(0.009, 0.01, 0.0015), nailMat, thumb, V(0, -0.034, 0.0078));
+    if (robot) add(new THREE.SphereGeometry(0.0092, 10, 8).translate(0, -0.016, 0), joint, thumb);
+    else add(new THREE.BoxGeometry(0.009, 0.01, 0.0015), nailMat, thumb, V(0, -0.034, 0.0078));
     this.hands[side] = { fingers, thumb, thumbRest: thumb.rotation.clone(), curl: 0.35, pose: 'pinch', poseW: 0 };
   }
 
@@ -1410,6 +1456,75 @@ export class Avatar {
     return m;
   }
 
+  /**
+   * The robot jacket's details: white piping over the shoulders, down the
+   * chest panels and the outside of each sleeve, a zip down the front, ribbed
+   * cuffs, collar and hem (zone 3) with a line of piping above each.
+   */
+  private piping(slot: Slot, push: number, hipPts: [number, number][], chestPts: [number, number][]): void {
+    const d = this.d;
+    const b = this.bones;
+    const pipe = this.fabric(slot, 2);
+    const rib = this.fabric(slot, 3);
+    const R = 0.0028;
+    const line = (pts: THREE.Vector3[], parent: THREE.Object3D, mat: THREE.Material = pipe, r = R) => this.mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), Math.max(8, pts.length * 4), r, 6, false), mat, parent);
+    // a point on a torso shell: `phi` round from straight ahead, at height y, just proud of the cloth
+    const on = (pts: [number, number][], depth: number, phi: number, y: number, out = 0.002) => {
+      let r = pts[0][0];
+      for (let i = 1; i < pts.length; i++) {
+        const [r0, y0] = pts[i - 1];
+        const [r1, y1] = pts[i];
+        if (y >= y0 && y <= y1) r = r0 + ((r1 - r0) * (y - y0)) / (y1 - y0 || 1);
+        else if (y > y1) r = r1;
+      }
+      r += out;
+      return V(r * Math.sin(phi), y, r * Math.cos(phi) * depth);
+    };
+    const chest = (phi: number, y: number, out?: number) => on(chestPts, d.depth * 1.02, phi, y, out);
+    const hip = (phi: number, y: number, out?: number) => on(hipPts, d.depth * 1.06, phi, y, out);
+    const steps = (n: number, f: (t: number) => THREE.Vector3) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
+    const H = d.H;
+    for (const k of [1, -1]) {
+      // from beside the collar out over the shoulder
+      line(steps(10, (t) => chest(k * (0.45 + 1.1 * t), (0.366 - 0.03 * t) * H, 0.003)), b.spine);
+      // the chest panels, either side of the zip, down into the waist
+      line(steps(12, (t) => chest(k * (0.62 - 0.18 * t), (0.34 - 0.36 * t) * H, 0.003)), b.spine);
+      line(steps(6, (t) => hip(k * 0.44, 0.13 - 0.22 * t, 0.003)), b.hips);
+    }
+    // the zip: a dark track down the middle and its pull under the collar
+    const zipMat = this.std(0x2a2c31, { metalness: 0.8, roughness: 0.35 });
+    line(steps(10, (t) => chest(0, (0.37 - 0.39 * t) * H, 0.003)), b.spine, zipMat, 0.0022);
+    line(steps(4, (t) => hip(0, 0.13 - 0.22 * t, 0.003)), b.hips, zipMat, 0.0022);
+    const pull = this.mesh(new THREE.BoxGeometry(0.008, 0.02, 0.003), this.std(0xd9dde3, { metalness: 0.95, roughness: 0.2 }), b.spine, chest(0, 0.33 * H, 0.007));
+    pull.rotation.x = -0.25;
+    // the ribbed hem, piping above it
+    const hemY = hipPts[0][1] + 0.012;
+    for (const [mat, y, tube, grow] of [[rib, hemY, 0.008, 0.004], [pipe, hemY + 0.02, R, 0.003]] as const) {
+      const ring = this.mesh(new THREE.TorusGeometry(on(hipPts, 1, Math.PI / 2, y, grow).x, tube, 6, 40), mat, b.hips, V(0, y, 0));
+      ring.rotation.x = Math.PI / 2;
+      ring.scale.set(1, d.depth * 1.06, 1);
+    }
+    // a line of piping round the top of the collar
+    const top = this.mesh(new THREE.TorusGeometry(0.061, R, 6, 28), pipe, b.neck, V(0, 0.045, 0));
+    top.rotation.x = Math.PI / 2;
+    for (const s of ['l', 'r'] as const) {
+      const k = s === 'l' ? 1 : -1;
+      const sr = d.armR * 1.18 + push * 0.55;
+      // over the cap of the shoulder, then down the outside of the sleeve to the cuff
+      line(steps(6, (t) => V(k * Math.sin((t * Math.PI) / 2) * (sr + 0.002), -0.004 + Math.cos((t * Math.PI) / 2) * (sr * 0.9 + 0.002), 0)), b[`shoulder_${s}`]);
+      line(steps(6, (t) => V(k * (sr * (1 - 0.08 * t) + 0.0015), -d.upperArm * t, 0)), b[`upper_arm_${s}`]);
+      const f0 = d.armR * 1.02 + push * 0.5;
+      const f1 = d.armR * 0.85 + push * 0.45;
+      const fl = d.foreArm * 0.94;
+      line(steps(6, (t) => V(k * (f0 + (f1 - f0) * t + 0.0015), -fl * 0.92 * t, 0)), b[`forearm_${s}`]);
+      // the cuff: ribbed, piping above it
+      const cuff = this.mesh(new THREE.CylinderGeometry(f1 + 0.004, f1 + 0.004, 0.022, 20, 1, true), rib, b[`forearm_${s}`], V(0, -fl + 0.012, 0));
+      void cuff;
+      const ring = this.mesh(new THREE.TorusGeometry(f1 + 0.0035, R, 6, 20), pipe, b[`forearm_${s}`], V(0, -fl + 0.03, 0));
+      ring.rotation.x = Math.PI / 2;
+    }
+  }
+
   private buildClothes(): void {
     const l = this.look;
     const d = this.d;
@@ -1422,36 +1537,29 @@ export class Avatar {
     const shell = (slot: Slot, push: number, o: ShellStyle) => {
       push += fitTop;
       const m = this.fabric(slot);
-      const trim = this.fabric(slot, 2);
+      const trim = this.fabric(slot, o.trim ?? 2);
       const gap = o.open ?? 0;
       const ps = gap ? gap / 2 : 0;
       const pl = Math.PI * 2 - gap;
       const lenDrop = o.length ?? 0;
       const bulge = (k: number) => (o.puffy ? 1 + 0.06 * Math.sin(k * Math.PI * 6) ** 2 : 1);
       // a crop stops above the waist and leaves the midriff bare
-      if (!o.crop) this.mesh(lathe([[(d.hipsR + push) * 0.98 * bulge(0), -0.11 - lenDrop], [d.hipsR + push, -0.03], [(d.hipsR + d.waistR) / 2 + push, 0.06], [d.waistR + push, 0.135]], d.depth * 1.06, ps, pl), m, b.hips);
+      const hipPts: [number, number][] = [[(d.hipsR + push) * 0.98 * bulge(0), -0.11 - lenDrop], [d.hipsR + push, -0.03], [(d.hipsR + d.waistR) / 2 + push, 0.06], [d.waistR + push, 0.135]];
+      if (!o.crop) this.mesh(lathe(hipPts, d.depth * 1.06, ps, pl), m, b.hips);
       else {
         const hem = this.mesh(new THREE.TorusGeometry(d.chestR * 0.95 + push, 0.005, 6, 28), trim, b.spine, V(0, 0.085 * d.H, 0));
         hem.rotation.x = Math.PI / 2;
         hem.scale.set(1, d.depth * 1.02, 1);
       }
-      this.mesh(
-        lathe(
-          [
-            o.crop ? [d.chestR * 0.95 + push, 0.085 * d.H] : [d.waistR + push, -0.03],
-            [d.chestR * 0.97 + push * bulge(0.3), 0.1 * d.H],
-            [d.chestR + push * bulge(0.6), 0.19 * d.H],
-            [d.shoulder * 0.86 + push, 0.3 * d.H],
-            [d.shoulder * 0.56 + push, 0.345 * d.H],
-            [0.07 + push * 0.5, 0.372 * d.H],
-          ],
-          d.depth * 1.02,
-          ps,
-          pl,
-        ),
-        m,
-        b.spine,
-      );
+      const chestPts: [number, number][] = [
+        o.crop ? [d.chestR * 0.95 + push, 0.085 * d.H] : [d.waistR + push, -0.03],
+        [d.chestR * 0.97 + push * bulge(0.3), 0.1 * d.H],
+        [d.chestR + push * bulge(0.6), 0.19 * d.H],
+        [d.shoulder * 0.86 + push, 0.3 * d.H],
+        [d.shoulder * 0.56 + push, 0.345 * d.H],
+        [0.07 + push * 0.5, 0.372 * d.H],
+      ];
+      this.mesh(lathe(chestPts, d.depth * 1.02, ps, pl), m, b.spine);
       for (const s of ['l', 'r'] as const) {
         if (o.sleeves === 'none') continue;
         const sr = d.armR * 1.18 + push * (o.puffy ? 0.9 : 0.55);
@@ -1478,6 +1586,7 @@ export class Avatar {
           flap.rotation.set(0.6, 0, s * 0.5);
         }
       }
+      if (o.piping) this.piping(slot, push, hipPts, chestPts);
       if (o.hood) {
         const hood = this.mesh(new THREE.SphereGeometry(d.headR * 1.05, 20, 12, Math.PI * 0.95, Math.PI * 1.1, 0, Math.PI * 0.55), m, b.spine, V(0, 0.36 * d.H, -0.05));
         hood.scale.set(1.1, 0.8, 1);
@@ -1556,6 +1665,19 @@ export class Avatar {
           const flare = bottom === 'trousers_flared';
           this.mesh(flare ? new THREE.CylinderGeometry(d.legR * 0.9 + baggy, d.legR * 1.6, d.shin * 0.96, 18, 1, true).translate(0, -d.shin * 0.48, 0) : limb(d.legR * 0.92 + baggy, d.shin * 0.96, d.legR * 0.7 + baggy), m, b[`shin_${s}`]);
         }
+        if (bottom === 'pants_robot') {
+          // white piping down the outside of each leg
+          const k = s === 'l' ? 1 : -1;
+          const pipe = this.fabric('bottom', 2);
+          const t0 = d.legR * 1.15 + baggy + fit;
+          const t1 = d.legR * 0.95 + baggy + fit;
+          const s0 = d.legR * 0.92 + baggy;
+          const s1 = d.legR * 0.7 + baggy;
+          for (const [bone, r0, r1, len] of [[b[`thigh_${s}`], t0, t1, d.thigh], [b[`shin_${s}`], s0, s1, d.shin * 0.96]] as const) {
+            const pts = Array.from({ length: 7 }, (_, i) => V(k * (r0 + ((r1 - r0) * i) / 6 + 0.0015), (-len * i) / 6, 0));
+            this.mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.0028, 6, false), pipe, bone);
+          }
+        }
         if (bottom.startsWith('cargo')) this.mesh(new THREE.BoxGeometry(0.03, 0.09, 0.07), this.fabric('bottom', 2), b[`thigh_${s}`], V((s === 'l' ? 1 : -1) * (d.legR + baggy + 0.01), -d.thigh * 0.55, 0));
       }
     }
@@ -1573,7 +1695,7 @@ export class Avatar {
       }
       const upper = this.fabric('shoes');
       const sole = this.fabric('shoes', 2);
-      const soleH = { trainers_chunky: 0.04, platforms: 0.08, slides: 0.02, boots_tactical: 0.03, deck_shoes: 0.015, slippers: 0.02, gogo_boots: 0.05 }[shoe] ?? 0.025;
+      const soleH = { trainers_chunky: 0.04, platforms: 0.08, slides: 0.02, boots_tactical: 0.03, boots_robot: 0.035, deck_shoes: 0.015, slippers: 0.02, gogo_boots: 0.05 }[shoe] ?? 0.025;
       const so = this.mesh(new THREE.CapsuleGeometry(0.05, 0.16, 4, 16).rotateX(Math.PI / 2), sole, foot, V(0, -0.075 + soleH / 2, 0.045));
       so.scale.set(1.04, soleH / 0.1, 1.02);
       if (shoe === 'slides') {
@@ -1584,7 +1706,7 @@ export class Avatar {
       const u = this.mesh(new THREE.CapsuleGeometry(0.046, 0.15, 4, 14).rotateX(Math.PI / 2), upper, foot, V(0, -0.075 + soleH + 0.035, 0.045));
       u.scale.set(1.05, shoe === 'slippers' ? 0.95 : 0.78, 1);
       if (shoe === 'gogo_boots') this.mesh(new THREE.CylinderGeometry(d.legR * 0.95 + 0.012, d.legR * 0.66 + 0.01, d.shin * 0.82, 18, 1, true).translate(0, -d.shin * 0.59, 0), upper, b[`shin_${s}`]);
-      if (shoe === 'boots_tactical' || shoe === 'high_tops') this.mesh(new THREE.CylinderGeometry(0.056, 0.058, shoe === 'boots_tactical' ? 0.17 : 0.09, 16).translate(0, shoe === 'boots_tactical' ? 0.03 : -0.01, 0), upper, foot);
+      if (shoe === 'boots_tactical' || shoe === 'high_tops' || shoe === 'boots_robot') this.mesh(new THREE.CylinderGeometry(0.056, 0.058, shoe === 'high_tops' ? 0.09 : 0.17, 16).translate(0, shoe === 'high_tops' ? -0.01 : 0.03, 0), upper, foot);
       if (shoe === 'runners_retro' || shoe === 'trainers_chunky') {
         // a plain stripe down each side (no maker's mark)
         for (const k of [-1, 1]) {
@@ -1608,7 +1730,21 @@ export class Avatar {
     const metal = (c: THREE.ColorRepresentation) => this.std(c, { metalness: 0.95, roughness: 0.22 });
 
     const hat = l.items.head;
-    if (hat) {
+    const robotHead = ROBOT_HEADS.has(hat ?? '');
+    if (hat && robotHead) {
+      this.robot = buildRobotHead(
+        hat,
+        {
+          mesh: (geo, mat, parent, pos) => this.mesh(geo, mat, parent, pos),
+          keep: (x) => this.keep(x),
+          spring: (obj, k) => this.springs.push({ obj, ox: 0, oz: 0, vx: 0, vz: 0, k }),
+        },
+        b.head,
+        r,
+        zoneColors(l, 'head'),
+        this.djName,
+      );
+    } else if (hat) {
       const m = this.fabric('head');
       const m2 = this.fabric('head', 2);
       const crown = (h: number, push = 1.08) => {
@@ -1642,7 +1778,8 @@ export class Avatar {
       }
     }
 
-    const eyewear = l.items.eyewear;
+    // a robot head has no eyes, ears or nose for glasses, headphones or piercings
+    const eyewear = robotHead ? null : l.items.eyewear;
     if (eyewear) {
       const frame = this.fabric('eyewear', 1);
       const lens = eyewear === 'round_specs' ? this.keep(new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, roughness: 0.05, transparent: true, opacity: 0.25 })) : eyewear === 'shades_tinted' ? this.keep(new THREE.MeshPhysicalMaterial({ color: zoneColors(l, 'eyewear')[0], roughness: 0.05, transparent: true, opacity: 0.6, metalness: 0.2 })) : this.std(eyewear === 'visor_reflective' ? zoneColors(l, 'eyewear')[0] : 0x08080a, { metalness: eyewear === 'visor_reflective' ? 0.95 : 0.4, roughness: 0.08 });
@@ -1674,7 +1811,7 @@ export class Avatar {
       }
     }
 
-    const phones = l.items.headphones;
+    const phones = robotHead ? null : l.items.headphones;
     if (phones) {
       const g = new THREE.Group();
       const [c1, c2] = zoneColors(l, 'headphones');
@@ -1788,7 +1925,7 @@ export class Avatar {
       labret: at(0, -0.62, 0.92),
     };
     const silver = metal(0xd9dde3);
-    for (const p of l.piercings) {
+    for (const p of robotHead ? [] : l.piercings) {
       const q = pos[p];
       if (!q) continue;
       if (p.includes('ring') || p === 'septum' || p.startsWith('ear_helix')) this.mesh(new THREE.TorusGeometry(0.005, 0.0012, 6, 12), silver, b.head, q);
@@ -2272,6 +2409,19 @@ export class Avatar {
     // the eyes: down at the board when a hand's on something
     const look = gaze + cl(F[CH.gaze], 0, 1) * 0.2;
     for (const e of fr.eyes) e.rotation.x += (look - e.rotation.x) * Math.min(1, dt * 6);
+    // a robot head shows the same face its own way (drawn in settle, once the blink is known)
+    if (this.robot) {
+      const ri = this.robotIn;
+      ri.jaw = jaw;
+      ri.smile = smile;
+      ri.squint = squint;
+      ri.stank = sw;
+      ri.lost = target[LOST];
+      ri.grin = target[GRIN];
+      ri.kick = s.kick;
+      ri.beat = beat;
+      ri.playing = s.playing;
+    }
   }
 
   /**
@@ -2394,6 +2544,10 @@ export class Avatar {
     // the lids where the face has them (shut in the breakdown, wide at the top of a build), a blink over that
     const c = this.lidClose;
     for (const lid of this.lids) lid.rotation.x = blink ? 0.6 : c >= 0 ? -0.35 + c * 0.95 : -0.35 + c * 0.4;
+    if (this.robot) {
+      this.robotIn.blink = !!blink;
+      this.robot.update(this.robotIn, dt);
+    }
 
     // hair and clothes swing: springs pushed by how the head (hair) or the chest (clothes) moves
     this.object.updateMatrixWorld(true);
