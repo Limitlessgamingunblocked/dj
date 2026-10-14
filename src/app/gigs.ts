@@ -80,6 +80,8 @@ export interface GigHost {
   setVenue(id: string): void;
   /** go to the gig's venue and walk in with the night's flyer (also into the room you're already in) */
   walkInto(id: string, flyer: HTMLCanvasElement | null): void;
+  /** before the night: the walk from backstage out to the booth, then `done` (straight away when it doesn't play) */
+  walkOut?(o: { venue: string; flyer: HTMLCanvasElement | null; slot: string; minutes: number }, done: () => void): void;
   venueName(id: string): string;
   /** the venues a gig can be played in, with their lock state */
   gigVenues(): GigVenue[];
@@ -284,7 +286,7 @@ export class GigDirector {
         objective: '',
         daily: { number: spec.number, twist: spec.twist.label, goals: spec.goals.map((g) => g.text), note: played ? `You played today's: ${played.grade}, ${played.met}/3 objectives. This one's practice.` : 'The same set for everyone today, on any stage, locked or not. Your first finished set counts.' },
       },
-      start: (cfg, o) => this.start(cfg, o.look, o.crate, null, spec),
+      start: (cfg, o) => this.walkOutThen(cfg, o.look, null, () => this.start(cfg, o.look, o.crate, null, spec)),
       dressingRoom: () => this.host.openCreator(),
     });
   }
@@ -315,9 +317,16 @@ export class GigDirector {
       progress: c.progress,
       assist: this.lastCfg?.assist ?? 'club',
       booking: b ? { venue: b.venue, venueName: this.host.venueName(b.venue), slot: b.slot, minutes: b.minutes, pay: b.pay, promoter: b.promoter, expectation: b.expectation, objective: b.objective, extra: rival ? `Back to back with ${rival.name}: ${rival.style}` : b.special === 'boat' ? 'The Boat Party: play it and the boat is yours to book again.' : circuitSpecial(b.special, c.circuit)?.badge } : null,
-      start: (cfg, o) => this.start(cfg, o.look, o.crate, b),
+      start: (cfg, o) => this.walkOutThen(cfg, o.look, b, () => this.start(cfg, o.look, o.crate, b)),
       dressingRoom: () => this.host.openCreator(),
     });
+  }
+
+  /** backstage first, in the look you picked: the walk out to the booth, then the night */
+  private walkOutThen(cfg: GigConfig, look: string | undefined, b: Booking | null, go: () => void): void {
+    if (!this.host.walkOut) return go();
+    if (look) this.host.career.wearLook(look);
+    this.host.walkOut({ venue: cfg.venue, flyer: this.flyerFor(cfg, b), slot: SLOTS[cfg.slot].label, minutes: cfg.minutes }, go);
   }
 
   /** the flyer for the night: the booking's, or one from the venue's own promoter for a set you picked */
