@@ -154,9 +154,9 @@ function jacketThickness(region: BodyRegion, p: THREE.Vector3): number {
     // soft creases round the waist, where the jacket bunches above the hem
     const round = Math.atan2(p.x, p.z);
     t += 0.0022 * sm(1.1, 0.98, p.y) * Math.sin(p.y * 260 + Math.sin(round * 3) * 2.5);
-    // the hem: a ribbed lip, then the jacket tucks away inside the trousers
-    t += 0.004 * sm(HEM + 0.035, HEM + 0.015, p.y) * (1 + 0.4 * Math.sin(round * 40));
-    return p.y > HEM ? t : -0.006 + (t + 0.006) * sm(HEM - 0.012, HEM, p.y);
+    // the hem tucks away inside the trousers just under the piping round it, which hides the fold
+    const tuck = HEM + 0.038;
+    return p.y > tuck + 0.006 ? t : -0.006 + (t + 0.006) * sm(tuck - 0.004, tuck + 0.006, p.y);
   }
   // the sleeves: along the arm from the shoulder (0) to the wrist (1)
   const k = region.endsWith('_l') ? 1 : -1;
@@ -201,7 +201,7 @@ function welded(geo: THREE.BufferGeometry) {
   const weld = new Map<string, number>();
   const id = new Int32Array(count);
   for (let i = 0; i < count; i++) {
-    const k = `${pos.getX(i).toFixed(5)},${pos.getY(i).toFixed(5)},${pos.getZ(i).toFixed(5)}`;
+    const k = `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
     if (!weld.has(k)) weld.set(k, weld.size);
     id[i] = weld.get(k)!;
   }
@@ -233,8 +233,8 @@ function welded(geo: THREE.BufferGeometry) {
   return { N, id, nbr, fixed, faces, P, n0 };
 }
 
-/** smooth the inside of a welded surface (Taubin: no shrinking), `n` pairs of passes */
-function taubin(w: ReturnType<typeof welded>, n: number): void {
+/** smooth the inside of a welded surface (Taubin: no shrinking), `n` pairs of passes, on just the `only` points if given */
+function taubin(w: ReturnType<typeof welded>, n: number, only?: Uint8Array): void {
   const { N, nbr, fixed, P } = w;
   const Q = new Float32Array(N * 3);
   for (let pass = 0; pass < n * 2; pass++) {
@@ -243,7 +243,7 @@ function taubin(w: ReturnType<typeof welded>, n: number): void {
       Q[v * 3] = P[v * 3];
       Q[v * 3 + 1] = P[v * 3 + 1];
       Q[v * 3 + 2] = P[v * 3 + 2];
-      if (fixed[v] || !nbr[v].size) continue;
+      if (fixed[v] || !nbr[v].size || (only && !only[v])) continue;
       let x = 0;
       let y = 0;
       let z = 0;
@@ -291,7 +291,7 @@ function weldedNormals(w: ReturnType<typeof welded>): Float32Array {
  * leather jacket does: the front of the chest is capped just in front of the
  * sternum, rounding off towards the sides.
  */
-function flattenChest(w: ReturnType<typeof welded>) {
+function flattenChest(w: ReturnType<typeof welded>, on: Uint8Array) {
   const { N, P } = w;
   const Y0 = 1.08;
   const Y1 = 1.38;
@@ -300,36 +300,119 @@ function flattenChest(w: ReturnType<typeof welded>) {
   const bin = (y: number) => Math.max(0, Math.min(BINS - 1, Math.floor(((y - Y0) / (Y1 - Y0)) * BINS)));
   for (let v = 0; v < N; v++) {
     const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
-    if (y > Y0 && y < Y1 && Math.abs(x) < 0.02 && z > 0) sternum[bin(y)] = Math.max(sternum[bin(y)], z);
+    if (on[v] && y > Y0 && y < Y1 && Math.abs(x) < 0.02 && z > 0) sternum[bin(y)] = Math.max(sternum[bin(y)], z);
+  }
+  // (the mesh is sparse down the middle: bins it misses take their neighbours' depth)
+  for (let i = 0; i < BINS; i++) {
+    if (sternum[i] >= 0) continue;
+    let lo = i - 1;
+    let hi = i + 1;
+    while (lo >= 0 && sternum[lo] < 0) lo--;
+    while (hi < BINS && sternum[hi] < 0) hi++;
+    if (lo >= 0 && hi < BINS) sternum[i] = sternum[lo] + ((sternum[hi] - sternum[lo]) * (i - lo)) / (hi - lo);
+    else if (lo >= 0 || hi < BINS) sternum[i] = sternum[lo >= 0 ? lo : hi];
   }
   for (let v = 0; v < N; v++) {
     const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
     const s = sternum[bin(y)];
-    if (s < 0 || z <= 0) continue;
-    const cap = s + 0.006 - 0.02 * (x / 0.16) ** 2;
+    if (!on[v] || s < 0 || z <= 0) continue;
+    const cap = s + 0.003 - 0.04 * (x / 0.16) ** 2;
     if (z <= cap) continue;
     const k = sm(Y0, Y0 + 0.05, y) * sm(Y1, Y1 - 0.05, y);
     P[v * 3 + 2] = z + (cap - z) * k;
   }
 }
 
+/** how big one tile of the suit's leather grain is, metres */
+const GRAIN_TILE = 0.09;
+
 /**
- * A copy of a region's skin on the same skeleton: smoothed (the cloth hides
- * the body's anatomy), then pushed out by `thick` along its normals.
+ * Even UVs for the suit's grain. The body's own UVs crowd and stretch (the
+ * nipples, the armpits get islands of their own), which shows up as spots in
+ * the grain, so the suit is wrapped round a vertical axis through each part
+ * (the arms hang straight at rest) with a whole number of tiles round it, and
+ * the triangles that cross the seam get their own corners.
  */
-function garment(src: THREE.SkinnedMesh, region: BodyRegion, thick: (r: BodyRegion, p: THREE.Vector3) => number, mat: THREE.Material): THREE.SkinnedMesh {
-  const geo = src.geometry.clone();
-  // the suit's own build, baked in (the look's body sliders don't reach it)
-  const pos0 = geo.attributes.position as THREE.BufferAttribute;
-  for (const [key, i] of Object.entries(src.morphTargetDictionary ?? {})) {
-    const delta = geo.morphAttributes.position?.[i];
-    const k = SUIT_SHAPE[key] ?? 0;
-    if (delta && k) for (let v = 0; v < pos0.count; v++) pos0.setXYZ(v, pos0.getX(v) + delta.getX(v) * k, pos0.getY(v) + delta.getY(v) * k, pos0.getZ(v) + delta.getZ(v) * k);
+function wrapUV(indexed: THREE.BufferGeometry, region: BodyRegion): THREE.BufferGeometry {
+  const geo = indexed.toNonIndexed();
+  indexed.dispose();
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  // round the middle of the part (the torso round the spine)
+  let cx = 0;
+  let cz = 0;
+  for (let i = 0; i < pos.count; i++) {
+    cx += pos.getX(i) / pos.count;
+    cz += pos.getZ(i) / pos.count;
   }
-  geo.morphAttributes = {};
-  const w = welded(geo);
-  if (region === 'chest') flattenChest(w);
-  taubin(w, region === 'chest' ? 50 : 10);
+  if (region === 'chest') cx = 0;
+  const round = /arm/.test(region) ? 0.3 : region === 'chest' ? 0.95 : 0.45;
+  const tiles = Math.max(1, Math.round(round / GRAIN_TILE));
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = (Math.atan2(pos.getX(i) - cx, pos.getZ(i) - cz) / (Math.PI * 2) + 0.5) * tiles;
+    uv[i * 2 + 1] = pos.getY(i) / GRAIN_TILE;
+  }
+  for (let t = 0; t < pos.count; t += 3) {
+    const us = [uv[t * 2], uv[t * 2 + 2], uv[t * 2 + 4]];
+    if (Math.max(...us) - Math.min(...us) < tiles / 2) continue;
+    for (let j = 0; j < 3; j++) if (us[j] < tiles / 2) uv[(t + j) * 2] += tiles;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return geo;
+}
+
+/**
+ * A garment cut from the skin of the regions it covers, on the same skeleton:
+ * smoothed (the cloth hides the body's anatomy), then pushed out by `thick`
+ * along its normals. The regions are worked as one surface, welded across
+ * the seams between them (the armholes, the hips), so the cloth runs on
+ * unbroken over a seam; each region then keeps a mesh of its own.
+ */
+function garment(parts: { src: THREE.SkinnedMesh; region: BodyRegion }[], thick: (r: BodyRegion, p: THREE.Vector3) => number, mat: THREE.Material): THREE.SkinnedMesh[] {
+  const geos = parts.map(({ src }) => {
+    const geo = src.geometry.clone();
+    // the suit's own build, baked in (the look's body sliders don't reach it)
+    const pos0 = geo.attributes.position as THREE.BufferAttribute;
+    for (const [key, i] of Object.entries(src.morphTargetDictionary ?? {})) {
+      const delta = geo.morphAttributes.position?.[i];
+      const k = SUIT_SHAPE[key] ?? 0;
+      if (delta && k) for (let v = 0; v < pos0.count; v++) pos0.setXYZ(v, pos0.getX(v) + delta.getX(v) * k, pos0.getY(v) + delta.getY(v) * k, pos0.getZ(v) + delta.getZ(v) * k);
+    }
+    geo.morphAttributes = {};
+    return geo;
+  });
+  // every region in one surface, to weld across the seams
+  const offsets: number[] = [];
+  let total = 0;
+  for (const g of geos) {
+    offsets.push(total);
+    total += g.attributes.position.count;
+  }
+  const allPos = new Float32Array(total * 3);
+  const allNor = new Float32Array(total * 3);
+  const allIdx: number[] = [];
+  geos.forEach((g, k) => {
+    allPos.set((g.attributes.position as THREE.BufferAttribute).array as Float32Array, offsets[k] * 3);
+    allNor.set((g.attributes.normal as THREE.BufferAttribute).array as Float32Array, offsets[k] * 3);
+    const idx = g.index!;
+    for (let i = 0; i < idx.count; i++) allIdx.push(idx.getX(i) + offsets[k]);
+  });
+  const all = new THREE.BufferGeometry();
+  all.setAttribute('position', new THREE.BufferAttribute(allPos, 3));
+  all.setAttribute('normal', new THREE.BufferAttribute(allNor, 3));
+  all.setIndex(allIdx);
+  const w = welded(all);
+  // which region each welded point is on (a seam takes the first it meets)
+  const regionAt: BodyRegion[] = new Array(w.N);
+  geos.forEach((g, k) => {
+    for (let i = 0; i < g.attributes.position.count; i++) regionAt[w.id[offsets[k] + i]] ??= parts[k].region;
+  });
+  const chest = Uint8Array.from(regionAt, (r) => (r === 'chest' ? 1 : 0));
+  if (chest.some((c) => c)) flattenChest(w, chest);
+  taubin(w, 10);
+  // the torso's anatomy and the crotch go under more smoothing than the limbs
+  const body = chest.map((c, v) => (c || (w.P[v * 3 + 1] > 0.7 && Math.abs(w.P[v * 3]) < 0.1) ? 1 : 0));
+  taubin(w, 40, body);
   const nrm = weldedNormals(w);
   const p = new THREE.Vector3();
   const n = new THREE.Vector3();
@@ -337,29 +420,33 @@ function garment(src: THREE.SkinnedMesh, region: BodyRegion, thick: (r: BodyRegi
   for (let v = 0; v < w.N; v++) {
     p.fromArray(w.P, v * 3);
     n.fromArray(nrm, v * 3);
-    p.addScaledVector(n, thick(region, p));
+    p.addScaledVector(n, thick(regionAt[v], p));
     out.set([p.x, p.y, p.z], v * 3);
   }
   w.P.set(out);
   const shade = weldedNormals(w);
-  const pos = geo.attributes.position as THREE.BufferAttribute;
-  const nor = geo.attributes.normal as THREE.BufferAttribute;
-  for (let i = 0; i < pos.count; i++) {
-    const v = w.id[i] * 3;
-    pos.setXYZ(i, out[v], out[v + 1], out[v + 2]);
-    nor.setXYZ(i, shade[v], shade[v + 1], shade[v + 2]);
-  }
-  const m = new THREE.SkinnedMesh(geo, mat);
-  m.name = `suit_${region}`;
-  m.position.copy(src.position);
-  m.quaternion.copy(src.quaternion);
-  m.scale.copy(src.scale);
-  m.bind(src.skeleton, src.bindMatrix);
-  m.castShadow = true;
-  m.receiveShadow = true;
-  m.frustumCulled = false;
-  src.parent?.add(m);
-  return m;
+  all.dispose();
+  return parts.map(({ src, region }, k) => {
+    const geo = geos[k];
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    const nor = geo.attributes.normal as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const v = w.id[offsets[k] + i] * 3;
+      pos.setXYZ(i, out[v], out[v + 1], out[v + 2]);
+      nor.setXYZ(i, shade[v], shade[v + 1], shade[v + 2]);
+    }
+    const m = new THREE.SkinnedMesh(wrapUV(geo, region), mat);
+    m.name = `suit_${region}`;
+    m.position.copy(src.position);
+    m.quaternion.copy(src.quaternion);
+    m.scale.copy(src.scale);
+    m.bind(src.skeleton, src.bindMatrix);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    m.frustumCulled = false;
+    src.parent?.add(m);
+    return m;
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -580,7 +667,7 @@ function jacketTrims(cloth: Cloth, t: SuitTrims, out: THREE.Object3D[]): void {
   });
   tube(cloth.line(hem, R * 0.6, TORSO, true), R, t.piping, TORSO, true);
   // the zip: a dark track down the front, metal teeth either side, the pull at the top
-  const zipPath: [THREE.Vector3, THREE.Vector3][] = steps(24).map((u) => [new THREE.Vector3(0, 1.43 - (1.43 - HEM + 0.005) * u, 0), new THREE.Vector3(0, 0, -1)]);
+  const zipPath: [THREE.Vector3, THREE.Vector3][] = steps(24).map((u) => [new THREE.Vector3(0, 1.43 - (1.43 - HEM - 0.04) * u, 0), new THREE.Vector3(0, 0, -1)]);
   const zip = cloth.line(zipPath, 0.0015, TORSO);
   tube(zip, 0.0026, t.zip, TORSO);
   if (zip) {
@@ -709,15 +796,9 @@ export class ModelBody {
     });
     // the robot suit, cut from the regions it covers
     if (suit) {
-      const jacket: THREE.SkinnedMesh[] = [];
-      const trousers: THREE.SkinnedMesh[] = [];
-      for (const m of this.meshes) {
-        const region = regionOf.get(m)!;
-        const sleeve = region.startsWith('upper_arm') || region.startsWith('forearm');
-        const leg = region.startsWith('thigh') || region.startsWith('calf');
-        if (suit.jacket && (region === 'chest' || sleeve)) jacket.push(garment(m, region, jacketThickness, suit.jacket));
-        if (suit.trousers && (region === 'chest' || leg)) trousers.push(garment(m, region, trouserThickness, suit.trousers));
-      }
+      const parts = (on: RegExp) => this.meshes.map((src) => ({ src, region: regionOf.get(src)! })).filter(({ region }) => on.test(region));
+      const jacket = suit.jacket ? garment(parts(/^(chest|upper_arm|forearm)/), jacketThickness, suit.jacket) : [];
+      const trousers = suit.trousers ? garment(parts(/^(chest|thigh|calf)/), trouserThickness, suit.trousers) : [];
       this.suit.push(...jacket, ...trousers);
       for (const [parts, trim] of [[jacket, jacketTrims], [trousers, trouserTrims]] as const) {
         if (!parts.length) continue;

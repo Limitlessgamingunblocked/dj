@@ -696,8 +696,8 @@ export class Avatar {
         for (let o: THREE.Object3D | null = b[name]; o && o !== this.body; o = o.parent) p.add(o.position);
         rest[name] = p;
       }
-      // the suit is cut from the model, whose UVs run over the whole body, so its grain repeats more
-      const cut = (slot: Slot) => this.hide(this.fabric(slot), 14);
+      // (the suit's UVs count in tiles of grain already)
+      const cut = (slot: Slot) => this.hide(this.fabric(slot), 1);
       const suit = this.suit && {
         jacket: this.suit.jacket ? cut('outer') : null,
         trousers: this.suit.trousers ? cut('bottom') : null,
