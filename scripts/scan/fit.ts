@@ -55,6 +55,45 @@ for (const [s, Side] of [
   );
 }
 
+/**
+ * The generated rig's joints and the body bone that takes over each one's skin
+ * (its spine has three joints to the body's two; its head and toe ends ride on
+ * the head and foot). `snap` joints are where the body's joint is stood while
+ * fitting, so each part keeps its own shape and joins the body's skeleton at its joints.
+ */
+const SCAN_TO_BODY: [string[], string, boolean][] = [
+  [['Hips', 'pelvis'], 'hips', true],
+  [['Spine02', 'Spine'], 'spine', false],
+  [['Spine01', 'Spine1'], 'spine', false],
+  [['Spine', 'Spine2'], 'chest', false],
+  [['neck', 'Neck'], 'neck', true],
+  [['Head'], 'head', true],
+  [['head_end', 'HeadTop_End'], 'head', false],
+  [['headfront'], 'head', false],
+];
+for (const [s, Side] of [
+  ['l', 'Left'],
+  ['r', 'Right'],
+] as const) {
+  SCAN_TO_BODY.push(
+    [[`${Side}Shoulder`], `shoulder_${s}`, true],
+    [[`${Side}Arm`], `upper_arm_${s}`, true],
+    [[`${Side}ForeArm`], `forearm_${s}`, true],
+    [[`${Side}Hand`], `hand_${s}`, true],
+    [[`${Side}UpLeg`], `thigh_${s}`, true],
+    [[`${Side}Leg`], `shin_${s}`, true],
+    [[`${Side}Foot`], `foot_${s}`, true],
+    [[`${Side}ToeBase`, `${Side}Toe_End`], `foot_${s}`, false],
+  );
+}
+
+/** the body bone a scan joint's skin goes to, if it has one */
+function bodyBoneOf(scanName: string): string | undefined {
+  const bare = scanName.replace(/^mixamorig[0-9]*:?/i, '').toLowerCase();
+  // (exact names first: Meshy's "Spine" is the top of three, where Mixamo's is the bottom)
+  return SCAN_TO_BODY.find(([names]) => names[0].toLowerCase() === bare)?.[1] ?? SCAN_TO_BODY.find(([names]) => names.some((n) => n.toLowerCase() === bare))?.[1];
+}
+
 /** a scan joint by any of its usual names (with or without a "mixamorig:" prefix) */
 function findBone(names: string[], want: string[]): string | undefined {
   const bare = (n: string) => n.replace(/^mixamorig[0-9]*:?/i, '').toLowerCase();
@@ -114,8 +153,21 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
   // one geometry in world space (bind pose for skinned meshes), with its material
   const geos: THREE.BufferGeometry[] = [];
   const mats: THREE.Material[] = [];
+  // the rig's own skin, its joints renamed to the body's bones (-1: no body bone takes it); none if any part is unrigged
+  let scanSkin: { index: number[]; weight: number[] } | null = { index: [], weight: [] };
   for (const m of scanMeshes) {
     const g = m.geometry.clone();
+    const sk = (m as THREE.SkinnedMesh).skeleton;
+    const si = g.attributes.skinIndex as THREE.BufferAttribute | undefined;
+    const sw = g.attributes.skinWeight as THREE.BufferAttribute | undefined;
+    if (scanSkin && sk && si && sw) {
+      const to = sk.bones.map((b) => boneIndex.get(bodyBoneOf(b.name) ?? '') ?? -1);
+      for (let i = 0; i < si.count; i++)
+        for (let j = 0; j < 4; j++) {
+          scanSkin.index.push(to[si.getComponent(i, j)] ?? -1);
+          scanSkin.weight.push(sw.getComponent(i, j));
+        }
+    } else scanSkin = null;
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'tangent'].includes(k)) g.deleteAttribute(k);
     g.morphAttributes = {};
     const sm = m as THREE.SkinnedMesh;
@@ -172,6 +224,16 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
     b.quaternion.copy(pq.invert().multiply(turn.multiply(wq)));
     b.updateMatrixWorld(true);
   }
+  // stand the body's joints on the scan's (parents first: the bones are listed that way)
+  if (scanSkin)
+    for (const [names, bone, snap] of SCAN_TO_BODY) {
+      const j = snap ? findBone(scanBones, names.slice(0, 1)) : undefined;
+      const b = j && bones[boneIndex.get(bone) ?? -1];
+      if (!j || !b?.parent) continue;
+      b.parent.updateWorldMatrix(true, false);
+      b.position.copy(b.parent.worldToLocal(joints.get(j)!.clone()));
+      b.updateMatrixWorld(true);
+    }
   body.updateMatrixWorld(true);
   skeleton.update();
   const posed = bones.map((b, i) => b.matrixWorld.clone().multiply(skeleton.boneInverses[i]));
@@ -235,8 +297,14 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
   const nm = new THREE.Matrix3();
   for (let i = 0; i < N; i++) {
     v.fromBufferAttribute(pos, i);
-    const near = nearest(v.x, v.y, v.z, 8);
     const acc = new Map<number, number>();
+    // the rig's own skin where it has one (it keeps each part whole); else the nearest body skin's
+    for (let j = 0; scanSkin && j < 4; j++) {
+      const b = scanSkin.index[i * 4 + j];
+      const w = scanSkin.weight[i * 4 + j];
+      if (b >= 0 && w > 0) acc.set(b, (acc.get(b) ?? 0) + w);
+    }
+    const near = acc.size ? [] : nearest(v.x, v.y, v.z, 8);
     const d0 = Math.sqrt(near[0]?.[1] ?? 0);
     for (const [p, d2] of near) {
       // the closest skin counts most; ones much further off hardly at all

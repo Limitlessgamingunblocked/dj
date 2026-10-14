@@ -3,6 +3,7 @@ import { HAIR, ITEMS, OUTFIT_SETS, SKIN_TONES, SLIDERS, TATTOOS, ITEM_BY_ID, BRO
 import { defaultLook, dressCodeBonus, LookHistory, option, owned, randomize, resetCategory, unlockText, wearSet, zoneColors } from '../src/character/look';
 import { LOOKS, checkLook } from '../src/core/models';
 import { memoryStore, SAVE_PREFIX, SaveSystem } from '../src/core/SaveSystem';
+import { hasModel } from '../src/three/assets';
 
 const rng = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 const fresh = { tier: 1, unlocked: [] as string[], sandbox: false, setsPlayed: 0 };
@@ -35,8 +36,9 @@ describe('looks', () => {
     expect(robot.items.head).toBe('helmet_chrome');
     expect(robot.items.outer).toBe('jacket_robot');
     expect(robot.items.wrists).toBe('gloves_chrome');
-    // (another set takes the scanned character off)
-    expect(robot.options.scan).toBeUndefined();
+    // (each set brings its own scanned character)
+    expect(robot.options.scan).toBe('character_scan_chrome_android_01');
+    for (const set of OUTFIT_SETS) expect(hasModel(set.options!.scan as string), set.id).toBe(true);
     const tk = wearSet(l, OUTFIT_SETS.find((s) => s.id === 'terrace_king')!);
     expect(tk.items.top).toBe('shirt_linen');
     expect(tk.items.hair).toBe('crop');

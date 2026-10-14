@@ -383,24 +383,24 @@ export interface OutfitSet {
  * available on its own.
  */
 export const OUTFIT_SETS: OutfitSet[] = [
-  // the realistic DJ: a scanned person (built from a turnaround render), clothes and all
+  // every set is a scanned person (built from a turnaround render), clothes and all; the realistic DJ first
   { id: 'deep_minimal', label: 'Deep Minimal', vibe: 'Real as it gets', unlock: 'start', pieces: { head: 'cap', top: 'tee_plain', headphones: 'hp_studio', shoes: 'sneakers_worn' }, options: { scan: 'character_scan_minimal_01', phones_wear: 'neck' } },
-  { id: 'chrome_android', label: 'Silver Android', vibe: 'Robot DJ, silver unit', unlock: 'start', pieces: { head: 'helmet_chrome', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
-  { id: 'gold_android', label: 'Gold Android', vibe: 'Robot DJ, gold unit', unlock: 'start', pieces: { head: 'helmet_gold', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
-  { id: 'smiley_bot', label: 'Smiley Bot', vibe: 'Cartoon robot, all grins', unlock: 'start', pieces: { head: 'robot_smiley', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
-  { id: 'box_bot', label: 'Box Bot', vibe: 'Cartoon robot, red-eyed', unlock: 'start', pieces: { head: 'robot_box', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
-  { id: 'afterhours', label: 'Afterhours Classic', vibe: 'Effortless 5am cool', unlock: 'start', pieces: { top: 'tee_vintage', bottom: 'cargos_baggy', shoes: 'trainers_chunky', eyewear: 'shades_oval' } },
-  { id: 'terrace_king', label: 'Terrace King', vibe: 'Ibiza sunset', unlock: 'beach', pieces: { top: 'shirt_linen', neck: 'chain_gold', bottom: 'shorts_tailored', shoes: 'slides', head: 'bucket_hat' } },
-  { id: 'warehouse_ghost', label: 'Warehouse Ghost', vibe: 'Anonymous and dark', unlock: 'warehouse', pieces: { top: 'techwear_top', outer: 'utility_vest', head: 'hood_tech', bottom: 'cargo_tech', shoes: 'boots_tactical' } },
-  { id: 'sunrise_set', label: 'Sunrise Set', vibe: 'Golden hour joy', unlock: 'sunrise', pieces: { top: 'shirt_floral', eyewear: 'shades_tinted', socks: 'socks_tennis', shoes: 'runners_retro' } },
-  { id: 'selector', label: 'Selector', vibe: 'UK rave terrace', unlock: 'basement', pieces: { top: 'jersey_football', bottom: 'track_pants', shoes: 'runners_retro' } },
-  { id: 'disco_revival', label: 'Disco Revival', vibe: '70s glitter', unlock: 'rooftop', pieces: { outer: 'jacket_sequin', bottom: 'trousers_flared', shoes: 'platforms' } },
-  { id: 'acid_smiley', label: 'Acid Smiley', vibe: 'Classic acid house', unlock: 'milestone:acid', pieces: { top: 'tee_smiley', bottom: 'cargos_black', head: 'bucket_hat_smiley' } },
-  { id: 'tracksuit_royalty', label: 'Tracksuit Royalty', vibe: '90s rave', unlock: 'basement', pieces: { outer: 'shellsuit_top', bottom: 'shellsuit_bottoms', shoes: 'runners_retro' } },
-  { id: 'chrome_boy', label: 'Chrome Boy', vibe: 'Future rave', unlock: 'festival', pieces: { outer: 'puffer_metallic', eyewear: 'visor_reflective', shoes: 'trainers_silver' } },
-  { id: 'boat_captain', label: 'Boat Party Captain', vibe: 'Fun on the water', unlock: 'boat', pieces: { head: 'captain_hat', top: 'shirt_white', bottom: 'shorts_navy', shoes: 'deck_shoes' } },
-  { id: 'basement_dweller', label: 'Basement Dweller', vibe: 'Underground lifer', unlock: 'start', pieces: { top: 'tee_band', bottom: 'jeans_ripped', shoes: 'sneakers_worn', bag: 'towel' } },
-  { id: 'bedroom_legend', label: 'Bedroom Legend', vibe: 'Where it all began', unlock: 'start', pieces: { top: 'hoodie', bottom: 'joggers', shoes: 'slippers', headphones: 'hp_studio' }, options: { phones_wear: 'neck' } },
+  { id: 'chrome_android', label: 'Silver Android', vibe: 'Robot DJ, silver unit', unlock: 'start', pieces: { head: 'helmet_chrome', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' }, options: { scan: 'character_scan_chrome_android_01' } },
+  { id: 'gold_android', label: 'Gold Android', vibe: 'Robot DJ, gold unit', unlock: 'start', pieces: { head: 'helmet_gold', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' }, options: { scan: 'character_scan_gold_android_01' } },
+  { id: 'smiley_bot', label: 'Smiley Bot', vibe: 'Cartoon robot, all grins', unlock: 'start', pieces: { head: 'robot_smiley', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' }, options: { scan: 'character_scan_smiley_bot_01' } },
+  { id: 'box_bot', label: 'Box Bot', vibe: 'Cartoon robot, red-eyed', unlock: 'start', pieces: { head: 'robot_box', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' }, options: { scan: 'character_scan_box_bot_01' } },
+  { id: 'afterhours', label: 'Afterhours Classic', vibe: 'Effortless 5am cool', unlock: 'start', pieces: { top: 'tee_vintage', bottom: 'cargos_baggy', shoes: 'trainers_chunky', eyewear: 'shades_oval' }, options: { scan: 'character_scan_afterhours_01' } },
+  { id: 'terrace_king', label: 'Terrace King', vibe: 'Ibiza sunset', unlock: 'beach', pieces: { top: 'shirt_linen', neck: 'chain_gold', bottom: 'shorts_tailored', shoes: 'slides', head: 'bucket_hat' }, options: { scan: 'character_scan_terrace_king_01' } },
+  { id: 'warehouse_ghost', label: 'Warehouse Ghost', vibe: 'Anonymous and dark', unlock: 'warehouse', pieces: { top: 'techwear_top', outer: 'utility_vest', head: 'hood_tech', bottom: 'cargo_tech', shoes: 'boots_tactical' }, options: { scan: 'character_scan_warehouse_ghost_01' } },
+  { id: 'sunrise_set', label: 'Sunrise Set', vibe: 'Golden hour joy', unlock: 'sunrise', pieces: { top: 'shirt_floral', eyewear: 'shades_tinted', socks: 'socks_tennis', shoes: 'runners_retro' }, options: { scan: 'character_scan_sunrise_set_01' } },
+  { id: 'selector', label: 'Selector', vibe: 'UK rave terrace', unlock: 'basement', pieces: { top: 'jersey_football', bottom: 'track_pants', shoes: 'runners_retro' }, options: { scan: 'character_scan_selector_01' } },
+  { id: 'disco_revival', label: 'Disco Revival', vibe: '70s glitter', unlock: 'rooftop', pieces: { outer: 'jacket_sequin', bottom: 'trousers_flared', shoes: 'platforms' }, options: { scan: 'character_scan_disco_revival_01' } },
+  { id: 'acid_smiley', label: 'Acid Smiley', vibe: 'Classic acid house', unlock: 'milestone:acid', pieces: { top: 'tee_smiley', bottom: 'cargos_black', head: 'bucket_hat_smiley' }, options: { scan: 'character_scan_acid_smiley_01' } },
+  { id: 'tracksuit_royalty', label: 'Tracksuit Royalty', vibe: '90s rave', unlock: 'basement', pieces: { outer: 'shellsuit_top', bottom: 'shellsuit_bottoms', shoes: 'runners_retro' }, options: { scan: 'character_scan_tracksuit_royalty_01' } },
+  { id: 'chrome_boy', label: 'Chrome Boy', vibe: 'Future rave', unlock: 'festival', pieces: { outer: 'puffer_metallic', eyewear: 'visor_reflective', shoes: 'trainers_silver' }, options: { scan: 'character_scan_chrome_boy_01' } },
+  { id: 'boat_captain', label: 'Boat Party Captain', vibe: 'Fun on the water', unlock: 'boat', pieces: { head: 'captain_hat', top: 'shirt_white', bottom: 'shorts_navy', shoes: 'deck_shoes' }, options: { scan: 'character_scan_boat_captain_01' } },
+  { id: 'basement_dweller', label: 'Basement Dweller', vibe: 'Underground lifer', unlock: 'start', pieces: { top: 'tee_band', bottom: 'jeans_ripped', shoes: 'sneakers_worn', bag: 'towel' }, options: { scan: 'character_scan_basement_dweller_01' } },
+  { id: 'bedroom_legend', label: 'Bedroom Legend', vibe: 'Where it all began', unlock: 'start', pieces: { top: 'hoodie', bottom: 'joggers', shoes: 'slippers', headphones: 'hp_studio' }, options: { scan: 'character_scan_bedroom_legend_01', phones_wear: 'neck' } },
 ];
 
 /* ------------------------------------------------------------------ */
