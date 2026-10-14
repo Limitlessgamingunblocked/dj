@@ -267,6 +267,7 @@ export function shoeShape(sd: number, ws: number, hs: number): THREE.BufferGeome
     const z = zc + vz * len;
     // the top: high at the heel and the ankle, low over the toes
     const t = (z - SHOE.z0) / (SHOE.z1 - SHOE.z0);
+    // (crowd.ts paints the body's own foot above this as the leg)
     const top = 0.112 - 0.02 * smoothstep(0.1, 0.5, t) - 0.045 * smoothstep(0.55, 1.0, t);
     const y = ((vy + 1) / 2) ** 0.8 * top;
     // wider across the ball of the foot than at the heel
@@ -327,7 +328,13 @@ export function hairGeometry(lod: 0 | 1 | 2, mat: number): THREE.BufferGeometry 
     const z = d.pos[i * 3 + 2];
     return d.region[i] === R.head && y > hairlineY(x, z) - 0.012 && !inEar(x, y, z);
   };
-  for (let t = 0; t < src.length; t += 3) if (above(src[t]) && above(src[t + 1]) && above(src[t + 2])) tris.push(src[t], src[t + 1], src[t + 2]);
+  // a triangle across the line comes too (the shaders cut the line per pixel), so the big triangles at the temples of
+  // the simpler meshes don't leave a notch of skin there
+  const head = (i: number) => d.region[i] === R.head && !inEar(d.pos[i * 3], d.pos[i * 3 + 1], d.pos[i * 3 + 2]);
+  for (let t = 0; t < src.length; t += 3) {
+    const c = [src[t], src[t + 1], src[t + 2]];
+    if (c.every(head) && c.some(above)) tris.push(c[0], c[1], c[2]);
+  }
   const thick = (i: number) => {
     const x = d.pos[i * 3];
     const y = d.pos[i * 3 + 1];

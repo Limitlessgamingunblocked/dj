@@ -32,8 +32,8 @@ export type CrowdLook = 'club' | 'dark' | 'beach' | 'festival' | 'playa';
 export const LOOK_CODE: Record<CrowdLook, number> = { club: 0, dark: 1, beach: 2, festival: 3, playa: 4 };
 
 /* the front row's own materials, after the crowd's */
-/** where the outer layer stops: just over the hips, and a little short of the wrists */
-const SHELL_HEM = JOINTS.hip[1] - 0.06;
+/** where the outer layer stops: at the hips (clear of the fork of the legs), and a little short of the wrists */
+const SHELL_HEM = JOINTS.hip[1] - 0.015;
 const SHELL_CUFF = JOINTS.wrist[1] + 0.025;
 export const FRONT_MATS = { eye: 18, brow: 19, shell: 20, shellLo: 21, hood: 22, strap: 23, glasses: 24, hat: 25, glow: 26, fan: 27, curls: 28, bun: 29, collar: 30, goggles: 31, harness: 32 };
 /* (the eye, curls and bun are the crowd's own now: PERSON_MATS) */
@@ -93,16 +93,16 @@ export function frontGeometry(): THREE.BufferGeometry {
   parts.push(
     shellGeometry(
       0,
-      // whole triangles to a little past the hem and the cuffs; the shader cuts them straight
+      // whole triangles to a little past the hem, the cuffs and the collar (the base of the neck); the shader cuts them straight
       (r, y) =>
-        (r === R.torso || r === R.thigh) && y > SHELL_HEM - 0.04 ? F.shell : r === R.upper ? F.shell : r === R.fore && y > SHELL_CUFF - 0.035 ? F.shellLo : null,
+        (r === R.torso || r === R.thigh) && y > SHELL_HEM - 0.04 ? F.shell : r === R.upper ? F.shell : r === R.fore && y > SHELL_CUFF - 0.035 ? F.shellLo : r === R.head && y < LANDMARKS.neckBase + 0.03 ? F.shell : null,
       0.009,
     ),
   );
-  // the hood, down: rolled round the back of the neck and lying between the shoulders
+  // the hood, down: rolled round the back of the neck (open at the front) and lying between the shoulders
   const NB = LANDMARKS.neckBase;
   const nz = JOINTS.neck[2];
-  parts.push(part(new THREE.TorusGeometry(0.08, 0.03, 5, 10, Math.PI * 1.25).rotateZ(Math.PI * 1.25).rotateX(Math.PI / 2).scale(1.2, 1, 1).translate(0, NB - 0.015, nz - 0.02), B.body, F.hood));
+  parts.push(part(new THREE.TorusGeometry(0.08, 0.03, 5, 10, Math.PI * 1.25).rotateZ(Math.PI * 0.875).rotateX(Math.PI / 2).scale(1.2, 1, 1).translate(0, NB - 0.015, nz - 0.02), B.body, F.hood));
   parts.push(part(new THREE.SphereGeometry(0.11, 8, 4).scale(1, 1.05, 0.3).translate(0, NB - 0.13, nz - 0.135), B.body, F.hood));
   // a collar: a fur collar, a bandana or a choker by the venue
   parts.push(part(new THREE.TorusGeometry(0.058, 0.012, 5, 16).rotateX(Math.PI / 2).scale(1.05, 0.8, 1.05).rotateX(-0.25).translate(0, JOINTS.neck[1] - 0.04, nz + 0.012), B.head, F.collar));
@@ -174,7 +174,9 @@ export const FRONT_VIS = /* glsl */ `
       // the front row's own kit (the eye, curls, bun and ponytail are the crowd's)
       if ((m > 18.5 && m < 27.5) || (m > 29.5 && m < 32.5)) {
         if (m < 19.5) vis = 1.0;
-        else if (m < 20.5) vis = step(0.5, fShell) * (fShell > 4.5 && aBone > 0.5 ? 0.0 : 1.0);
+        // (a gilet's armholes are cut in the fragment shader: hiding the arms' corners here would stretch the triangles
+        // they share with the body down to the floor)
+        else if (m < 20.5) vis = step(0.5, fShell);
         else if (m < 21.5) vis = (fShell > 0.5 && fShell < 2.5) || (fShell > 3.5 && fShell < 4.5) ? 1.0 : 0.0;
         else if (m < 22.5) vis = fShell > 1.5 && fShell < 2.5 ? 1.0 : 0.0;
         else if (m < 23.5) vis = (frontPick(iSeed, 6.0, vec4(0.3, 0.08, 0.12, 0.45), 0.3) ? 1.0 : 0.0) * (1.0 - staff);
@@ -272,23 +274,35 @@ export function frontFrag(): string {
       }
       else if (m < 22.5) {
         if (m < 21.5 && p.y < (m < 20.5 ? ${e(SHELL_HEM)} : ${e(SHELL_CUFF)})) discard;
+        // a gilet has no sleeves: the armhole round the shoulder, nothing down the arm
+        // (cut by how far out it is, curving in from the armpit to the shoulder: below the armpit that's the clean line
+        // between the arm and the chest, as in the crowd's shader)
+        if (fShell > 4.5 && m < 20.5 && abs(p.x) > mix(0.153, 0.11, smoothstep(1.2, 1.4, p.y))) discard;
         col = shellCol;
         crowdRough = shellRough;
         // open down the front (jackets, shirts, coats, gilets): the top shows between the fronts, a darker edge
-        if (vBone < 0.5 && fShell != 2.0 && p.z > 0.0 && m < 20.5) {
+        // round the neck: a clean collar line, about a crew neck's (the mesh's own edge there is ragged)
+        if (m < 20.5) {
+          float nr = length(vec2(p.x, (p.z - ${e(JOINTS.neck[2])}) * 1.2));
+          float collar = mix(${e(JOINTS.neck[1] - 0.04)}, ${e(JOINTS.neck[1] - 0.065)}, smoothstep(0.0, 0.05, p.z - ${e(JOINTS.neck[2])})) + max(0.0, nr - 0.075) * 1.5;
+          if (p.y > collar) discard;
+        }
+        // (by position alone: the bone varies across the triangles round the neck)
+        if (fShell != 2.0 && p.z > 0.0 && m < 20.5) {
           float open = 0.028 + 0.05 * smoothstep(1.2, 1.46, p.y);
           if (abs(p.x) < open && p.y < ${e(JOINTS.neck[1] - 0.06)}) discard;
           col *= 1.0 - 0.35 * (1.0 - smoothstep(open, open + 0.012, abs(p.x)));
         }
         // a hoodie: the kangaroo pocket, the drawstrings, ribbed cuffs and hem
         if (fShell > 1.5 && fShell < 2.5) {
-          if (vBone < 0.5 && p.z > 0.06 && p.y > 0.99 && p.y < 1.13 && abs(p.x) < 0.11) col *= 0.85;
-          if (vBone < 0.5 && p.z > 0.07 && abs(abs(p.x) - 0.03) < 0.0028 && p.y > 1.3 && p.y < 1.44) col = vec3(0.85);
+          // (where by position alone: the bone varies across the triangles near the arms and the neck)
+          if (p.z > 0.06 && p.y > 0.99 && p.y < 1.13 && abs(p.x) < 0.11) col *= 0.85;
+          if (p.z > 0.07 && abs(abs(p.x) - 0.03) < 0.0028 && p.y > 1.3 && p.y < 1.44) col = vec3(0.85);
         }
         // a gilet: quilted bands
         if (fShell > 4.5 && look < 3.5) col *= 0.82 + 0.18 * smoothstep(0.0, 0.25, abs(fract(p.y * 14.0) - 0.5));
         // cuffs and the hem
-        if (p.y < ${e(JOINTS.hip[1] - 0.035)} || (m > 20.5 && p.y < ${e(JOINTS.wrist[1] + 0.05)} && vBone > 4.5)) col *= 0.8;
+        if (p.y < ${e(SHELL_HEM + 0.025)} || (m > 20.5 && p.y < ${e(JOINTS.wrist[1] + 0.05)} && vBone > 4.5)) col *= 0.8;
         // fur: a deep pile
         if (fShell > 3.5 && fShell < 4.5) {
           float pile = crowdHash(floor(p.xy * 260.0) + floor(p.z * 260.0));
