@@ -3,7 +3,8 @@ import { BoardBuild } from '../three/builder';
 import { BOARDS, type BoardDef } from '../three/boards';
 import { ButtonPart, FaderPart, JogPart, KnobPart, PadPart, PlatterPart, ScreenPart, TonearmPart, VuPart } from '../three/parts';
 import { h, clear } from './dom';
-import { openModal } from './modal';
+import { openModal, type ModalHandle } from './modal';
+import { boardShowroom } from './BoardShowroom';
 
 const thumbCache = new Map<string, string>();
 
@@ -120,7 +121,8 @@ export function boardThumbnail(def: BoardDef, finishId: string): string {
   return url;
 }
 
-export function openBoardPicker(current: { board: string; finish: string }, choose: (board: string, finish: string) => void): void {
+/** the flat cards: a top view of every board with its finishes (choosing applies straight away) */
+function boardGrid(current: { board: string; finish: string }, choose: (board: string, finish: string) => void, showroom: (() => void) | null): HTMLElement {
   const body = h('div', { style: { display: 'grid', gap: '12px' } });
   const render = () => {
     clear(body);
@@ -153,7 +155,35 @@ export function openBoardPicker(current: { board: string; finish: string }, choo
       grid.append(card);
     }
     body.append(grid);
+    if (showroom) {
+      const back = h('button', { type: 'button', class: 'btn ghost small', style: { justifySelf: 'start' } }, 'Back to the showroom');
+      back.addEventListener('click', showroom);
+      body.append(back);
+    }
   };
   render();
-  openModal('Board', body, { wide: true });
+  return body;
+}
+
+/**
+ * Pick a board: the 3D showroom (BoardShowroom), or the flat cards when
+ * there's no WebGL or you ask for the grid.
+ */
+export function openBoardPicker(current: { board: string; finish: string }, choose: (board: string, finish: string) => void): void {
+  let modal: ModalHandle | null = null;
+  // what's on the board now (the grid applies picks straight away, so it moves)
+  const now = { ...current };
+  const pick = (b: string, f: string) => {
+    now.board = b;
+    now.finish = f;
+    choose(b, f);
+  };
+  const showGrid = (canGoBack: boolean) => modal?.body.replaceChildren(boardGrid({ ...now }, pick, canGoBack ? showRoom : null));
+  const showRoom = () => {
+    const room = boardShowroom({ current: { ...now }, choose: pick, grid: () => showGrid(true) }, () => modal);
+    if (room) modal?.body.replaceChildren(room);
+    else showGrid(false);
+  };
+  modal = openModal('Board', h('div'), { wide: true });
+  showRoom();
 }
