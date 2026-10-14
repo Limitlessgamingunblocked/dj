@@ -24,6 +24,8 @@ export interface Prefs {
   uiScale: number;
   /** idle camera sway and the beat shake (always off when the system asks for reduced motion) */
   cameraMotion: boolean;
+  /** before a gig, the walk from backstage out to the booth (skippable; off with reduced motion) */
+  walkOut: boolean;
   /** seconds before the end a playing deck starts warning; 0 = off */
   endWarning: number;
   /** refuse to load onto a deck that is playing */
@@ -87,6 +89,7 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   deckColors: DEFAULT_DECK_COLORS,
   uiScale: 1,
   cameraMotion: true,
+  walkOut: true,
   endWarning: 30,
   loadLock: true,
   tempoRange: 0.08,
@@ -136,6 +139,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
     deckColors: [0, 1, 2, 3].map((i) => colour(dc[i], d.deckColors[i])) as Prefs['deckColors'],
     uiScale: Math.round(num(r.uiScale, 0.8, 1.3, d.uiScale) * 20) / 20,
     cameraMotion: bool(r.cameraMotion, d.cameraMotion),
+    walkOut: bool(r.walkOut, d.walkOut),
     endWarning: Math.round(num(r.endWarning, 0, 120, d.endWarning)),
     loadLock: bool(r.loadLock, d.loadLock),
     tempoRange: oneOf(r.tempoRange, TEMPO_RANGE_CHOICES, d.tempoRange),
