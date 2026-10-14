@@ -110,7 +110,7 @@ describe('the career keeps your looks', () => {
     const c = new Career(new SaveSystem(kv));
     // nothing saved yet: you wear the starter look
     expect(c.looks.items).toHaveLength(0);
-    expect(c.look.items.top).toBe('tee_vintage');
+    expect(c.look.items.head).toBe('helmet_chrome');
     const seen: string[] = [];
     c.changed.on('look', (l) => seen.push(l.id));
     const a = { ...defaultLook('look_1', 'Basement'), items: { ...defaultLook().items, hair: 'locs' } };

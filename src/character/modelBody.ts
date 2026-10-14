@@ -24,7 +24,7 @@
  *              the game names the skin's parts). A region shows unless clothes
  *              cover it or it carries tattoos (tattoos are drawn for the
  *              code-built parts' UVs, so those parts stay code-built); a
- *              robot head hides the neck, robot hands the hands
+ *              robot head hides the neck and chest, robot hands the hands
  * The head, hair and clothes are still code-built.
  */
 import * as THREE from 'three';
@@ -71,8 +71,12 @@ export function modelRegions(look: Look, top: Cover | null, outer: Cover | null)
     if (shoe === 'gogo_boots') hide(`calf_${s}`);
     if (shoe && shoe !== 'slides') hide(`foot_${s}`);
   }
-  // a robot head brings its own neck; robot hands are code-built metal
-  if (ROBOT_HEADS.has(look.items.head ?? '')) hide('neck');
+  // a robot head brings its own neck (and the code-built torso under it, so no
+  // skin shows round the rubber neck); robot hands are code-built metal
+  if (ROBOT_HEADS.has(look.items.head ?? '')) {
+    hide('neck');
+    hide('chest');
+  }
   if (ROBOT_HANDS.has(look.items.wrists ?? '')) for (const s of ['l', 'r'] as const) hide(`hand_${s}`);
   // tattoos are painted for the code-built parts' UVs
   for (const t of look.tattoos) {

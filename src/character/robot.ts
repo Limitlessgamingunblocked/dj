@@ -63,8 +63,11 @@ const hash01 = (n: number) => {
 /* ------------------------------------------------------------------ */
 
 /** polished metal that catches the room's lights without blowing out */
-export function metalMat(color: THREE.ColorRepresentation, rough = 0.16): THREE.MeshPhysicalMaterial {
-  return new THREE.MeshPhysicalMaterial({ color, metalness: 1, roughness: rough, clearcoat: 0.6, clearcoatRoughness: 0.08, envMapIntensity: 0.75 });
+export function metalMat(color: THREE.ColorRepresentation, rough = 0.2): THREE.MeshPhysicalMaterial {
+  const m = new THREE.MeshPhysicalMaterial({ color, metalness: 1, roughness: rough, envMapIntensity: 0.6 });
+  // a touch darker than the swatch, so a spotlight on the crown doesn't flare white
+  m.color.multiplyScalar(0.82);
+  return m;
 }
 
 /** glossy painted plastic */
@@ -305,7 +308,7 @@ function goldHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
   const RY = r * 1.28;
   const RZ = r * 1.2;
   const form = (d: THREE.Vector3, o: THREE.Vector3) => o.set(d.x * RX, d.y * RY, d.z * RZ);
-  const shell = kit.keep(metalMat(zones[0], 0.2));
+  const shell = kit.keep(metalMat(zones[0], 0.24));
   kit.mesh(shaped(new THREE.SphereGeometry(1, 64, 40, 0, Math.PI * 2, 0, Math.PI * 0.8), form), shell, grp);
   seal(kit, grp, RX * 0.6, RZ * 0.6, -RY * 0.8, r * 0.06);
 
@@ -313,10 +316,11 @@ function goldHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
   const led = new DotMatrix(26, 22, (x) => `hsl(${Math.round((x / 26) * 300)}, 100%, 58%)`, name);
   kit.keep(led.tex);
   const glass = kit.keep(new THREE.MeshPhysicalMaterial({ color: zones[1], roughness: 0.04, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.02, emissive: 0xffffff, emissiveMap: led.tex, emissiveIntensity: 1.3 }));
-  kit.mesh(shaped(frontPatch(1.08, 0.22, 0.74), form, 1.008), glass, grp);
+  kit.mesh(shaped(frontPatch(0.98, 0.24, 0.7), form, 1.008), glass, grp);
   // a crest down the middle, front to back
   const crest = new THREE.CatmullRomCurve3(Array.from({ length: 13 }, (_, i) => {
-    const a = -0.55 + (i / 12) * 1.95;
+    // from the back of the head over the crown to the top of the visor
+    const a = -1.3 + (i / 12) * 1.85;
     return new THREE.Vector3(0, Math.cos(a) * RY * 1.01, Math.sin(a) * RZ * 1.01);
   }));
   kit.mesh(new THREE.TubeGeometry(crest, 48, r * 0.045, 8, false), shell, grp);
