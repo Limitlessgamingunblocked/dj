@@ -112,7 +112,8 @@ function dims(l: Look): Dims {
   const thigh = 0.43 * H * L;
   const shin = 0.42 * H * L;
   // the robot suit is padded: broad in the shoulders and the chest, the arms set wider to clear it
-  const suit = l.items.outer === 'jacket_robot' ? 1 : 0;
+  // (only the code-built suit: the modelled one is padded round the model's own shoulders)
+  const suit = l.items.outer === 'jacket_robot' && !bodyReady() ? 1 : 0;
   return {
     H,
     shoulder: (0.18 + 0.03 * slider(l, 'shoulder_width')) * (0.96 + 0.04 * M) * Math.sqrt(H) * (1 + 0.2 * suit),
@@ -512,6 +513,8 @@ export class Avatar {
   /** the modelled body, when it's loaded, and the skin regions it shows (the code builds the rest) */
   private model: ModelBody | null = null;
   private modelShows = new Set<BodyRegion>();
+  /** the robot suit's layers that come from the modelled body this build */
+  private suit: { jacket: boolean; trousers: boolean } | null = null;
   /** a robot head in place of the face, and what its face does this frame */
   private robot: RobotHead | null = null;
   private robotIn = robotFace();
@@ -651,7 +654,13 @@ export class Avatar {
     const topCut: Cover | null = top ? (TOP_STYLE[top] ?? { sleeves: 'short' }) : null;
     const outerCut: Cover | null = outer ? (OUTER_STYLE[outer] ?? { sleeves: 'long' }) : null;
     this.modelShows = bodyReady() ? modelRegions(l, topCut, outerCut) : new Set();
-    const code = (r: BodyRegion) => !this.modelShows.has(r);
+    // the robot jacket and trousers are cut from the modelled body, once it's loaded
+    const jacket = bodyReady() && outer === 'jacket_robot';
+    const trousers = bodyReady() && l.items.bottom === 'pants_robot';
+    this.suit = jacket || trousers ? { jacket, trousers } : null;
+    // (no skin under the modelled robot suit either: it would poke through)
+    const suited = (r: BodyRegion) => (!!this.suit?.jacket && /^(chest|upper_arm|forearm)/.test(r)) || (!!this.suit?.trousers && /^(chest|thigh|calf)/.test(r));
+    const code = (r: BodyRegion) => !this.modelShows.has(r) && !suited(r);
 
     // the body (under the clothes; clothes are shells around it)
     if (code('chest')) this.mesh(lathe([[d.hipsR * 0.9, -0.09], [d.hipsR, -0.02], [(d.hipsR + d.waistR) / 2, 0.06], [d.waistR, 0.13]], d.depth * 1.05), this.skin('chest'), hips);
@@ -679,7 +688,7 @@ export class Avatar {
     }
     this.buildClothes();
     this.buildAccessories();
-    if (this.modelShows.size) {
+    if (this.modelShows.size || this.suit) {
       // the game's bones at rest, in the body's space (no rotations yet)
       const rest = {} as Record<BoneName, THREE.Vector3>;
       for (const name of Object.keys(b) as BoneName[]) {
@@ -687,7 +696,12 @@ export class Avatar {
         for (let o: THREE.Object3D | null = b[name]; o && o !== this.body; o = o.parent) p.add(o.position);
         rest[name] = p;
       }
-      this.model = new ModelBody(this.body, b, rest, this.hands, this.modelShows, this.skin('body'), l, modelTuck(l, topCut, outerCut));
+      const suit = this.suit && {
+        jacket: this.suit.jacket ? this.fabric('outer') : null,
+        trousers: this.suit.trousers ? this.fabric('bottom') : null,
+        trims: { piping: this.fabric(this.suit.jacket ? 'outer' : 'bottom', 2), zip: this.std(0x2a2c31, { metalness: 0.8, roughness: 0.35 }), metal: this.std(0xd9dde3, { metalness: 0.95, roughness: 0.2 }) },
+      };
+      this.model = new ModelBody(this.body, b, rest, this.hands, this.modelShows, this.skin('body'), l, modelTuck(l, topCut, outerCut), suit);
     }
   }
 
@@ -1603,6 +1617,20 @@ export class Avatar {
       const bulge = (k: number) => (o.puffy ? 1 + 0.06 * Math.sin(k * Math.PI * 6) ** 2 : 1);
       // a crop stops above the waist and leaves the midriff bare
       const hipPts: [number, number][] = [[(d.hipsR + push) * 0.98 * bulge(0), -0.11 - lenDrop], [d.hipsR + push, -0.03], [(d.hipsR + d.waistR) / 2 + push, 0.06], [d.waistR + push, 0.135]];
+      // (the modelled robot jacket is the body itself, padded: only its collar is built here)
+      const modelled = slot === 'outer' && !!this.suit?.jacket;
+      if (modelled) {
+        // a high collar, piping round its top, snap studs down its front either side of the zip
+        this.mesh(new THREE.CylinderGeometry(0.062, 0.074, 0.075, 24, 1, true), trim, b.neck, V(0, 0.008, 0));
+        const top = this.mesh(new THREE.TorusGeometry(0.0625, 0.0032, 6, 28), this.fabric(slot, 2), b.neck, V(0, 0.046, 0));
+        top.rotation.x = Math.PI / 2;
+        const stud = this.std(0xd9dde3, { metalness: 0.95, roughness: 0.2 });
+        for (const a of [-0.32, 0.32]) for (const y of [-0.004, 0.024]) {
+          const st = this.mesh(new THREE.CylinderGeometry(0.0052, 0.0058, 0.003, 14).rotateX(Math.PI / 2), stud, b.neck, V(Math.sin(a) * 0.069, y, Math.cos(a) * 0.069));
+          st.rotation.y = a;
+        }
+        return;
+      }
       if (!o.crop) this.mesh(lathe(hipPts, d.depth * 1.06, ps, pl), m, b.hips);
       else {
         const hem = this.mesh(new THREE.TorusGeometry(d.chestR * 0.95 + push, 0.005, 6, 28), trim, b.spine, V(0, 0.085 * d.H, 0));
@@ -1695,7 +1723,7 @@ export class Avatar {
 
     // bottoms
     const bottom = item('bottom');
-    if (bottom) {
+    if (bottom && !this.suit?.trousers) {
       const m = this.fabric('bottom');
       const baggy = ['cargos_baggy', 'cargos_black', 'cargo_tech', 'joggers'].includes(bottom) ? 0.028 : bottom === 'trousers_flared' ? 0.012 : 0.01;
       const shorts = bottom.startsWith('shorts');
