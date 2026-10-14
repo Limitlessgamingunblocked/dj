@@ -88,7 +88,7 @@ export const FAR_POSES: (HeldPose & { phone?: boolean })[] = [
 
 /** the data colour (R, G, B 0..255) of a posed triangle in the atlas */
 export function atlasColor(mat: number, n: THREE.Vector3): [number, number, number] {
-  const r = mat === M.skin ? 255 : mat === M.hair || mat === M.longHair ? 128 : 0;
+  const r = mat === M.skin || mat === M.eye ? 255 : mat === M.hair || mat === M.longHair ? 128 : 0;
   const g = mat === M.phone || mat === M.screen ? 0 : mat === M.bottoms || mat === M.shoes || mat === M.shin ? 100 : 255;
   // front and above, a little from one side; a wrap so the turn of the body falls off softly
   const l = n.x * 0.28 + n.y * 0.5 + n.z * 0.82;
@@ -247,7 +247,8 @@ const VERT = /* glsl */ `
     float s2 = fract(seed * 17.13);
     vLegs = s2 < 0.55 ? vec3(0.025, 0.025, 0.03) : (s2 < 0.85 ? vec3(0.04, 0.06, 0.11) : vec3(0.18, 0.16, 0.13));
     float t = iData.w;
-    vSkin = mix(vec3(0.62, 0.42, 0.3), vec3(0.16, 0.09, 0.06), t);
+    // warm skin tones from fair to deep, as the 3D crowd's (crowd.ts)
+    vSkin = t < 0.5 ? mix(vec3(0.66, 0.41, 0.27), vec3(0.4, 0.2, 0.1), t * 2.0) : mix(vec3(0.4, 0.2, 0.1), vec3(0.16, 0.075, 0.036), t * 2.0 - 1.0);
     float h = fract(seed * 29.7);
     vHair = h < 0.6 ? vec3(0.03, 0.022, 0.018) : (h < 0.85 ? vec3(0.17, 0.1, 0.05) : vec3(0.5, 0.4, 0.22));
     // lit by the show: faces towards the light are bright, backs are silhouettes

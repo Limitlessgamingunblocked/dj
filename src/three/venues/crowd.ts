@@ -20,8 +20,10 @@
  *     the towel guy (spins a towel overhead on every drop), the bar-leaner
  *     (only dances when the vibe's really high) and, at festivals, the
  *     shoulder-riders who pop up at the peak
- *   – the figure: a shaped torso, rounded shoulders, jaw, nose and ears,
- *     trainers; clothing: tops in the venue's palette, sleeves, trousers (or
+ *   – the figure: friendly and stylised rather than realistic: a head a
+ *     little larger than life with a smiling painted face (big round eyes,
+ *     a button nose, a grin when the room's going), a shaped torso, rounded
+ *     shoulders, warm skin tones, trainers; clothing: tops in the venue's palette, sleeves, trousers (or
  *     shorts, more at the warm venues) and shoes picked per person, skin and
  *     hair tones varied, long hair on some, caps on a few, builds slimmer
  *     and broader
@@ -45,6 +47,7 @@ import { rng } from './tex';
 import { CrowdSteam, sweatStep } from './airlife';
 import { crowdShow } from './crowdShow';
 import { FRONT_COMMON, FRONT_LIGHT, FRONT_VIS, frontFrag, frontGeometry, LOOK_CODE, type CrowdLook } from './frontrow';
+import { attach, bodyGeometry, fixMorphTypes, hairGeometry, JOINTS, JOINTS_FEMALE, LANDMARKS, MORPH_GLSL, SHOE, shoeShape, WAIST_Y, welded, type BodyMats } from './crowdbody';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender' | 'conga' | 'card';
 const ROLE_CODE: Record<CrowdRole, number> = { dancer: 0, sign: 1, vip: 2, dj: 3, marathon: 4, filmer: 5, towel: 6, barlean: 7, rider: 8, security: 9, bartender: 10, conga: 11, card: 12 };
@@ -106,106 +109,17 @@ let shadowMat: THREE.MeshBasicMaterial | null = null;
 /* bones */
 const B = { body: 0, thighL: 1, thighR: 2, shinL: 3, shinR: 4, upperL: 5, foreL: 6, upperR: 7, foreR: 8, head: 9, sign: 10 };
 /* materials (longHair, cap and hairUp, a quiff, are worn by some people; shin is the trouser leg or, in shorts, bare skin) */
-const M = { top: 0, bottoms: 1, skin: 2, hair: 3, shoes: 4, sleeveUp: 5, sleeveLo: 6, cup: 7, phone: 8, screen: 9, torch: 10, signFrame: 11, signFace: 12, towel: 13, longHair: 14, shin: 15, cap: 16, hairUp: 17 };
+const M = { top: 0, bottoms: 1, skin: 2, hair: 3, shoes: 4, sleeveUp: 5, sleeveLo: 6, cup: 7, phone: 8, screen: 9, torch: 10, signFrame: 11, signFace: 12, towel: 13, longHair: 14, shin: 15, cap: 16, hairUp: 17, eye: 18, curls: 28, bun: 29, pony: 33 };
+/* the body's regions as the crowd's materials (crowdbody.ts) */
+export const BODY_MATS: BodyMats = { top: M.top, bottoms: M.bottoms, skin: M.skin, sleeveUp: M.sleeveUp, sleeveLo: M.sleeveLo, shin: M.shin, shoes: M.shoes, eye: M.eye };
 export const PERSON_BONES = B;
 export const PERSON_MATS = M;
 
-/*
- * Profiles (radius against height) the body parts are turned from. Stylised
- * realism: real proportions, smooth continuous forms, a little character in
- * the shapes (a calf, a thigh that fills out, a forearm that narrows to the
- * wrist), never blocky segments.
- */
-/* the torso, hips to the base of the neck: the waist in, the ribcage, the slope of the shoulders */
-export const TORSO: [number, number][] = [
-  [0, 0.94],
-  [0.142, 0.94],
-  [0.137, 0.98],
-  [0.13, 1.03],
-  [0.127, 1.08],
-  [0.132, 1.14],
-  [0.145, 1.2],
-  [0.157, 1.26],
-  [0.164, 1.31],
-  [0.167, 1.35],
-  [0.161, 1.39],
-  [0.142, 1.42],
-  [0.108, 1.444],
-  [0.066, 1.458],
-  [0, 1.466],
-];
-/* the lower leg, ankle to knee: the calf bulges high and the shin runs straight */
-export const SHIN: [number, number][] = [
-  [0.034, 0.06],
-  [0.038, 0.11],
-  [0.045, 0.18],
-  [0.054, 0.27],
-  [0.057, 0.33],
-  [0.053, 0.41],
-  [0.05, 0.47],
-  [0.052, 0.52],
-];
-/* the thigh, knee to hip: it fills out towards the hip */
-export const THIGH: [number, number][] = [
-  [0.054, 0.49],
-  [0.058, 0.56],
-  [0.067, 0.65],
-  [0.077, 0.75],
-  [0.085, 0.84],
-  [0.089, 0.91],
-  [0.086, 0.97],
-];
-/* the upper arm, elbow to shoulder, and the forearm, wrist to elbow */
-export const UPPER_ARM: [number, number][] = [
-  [0.041, 1.13],
-  [0.044, 1.18],
-  [0.049, 1.26],
-  [0.052, 1.33],
-  [0.052, 1.4],
-];
-export const FOREARM: [number, number][] = [
-  [0.029, 0.875],
-  [0.031, 0.91],
-  [0.037, 0.98],
-  [0.041, 1.06],
-  [0.041, 1.14],
-];
-/* the pelvis, under the torso, in the trousers: it carries the body's outline down to the legs */
-export const PELVIS: [number, number][] = [
-  [0.08, 0.83],
-  [0.125, 0.86],
-  [0.143, 0.9],
-  [0.147, 0.95],
-  [0.142, 0.99],
-];
-/* the neck */
-export const NECK: [number, number][] = [
-  [0.054, 1.43],
-  [0.047, 1.47],
-  [0.044, 1.52],
-  [0.046, 1.56],
-];
-
 const personGeo: (THREE.BufferGeometry | null)[] = [null, null];
 
+/** a part made from shapes (a prop, a hat): rigid on its bone, moving with the figure it's on (crowdbody.ts) */
 export function part(g: THREE.BufferGeometry, bone: number, mat: number): THREE.BufferGeometry {
-  const n = g.attributes.position.count;
-  g.setAttribute('aBone', new THREE.Float32BufferAttribute(new Float32Array(n).fill(bone), 1));
-  g.setAttribute('aMat', new THREE.Float32BufferAttribute(new Float32Array(n).fill(mat), 1));
-  return g;
-}
-
-/** a body part turned from a profile (every other point at low detail), closed at both ends, centred on x, z */
-export function turned(profile: [number, number][], radial: number, lo: boolean, x = 0, z = 0): THREE.BufferGeometry {
-  const pts = lo ? profile.filter((_, i) => i % 2 === 0 || i === profile.length - 1) : profile;
-  const first = pts[0];
-  const last = pts[pts.length - 1];
-  // the ends close with a little dome, so a wrist or a hem never shows the inside of the tube
-  const closed: [number, number][] = [[0, first[1] - first[0] * 0.35], ...pts, [0, last[1] + last[0] * 0.35]];
-  return new THREE.LatheGeometry(
-    closed.map(([r, y]) => new THREE.Vector2(r, y)),
-    radial,
-  ).translate(x, 0, z);
+  return attach(g, bone, mat, bone !== B.sign);
 }
 
 export const smooth = (a: number, b: number, x: number) => {
@@ -214,131 +128,200 @@ export const smooth = (a: number, b: number, x: number) => {
 };
 
 /**
- * The head's shape on a unit sphere: the skull, narrowing through the jaw to
- * the chin, the back of the jaw tucked into the neck, the forehead a touch
- * flatter. One surface, so the face shades as one piece.
- */
-export function shapeHead(v: THREE.Vector3): THREE.Vector3 {
-  const t = Math.max(0, -v.y);
-  let x = v.x * (1 - 0.3 * t * t);
-  let z = v.z;
-  if (z < 0) z *= 1 - 0.38 * t;
-  else z *= 1 - 0.08 * t + 0.06 * smooth(0.55, 1, t) * smooth(0.3, 0.9, v.z);
-  if (z > 0 && v.y > 0.3) z *= 0.96;
-  if (v.y > -0.25 && v.y < 0.15 && z > 0) x *= 1.03;
-  return v.set(x * 0.084, v.y * 0.112, z * 0.1);
-}
-
-/** a sphere made into the head (or, scaled out, the hair over it), welded so it shades without a seam */
-export function headGeometry(ws: number, hs: number, thetaLen = Math.PI, hairline?: (phi: number) => number, thick = 0): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(1, ws, hs, 0, Math.PI * 2, 0, thetaLen);
-  const pos = g.attributes.position;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    if (hairline) {
-      // the hair: rows past the hairline (lower at the back, higher at the front) are drawn up to it,
-      // and the hair thins to nothing at its edge so it meets the skin instead of sitting on it
-      const phi = Math.atan2(v.x, v.z);
-      const theta = Math.acos(Math.max(-1, Math.min(1, v.y)));
-      const limit = hairline(phi);
-      const th = Math.min(theta, limit);
-      const s = Math.sin(th);
-      v.set((v.x / Math.max(1e-6, Math.sin(theta))) * s, Math.cos(th), (v.z / Math.max(1e-6, Math.sin(theta))) * s);
-      if (!Number.isFinite(v.x)) v.set(0, 1, 0);
-      const k = 1 + thick * (1 - smooth(0.62, 1, th / limit));
-      shapeHead(v).multiplyScalar(k);
-    } else shapeHead(v);
-    pos.setXYZ(i, v.x, v.y, v.z);
-  }
-  g.deleteAttribute('uv');
-  const w = mergeVertices(g, 1e-5);
-  w.computeVertexNormals();
-  w.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(w.attributes.position.count * 2), 2));
-  return w;
-}
-
-/**
- * Rest pose: standing, facing +Z, feet on y = 0, about 1.75 m tall.
+ * Rest pose: standing, facing +Z, feet on y = 0, 1.75 m tall (each person is
+ * scaled to their own height). The body is MakeHuman's (crowdbody.ts), shaped
+ * per person in the vertex shader; the joints are crowdbody's JOINTS.
  * detail 0 is the close-up model; detail 1 keeps the same skeleton and props
- * with far fewer segments (used for dancers away from the camera, and for the
- * far crowd's cut-outs). The joints are where the pose expects them: hips at
- * 0.9, knees 0.5, shoulders 1.42, elbows 1.14, the neck 1.47; knee and elbow
- * caps fill the bend so a bent leg or arm never opens a gap.
+ * with far fewer triangles (used for dancers away from the camera, and for the
+ * far crowd's cut-outs).
  */
 export function personGeometry(detail: 0 | 1 = 0): THREE.BufferGeometry {
   const cached = personGeo[detail];
   if (cached) return cached;
   const lo = detail === 1;
+  const lod = lo ? 2 : 1;
+  const parts: THREE.BufferGeometry[] = [bodyGeometry(lod, BODY_MATS, { eyes: !lo }), hairGeometry(lod, M.hair)];
+  if (lo) for (const sd of [-1, 1]) parts.push(part(new THREE.SphereGeometry(LANDMARKS.eyeR, 6, 4).translate(sd * LANDMARKS.eye[0], LANDMARKS.eye[1], LANDMARKS.eye[2]), B.head, M.eye));
+  for (const sd of [-1, 1]) parts.push(part(welded(shoeShape(sd, lo ? 8 : 14, lo ? 5 : 8)), sd < 0 ? B.shinL : B.shinR, M.shoes));
+  parts.push(...headKit(lo), ...props(lo));
+  const geo = fixMorphTypes(mergeGeometries(parts.map(plain))!);
+  personGeo[detail] = geo;
+  return geo;
+}
+
+/** shapes made by three come with a uv and normal; drop nothing, but make sure they're indexed like the body */
+function plain(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  return g.index ? g : mergeVertices(g, 1e-9);
+}
+
+/* the head's size and where it sits, for the hats and hair made from shapes (crowdbody.ts LANDMARKS) */
+const HEAD = {
+  /** the middle of the skull */
+  c: new THREE.Vector3(0, LANDMARKS.eye[1] + 0.006, 0.035),
+  /** half its width (over the ears' tops), height above the middle, half its depth */
+  r: new THREE.Vector3(0.079, LANDMARKS.headTop - (LANDMARKS.eye[1] + 0.006), 0.101),
+};
+export const PERSON_HEAD = HEAD;
+/** a unit-head shape (a sphere of radius 1 about the origin is the skull) onto the head */
+function onHead(g: THREE.BufferGeometry): THREE.BufferGeometry {
+  return g.scale(HEAD.r.x, HEAD.r.y, HEAD.r.z).translate(HEAD.c.x, HEAD.c.y, HEAD.c.z);
+}
+/* the right hand's palm (the left mirrors it) */
+export const PALM = new THREE.Vector3(LANDMARKS.hand[0], LANDMARKS.hand[1] + 0.03, LANDMARKS.hand[2] - 0.005);
+
+/** the cap, the quiff and the long hair (some people) */
+export function headKit(lo: boolean): THREE.BufferGeometry[] {
   const R = (hi: number, low: number) => (lo ? low : hi);
-  const cap = (r: number, len: number, caps: number, radial: number) => new THREE.CapsuleGeometry(r, len, lo ? Math.max(1, caps - 1) : caps, lo ? Math.max(4, radial - 4) : radial);
-  const sph = (r: number, ws: number, hs: number, ...rest: number[]) => new THREE.SphereGeometry(r, lo ? Math.max(5, Math.round(ws / 2)) : ws, lo ? Math.max(3, Math.round(hs / 2)) : hs, ...rest);
-  const parts: THREE.BufferGeometry[] = [];
-  for (const sd of [-1, 1]) {
-    const L = sd < 0;
-    const lx = sd * 0.09;
-    const ax = sd * 0.2;
-    const shin = L ? B.shinL : B.shinR;
-    const thigh = L ? B.thighL : B.thighR;
-    const upper = L ? B.upperL : B.upperR;
-    const fore = L ? B.foreL : B.foreR;
-    parts.push(
-      // trainers: a rounded toe and heel, flatter than they are wide (the sole and laces are painted)
-      part(cap(0.047, 0.15, 2, 10).rotateX(Math.PI / 2).scale(1.1, 0.72, 1).translate(lx, 0.035, 0.046), shin, M.shoes),
-      part(turned(SHIN, R(12, 6), lo, lx), shin, M.shin),
-      // the knee cap turns with the shin, so a bent knee stays closed
-      part(sph(0.05, 10, 6).scale(1, 1, 1.04).translate(lx, 0.505, 0.003), shin, M.shin),
-      part(turned(THIGH, R(12, 6), lo, lx), thigh, M.bottoms),
-      // the shoulder's round (it turns with the arm, so a raised arm keeps its shoulder)
-      part(sph(0.056, 10, 7).scale(1, 0.9, 0.9).translate(ax, 1.378, 0), upper, M.sleeveUp),
-      part(turned(UPPER_ARM, R(12, 6), lo, ax), upper, M.sleeveUp),
-      part(sph(0.043, 8, 5).translate(ax, 1.14, 0), fore, M.sleeveLo),
-      part(turned(FOREARM, R(10, 5), lo, ax), fore, M.sleeveLo),
-      // the hand: palm and fingers in one mitten, the palm towards the leg
-      part(sph(0.042, 8, 7).scale(0.55, 1.3, 0.9).translate(ax - sd * 0.004, 0.818, 0.006), fore, M.skin),
-    );
-    if (!lo) {
-      // the thumb, forward of the palm
-      parts.push(part(cap(0.0115, 0.028, 2, 6).rotateX(-0.5).rotateZ(sd * 0.25).translate(ax - sd * 0.006, 0.83, 0.036), fore, M.skin));
-      // ears
-      parts.push(part(sph(0.027, 6, 5).scale(0.36, 1, 0.66).translate(sd * 0.081, 1.597, -0.004), B.head, M.skin));
+  const out: THREE.BufferGeometry[] = [];
+  // a quiff: volume over the front of the crown
+  out.push(part(onHead(new THREE.SphereGeometry(1, R(12, 6), R(8, 4)).scale(0.72, 0.3, 0.62).rotateX(-0.32).translate(0, 0.84, 0.36)), B.head, M.hairUp));
+  // long hair: from under the hair at the crown, round the back of the head to the temples, falling straight (the shader cuts it to length)
+  out.push(part(longHair(lo), B.head, M.longHair));
+  // curls or an afro: a full, rounded volume over the head (the shader takes it back off the face)
+  {
+    const cu = new THREE.SphereGeometry(1.2, R(16, 8), R(10, 5), 0, Math.PI * 2, 0, Math.PI * 0.7);
+    const p = cu.attributes.position;
+    const d = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      d.fromBufferAttribute(p, i).normalize();
+      const k = lo ? 1 : 1 + 0.05 * Math.sin(d.x * 13 + 1.7) * Math.sin(d.y * 15 + 0.3) * Math.sin(d.z * 11 + 2.1);
+      p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k);
+    }
+    out.push(part(onHead(welded(cu).translate(0, 0.16, -0.08)), B.head, M.curls));
+  }
+  // a bun high at the back
+  out.push(part(onHead(new THREE.SphereGeometry(1, R(10, 6), R(7, 4)).scale(0.5, 0.36, 0.42).translate(0, 0.78, -0.86)), B.head, M.bun));
+  // a ponytail from the back of the crown, tied, falling to the shoulders
+  {
+    const pt = new THREE.CapsuleGeometry(0.024, 0.2, R(3, 2), R(8, 5));
+    const p = pt.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      // fuller below the tie, tapering to the ends
+      const y = p.getY(i);
+      const k = 1 + 0.35 * smooth(0.12, 0.0, y) - 0.5 * smooth(-0.02, -0.13, y);
+      p.setXYZ(i, p.getX(i) * k, y, p.getZ(i) * k);
+    }
+    out.push(part(pt.translate(0, -0.1, 0).rotateX(0.22).translate(0, HEAD.c.y + 0.05, HEAD.c.z - HEAD.r.z - 0.012), B.head, M.pony));
+  }
+  // a cap, peak forward
+  out.push(part(onHead(new THREE.SphereGeometry(1.2, R(14, 8), R(5, 3), 0, Math.PI * 2, 0, Math.PI * 0.46).scale(1, 0.92, 1.02).translate(0, 0.06, -0.03)), B.head, M.cap));
+  out.push(part(onHead(new THREE.CylinderGeometry(0.95, 0.95, 0.08, R(12, 6), 1, false, -Math.PI / 2, Math.PI).scale(1, 1, 0.95).translate(0, 0.3, 0.75)), B.head, M.cap));
+  return out;
+}
+
+/**
+ * Long hair as a sheet: it starts under the hair over the crown, hugs the
+ * back and sides of the head down to the temples, then falls straight to
+ * below the shoulder blades, flaring a little. Seen from both sides (the
+ * inside shows past the face).
+ */
+function longHair(lo: boolean): THREE.BufferGeometry {
+  const nu = lo ? 8 : 22;
+  const nv = lo ? 4 : 9;
+  const reach = Math.PI * 0.66;
+  const len = 0.44;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (let j = 0; j <= nv; j++) {
+    for (let i = 0; i <= nu; i++) {
+      const v = j / nv;
+      // below the jaw the front edges fall back towards the shoulders rather than hanging down the chest
+      const fall = smooth(0.25, 0.75, v);
+      const phi = (-reach + (2 * reach * i) / nu) * (1 - 0.22 * fall);
+      const side = Math.abs(phi) / reach;
+      const yTop = HEAD.c.y + 0.075 - 0.07 * side * side;
+      const y = yTop - v * len;
+      const ey = (y - HEAD.c.y) / HEAD.r.y;
+      const rr = y > HEAD.c.y ? Math.sqrt(Math.max(0.05, 1 - ey * ey)) : 1;
+      const k = 1.08 + 0.1 * smooth(0.05, 1, v) + (lo ? 0 : 0.015 * Math.sin(phi * 9 + v * 4));
+      const th = Math.PI - phi;
+      // and it spreads out over the shoulders and the back as it falls
+      const kx = k * (1 + 0.6 * fall);
+      const kz = k * (1 + 0.3 * fall);
+      pos.push(Math.sin(th) * HEAD.r.x * rr * kx, y, HEAD.c.z - 0.02 * fall + Math.cos(th) * HEAD.r.z * rr * kz);
     }
   }
-  parts.push(
-    part(turned(PELVIS, R(16, 8), lo).scale(1.12, 1, 0.7), B.body, M.bottoms),
-    // the torso, deeper at the chest than the waist
-    part(new THREE.LatheGeometry(lo ? TORSO.filter((_, i) => i % 2 === 0 || i === TORSO.length - 1).map(([r, y]) => new THREE.Vector2(r, y)) : TORSO.map(([r, y]) => new THREE.Vector2(r, y)), R(16, 8)).scale(1.12, 1, 0.68), B.body, M.top),
-    part(turned(NECK, R(12, 6), lo), B.head, M.skin),
-    // the head in one piece: the skull a little large for the body (it reads at a distance), narrowing to the jaw
-    part(headGeometry(R(18, 9), R(14, 7)).translate(0, 1.6, 0.004), B.head, M.skin),
-    // the hair: a shell over the skull, the hairline high on the forehead, over the tops of the ears, down to the nape
-    part(headGeometry(R(18, 9), R(10, 5), Math.PI * 0.66, (phi) => Math.PI * (0.4 + 0.24 * smooth(0.5, 2.9, Math.abs(phi))), 0.07).translate(0, 1.6, 0.004), B.head, M.hair),
-    // a quiff: volume over the front of the crown (some people)
-    part(sph(0.074, R(12, 6), R(8, 4)).scale(0.92, 0.3, 0.86).rotateX(-0.32).translate(0, 1.692, 0.03), B.head, M.hairUp),
-    // long hair down the back and over the shoulders (some people)
-    part(new THREE.CylinderGeometry(0.095, 0.122, 0.28, R(16, 6), R(2, 1), true, Math.PI * 0.32, Math.PI * 1.36).scale(0.92, 1, 0.98).translate(0, 1.5, -0.012), B.head, M.longHair),
-    // a cap, peak forward (some people)
-    part(sph(0.12, 12, 4, 0, Math.PI * 2, 0, Math.PI * 0.44).scale(0.8, 0.86, 0.95).translate(0, 1.633, -0.004), B.head, M.cap),
-    part(new THREE.CylinderGeometry(0.085, 0.085, 0.01, R(12, 5), 1, false, -Math.PI / 2, Math.PI).scale(0.86, 1, 0.9).translate(0, 1.656, 0.052), B.head, M.cap),
+  for (let j = 0; j < nv; j++) {
+    for (let i = 0; i < nu; i++) {
+      const a = j * (nu + 1) + i;
+      const b = a + nu + 1;
+      idx.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  // the other side: the same sheet, wound the other way, its normals turned in
+  const back = g.clone();
+  const bi = back.index!.array as Uint16Array | Uint32Array;
+  for (let t = 0; t < bi.length; t += 3) [bi[t + 1], bi[t + 2]] = [bi[t + 2], bi[t + 1]];
+  const bn = back.attributes.normal;
+  for (let i = 0; i < bn.count; i++) bn.setXYZ(i, -bn.getX(i), -bn.getY(i), -bn.getZ(i));
+  const both = mergeGeometries([g, back])!;
+  both.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(both.attributes.position.count * 2), 2));
+  return both;
+}
+
+/** the props: the phone (and its torch), the drink, the sign, the towel */
+export function props(lo: boolean): THREE.BufferGeometry[] {
+  const R = (hi: number, low: number) => (lo ? low : hi);
+  const P = PALM;
+  const out = [
     // phone in the right hand: screen faces the holder once the arm is raised, torch on the back
-    part(new THREE.BoxGeometry(0.07, 0.14, 0.012).translate(0.2, 0.76, 0.03), B.foreR, M.phone),
-    part(new THREE.PlaneGeometry(0.062, 0.128).translate(0.2, 0.76, 0.0365), B.foreR, M.screen),
+    part(new THREE.BoxGeometry(0.07, 0.14, 0.012).translate(P.x, P.y - 0.08, P.z + 0.026), B.foreR, M.phone),
+    part(new THREE.PlaneGeometry(0.062, 0.128).translate(P.x, P.y - 0.08, P.z + 0.0325), B.foreR, M.screen),
     // cup in the left hand, pre-tilted so it stands upright in the drinking pose
-    part(new THREE.CylinderGeometry(0.036, 0.028, 0.11, R(10, 5)).translate(0, 0.02, 0.04).rotateX(2.2).translate(-0.2, 0.83, 0), B.foreL, M.cup),
+    part(new THREE.CylinderGeometry(0.036, 0.028, 0.11, R(10, 5)).translate(0, 0.02, 0.04).rotateX(2.2).translate(-P.x, P.y - 0.01, P.z - 0.004), B.foreL, M.cup),
     // LED sign held overhead
     part(new THREE.BoxGeometry(0.76, 0.22, 0.02).translate(0, 2.1, 0.12), B.sign, M.signFrame),
     part(new THREE.PlaneGeometry(0.72, 0.18).translate(0, 2.1, 0.1305), B.sign, M.signFace),
     // the towel guy's towel, hanging from the right hand (it whirls when the arm goes up)
-    part(new THREE.PlaneGeometry(0.32, 0.56, 1, lo ? 1 : 3).translate(0.2, 0.5, 0.02), B.foreR, M.towel),
-  );
-  if (!lo) {
-    parts.push(part(new THREE.PlaneGeometry(0.014, 0.014).rotateY(Math.PI).translate(0.215, 0.705, 0.0235), B.foreR, M.torch));
-    // the nose
-    parts.push(part(sph(0.02, 8, 6).scale(0.66, 1.12, 1).translate(0, 1.588, 0.094), B.head, M.skin));
-  }
-  const geo = mergeGeometries(parts)!;
-  personGeo[detail] = geo;
-  return geo;
+    part(new THREE.PlaneGeometry(0.32, 0.56, 1, lo ? 1 : 3).translate(P.x, P.y - 0.3, P.z + 0.014), B.foreR, M.towel),
+  ];
+  if (!lo) out.push(part(new THREE.PlaneGeometry(0.014, 0.014).rotateY(Math.PI).translate(P.x + 0.015, P.y - 0.135, P.z + 0.0195), B.foreR, M.torch));
+  return out;
+}
+
+/** a hash of a person's seeds to [0, 1) */
+const seedHash = (s: number[], k: number) => {
+  const v = Math.sin(s[0] * 12.9898 + s[1] * 78.233 + s[2] * 45.164 + s[3] * 94.673 + k * 17.17) * 43758.5453;
+  return v - Math.floor(v);
+};
+/** the standard normal at a probability (a quick approximation) */
+const normalAt = (p: number) => {
+  const q = Math.min(0.999, Math.max(0.001, p));
+  return Math.sign(q - 0.5) * Math.sqrt(-Math.log(4 * q * (1 - q)) * (Math.PI / 2) * 0.985);
+};
+
+/**
+ * Who a person in the crowd is, from their seeds: the shape the crowd shader
+ * mixes for them (iBody: woman 0/1, build -1 slim .. 1 heavy, muscle, and
+ * ancestry + skin tone: the whole part 0 / 1 African / 2 East Asian, the
+ * fraction the tone from fair to deep) and their height.
+ */
+export function crowdPerson(seed: number[]): { body: [number, number, number, number]; woman: boolean; height: (p: number) => number } {
+  const woman = seedHash(seed, 1) < 0.5;
+  const build = Math.max(-0.8, Math.min(1, 0.05 + 0.33 * normalAt(seedHash(seed, 2))));
+  const muscle = Math.max(-0.7, Math.min(0.9, (woman ? -0.1 : 0.15) + 0.3 * normalAt(seedHash(seed, 3))));
+  // ancestry and skin tone: a mixed city crowd
+  const a = seedHash(seed, 4);
+  const t = seedHash(seed, 5);
+  let cls = 0;
+  let tone: number;
+  if (a < 0.2) {
+    cls = 1;
+    tone = 0.62 + 0.36 * t;
+  } else if (a < 0.34) {
+    cls = 2;
+    tone = 0.12 + 0.25 * t;
+  } else if (a < 0.52) tone = 0.32 + 0.3 * t;
+  else tone = 0.02 + 0.3 * t;
+  return {
+    body: [woman ? 1 : 0, build, muscle, cls + Math.min(0.999, tone)],
+    woman,
+    height: (p) => (woman ? 1.635 : 1.77) + (woman ? 0.065 : 0.07) * Math.max(-2.2, Math.min(2.2, normalAt(p))),
+  };
 }
 
 /** A geometry that shares `base`'s vertex buffers and adds per-chunk instance attributes. */
@@ -489,13 +472,16 @@ function drawSigns(): void {
 }
 
 export const VERT_HEAD = /* glsl */ `
-  attribute float aBone;
-  attribute float aMat;
+  attribute vec4 aRig;
+  #define aBone aRig.x
+  #define aMat aRig.y
+  #define aW aRig.z
   attribute vec4 iSeed;
   attribute vec4 iInfo;
+  ${MORPH_GLSL}
   uniform float uBeat, uTime, uBob, uHands, uJump, uClap, uCheer, uKick, uCold, uSync, uHype, uRiders, uLook;
   uniform vec4 uStyle, uCircle, uCopy;
-  uniform float uSit, uLights, uWild, uCongaOn;
+  uniform float uSit, uLights, uWild, uCongaOn, uShorts;
   uniform vec2 uBooth;
   uniform vec2 uConga[${CONGA}];
   varying float vMat;
@@ -504,7 +490,9 @@ export const VERT_HEAD = /* glsl */ `
   varying vec2 vUv2;
   varying float vSignRow;
   varying vec3 vRest;
-  varying float vBone;
+  flat varying float vBone;
+  flat varying vec4 vBody;
+  flat varying vec4 vLook;
   #ifdef CROWD_FRONT
   varying float vMouth;
   varying float vFilm;
@@ -516,9 +504,46 @@ export const VERT_HEAD = /* glsl */ `
   mat3 rotZ(float a) { float c = cos(a), s = sin(a); return mat3(c, s, 0.0, -s, c, 0.0, 0.0, 0.0, 1.0); }
   float h1(float n) { return fract(sin(n * 127.1 + 311.7) * 43758.5453); }
   float vnoise(float x) { float i = floor(x); float f = fract(x); return mix(h1(i), h1(i + 1.0), f * f * (3.0 - 2.0 * f)); }
+  /*
+   * The person: their hair (a style the shape of the head and their figure
+   * suit) and its colour, a beard or stubble, from their seed and figure.
+   * x: style 0 shaved, 1 buzz cut, 2 short, 3 textured fringe, 4 swept up
+   * (the quiff), 5 curls / afro, 6 long, 7 bob, 8 bun, 9 ponytail;
+   * y: hair colour (0 black .. 1 fair, above 1 dyed); z: facial hair (0 none,
+   * 1 stubble, 2 beard); w: eye colour pick
+   */
+  vec4 personLook() {
+    float woman = step(0.5, iBody.x);
+    float cls = floor(iBody.w);
+    float tone = fract(iBody.w);
+    float h = fract(iSeed.x * 17.9 + iSeed.w * 3.7);
+    float style;
+    if (woman > 0.5) {
+      // afro-textured hair more often curls, braids or a bun
+      float c = cls > 0.5 && cls < 1.5 ? 0.3 : 0.08;
+      style = h < c ? 5.0 : h < c + 0.36 ? 6.0 : h < c + 0.52 ? 7.0 : h < c + 0.68 ? 8.0 : h < c + 0.86 ? 9.0 : h < c + 0.94 ? 3.0 : h < c + 0.97 ? 4.0 : 1.0;
+    } else {
+      float c = cls > 0.5 && cls < 1.5 ? 0.22 : 0.06;
+      style = h < 0.06 ? 0.0 : h < 0.06 + c ? 5.0 : h < 0.24 + c ? 1.0 : h < 0.5 + c ? 2.0 : h < 0.64 + c ? 3.0 : h < 0.76 + c ? 4.0 : h < 0.82 + c ? 6.0 : h < 0.85 + c ? 8.0 : 2.0;
+    }
+    // hair colour: dark for deeper skin and East Asian ancestry, every shade on fair skin, a few dyed
+    float hc = fract(iSeed.y * 23.1 + iSeed.z * 1.7);
+    float light = (cls < 0.5 ? 1.0 - smoothstep(0.25, 0.6, tone) : 0.0);
+    float col = hc * mix(0.35, 1.0, light);
+    if (fract(iSeed.w * 41.3) > 0.94) col = 1.0 + fract(iSeed.x * 7.7);
+    // facial hair: men only, more with shorter hair
+    float fh = fract(iSeed.z * 13.3 + iSeed.y * 2.1);
+    float beard = woman > 0.5 ? 0.0 : fh < 0.22 ? 2.0 : fh < 0.5 ? 1.0 : 0.0;
+    return vec4(style, col, beard, fract(iSeed.y * 29.3));
+  }
   mat3 poseR;
   vec3 poseT;
+  vec3 bodyPos;
+  // wearing a cap (the hair under it is pressed flat)
+  float poseCap;
   void computePose() {
+    vLook = personLook();
+    vBody = iBody;
     float role = iInfo.x;
     float sign = step(0.5, role) * step(role, 1.5);
     float vip = step(1.5, role) * step(role, 2.5);
@@ -689,40 +714,50 @@ export const VERT_HEAD = /* glsl */ `
     mat3 Ru = rotY(twist + solo * uTime * 5.0) * rotZ(sway) * rotX(0.28 * leaning + beatLean);
     vec3 S = vec3(shiftX, 0.0, 0.0);
     float b = aBone;
+    // how much of its own joint's turn this vertex takes (1 on the bone, less towards its parent: crowdbody.ts)
+    float fw = aW;
     mat3 R = mat3(1.0);
     vec3 T = vec3(0.0);
     if (b < 0.5) {
       R = Ru;
       T = P + S - Ru * P;
     } else if (b < 2.5) {
-      vec3 hip = vec3(b < 1.5 ? -0.09 : 0.09, 0.9, 0.0);
-      R = rotX(-(b < 1.5 ? kL : kR));
-      T = hip - R * hip;
+      float sd = b < 1.5 ? -1.0 : 1.0;
+      vec3 hip = jHip(sd);
+      mat3 Rt = rotX(-(b < 1.5 ? kL : kR));
+      // the top of the thigh blends into the hips, which go with the body
+      R = Ru * (1.0 - fw) + Rt * fw;
+      T = (P + S - Ru * P) * (1.0 - fw) + (hip - Rt * hip) * fw;
     } else if (b < 4.5) {
       float sd = b < 3.5 ? -1.0 : 1.0;
       float kk = sd < 0.0 ? kL : kR;
-      vec3 hip = vec3(sd * 0.09, 0.9, 0.0);
-      vec3 knee = vec3(sd * 0.09, 0.5, 0.0);
+      vec3 hip = jHip(sd);
+      vec3 knee = jKnee(sd);
       vec3 knee2 = hip + rotX(-kk) * (knee - hip);
-      R = rotX(kk * (1.0 - rider));
+      // round the knee the shin takes part of the bend
+      R = rotX(mix(-kk, kk * (1.0 - rider), fw));
       T = knee2 - R * knee;
     } else if (b < 8.5) {
       float sd = b < 6.5 ? -1.0 : 1.0;
       vec3 ap = sd < 0.0 ? aL : aR;
-      vec3 Sh = vec3(sd * 0.2, 1.42, 0.0);
-      mat3 Ra = rotZ(sd * ap.x) * rotX(-ap.y);
-      if (b < 5.5 || (b > 6.5 && b < 7.5)) {
+      vec3 Sh = jShoulder(sd);
+      bool upper = b < 5.5 || (b > 6.5 && b < 7.5);
+      // round the shoulder the arm's turn fades into the body's
+      float fa = upper ? fw : 1.0;
+      mat3 Ra = rotZ(sd * ap.x * fa) * rotX(-ap.y * fa);
+      if (upper) {
         R = Ru * Ra;
         T = Ru * (Sh - Ra * Sh - P) + P + S;
       } else {
-        vec3 E0 = vec3(sd * 0.2, 1.14, 0.0);
-        mat3 Re = rotX(-ap.z);
+        vec3 E0 = jElbow(sd);
+        mat3 Re = rotX(-ap.z * fw);
         R = Ru * Ra * Re;
         T = Ru * (Sh + Ra * (E0 - Sh) - Ra * Re * E0 - P) + P + S;
       }
     } else if (b < 9.5) {
-      vec3 N = vec3(0.0, 1.47, 0.0);
-      mat3 Rh = rotY(turn) * rotX(nod);
+      vec3 N = jNeck();
+      // the nod and turn run down the neck
+      mat3 Rh = rotY(turn * fw) * rotX(nod * fw);
       R = Ru * Rh;
       T = Ru * (N - Rh * N - P) + P + S;
     } else {
@@ -732,22 +767,29 @@ export const VERT_HEAD = /* glsl */ `
       T = Ru * (A - Rs * A - P) + P + S;
     }
     // the body sits down as far as the straighter leg allows, so that foot stays on the floor
-    T.y += jump - 0.8 * (1.0 - cos(min(kL, kR))) * (1.0 - rider);
+    T.y += jump - mix(${(JOINTS.hip[1] - JOINTS.ankle[1]).toFixed(4)}, ${(JOINTS_FEMALE.hip[1] - JOINTS_FEMALE.ankle[1]).toFixed(4)}, iBody.x) * (1.0 - cos(min(kL, kR))) * (1.0 - rider);
     // the rider sits up on a friend's shoulders, there only for the peak
     float up = smoothstep(0.35, 0.6, uRiders);
     T.y += rider * (1.25 + 0.04 * hit);
     // props only when they're in use
     float vis = 1.0;
-    float capOn = step(0.86, fract(iSeed.z * 5.91)) * (1.0 - staff) * (1.0 - dj);
-    // a quiff on some people, never under a cap
-    if (aMat > 16.5) vis = step(0.62, fract(iSeed.x * 4.7)) * (1.0 - capOn);
+    float capOn = step(0.9, fract(iSeed.z * 5.91)) * (1.0 - staff) * (1.0 - dj);
+    poseCap = capOn;
+    // the hair: a style for the person (personLook), the parts it needs
+    float style = vLook.x;
+    if (aMat > 32.5) vis = style > 8.5 ? 1.0 : 0.0;
+    else if (aMat > 28.5 && aMat < 29.5) vis = style > 7.5 && style < 8.5 ? 1.0 : 0.0;
+    else if (aMat > 27.5 && aMat < 28.5) vis = style > 4.5 && style < 5.5 ? 1.0 - capOn : 0.0;
+    else if (aMat > 17.5) vis = 1.0;
+    else if (aMat > 16.5) vis = style > 3.5 && style < 4.5 ? 1.0 - capOn : 0.0;
     else if (aMat > 15.5) vis = capOn;
     else if (aMat > 14.5) vis = 1.0;
-    else if (aMat > 13.5) vis = step(0.6, fract(iSeed.w * 3.17)) * (1.0 - guard);
+    else if (aMat > 13.5) vis = (style > 5.5 && style < 7.5 ? 1.0 : 0.0) * (1.0 - guard);
     else if (aMat > 12.5) vis = towel;
     else if (aMat > 10.5) vis = sign;
     else if (aMat > 7.5) vis = step(0.5, max(wFilm, wLight));
     else if (aMat > 6.5) vis = step(0.5, wDrink);
+    else if (aMat > 2.5 && aMat < 3.5) vis = style < 0.5 ? 0.0 : 1.0;
     #ifdef CROWD_FRONT
     /*FRONT_VIS*/
     #endif
@@ -783,9 +825,55 @@ export const VERT_HEAD = /* glsl */ `
   }
 `;
 
+/* the hair's thickness by style (uv.x carries the shell's thickness: crowdbody.ts); clothes hang a little off the body */
+const HAIR_VOLUME = /* glsl */ `
+  // loose trousers and tops: pushed out from the skin by where the garment is (from the rest position and bone only, so the
+  // copies of a vertex at a seam between two materials move together)
+  if ((aMat < 2.5 || (aMat > 4.5 && aMat < 6.5) || (aMat > 14.5 && aMat < 15.5)) && aBone < 8.5) {
+    float sv = fract(iSeed.x * 3.3);
+    float sleeveEnd = sv < 0.15 ? 9.0 : sv < 0.62 ? ${(JOINTS.shoulder[1] - 0.15).toFixed(4)} : sv < 0.72 ? ${(JOINTS.elbow[1] - 0.03).toFixed(4)} : ${(JOINTS.wrist[1] + 0.035).toFixed(4)};
+    bool shortsOn = fract(iSeed.z * 11.3) < uShorts;
+    float woman = step(0.5, iBody.x);
+    float legEnd = shortsOn ? (woman > 0.5 && fract(iSeed.y * 9.1) < 0.5 ? 0.7 : 0.6) : 0.0;
+    float bv = fract(iSeed.z * 31.7);
+    float loose = bv >= 0.4 && bv < 0.7 ? 0.007 : 0.015;
+    float y = position.y;
+    float push = 0.0;
+    if (aBone > 4.5) push = 0.005 * smoothstep(sleeveEnd - 0.02, sleeveEnd + 0.01, y);
+    else if (aBone > 0.5 || y < ${WAIST_Y.toFixed(4)}) push = loose * smoothstep(legEnd - 0.01, legEnd + 0.03, y) * (1.0 - 0.6 * smoothstep(0.35, 0.1, y));
+    else push = 0.006 * smoothstep(1.3, 1.2, y);
+    bodyPos += normal * push;
+    // the cloth bridges the fork of the legs: the normals there turn to face out, so no crease shows
+    if (aBone < 4.5 && normal.z > 0.0) {
+      float fork = (1.0 - smoothstep(0.03, 0.09, abs(position.x))) * (1.0 - smoothstep(0.05, 0.13, abs(position.y - ${(JOINTS.hip[1] - 0.08).toFixed(4)})));
+      objectNormal = normalize(mix(objectNormal, vec3(0.0, 0.0, 1.0), 0.8 * fork));
+    }
+  }
+  // the lips meet: round the line between them (and the mouth behind it) the surface is lit as if facing forward, so
+  // the parted lips of the base face read as a closed mouth instead of a dark gap
+  if (aBone > 8.5 && aMat > 1.5 && aMat < 2.5) {
+    float mw = ${(LANDMARKS.mouthSize[0] * 1.05).toFixed(4)};
+    float shut = (1.0 - smoothstep(0.0035, 0.0065, abs(position.y - ${LANDMARKS.mouth[1].toFixed(4)}))) * (1.0 - smoothstep(mw * 0.8, mw, abs(position.x))) * step(${(LANDMARKS.mouth[2] - 0.04).toFixed(4)}, position.z);
+    objectNormal = normalize(mix(objectNormal, vec3(0.0, 0.1, 1.0), shut));
+    // round the eyes the simplified lids catch the light in sharp slivers: their normals are eased towards the face's
+    vec2 eo = vec2(abs(position.x) - ${LANDMARKS.eye[0].toFixed(4)}, position.y - ${LANDMARKS.eye[1].toFixed(4)});
+    float lidZone = (1.0 - smoothstep(0.8, 1.3, length(eo / vec2(0.022, 0.014)))) * step(${(LANDMARKS.eye[2] - 0.03).toFixed(4)}, position.z);
+    objectNormal = normalize(mix(objectNormal, normalize(vec3(sign(position.x) * 0.15, 0.1, 1.0)), 0.6 * lidZone));
+  }
+  if (aMat > 2.5 && aMat < 3.5) {
+    float st = vLook.x;
+    float vol = st < 1.5 ? 0.12 : st < 2.5 ? 0.45 : st < 3.5 ? 0.7 : st < 4.5 ? 0.55 : st < 5.5 ? 0.6 : st > 7.5 ? 0.35 : 0.75;
+    vol = mix(vol, 0.1, poseCap);
+    bodyPos -= normal * uv.x * (1.0 - vol);
+    // tousled: the surface rises and falls in clumps, so the outline isn't a smooth helmet (not on crops and buzz cuts)
+    float tousle = sin(position.x * 150.0 + iSeed.x * 20.0) * sin(position.y * 120.0 + iSeed.y * 9.0) * sin(position.z * 135.0 + iSeed.w * 7.0);
+    bodyPos += normal * uv.x * vol * 0.55 * tousle * step(1.5, st) * (1.0 - poseCap);
+  }
+`;
+
 const FRAG_HEAD = /* glsl */ `
   uniform sampler2D uSigns, uCards;
-  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat, uUV, uLights;
+  uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat, uUV, uLights, uHype, uCheer;
   varying float vCard;
   uniform vec3 uRim, uRimFrom;
   float crowdHash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -794,95 +882,244 @@ const FRAG_HEAD = /* glsl */ `
   varying vec2 vUv2;
   varying float vSignRow;
   varying vec3 vRest;
-  varying float vBone;
+  flat varying float vBone;
+  flat varying vec4 vBody;
+  flat varying vec4 vLook;
   #ifdef CROWD_FRONT
   varying float vMouth;
   varying float vFilm;
   #endif
 `;
 
+/* numbers for the shaders, from the body (crowdbody.ts) */
+const gl = (x: number) => x.toFixed(4);
+const EYE = LANDMARKS.eye;
+const MOUTH = LANDMARKS.mouth;
+const NOSE = LANDMARKS.nose;
+const CHIN = LANDMARKS.chin;
+const NECK_BASE = LANDMARKS.neckBase;
+const SH = JOINTS.shoulder;
+
 const FRAG_COLOR = /* glsl */ `
-  float tone = fract(vSeed.w * 7.13);
-  vec3 skin = mix(vec3(0.93, 0.7, 0.56), vec3(0.3, 0.19, 0.13), tone) * 0.6;
-  float hv = fract(tone * 13.7);
+  float tone = fract(vBody.w);
+  float cls = floor(vBody.w);
+  float woman = step(0.5, vBody.x);
+  // skin: fair to deep, a rosier or a more olive undertone; real albedos (a face lit by the show, not a mannequin's)
+  float ts = tone * 5.0;
+  vec3 skin = ts < 1.0 ? mix(vec3(0.66, 0.45, 0.36), vec3(0.57, 0.37, 0.26), ts)
+    : ts < 2.0 ? mix(vec3(0.57, 0.37, 0.26), vec3(0.44, 0.27, 0.16), ts - 1.0)
+    : ts < 3.0 ? mix(vec3(0.44, 0.27, 0.16), vec3(0.3, 0.165, 0.09), ts - 2.0)
+    : ts < 4.0 ? mix(vec3(0.3, 0.165, 0.09), vec3(0.165, 0.085, 0.05), ts - 3.0)
+    : mix(vec3(0.165, 0.085, 0.05), vec3(0.085, 0.045, 0.03), ts - 4.0);
+  skin *= mix(vec3(1.03, 0.98, 0.97), vec3(0.98, 1.0, 0.93), fract(vSeed.w * 7.13));
+  // hair: black through browns to blonde and red, a few dyed
+  float hcv = vLook.y;
+  vec3 hair = hcv < 0.3 ? mix(vec3(0.012, 0.01, 0.009), vec3(0.035, 0.022, 0.014), hcv / 0.3)
+    : hcv < 0.55 ? mix(vec3(0.035, 0.022, 0.014), vec3(0.11, 0.06, 0.03), (hcv - 0.3) / 0.25)
+    : hcv < 0.75 ? mix(vec3(0.11, 0.06, 0.03), vec3(0.28, 0.17, 0.08), (hcv - 0.55) / 0.2)
+    : hcv < 0.92 ? mix(vec3(0.28, 0.17, 0.08), vec3(0.6, 0.46, 0.26), (hcv - 0.75) / 0.17)
+    : hcv <= 1.0 ? mix(vec3(0.22, 0.06, 0.02), vec3(0.38, 0.11, 0.035), (hcv - 0.92) / 0.08)
+    : fract(hcv) < 0.25 ? vec3(0.7, 0.2, 0.42) : fract(hcv) < 0.5 ? vec3(0.08, 0.2, 0.55) : fract(hcv) < 0.75 ? vec3(0.06, 0.45, 0.42) : vec3(0.75, 0.72, 0.7);
   vec3 top = diffuseColor.rgb;
-  vec3 hair = hv < 0.45 ? vec3(0.03, 0.025, 0.02) : hv < 0.7 ? vec3(0.16, 0.09, 0.05) : hv < 0.82 ? vec3(0.55, 0.42, 0.25) : top * 1.1;
   float bv = fract(vSeed.z * 31.7);
   bool jeans = bv >= 0.4 && bv < 0.7;
-  vec3 bottoms = bv < 0.4 ? vec3(0.025) : jeans ? vec3(0.06, 0.09, 0.17) : bv < 0.85 ? vec3(0.24, 0.21, 0.15) : vec3(0.11);
+  vec3 bottoms = bv < 0.4 ? vec3(0.025) : jeans ? (fract(vSeed.x * 5.3) < 0.35 ? vec3(0.15, 0.22, 0.36) : vec3(0.05, 0.08, 0.16)) : bv < 0.85 ? vec3(0.24, 0.21, 0.15) : vec3(0.11);
   vec3 shoes = fract(vSeed.y * 19.1) < 0.4 ? vec3(0.78) : vec3(0.03);
-  float sleeve = fract(vSeed.x * 3.3);
   vec3 col = top;
   vec3 glow = vec3(0.0);
-  float m = vMat;
-  // stylised realism: one material vocabulary (soft skin, matte cotton, denim, hair with a sheen)
   float crowdRough = 0.86;
   vec3 p = vRest;
+  float ax = abs(p.x);
   // antialiasing width for the painted details (they shrink to nothing at a distance)
-  float aa = max(fwidth(p.y) * 1.5, 0.0012);
+  float aa = max(fwidth(p.y) * 1.5, 0.0008);
+  float fine = 1.0 - smoothstep(0.0016, 0.004, aa);
+  // the cut of their clothes: sleeves (none, short, to the elbow, long), trousers or shorts (more at the warm venues), a cropped top for some
+  float sv = fract(vSeed.x * 3.3);
+  bool vest = sv < 0.15;
+  float sleeveEnd = vest ? 9.0 : sv < 0.62 ? ${gl(SH[1] - 0.15)} : sv < 0.72 ? ${gl(JOINTS.elbow[1] - 0.03)} : ${gl(JOINTS.wrist[1] + 0.035)};
   bool shortsOn = fract(vSeed.z * 11.3) < uShorts;
   #ifdef CROWD_FRONT
   if (vPick.y > 0.5) shortsOn = true;
   #endif
-  // the front row's own parts are coloured after the crowd's (frontrow.ts)
-  if (m > 17.5) {}
+  float legEnd = shortsOn ? (woman > 0.5 && fract(vSeed.y * 9.1) < 0.5 ? 0.7 : 0.6) : ${gl(JOINTS.ankle[1] + 0.035)};
+  float topEnd = woman > 0.5 && fract(vSeed.w * 13.7) < 0.22 ? ${gl(WAIST_Y + 0.11)} : ${gl(WAIST_Y)};
+  float m = vMat;
+  // the body's regions become garments, cut per pixel: the top, the sleeves, the trousers, bare skin
+  if (m < 1.5 || (m > 4.5 && m < 6.5) || (m > 14.5 && m < 15.5)) {
+    bool arm = m > 4.5 && m < 6.5;
+    // the armhole: the cap of the shoulder goes with the sleeve, the side of the chest with the top
+    float hole = ${gl(SH[0] - 0.036)} + 0.022 * smoothstep(1.27, 1.42, p.y) - (vest ? 0.03 + 0.03 * woman : 0.0);
+    if (p.y > 1.27 && (m < 0.5 || arm)) arm = ax > hole;
+    if (arm) m = p.y > sleeveEnd ? 5.0 : 2.0;
+    else if (p.y > topEnd) m = 0.0;
+    else if (p.y > ${gl(WAIST_Y)}) m = 2.0;
+    else m = p.y > legEnd ? 1.0 : 2.0;
+  }
+  // the neckline: a crew neck, a V or a scoop (cut across the skin of the neck's base too, so the line is the shader's, not the mesh's)
+  float nk = fract(vSeed.y * 5.31);
+  if (m > 1.5 && m < 2.5 && p.y < ${gl(NECK_BASE + 0.03)} && p.y > 1.3 && ax < 0.13) m = 0.0;
+  if (m < 0.5) {
+    // round the neck: the line dips at the front by the neckline's depth, and climbs away beyond its opening so the shoulders stay covered
+    float frontness = smoothstep(0.0, 0.05, p.z - ${gl(JOINTS.neck[2])});
+    bool scoop = nk >= 0.2 && nk < 0.2 + 0.25 * woman;
+    float depth = nk < 0.2 ? 0.075 * max(0.0, 1.0 - ax / 0.055) : scoop ? 0.05 * max(0.0, 1.0 - ax * ax / 0.0081) : 0.018 * max(0.0, 1.0 - ax * ax / 0.0045);
+    float nr = length(vec2(p.x, (p.z - ${gl(JOINTS.neck[2])}) * 1.2));
+    float opening = scoop ? 0.095 : 0.068;
+    float neckLine = mix(${gl(JOINTS.neck[1] - 0.03)}, ${gl(JOINTS.neck[1] - 0.062)}, frontness) - depth * frontness + max(0.0, nr - opening) * 2.5;
+    if (p.y > neckLine) m = 2.0;
+    else if (p.y > neckLine - 0.01) col = top * 0.72;
+  }
+  if (m < 0.5) {
+    float style = fract(vSeed.y * 5.31 + 0.37);
+    float front = step(0.0, p.z);
+    if (p.y < topEnd + 0.03) col = top * 0.82;
+    else if (style > 0.35 && style < 0.45 && p.y > topEnd + 0.03 && p.y < 1.4) {
+      // stripes, mostly tonal (a lighter or darker band of the same colour), white on a few
+      vec3 band = fract(vSeed.x * 4.3) < 0.3 ? vec3(0.85) : fract(vSeed.x * 4.3) < 0.65 ? top * 0.45 : top * 0.55 + vec3(0.18);
+      col = mix(top, band, smoothstep(0.5 - aa * 9.0, 0.5 + aa * 9.0, fract(p.y * 9.0)) * 0.8);
+    }
+    else if (style > 0.55 && style < 0.67 && front > 0.5 && p.z > ${gl(LANDMARKS.chestZ - 0.04)}) {
+      // an abstract print on the chest: a ring, a dot or a chevron, in a contrasting colour
+      vec2 c = vec2(p.x, p.y - 1.27);
+      vec3 ink = fract(vSeed.w * 3.9) < 0.5 ? vec3(0.88) : vec3(1.0) - top * 0.8;
+      float kind = fract(vSeed.z * 2.7);
+      float r = length(c);
+      float mark = kind < 0.33 ? smoothstep(0.005 + aa, 0.005, abs(r - 0.03)) : kind < 0.66 ? smoothstep(0.024 + aa, 0.024, r) : smoothstep(0.006 + aa, 0.006, abs(c.y + abs(c.x) * 0.7 - 0.01)) * step(abs(c.x), 0.038);
+      col = mix(col, ink, mark * 0.75);
+    }
+    else if (style > 0.78 && style < 0.9 && p.y < 1.16) col = top * 0.55 + vec3(0.03);
+    // the fabric's folds: a soft shade under the chest and round the waist
+    col *= 1.0 - 0.08 * smoothstep(1.2, 1.1, p.y) * smoothstep(0.98, 1.08, p.y) * (0.5 + 0.5 * sin(p.x * 70.0 + p.y * 30.0));
+    crowdRough = 0.88;
+  }
   else if (m > 0.5 && m < 1.5) {
     col = bottoms;
     crowdRough = jeans ? 0.84 : 0.8;
-    // shorts end a hand above the knee, with a turned hem
-    if (shortsOn && p.y < 0.64) {
-      col = p.y > 0.625 ? bottoms * 0.75 : skin;
-      crowdRough = p.y > 0.625 ? 0.8 : mix(0.58, 0.3, uSweat);
-    }
+    // the hem of shorts, turned up
+    if (shortsOn && p.y < legEnd + 0.018) col = bottoms * 0.75;
     // a belt for some, a buckle at the front
-    if (p.y > 0.952 && p.y < 0.985 && fract(vSeed.w * 9.1) > 0.4) {
+    if (p.y > ${gl(WAIST_Y - 0.032)} && p.y < ${gl(WAIST_Y - 0.004)} && fract(vSeed.w * 9.1) > 0.4) {
       col = vec3(0.03);
       crowdRough = 0.5;
-      if (abs(p.x) < 0.016 && p.z > 0.06) col = vec3(0.5, 0.47, 0.42);
+      if (ax < 0.016 && p.z > 0.06) col = vec3(0.5, 0.47, 0.42);
+    }
+    // creases behind the knees and at the hips
+    col *= 1.0 - 0.1 * smoothstep(0.03, 0.0, abs(p.y - ${gl(JOINTS.knee[1])})) * step(p.z, 0.0);
+    if (jeans) {
+      // denim: a fine twill, the side seam, worn knees and thighs
+      float tw = fract((p.x * 0.7 + p.y) * 320.0);
+      col *= 0.93 + 0.12 * smoothstep(0.3, 0.7, tw) * fine;
+      float lx = sign(p.x) * ${gl(JOINTS.hip[0])};
+      if (abs(p.z) < 0.004 && (p.x - lx) * sign(p.x) > 0.03 && p.y < 0.95) col *= 1.35;
+      if (p.z > 0.02 && p.y > 0.42 && p.y < 0.85) col *= 1.0 + 0.22 * (1.0 - smoothstep(0.0, 0.09, abs(p.y - ${gl(JOINTS.knee[1])}))) + 0.12 * smoothstep(0.62, 0.8, p.y);
     }
   }
   else if (m > 1.5 && m < 2.5) {
     col = skin;
-    crowdRough = mix(0.58, 0.3, uSweat);
-    // the face, painted on the head's front: eyes with a catch light, brows, the mouth, a little colour in the cheeks
-    // (the front row has the real thing: frontrow.ts)
-    #ifndef CROWD_FRONT
-    if (vBone > 8.5 && vBone < 9.5 && p.z > 0.05 && p.y > 1.5) {
-      vec2 q = vec2(abs(p.x), p.y - 1.6);
-      float socket = exp(-dot(q - vec2(0.031, 0.006), q - vec2(0.031, 0.006)) / 0.0004);
-      col *= 1.0 - 0.18 * socket;
-      float e = length((q - vec2(0.031, 0.007)) / vec2(0.0105, 0.0068));
-      float eye = 1.0 - smoothstep(1.0 - aa / 0.007, 1.0 + aa / 0.007, e);
-      col = mix(col, vec3(0.035, 0.028, 0.026), eye);
-      float catchL = 1.0 - smoothstep(0.0018, 0.0018 + aa, length(q - vec2(0.031 + sign(p.x) * 0.003, 0.0095)));
-      col = mix(col, vec3(0.8), catchL * eye);
-      float bx = (q.x - 0.032) / 0.017;
-      float brow = (1.0 - smoothstep(1.0, 1.0 + aa / 0.017, abs(bx))) * (1.0 - smoothstep(0.0034, 0.0034 + aa, abs(q.y - 0.029 + 0.004 * bx * bx)));
-      col = mix(col, hair * 0.8, brow * 0.9);
-      float mx = q.x / 0.019;
-      float mouth = (1.0 - smoothstep(1.0, 1.0 + aa / 0.019, mx)) * (1.0 - smoothstep(0.0026, 0.0026 + aa, abs(q.y + 0.048 + 0.003 * mx * mx)));
-      col = mix(col, mix(skin, vec3(0.42, 0.16, 0.14), 0.6), mouth);
-      float blush = exp(-dot(q - vec2(0.044, -0.02), q - vec2(0.044, -0.02)) / 0.00035);
-      col = mix(col, col * vec3(1.12, 0.92, 0.9), blush * 0.6);
+    crowdRough = mix(0.55, 0.3, uSweat);
+    // a little life in the skin: warmer over the knuckles, knees and elbows, a soft mottle
+    col *= 0.975 + 0.05 * sin(p.x * 91.0 + p.y * 57.0) * sin(p.y * 73.0 - p.z * 61.0) * fine;
+    if (vBone > 8.5 && p.y > ${gl(NECK_BASE + 0.03)}) {
+      // the face (real eyes are modelled: these are the brows, the lips, the colour of the cheeks and nose, facial hair)
+      vec3 hairDark = hair * 0.7 + vec3(0.004);
+      // brows: thicker and straighter on men, arched and finer on women
+      float bx = (ax - ${gl(EYE[0] + 0.002)}) / 0.024;
+      float by = ${gl(EYE[1] + 0.02)} + mix(0.003, 0.006, woman) * (1.0 - bx * bx) - 0.002 * bx;
+      float bth = mix(0.0036, 0.0024, woman) * (1.0 - 0.55 * smoothstep(-0.2, 1.0, bx));
+      float brow = (1.0 - smoothstep(0.75, 1.05, abs(bx))) * (1.0 - smoothstep(bth * 0.6, bth + aa, abs(p.y - by))) * step(0.08, p.z);
+      // drawn in hairs, denser at the start than the tail
+      brow *= 1.0 - 0.3 * crowdHash(floor(vec2(p.x * 2500.0, p.y * 700.0))) * fine;
+      col = mix(col, hairDark, brow * mix(0.8, 0.55, smoothstep(-0.5, 1.0, bx)));
+      // the eyes' surround: a soft shade in the socket and the crease, the lash line at the lid's edge
+      vec2 ed = vec2(ax - ${gl(EYE[0])}, p.y - ${gl(EYE[1])});
+      float er = length(ed / vec2(0.0165, 0.0095));
+      col *= 1.0 - 0.1 * (1.0 - smoothstep(0.9, 1.9, er));
+      // (the lash line sits on the lid's edge, just over the eye: a fine line, not a drawn-on arc)
+      float erL = length((ed - vec2(0.0, 0.0005)) / vec2(0.0158, 0.0058));
+      float lash = (1.0 - smoothstep(0.05, 0.12 + aa * 60.0, abs(erL - 1.0))) * step(0.0, ed.y) * step(0.1, p.z);
+      col = mix(col, vec3(0.03, 0.022, 0.018), lash * mix(0.4, 0.7, woman));
+      // makeup on some: eyeliner and a shadow on the lid
+      float mk = fract(vSeed.z * 17.3);
+      if (woman > 0.5 && mk < 0.45) col = mix(col, mix(col * 0.6, vec3(0.25, 0.12, 0.2), 0.3), (1.0 - smoothstep(1.1, 1.7, er)) * step(0.0, ed.y) * 0.5);
+      // lips: the upper's bow and the fuller lower lip, darker and rosier than the skin; lipstick on some
+      // (the line between them curves up a little at the corners: a soft smile)
+      vec2 ld = vec2(p.x / 0.024, p.y - ${gl(MOUTH[1])});
+      ld.y -= 0.0022 * ld.x * ld.x - 0.0005;
+      float lw = max(0.0, 1.0 - ld.x * ld.x);
+      float up = 0.0062 * sqrt(lw) * (1.0 - 0.25 * exp(-ld.x * ld.x * 40.0));
+      float lo = 0.0078 * sqrt(lw);
+      float lips = (1.0 - smoothstep(-aa, aa, ld.y - up)) * smoothstep(-aa, aa, ld.y + lo) * step(${gl(MOUTH[2] - 0.03)}, p.z);
+      vec3 lipCol = mix(skin * vec3(0.86, 0.6, 0.6), skin * vec3(0.72, 0.58, 0.62), smoothstep(0.5, 0.9, tone));
+      if (woman > 0.5 && mk > 0.6) lipCol = mk > 0.85 ? vec3(0.35, 0.03, 0.05) : mk > 0.72 ? vec3(0.42, 0.12, 0.15) : skin * vec3(0.9, 0.62, 0.6);
+      col = mix(col, lipCol, lips * mix(0.45, 0.75, woman));
+      col *= 1.0 - 0.5 * (1.0 - smoothstep(0.0004, 0.0011 + aa, abs(ld.y))) * (1.0 - smoothstep(0.85, 1.0, abs(ld.x))) * step(${gl(MOUTH[2] - 0.04)}, p.z);
+      // colour in the cheeks, nose and ears (shows more on fair skin)
+      float rosy = (1.0 - smoothstep(0.35, 0.8, tone)) * 0.5;
+      vec2 cq = vec2(ax - 0.045, p.y - ${gl(EYE[1] - 0.04)});
+      col = mix(col, col * vec3(1.12, 0.9, 0.88), rosy * exp(-dot(cq, cq) / 0.0005) * step(0.06, p.z));
+      vec2 nq = vec2(p.x, p.y - ${gl(NOSE[1])});
+      col = mix(col, col * vec3(1.1, 0.92, 0.9), rosy * exp(-dot(nq, nq) / 0.0002) * step(0.14, p.z));
+      if (ax > 0.07 && p.z < 0.06) col *= mix(vec3(1.0), vec3(1.06, 0.93, 0.92), rosy);
+      // facial hair: stubble or a beard, from the cheekbones down round the jaw, the upper lip
+      if (vLook.z > 0.5) {
+        float side = smoothstep(0.015, 0.05, ax);
+        float topY = mix(${gl(NOSE[1] - 0.02)}, ${gl(EYE[1] - 0.045)}, side);
+        float bot = ${gl(CHIN[1] - 0.03)} + 0.02 * smoothstep(0.03, 0.07, ax);
+        float zMin = mix(0.1, 0.0, side);
+        float bm = smoothstep(topY, topY - 0.008, p.y) * smoothstep(bot - 0.01, bot + 0.01, p.y) * smoothstep(zMin - 0.01, zMin + 0.01, p.z) * (1.0 - lips);
+        float grain = crowdHash(floor(p.xy * 900.0) + floor(p.z * 900.0));
+        if (vLook.z > 1.5) {
+          col = mix(col, hairDark * (0.75 + 0.5 * grain * fine), bm * 0.92);
+          crowdRough = mix(crowdRough, 0.85, bm);
+        } else col = mix(col, mix(col * 0.72, hairDark, 0.25), bm * (0.55 + 0.3 * grain * fine));
+      }
     }
-    #endif
   }
   else if (m > 2.5 && m < 3.5) {
-    col = hair;
-    crowdRough = 0.48;
+    // the hair over the scalp: its line by style, thinning to the skin at its edge
+    float st = vLook.x;
+    float a = abs(atan(p.x, p.z - 0.035)) / 3.14159;
+    float recede = woman < 0.5 ? smoothstep(0.6, 1.0, fract(vSeed.x * 7.3)) : 0.0;
+    float front = ${gl(EYE[1] + 0.062)} + 0.012 * recede * smoothstep(0.03, 0.14, a);
+    // a fringe swept to one side: longer over one brow, lifting off the other
+    float sweep = clamp((fract(vSeed.z * 3.1) < 0.5 ? -1.0 : 1.0) * p.x / 0.06, -1.0, 1.0);
+    if (st > 2.5 && st < 3.5) front = ${gl(EYE[1] + 0.041)} + 0.011 * sweep + 0.022 * smoothstep(0.06, 0.2, a) + 0.004 * abs(sin(p.x * 160.0 + vSeed.x * 9.0));
+    if (st > 3.5 && st < 4.5) front += 0.006;
+    float temple = ${gl(EYE[1] + 0.03)};
+    float sideY = st < 2.5 ? ${gl(EYE[1] + 0.026)} : ${gl(EYE[1] + 0.014)};
+    float back = st < 2.5 ? ${gl(EYE[1] - 0.07)} : ${gl(EYE[1] - 0.105)};
+    float line = a < 0.22 ? mix(front, temple, smoothstep(0.1, 0.22, a)) : a < 0.5 ? mix(temple, sideY, smoothstep(0.22, 0.5, a)) : mix(sideY, back, smoothstep(0.5, 0.85, a));
+    // the line wanders strand by strand (hair never ends in a ruled line), finer close up
+    float hAng = atan(p.x, p.z - 0.035);
+    line += (crowdHash(vec2(floor(hAng * 300.0), floor(vSeed.x * 97.0))) - 0.5) * 0.007 * fine + 0.0025 * sin(hAng * 41.0 + vSeed.y * 13.0);
+    if (p.y < line) discard;
+    // a soft edge: the hair thins to single strands with skin between them over the last centimetre or two (more where
+    // it's cut short, a fade at the sides and back)
+    float edge = smoothstep(line, line + mix(0.016, 0.04, step(a, 0.9) * step(0.25, a) * step(st, 2.5)), p.y);
+    float thin = 0.5 + 0.5 * sin(hAng * 520.0 + p.y * 90.0 + vSeed.x * 10.0);
+    float cover = clamp(edge * 1.25 - 0.1 + 0.5 * (thin - 0.5) * (1.0 - edge) * fine, 0.0, 1.0);
+    float bare = st < 1.5 ? 0.55 : st < 2.5 ? 0.2 : 0.0;
+    col = mix(skin * 0.93, hair, cover * (1.0 - bare) + 0.25 * bare);
+    // hair scatters light rather than shining like a shell
+    crowdRough = mix(0.72, 0.8, bare);
   }
   else if (m > 3.5 && m < 4.5) {
     col = shoes;
     crowdRough = 0.55;
-    float lx = sign(p.x) * 0.09;
-    // a white sole and toe bumper, laces over the top, a two-band stripe down the side of some
+    float sx = ax - ${gl(SHOE.x)};
+    float t = (p.z - ${gl(SHOE.z0)}) / ${gl(SHOE.z1 - SHOE.z0)};
+    // a white or black sole and toe bumper, laces over the top, a stripe down the side of some, a padded collar
     float soleCol = fract(vSeed.x * 23.1) < 0.7 ? 0.86 : 0.04;
-    if (p.y < 0.017 || p.z > 0.108) { col = vec3(soleCol); crowdRough = 0.8; }
-    else if (p.y > 0.046 && p.z > 0.02 && p.z < 0.088 && abs(p.x - lx) < 0.021) col = mix(col, vec3(0.9), step(0.5, fract(p.z * 110.0)) * 0.8);
-    else if (abs(p.x - lx) > 0.034 && p.y > 0.024 && p.y < 0.044 && p.z > -0.01 && p.z < 0.08 && fract(vSeed.z * 7.7) > 0.5) col = mix(top, vec3(0.9), step(0.5, fract(p.y * 95.0)));
+    if (p.y < 0.016 || (t > 0.9 && p.y < 0.035)) { col = vec3(soleCol); crowdRough = 0.8; }
+    else if (p.y > 0.098) col *= 0.4;
+    else if (t > 0.45 && t < 0.82 && abs(sx) < 0.017 && p.y > 0.045) col = mix(col, vec3(0.9), step(0.5, fract(p.z * 110.0)) * 0.8);
+    else if (abs(sx) > 0.03 && p.y > 0.024 && p.y < 0.05 && t > 0.3 && t < 0.75 && fract(vSeed.z * 7.7) > 0.5) col = mix(top, vec3(0.9), step(0.5, fract(p.y * 95.0)));
   }
-  else if (m > 4.5 && m < 5.5) col = sleeve < 0.15 ? skin : top;
-  else if (m > 5.5 && m < 6.5) col = sleeve < 0.6 ? skin : top;
+  else if (m > 4.5 && m < 5.5) {
+    // a sleeve: the top's colour, a hem
+    col = top * (p.y < sleeveEnd + 0.014 ? 0.8 : 1.0);
+    crowdRough = 0.88;
+  }
   else if (m > 6.5 && m < 7.5) { col = fract(vSeed.w * 5.1) < 0.5 ? vec3(0.6, 0.05, 0.04) : vec3(0.72, 0.74, 0.78); crowdRough = 0.4; }
   else if (m > 7.5 && m < 8.5) { col = vec3(0.02); crowdRough = 0.35; }
   else if (m > 8.5 && m < 9.5) { col = vec3(0.0); glow = vec3(0.55, 0.64, 0.85) * 1.05; }
@@ -895,17 +1132,53 @@ const FRAG_COLOR = /* glsl */ `
     if (uPhotos > 0.001) glow += vec3(16.0) * step(1.0 - 0.06 * uPhotos, crowdHash(vec2(vSeed.x * 113.0, floor(uTime * 9.0 + vSeed.z * 9.0))));
   }
   else if (m > 10.5 && m < 11.5) col = vCard > 0.5 ? vec3(0.42, 0.3, 0.18) : vec3(0.02);
-  else if (m > 16.5 && m < 17.5) { col = hair; crowdRough = 0.48; }
-  // a cap: black, the top's colour or stone
-  else if (m > 15.5) { float cv = fract(vSeed.x * 9.7); col = cv < 0.45 ? vec3(0.025) : cv < 0.8 ? top * 0.85 : vec3(0.5, 0.46, 0.38); crowdRough = 0.7; }
-  // the lower leg: trousers, or bare in shorts
-  else if (m > 14.5) {
-    bool bare = shortsOn;
-    col = bare ? skin : bottoms;
-    crowdRough = bare ? mix(0.58, 0.3, uSweat) : 0.84;
+  else if (m > 12.5 && m < 13.5) col = fract(vSeed.y * 3.7) < 0.5 ? vec3(0.85, 0.85, 0.82) : top * 1.2;
+  else if (m > 13.5 && m < 14.5) {
+    // long hair: cut to length (a bob at the jaw, longer to the shoulder blades), the ends uneven
+    float st = vLook.x;
+    float cut = st > 6.5 && st < 7.5 ? ${gl(CHIN[1] - 0.005)} : ${gl(EYE[1] - 0.3)} - 0.08 * fract(vSeed.w * 11.1);
+    cut += 0.012 * sin(atan(p.x, p.z) * 9.0 + vSeed.x * 6.0);
+    if (p.y < cut) discard;
+    col = hair;
+    crowdRough = 0.7;
   }
-  else if (m > 13.5) { col = hair; crowdRough = 0.48; }
-  else if (m > 12.5) col = fract(vSeed.y * 3.7) < 0.5 ? vec3(0.85, 0.85, 0.82) : top * 1.2;
+  else if (m > 14.5 && m < 15.5) { col = bottoms; crowdRough = 0.84; }
+  else if (m > 15.5 && m < 16.5) { float cv = fract(vSeed.x * 9.7); col = cv < 0.45 ? vec3(0.025) : cv < 0.8 ? top * 0.85 : vec3(0.5, 0.46, 0.38); crowdRough = 0.7; }
+  else if (m > 16.5 && m < 17.5) { col = hair; crowdRough = 0.72; }
+  else if (m > 17.5 && m < 18.5) {
+    // the eye: a wet white, shaded under the lids; the iris (brown for most, hazel, green, blue or grey on fairer skin) with a darker rim; the pupil; a catch light
+    vec3 ec = vec3(${gl(EYE[0])} * sign(p.x), ${gl(EYE[1])}, ${gl(EYE[2])});
+    vec3 d = p - ec;
+    float r = length(d.xy);
+    float iv = vLook.w + step(0.3, tone) * 2.0;
+    vec3 irisC = iv < 0.5 || iv > 1.0 ? vec3(0.09, 0.04, 0.015) : iv < 0.68 ? vec3(0.16, 0.09, 0.03) : iv < 0.8 ? vec3(0.1, 0.16, 0.08) : iv < 0.93 ? vec3(0.1, 0.2, 0.32) : vec3(0.2, 0.22, 0.24);
+    col = vec3(0.64, 0.6, 0.57);
+    col *= 1.0 - 0.5 * smoothstep(0.004, 0.0095, abs(d.y)) - 0.25 * smoothstep(0.0, 0.006, d.y);
+    if (d.z > 0.0) {
+      // a full-sized iris (a small one in a lot of white reads as a stare)
+      col = mix(col, irisC * 0.5, 1.0 - smoothstep(0.0072 - aa, 0.0072 + aa, r));
+      col = mix(col, irisC * (0.8 + 0.4 * sin(atan(d.y, d.x) * 13.0) * fine), 1.0 - smoothstep(0.0064 - aa, 0.0064 + aa, r));
+      col = mix(col, vec3(0.005), 1.0 - smoothstep(0.0026 - aa, 0.0026 + aa, r));
+      col = mix(col, vec3(1.1), (1.0 - smoothstep(0.0011, 0.0011 + aa, length(d.xy - vec2(-0.0024, 0.0024)))) * fine);
+    }
+    crowdRough = 0.08;
+    // relaxed lids: the upper over the top of the iris, the lower just touching it, a soft lash line along the upper
+    float ex = d.x / 0.012;
+    float upLid = 0.0036 - 0.003 * ex * ex;
+    float loLid = -0.0062 + 0.0025 * ex * ex;
+    float lid = max(smoothstep(upLid - aa, upLid + aa, d.y), 1.0 - smoothstep(loLid - aa, loLid + aa, d.y));
+    if (lid > 0.5) { col = skin * mix(0.78, 0.9, step(d.y, 0.0)); crowdRough = 0.55; }
+  }
+  else if (m > 27.5 && m < 29.5 || m > 32.5) {
+    // curls or an afro, a bun, a ponytail
+    if (m < 28.5) {
+      // the afro's line at the forehead and round the ears
+      float a = abs(atan(p.x, p.z - 0.035)) / 3.14159;
+      if (p.y < mix(${gl(EYE[1] + 0.058)}, ${gl(EYE[1] - 0.09)}, smoothstep(0.2, 0.7, a))) discard;
+      col = hair * (0.75 + 0.45 * crowdHash(floor(p.xz * 300.0) + floor(p.y * 300.0)) * fine);
+    } else col = hair;
+    crowdRough = 0.55;
+  }
   else if (m > 11.5 && vCard > 0.5) {
     // a cardboard sign, marker pen on brown board: lit by the room, with a touch of its own so it reads in the dark
     vec3 t = texture2D(uCards, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;
@@ -913,49 +1186,24 @@ const FRAG_COLOR = /* glsl */ `
     crowdRough = 0.95;
     glow = t * 0.16;
   }
-  else if (m > 11.5) {
+  else if (m > 11.5 && m < 12.5) {
     vec3 t = texture2D(uSigns, vec2(vUv2.x, (vSignRow + vUv2.y) / 8.0)).rgb;
     vec2 cell = fract(vUv2 * vec2(80.0, 20.0)) - 0.5;
     float led = smoothstep(0.5, 0.22, length(cell));
     col = vec3(0.0);
     glow = t * (0.25 + led * 1.6) * uSignGlow;
   }
-  // the top: a crew or V neckline, the rib of the collar, the hem; stripes, a chest print or a colour block on some
-  if (m < 0.5) {
-    float style = fract(vSeed.y * 5.31);
-    float front = step(0.0, p.z);
-    if (style < 0.2 && front > 0.5 && abs(p.x) < 0.055 && p.y > 1.452 - (0.055 - abs(p.x)) * 1.6) col = skin;
-    else if (p.y > 1.452 && abs(p.x) < 0.062) col = skin;
-    else if (p.y > 1.437 && abs(p.x) < 0.075) col = top * 0.72;
-    else if (p.y < 0.975) col = top * 0.8;
-    else if (style > 0.35 && style < 0.45 && p.y > 1.0 && p.y < 1.4) {
-      // stripes, mostly tonal (a lighter or darker band of the same colour), white on a few
-      vec3 band = fract(vSeed.x * 4.3) < 0.3 ? vec3(0.85) : fract(vSeed.x * 4.3) < 0.65 ? top * 0.45 : top * 0.55 + vec3(0.18);
-      col = mix(top, band, smoothstep(0.5 - aa * 9.0, 0.5 + aa * 9.0, fract(p.y * 9.0)) * 0.8);
-    }
-    else if (style > 0.55 && style < 0.67 && front > 0.5 && p.z > 0.06) {
-      // an abstract print on the chest: a ring, a dot or a chevron, in a contrasting colour
-      vec2 c = vec2(p.x, p.y - 1.285);
-      vec3 ink = fract(vSeed.w * 3.9) < 0.5 ? vec3(0.88) : vec3(1.0) - top * 0.8;
-      float kind = fract(vSeed.z * 2.7);
-      float r = length(c);
-      float mark = kind < 0.33 ? smoothstep(0.005 + aa, 0.005, abs(r - 0.03)) : kind < 0.66 ? smoothstep(0.024 + aa, 0.024, r) : smoothstep(0.006 + aa, 0.006, abs(c.y + abs(c.x) * 0.7 - 0.01)) * step(abs(c.x), 0.038);
-      col = mix(col, ink, mark * 0.75);
-    }
-    else if (style > 0.78 && style < 0.9 && p.y < 1.16) col = top * 0.55 + vec3(0.03);
-  }
-  // denim: a fine twill, the side seam and worn knees
-  if (jeans && (m > 0.5 && m < 1.5 || (m > 14.5 && m < 15.5 && col == bottoms))) {
-    float tw = fract((p.x * 0.7 + p.y) * 320.0);
-    col *= 0.93 + 0.12 * smoothstep(0.3, 0.7, tw) * (1.0 - smoothstep(0.004, 0.01, aa));
-    float lxs = sign(p.x) * 0.09;
-    if (abs(p.z) < 0.005 && (p.x - lxs) * sign(p.x) > 0.02 && p.y < 0.95) col *= 1.35;
-    if (p.z > 0.03 && p.y > 0.42 && p.y < 0.6) col *= 1.0 + 0.3 * (1.0 - abs(p.y - 0.51) / 0.09);
-  }
-  // hair: strands, so it reads as hair and not a helmet
-  if ((m > 2.5 && m < 3.5) || (m > 13.5 && m < 14.5) || (m > 16.5 && m < 17.5)) {
-    float strand = sin(atan(p.x, p.z + 0.001) * 70.0 + p.y * 40.0 + vSeed.x * 20.0);
-    col *= 0.88 + 0.16 * strand * (1.0 - smoothstep(0.004, 0.01, aa));
+  // hair: strands that flow back over the crown and down the length, a sheen across them
+  if ((m > 2.5 && m < 3.5) || (m > 13.5 && m < 14.5) || (m > 16.5 && m < 17.5) || (m > 28.5 && m < 29.5) || m > 32.5) {
+    float ang = atan(p.x, p.z - 0.035);
+    // strands in clumps, light and dark, following the way it's combed; darker down in it, lighter at the surface
+    float strand = sin(ang * 70.0 + p.y * 30.0 + vSeed.x * 20.0) * 0.6 + sin(ang * 31.0 - p.y * 90.0) * 0.4;
+    float fineStrand = sin(ang * 260.0 + p.y * 70.0 + vSeed.y * 7.0) * sin(ang * 170.0 - p.y * 40.0);
+    float clump = sin(ang * 17.0 + p.y * 21.0 + vSeed.x * 5.0);
+    col *= 0.84 + (0.13 * strand + 0.1 * fineStrand + 0.08 * clump) * fine;
+    col = mix(col, col * vec3(1.12, 1.08, 1.02) + vec3(0.01), 0.35 * max(0.0, clump) * fine);
+    float sh = (p.y - ${gl(LANDMARKS.headTop - 0.035)}) / 0.016;
+    col *= 1.0 + 0.3 * exp(-sh * sh) * step(0.0, p.z - 0.02);
   }
   #ifdef CROWD_FRONT
   /*FRONT_FRAG*/
@@ -1152,8 +1400,8 @@ export class Crowd implements Fixture {
         const common = front ? FRONT_COMMON : '';
         sh.vertexShader = sh.vertexShader
           .replace('#include <common>', `#include <common>\n${common}${front ? VERT_HEAD.replace('/*FRONT_VIS*/', FRONT_VIS) : VERT_HEAD}`)
-          .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\ncomputePose();\nobjectNormal = poseR * objectNormal;`)
-          .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * transformed + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;\nvRest = position;\nvBone = aBone;${front ? '\nvMouth = poseMouth;\nvFilm = poseFilm;' : ''}`);
+          .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\ncomputePose();\nbodyPos = position;\n${HAIR_VOLUME}\nmorphBody(bodyPos, objectNormal);\nobjectNormal = poseR * objectNormal;`)
+          .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * bodyPos + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;\nvRest = position;\nvBone = aBone;${front ? '\nvMouth = poseMouth;\nvFilm = poseFilm;' : ''}`);
         sh.fragmentShader = sh.fragmentShader
           .replace('#include <common>', `#include <common>\n${FRAG_HEAD}${common}`)
           .replace('#include <color_fragment>', `#include <color_fragment>\n${front ? FRAG_COLOR.replace('/*FRONT_FRAG*/', frontFrag()) : FRAG_COLOR}`)
@@ -1172,16 +1420,19 @@ export class Crowd implements Fixture {
     const yAxis = new THREE.Vector3(0, 1, 0);
     const mats: THREE.Matrix4[] = [];
     const cols: THREE.Color[] = [];
+    const body: number[] = [];
     spots.forEach((s, i) => {
       let face = s.face ?? Math.atan2(booth.x - s.x, booth.z - s.z);
       // some dancers turn to their friends instead of the booth
       if (s.face === undefined && info[i * 4] === 0 && r() < 0.1) face += (r() < 0.5 ? -1 : 1) * (1.1 + r() * 0.6);
-      // a rider faces the way their friend does, and is a little smaller
-      const sc = s.scale ?? (s.role === 'rider' ? 0.85 : 0.9 + r() * 0.2);
-      // builds vary: slimmer and broader people (from the person's seed, so the picks above don't shift)
-      const build = 0.92 + 0.16 * ((seeds[i * 4 + 1] * 7.77) % 1);
+      // who they are: a woman or a man, their build, ancestry and skin tone (from the person's seed, so the picks above don't shift)
+      const who = crowdPerson(seeds.slice(i * 4, i * 4 + 4));
+      body.push(...who.body);
+      // their height (a rider is a little smaller)
+      const tall = r();
+      const sc = s.scale ?? (s.role === 'rider' ? 0.85 : who.height(tall) / 1.75);
       q.setFromAxisAngle(yAxis, face);
-      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc * build, sc, sc * build)));
+      mats.push(new THREE.Matrix4().compose(new THREE.Vector3(s.x, s.y ?? 0, s.z), q, new THREE.Vector3(sc, sc, sc)));
       const c = clothes[Math.floor(r() * clothes.length)];
       cols.push(shirt.get(i) ?? c);
     });
@@ -1212,11 +1463,13 @@ export class Crowd implements Fixture {
       const k = idx.length;
       const cs = new Float32Array(k * 4);
       const ci = new Float32Array(k * 4);
+      const cb = new Float32Array(k * 4);
       idx.forEach((i, j) => {
         cs.set(seeds.slice(i * 4, i * 4 + 4), j * 4);
         ci.set(info.slice(i * 4, i * 4 + 4), j * 4);
+        cb.set(body.slice(i * 4, i * 4 + 4), j * 4);
       });
-      const inst = { iSeed: new THREE.InstancedBufferAttribute(cs, 4), iInfo: new THREE.InstancedBufferAttribute(ci, 4) };
+      const inst = { iSeed: new THREE.InstancedBufferAttribute(cs, 4), iInfo: new THREE.InstancedBufferAttribute(ci, 4), iBody: new THREE.InstancedBufferAttribute(cb, 4) };
       // the front row: the detailed model up close, the crowd's low-detail one from far away
       const geos: [THREE.BufferGeometry, THREE.BufferGeometry] = [chunkGeometry(isFront ? frontGeometry() : hi, inst), chunkGeometry(lo, inst)];
       const mesh = new THREE.InstancedMesh(geos[0], isFront ? frontMat! : mat, k);
