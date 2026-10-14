@@ -45,7 +45,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Look } from '../core/models';
 import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
-import { fabricCanvas, irisCanvas, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
+import { fabricCanvas, irisCanvas, leatherCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
 import { bodyReady, ModelBody, modelRegions, modelTuck, preloadBody, type BodyRegion, type Cover } from './modelBody';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
 
@@ -696,9 +696,11 @@ export class Avatar {
         for (let o: THREE.Object3D | null = b[name]; o && o !== this.body; o = o.parent) p.add(o.position);
         rest[name] = p;
       }
+      // the suit is cut from the model, whose UVs run over the whole body, so its grain repeats more
+      const cut = (slot: Slot) => this.hide(this.fabric(slot), 14);
       const suit = this.suit && {
-        jacket: this.suit.jacket ? this.fabric('outer') : null,
-        trousers: this.suit.trousers ? this.fabric('bottom') : null,
+        jacket: this.suit.jacket ? cut('outer') : null,
+        trousers: this.suit.trousers ? cut('bottom') : null,
         trims: { piping: this.fabric(this.suit.jacket ? 'outer' : 'bottom', 2), zip: this.std(0x2a2c31, { metalness: 0.8, roughness: 0.35 }), metal: this.std(0xd9dde3, { metalness: 0.95, roughness: 0.2 }) },
       };
       this.model = new ModelBody(this.body, b, rest, this.hands, this.modelShows, this.skin('body'), l, modelTuck(l, topCut, outerCut), suit);
@@ -1423,6 +1425,22 @@ export class Avatar {
   /* clothes                                                           */
   /* ---------------------------------------------------------------- */
 
+  /** leather's grain and finish on a fabric: pebbled and creased, a soft wax sheen rather than a lacquer */
+  private hide(m: THREE.MeshPhysicalMaterial, repeat: number): THREE.MeshPhysicalMaterial {
+    const { normal, rough } = leatherCanvases();
+    m.normalMap = this.keep(toTexture(normal, repeat, false));
+    m.normalScale.setScalar(0.7);
+    m.roughnessMap = this.keep(toTexture(rough, repeat, false));
+    m.roughness = 1;
+    m.clearcoat = 0.3;
+    m.clearcoatRoughness = 0.38;
+    m.sheen = 0.25;
+    m.sheenRoughness = 0.6;
+    m.sheenColor = new THREE.Color(0.35, 0.33, 0.32);
+    m.envMapIntensity = 0.7;
+    return m;
+  }
+
   /** the fabric of whatever is in a slot: its pattern in its 3 zones, its material's sheen */
   private fabric(slot: Slot, zoneOverride?: 1 | 2 | 3): THREE.MeshPhysicalMaterial {
     const l = this.look;
@@ -1449,12 +1467,8 @@ export class Avatar {
       case 'leather':
         m.roughness = 0.42;
         m.clearcoat = 0.35;
-        // the robot DJ's jacket, trousers and boots: patent-shiny, a clear lacquer over the black
-        if (ROBOT_LEATHER.has(l.items[slot] ?? '')) {
-          m.roughness = 0.3;
-          m.clearcoat = 1;
-          m.clearcoatRoughness = 0.12;
-        }
+        // the robot DJ's jacket, trousers and boots: real hide, a pebbled grain and soft creases under a waxed finish
+        if (ROBOT_LEATHER.has(l.items[slot] ?? '')) this.hide(m, 6);
         break;
       case 'sequin':
         m.metalness = 0.6;

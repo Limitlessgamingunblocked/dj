@@ -129,8 +129,8 @@ export interface SuitTrims {
 const HEM = 0.93;
 /** where the trousers end under the jacket */
 const WAISTBAND = 1.02;
-/** the body slider shape keys the suit wears: bulky in the shoulders and arms */
-const SUIT_SHAPE: Record<string, number> = { body_weight: 0.8, muscle_definition: 0, chest: 0.4, shoulder_width: 1, arm_thickness: 1.4 };
+/** the body slider shape keys the suit wears: a slim build, square in the shoulders and flat across the chest */
+const SUIT_SHAPE: Record<string, number> = { body_weight: 0, muscle_definition: 0, chest: -0.8, shoulder_width: 0.9, arm_thickness: 0.2 };
 
 const sm = (a: number, b: number, x: number) => {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
@@ -146,16 +146,16 @@ const _d = new THREE.Vector3();
 /** how far out from the skin the jacket sits at a point on a region */
 function jacketThickness(region: BodyRegion, p: THREE.Vector3): number {
   if (region === 'chest') {
-    // padded over the shoulders and across the chest
+    // close fitting leather, a little padding at the shoulder seams
     const sh = Math.exp(-_d.copy(p).sub(SHOULDER(Math.sign(p.x) || 1)).lengthSq() / (2 * 0.06 * 0.06));
-    let t = 0.024 + 0.016 * sh + 0.004 * sm(1.05, 1.3, p.y);
-    // cut straight and loose from the chest to the hem, not in at the waist
-    t += 0.016 * Math.exp(-((p.y - 1.06) ** 2) / (2 * 0.07 * 0.07));
+    let t = 0.013 + 0.012 * sh + 0.002 * sm(1.05, 1.3, p.y);
+    // a little slack over the waist, so it hangs rather than clings
+    t += 0.005 * Math.exp(-((p.y - 1.06) ** 2) / (2 * 0.07 * 0.07));
     // soft creases round the waist, where the jacket bunches above the hem
     const round = Math.atan2(p.x, p.z);
-    t += 0.0035 * sm(1.1, 0.98, p.y) * Math.sin(p.y * 260 + Math.sin(round * 3) * 2.5);
+    t += 0.0022 * sm(1.1, 0.98, p.y) * Math.sin(p.y * 260 + Math.sin(round * 3) * 2.5);
     // the hem: a ribbed lip, then the jacket tucks away inside the trousers
-    t += 0.005 * sm(HEM + 0.035, HEM + 0.015, p.y) * (1 + 0.4 * Math.sin(round * 40));
+    t += 0.004 * sm(HEM + 0.035, HEM + 0.015, p.y) * (1 + 0.4 * Math.sin(round * 40));
     return p.y > HEM ? t : -0.006 + (t + 0.006) * sm(HEM - 0.012, HEM, p.y);
   }
   // the sleeves: along the arm from the shoulder (0) to the wrist (1)
@@ -167,26 +167,26 @@ function jacketThickness(region: BodyRegion, p: THREE.Vector3): number {
   const u = Math.max(0, Math.min(1, _d.copy(p).sub(a).dot(ab) / ab.lengthSq()));
   const along = upper ? u * 0.5 : 0.5 + u * 0.5;
   const sh = Math.exp(-_d.copy(p).sub(SHOULDER(k)).lengthSq() / (2 * 0.06 * 0.06));
-  let t = 0.026 - 0.008 * along + 0.016 * sh;
+  let t = 0.012 - 0.003 * along + 0.012 * sh;
   // creases where the sleeve bunches: rings round the arm, crowded at the elbow
   const len = along * 0.52;
   const atElbow = Math.exp(-((along - 0.5) ** 2) / (2 * 0.12 * 0.12));
-  t += (0.0022 + 0.0042 * atElbow) * Math.sin(len * 190 + Math.sin(len * 40) * 2) * sm(0.08, 0.2, along);
+  t += (0.0012 + 0.0026 * atElbow) * Math.sin(len * 190 + Math.sin(len * 40) * 2) * sm(0.08, 0.2, along);
   // the ribbed cuff at the wrist
   if (along > 0.92) {
     const w = WRIST(k);
-    t = 0.014 + 0.002 * Math.sin(Math.atan2(p.x - w.x, p.z - w.z) * 14);
+    t = 0.009 + 0.0015 * Math.sin(Math.atan2(p.x - w.x, p.z - w.z) * 14);
   }
   return t;
 }
 
 /** how far out the trousers sit */
 function trouserThickness(region: BodyRegion, p: THREE.Vector3): number {
-  if (region === 'chest') return p.y < WAISTBAND ? 0.02 : -0.008 + 0.028 * sm(WAISTBAND + 0.02, WAISTBAND, p.y);
+  if (region === 'chest') return p.y < WAISTBAND ? 0.01 : -0.008 + 0.018 * sm(WAISTBAND + 0.02, WAISTBAND, p.y);
   // a fold or two at the back of the knee, a little fuller over the boots
   const knee = Math.exp(-((p.y - 0.5) ** 2) / (2 * 0.04 * 0.04));
   // straight-legged trousers: fuller lower down, where the leg narrows
-  return 0.02 + 0.012 * sm(0.55, 0.2, p.y) + 0.003 * knee * Math.sin(p.y * 220);
+  return 0.009 + 0.006 * sm(0.55, 0.2, p.y) + 0.002 * knee * Math.sin(p.y * 220);
 }
 
 /**
@@ -287,6 +287,33 @@ function weldedNormals(w: ReturnType<typeof welded>): Float32Array {
 }
 
 /**
+ * The suit hangs flat across the chest, from breastbone to breastbone, as a
+ * leather jacket does: the front of the chest is capped just in front of the
+ * sternum, rounding off towards the sides.
+ */
+function flattenChest(w: ReturnType<typeof welded>) {
+  const { N, P } = w;
+  const Y0 = 1.08;
+  const Y1 = 1.38;
+  const BINS = 30;
+  const sternum = new Float32Array(BINS).fill(-1);
+  const bin = (y: number) => Math.max(0, Math.min(BINS - 1, Math.floor(((y - Y0) / (Y1 - Y0)) * BINS)));
+  for (let v = 0; v < N; v++) {
+    const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
+    if (y > Y0 && y < Y1 && Math.abs(x) < 0.02 && z > 0) sternum[bin(y)] = Math.max(sternum[bin(y)], z);
+  }
+  for (let v = 0; v < N; v++) {
+    const x = P[v * 3], y = P[v * 3 + 1], z = P[v * 3 + 2];
+    const s = sternum[bin(y)];
+    if (s < 0 || z <= 0) continue;
+    const cap = s + 0.006 - 0.02 * (x / 0.16) ** 2;
+    if (z <= cap) continue;
+    const k = sm(Y0, Y0 + 0.05, y) * sm(Y1, Y1 - 0.05, y);
+    P[v * 3 + 2] = z + (cap - z) * k;
+  }
+}
+
+/**
  * A copy of a region's skin on the same skeleton: smoothed (the cloth hides
  * the body's anatomy), then pushed out by `thick` along its normals.
  */
@@ -301,7 +328,8 @@ function garment(src: THREE.SkinnedMesh, region: BodyRegion, thick: (r: BodyRegi
   }
   geo.morphAttributes = {};
   const w = welded(geo);
-  taubin(w, region === 'chest' ? 30 : 10);
+  if (region === 'chest') flattenChest(w);
+  taubin(w, region === 'chest' ? 50 : 10);
   const nrm = weldedNormals(w);
   const p = new THREE.Vector3();
   const n = new THREE.Vector3();
