@@ -1,17 +1,18 @@
 /*
- * The crowd you hear (Section 8.3): a murmur that swells with the vibe, and
- * the room's reactions: cheers and whistles, a groan on a trainwreck, boos
+ * The crowd you hear (Section 8.3): the room's reactions: cheers and whistles, a groan on a trainwreck, boos
  * on dead air, a "whoa" on a long build, and the chant (your name at the
  * peak, "one more tune" for the encore). Synthesised (shaped noise and a few
  * oscillators), played into the room (audio/room.ts), not into the mix, so
  * recordings stay clean. The Bedroom has no room crowd: its crowd is the chat.
+ * There is no constant crowd bed under the music: the looped murmur read as
+ * an ocean, so it was taken out.
  */
 
 export type CrowdSound = 'cheer' | 'groan' | 'boo' | 'whoa' | 'chant';
 
 /**
  * What a venue sounds like round the music (Section 8.3): glasses clinking on
- * the rooftop, waves at the beach, water and the engine on the boat, wind
+ * the rooftop, waves at the beach, water lapping at the boat, wind
  * over the festival field, birds as the sun comes up, the desert wind on the playa.
  */
 export type Ambience = 'none' | 'glasses' | 'waves' | 'water' | 'field' | 'dawn' | 'playa';
@@ -32,11 +33,9 @@ function noiseBuffer(ctx: BaseAudioContext, secs: number, seed = 7): AudioBuffer
 
 export class CrowdAudio {
   private out: GainNode;
-  private murmur: GainNode;
   private noise: AudioBuffer;
   /** how big the crowd sounds (0: none) */
   size = 1;
-  private level = 0;
   private lastSound = new Map<CrowdSound, number>();
   private amb: Ambience = 'none';
   private ambNodes: AudioScheduledSourceNode[] = [];
@@ -55,43 +54,10 @@ export class CrowdAudio {
     this.ambOut = ctx.createGain();
     this.ambOut.gain.value = 0;
     this.ambOut.connect(this.out);
-    // the murmur: two bands of looped noise, slowly breathing
-    this.murmur = ctx.createGain();
-    this.murmur.gain.value = 0;
-    this.murmur.connect(this.out);
-    for (const [f, q, pan] of [
-      [520, 0.7, -0.5],
-      [1300, 0.9, 0.5],
-    ]) {
-      const src = ctx.createBufferSource();
-      src.buffer = this.noise;
-      src.loop = true;
-      src.loopStart = f > 1000 ? 1.3 : 0;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = f;
-      bp.Q.value = q;
-      const p = ctx.createStereoPanner();
-      p.pan.value = pan;
-      const lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.13 + f / 20000;
-      const depth = ctx.createGain();
-      depth.gain.value = 0.25;
-      const g = ctx.createGain();
-      g.gain.value = 0.6;
-      lfo.connect(depth).connect(g.gain);
-      src.connect(bp).connect(g).connect(p).connect(this.murmur);
-      src.start();
-      lfo.start();
-    }
   }
 
-  /** every frame: the murmur follows the vibe (louder and busier as the room warms up) */
-  update(dt: number, vibe: number, playing: boolean): void {
-    const want = this.size * (playing ? 0.035 + 0.12 * vibe * vibe : 0.05);
-    this.level += (want - this.level) * Math.min(1, dt * 0.8);
-    this.murmur.gain.setTargetAtTime(this.level, this.ctx.currentTime, 0.1);
-    // the venue's little sounds, now and then
+  /** every frame: the venue's little sounds, now and then */
+  update(dt: number): void {
     if (this.amb === 'glasses' && Math.random() < dt * 0.7) this.clink(this.ctx.currentTime + Math.random() * 0.1);
     if (this.amb === 'dawn' && Math.random() < dt * this.dawn * this.dawn * 2.2) this.chirp(this.ctx.currentTime);
   }
@@ -141,22 +107,10 @@ export class CrowdAudio {
         bed('lowpass', 520, 0.6, 0.05, 0.12, 0.9);
         bed('bandpass', 2400, 0.5, 0.008, 0.12, 0.9);
         break;
-      case 'water': {
-        // lapping at the hull, and the engine's hum
+      case 'water':
+        // lapping at the hull
         bed('bandpass', 380, 0.9, 0.03, 0.7, 0.7);
-        const hum = c.createOscillator();
-        hum.type = 'sawtooth';
-        hum.frequency.value = 46;
-        const lp = c.createBiquadFilter();
-        lp.type = 'lowpass';
-        lp.frequency.value = 140;
-        const hg = c.createGain();
-        hg.gain.value = 0.012;
-        hum.connect(lp).connect(hg).connect(this.ambOut);
-        hum.start();
-        this.ambNodes.push(hum);
         break;
-      }
       case 'field':
         // wind over a big field
         bed('lowpass', 320, 0.5, 0.035, 0.07, 0.8);
