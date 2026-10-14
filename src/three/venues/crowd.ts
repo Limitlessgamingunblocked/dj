@@ -20,8 +20,10 @@
  *     the towel guy (spins a towel overhead on every drop), the bar-leaner
  *     (only dances when the vibe's really high) and, at festivals, the
  *     shoulder-riders who pop up at the peak
- *   – the figure: a shaped torso, rounded shoulders, jaw, nose and ears,
- *     trainers; clothing: tops in the venue's palette, sleeves, trousers (or
+ *   – the figure: friendly and stylised rather than realistic: a head a
+ *     little larger than life with a smiling painted face (big round eyes,
+ *     a button nose, a grin when the room's going), a shaped torso, rounded
+ *     shoulders, warm skin tones, trainers; clothing: tops in the venue's palette, sleeves, trousers (or
  *     shorts, more at the warm venues) and shoes picked per person, skin and
  *     hair tones varied, long hair on some, caps on a few, builds slimmer
  *     and broader
