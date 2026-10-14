@@ -250,10 +250,10 @@ export const ITEMS: ItemDef[] = [
   it('captain_hat', 'head', "Captain's hat", 'boat', ['nautical'], ['#f4f4f2', '#14213d', '#d4a64a']),
   it('hood_tech', 'head', 'Tech hood', 'warehouse', ['dark', 'techwear'], ['#0e0f12', '#1c1e23', '#3a3d44'], 'satin'),
   // robot heads: they cover the face, hair and eyewear (zones: shell, visor or eyes, lights or ink)
-  it('helmet_chrome', 'head', 'Chrome LED helmet', 'start', ['future', 'bold'], ['#dfe3ea', '#07080a', '#ff2a2a'], 'chrome'),
+  it('helmet_chrome', 'head', 'Silver LED helmet', 'start', ['future', 'bold'], ['#eceff3', '#07080a', '#ff2a2a'], 'chrome'),
   it('helmet_gold', 'head', 'Gold rainbow-visor helmet', 'start', ['future', 'glam'], ['#e0b04a', '#07080a', '#1a1b1f'], 'chrome'),
-  it('robot_smiley', 'head', 'Smiley robot head', 'start', ['bright', 'bold'], ['#e8322a', '#ffd23a', '#141414'], 'satin'),
-  it('robot_box', 'head', 'Box robot head', 'start', ['future', 'bright'], ['#eef0f2', '#ff2a2a', '#1b1c20'], 'satin'),
+  it('robot_smiley', 'head', 'Smiley robot head', 'start', ['bright', 'bold'], ['#e1261c', '#f5c431', '#0a0a0a'], 'satin'),
+  it('robot_box', 'head', 'Box robot head', 'start', ['future', 'bright'], ['#dcdde0', '#e3261b', '#1b1c20'], 'satin'),
   // eyewear
   it('shades_oval', 'eyewear', 'Small oval shades', 'start', ['underground', 'smart'], ['#111111', '#2a2018', '#c9a24a']),
   it('shades_tinted', 'eyewear', 'Tinted shades', 'sunrise', ['bright', 'holiday'], ['#ffb38a', '#c9ced6', '#ff7aa8']),
@@ -322,7 +322,7 @@ export const ITEMS: ItemDef[] = [
   it('wristbands', 'wrists', 'Festival wristbands', 'festival', ['bold'], ['#ff2e88', '#3ad7ff', '#b6ff3b']),
   it('rings', 'wrists', 'Rings', 'set:3', ['glam'], ['#c9ced6', '#d4a64a', '#c9ced6'], 'reflective'),
   // robot hands: segmented metal over the whole hand (zones: plates, joints, back plate)
-  it('gloves_chrome', 'wrists', 'Chrome robot hands', 'start', ['future'], ['#e2e6ec', '#16171a', '#9aa3b0'], 'chrome'),
+  it('gloves_chrome', 'wrists', 'Silver robot hands', 'start', ['future'], ['#eef1f4', '#16171a', '#9aa3b0'], 'chrome'),
   it('gloves_gold', 'wrists', 'Gold robot hands', 'start', ['future', 'glam'], ['#e0b04a', '#16171a', '#f4d27a'], 'chrome'),
   // bottoms
   it('cargos_baggy', 'bottom', 'Baggy cargos', 'start', ['underground', 'sporty'], ['#5a5a4a', '#3a3a30', '#111111']),
@@ -383,7 +383,7 @@ export interface OutfitSet {
  * available on its own.
  */
 export const OUTFIT_SETS: OutfitSet[] = [
-  { id: 'chrome_android', label: 'Chrome Android', vibe: 'Robot DJ, silver unit', unlock: 'start', pieces: { head: 'helmet_chrome', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
+  { id: 'chrome_android', label: 'Silver Android', vibe: 'Robot DJ, silver unit', unlock: 'start', pieces: { head: 'helmet_chrome', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
   { id: 'gold_android', label: 'Gold Android', vibe: 'Robot DJ, gold unit', unlock: 'start', pieces: { head: 'helmet_gold', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
   { id: 'smiley_bot', label: 'Smiley Bot', vibe: 'Cartoon robot, all grins', unlock: 'start', pieces: { head: 'robot_smiley', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
   { id: 'box_bot', label: 'Box Bot', vibe: 'Cartoon robot, red-eyed', unlock: 'start', pieces: { head: 'robot_box', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
