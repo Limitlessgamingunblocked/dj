@@ -125,11 +125,7 @@ One gig a day, the same for everyone who plays it that day.
   - Settings → Show & venue turns it off.
 - The results show your best streak and how many requests you met.
 
-### Party: hype dancers and the air horn
-- **Hype dancers:** two glam go-go dancers on glowing podiums either side of the booth, in every club (not the Bedroom).
-  - They dance on the beat: a new move every two bars (sway, waving, hair flips, pointing at you, body rolls).
-  - They clap overhead through the build and jump on the drop.
-  - Show → Party switches them off.
+### Party: the air horn
 - **The air horn** (Show → Party, or Shift+J) works as often as you like.
 - **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
 - **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.
@@ -147,7 +143,7 @@ One gig a day, the same for everyone who plays it that day.
 All in the bookings calendar (Play a gig).
 - **Promoters remember you.** Every booking moves how its (fictional) promoter feels: good sets and hit objectives warm them, bad ones and pulling out cool them. Keen promoters pay up to a third more and give you the peak slots; one you let down enough stops calling, and their offers stop. Each card shows the promoter's mood, and a Promoters list under the offers shows them all.
 - **Residencies:** from tier 2, a promoter who likes you offers a weekly night at their club. The crowd remembers last week: a track you played then gets a groan and costs a little. Keep it fresh and play well and the room fills up week by week (it shows how full); play stale or badly and it empties. End it any time.
-- **The World Tour** (tier 4): a map of real cities with fictional promoters and the game's own rooms. Pick two to five, in order, and they're booked one a night, travelling by van, then train and planes (tier 5), then private jet (tier 6). Each city's crowd has its taste (Berlin wants techno, London drum & bass and garage, Ibiza house on the terrace…): their genres lift the room, and they say so when you're off it. Finish every city for a reward in followers and fame.
+- **The World Tour** (tier 4): a 3D globe of real cities (drag to turn it, scroll to zoom; the flat map stands in without WebGL) with fictional promoters and the game's own rooms. Pick two to five, in order, and they're booked one a night, travelling by van, then train and planes (tier 5), then private jet (tier 6). Each city's crowd has its taste (Berlin wants techno, London drum & bass and garage, Ibiza house on the terrace…): their genres lift the room, and they say so when you're off it. Finish every city for a reward in followers and fame. On the globe the route flies between the cities as arcs in your travel's colour, with your van, train or jet riding along it, and the globe turns to each city you add.
 - **Festival clashes** (tier 6): you're on at the same time as a rival on the other stage. A panel shows your share of the field; play better than them and their crowd drifts over to you, play worse and you can watch your field thin out. Hold more than half for +20 fame.
 - **Night events:** about one set in three something happens mid-set, with a banner and a countdown in the HUD:
   - **Power cut:** the lights die and half come back on the generator. Keep the room up and it pays.
@@ -234,7 +230,8 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
 ### Boards (3D, Three.js)
-- **Easy to read in any room:** a soft deck light over every board, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
+- **The board showroom** (the Board picker in the top bar or Settings): every board stands on its own lit plinth in a dark showroom, real size, with its finishes. ‹ › (or ← →, or the names along the bottom, or clicking a board at the side) turns the floor to the next one; drag to spin a board, scroll to zoom, and the swatches repaint it. **Play on this** (Enter, or double-click the board) dives the camera in and puts it in the booth. **Grid view** shows the flat cards instead, and they stand in by themselves where WebGL isn't available.
+- **Easy to read in any room:** a soft deck light over every board that comes up by itself when the room is dark, no contact-shadow smudges or mirrored glare on the hardware, the drinks and laptop kept off the controls, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
 
 | Board | Class | Decks |
 |---|---|---|

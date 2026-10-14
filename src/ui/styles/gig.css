@@ -2133,6 +2133,91 @@ body.hub-open .app .main {
   border: 1px solid var(--line);
 }
 
+/* the tour globe (TourGlobe.ts) */
+.tg {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: #04060d;
+}
+
+.tg-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: 62vh;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tg-canvas:focus {
+  outline: none;
+}
+
+.tg-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tg-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px 1px 3px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(4 6 13 / 55%);
+  color: rgb(230 236 255 / 85%);
+  font: 500 12px system-ui, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  will-change: transform, opacity;
+}
+
+.tg-label:hover {
+  color: #fff;
+}
+
+.tg-label.played {
+  color: #b6ff3b;
+}
+
+.tg-label.on {
+  color: #fff;
+  font-weight: 700;
+}
+
+.tg-n:empty {
+  display: none;
+}
+
+.tg-n {
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--tc, #3dc8ff);
+  color: #0b1020;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.tg-hint {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  font-size: var(--text-xs);
+  color: rgb(230 236 255 / 50%);
+  pointer-events: none;
+}
+
 .tm-legend {
   display: flex;
   align-items: center;

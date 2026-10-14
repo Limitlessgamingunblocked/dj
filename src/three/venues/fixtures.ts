@@ -20,6 +20,7 @@ import { BEAM_FRAG, BEAM_VERT, GOBO_GLSL, goboFor, prismFacets } from './beams';
 import { LIGHTMAP_GLSL, type LightMap } from './lightmap';
 import type { ShowState } from './show';
 import { grilleTexture, mirrorBallTexture, rng, smokeTexture } from './tex';
+import { blinder, mergeParts, movingHead, strobeBar, trussLoom } from './fixturebody';
 
 export const TABLE_Y = 0.9;
 
@@ -94,6 +95,11 @@ export class MovingHeads implements Fixture {
   private zero = new THREE.Matrix4().makeScale(0, 0, 0);
   private heads: THREE.InstancedMesh;
   private lenses: THREE.InstancedMesh;
+  /** the yoke turns with the pan only; the pixel ring spins round the lens */
+  private yokes: THREE.InstancedMesh;
+  private rings: THREE.InstancedMesh;
+  private ringTurn: number[] = [];
+  private panQ = new THREE.Quaternion();
   private home: THREE.Quaternion[] = [];
   private pan: number[] = [];
   private tilt: number[] = [];
@@ -162,10 +168,14 @@ export class MovingHeads implements Fixture {
     });
     this.beams = new THREE.InstancedMesh(beamGeo, this.beamMat, n * 3);
     this.beams.frustumCulled = false;
-    const headGeo = mergeGeometries([new THREE.CylinderGeometry(0.12, 0.14, 0.3, 14).translate(0, -0.02, 0), new THREE.BoxGeometry(0.34, 0.06, 0.1).translate(0, 0.16, 0)]);
-    this.heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ color: o.body ?? 0x15161a, roughness: 0.45, metalness: 0.6 }), n);
-    this.lenses = new THREE.InstancedMesh(new THREE.CircleGeometry(0.1, 18).rotateX(Math.PI / 2).translate(0, -0.172, 0), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), n);
-    const base = new THREE.InstancedMesh(new THREE.BoxGeometry(0.3, 0.1, 0.3), new THREE.MeshStandardMaterial({ color: o.body ?? 0x15161a, roughness: 0.5, metalness: 0.5 }), n);
+    // the machine: a base on the rig, a yoke that pans, a head that tilts, the lens and its pixel ring
+    const body = movingHead();
+    const metal = new THREE.MeshStandardMaterial({ color: o.body ?? 0x15161a, roughness: 0.42, metalness: 0.6 });
+    this.heads = new THREE.InstancedMesh(body.head, metal, n);
+    this.yokes = new THREE.InstancedMesh(body.yoke, metal, n);
+    this.lenses = new THREE.InstancedMesh(new THREE.CircleGeometry(0.1, 18).rotateX(Math.PI / 2).translate(0, -0.168, 0), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), n);
+    this.rings = new THREE.InstancedMesh(body.ring, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }), n);
+    const base = new THREE.InstancedMesh(body.base, metal, n);
     specs.forEach((sp, i) => {
       const yaw = sp.yaw ?? 0;
       const home = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
@@ -173,12 +183,14 @@ export class MovingHeads implements Fixture {
       this.home.push(home);
       this.pan.push(0);
       this.tilt.push(0.4);
-      this.m4.makeTranslation(sp.pos.x, sp.pos.y + (sp.up ? -0.2 : 0.22), sp.pos.z);
+      this.ringTurn.push(hash(i + 3) * Math.PI * 2);
+      this.m4.compose(sp.pos, home, this.one);
       base.setMatrixAt(i, this.m4);
       for (let f = 0; f < 3; f++) this.beams.setColorAt(i + f * n, this.c.setRGB(0, 0, 0));
       this.lenses.setColorAt(i, this.c);
+      this.rings.setColorAt(i, this.c);
     });
-    this.object.add(base, this.heads, this.lenses, this.beams);
+    this.object.add(base, this.yokes, this.heads, this.lenses, this.rings, this.beams);
     // dust in the air the beams pass through: a box round the rig, down to the floor
     const box = new THREE.Box3();
     for (const sp of specs) box.expandByPoint(sp.pos);
@@ -250,6 +262,10 @@ export class MovingHeads implements Fixture {
       this.tilt[i] += (tilt - this.tilt[i]) * k;
       this.e.set(this.tilt[i], this.pan[i], 0);
       this.q.setFromEuler(this.e).premultiply(this.home[i]);
+      // the yoke: the pan alone
+      this.panQ.setFromAxisAngle(this.yAxis, this.pan[i]).premultiply(this.home[i]);
+      this.m4.compose(this.specs[i].pos, this.panQ, this.one);
+      this.yokes.setMatrixAt(i, this.m4);
       this.m4.compose(this.specs[i].pos, this.q, this.one);
       this.heads.setMatrixAt(i, this.m4);
       // gobo and prism from the music
@@ -285,6 +301,12 @@ export class MovingHeads implements Fixture {
       this.beams.setColorAt(i + 2 * n, gp.prism ? this.c.copy(col).multiplyScalar(level * this.gain * share) : this.c.setRGB(0, 0, 0));
       this.poolGobo?.setXY(i, gp.prism ? 0 : gp.gobo, gp.spin);
       this.lenses.setColorAt(i, this.c.copy(col).multiplyScalar(0.3 + level * 4));
+      // the pixel ring: a comet chasing round the lens, quicker as the room peaks, on the beat at the top
+      this.ringTurn[i] += dt * (0.8 + 4.5 * s.peak) * (i % 2 ? 1 : -1);
+      this.yq.setFromAxisAngle(this.yAxis, this.ringTurn[i]).premultiply(this.q);
+      this.m4.compose(this.specs[i].pos, this.yq, this.one);
+      this.rings.setMatrixAt(i, this.m4);
+      this.rings.setColorAt(i, this.c.copy(s.colors[(m3 + 1) % 3]).multiplyScalar((0.18 + level * 2.2) * (0.6 + 0.4 * s.kick) * this.dim));
       const bs = this.beamStates[i];
       bs.dir.copy(this.down).applyQuaternion(this.q);
       bs.pos.copy(this.specs[i].pos).addScaledVector(bs.dir, 0.16);
@@ -320,9 +342,12 @@ export class MovingHeads implements Fixture {
     this.goboAttr.needsUpdate = true;
     this.beams.instanceMatrix.needsUpdate = true;
     this.heads.instanceMatrix.needsUpdate = true;
+    this.yokes.instanceMatrix.needsUpdate = true;
     this.lenses.instanceMatrix.needsUpdate = true;
+    this.rings.instanceMatrix.needsUpdate = true;
     this.beams.instanceColor!.needsUpdate = true;
     this.lenses.instanceColor!.needsUpdate = true;
+    this.rings.instanceColor!.needsUpdate = true;
   }
 }
 
@@ -332,22 +357,26 @@ export class MovingHeads implements Fixture {
 
 export class Strobes implements Fixture {
   readonly object = new THREE.Group();
+  /** the flash tube; the frame round it stays dark */
   private mesh: THREE.InstancedMesh;
   private c = new THREE.Color();
 
+  /** bar strobes `size` = [length, height, depth]: a bare tube in a frame, so it reads from any angle it's hung at */
   constructor(
     private spots: { pos: THREE.Vector3; yaw?: number; tilt?: number }[],
     size: [number, number, number] = [0.55, 0.16, 0.08],
   ) {
-    const geo = new THREE.BoxGeometry(size[0], size[1], size[2]);
-    this.mesh = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), spots.length);
+    const bar = strobeBar(size);
+    const frame = new THREE.InstancedMesh(bar.frame, new THREE.MeshStandardMaterial({ color: 0x141518, roughness: 0.45, metalness: 0.6 }), spots.length);
+    this.mesh = new THREE.InstancedMesh(bar.tube, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), spots.length);
     const m4 = new THREE.Matrix4();
     spots.forEach((s, i) => {
       m4.makeRotationFromEuler(new THREE.Euler(s.tilt ?? 0, s.yaw ?? 0, 0, 'YXZ')).setPosition(s.pos);
+      frame.setMatrixAt(i, m4);
       this.mesh.setMatrixAt(i, m4);
       this.mesh.setColorAt(i, this.c.setRGB(0.05, 0.05, 0.05));
     });
-    this.object.add(this.mesh);
+    this.object.add(frame, this.mesh);
   }
 
   update(s: ShowState): void {
@@ -366,15 +395,17 @@ export class Blinders implements Fixture {
   /** each spot is a 2-lamp blinder facing `yaw` (0 = facing −Z, the room) */
   constructor(spots: { pos: THREE.Vector3; yaw?: number; tilt?: number }[]) {
     this.n = spots.length * 2;
-    const body = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.26, 0.14), new THREE.MeshStandardMaterial({ color: 0x131417, roughness: 0.5, metalness: 0.5 }), spots.length);
-    this.lamps = new THREE.InstancedMesh(new THREE.CircleGeometry(0.1, 20).rotateY(Math.PI), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), this.n);
+    // a housing on a yoke bracket; each lamp a bulb in a reflector bowl that glows with it
+    const geo = blinder();
+    const body = new THREE.InstancedMesh(geo.body, new THREE.MeshStandardMaterial({ color: 0x131417, roughness: 0.48, metalness: 0.55 }), spots.length);
+    this.lamps = new THREE.InstancedMesh(geo.lamp, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, side: THREE.DoubleSide }), this.n);
     const m4 = new THREE.Matrix4();
     const off = new THREE.Matrix4();
     spots.forEach((s, i) => {
       m4.makeRotationFromEuler(new THREE.Euler(s.tilt ?? 0, s.yaw ?? 0, 0, 'YXZ')).setPosition(s.pos);
       body.setMatrixAt(i, m4);
       for (let j = 0; j < 2; j++) {
-        off.makeTranslation(j ? 0.12 : -0.12, 0, -0.072);
+        off.makeTranslation(j ? 0.12 : -0.12, 0, 0);
         this.lamps.setMatrixAt(i * 2 + j, m4.clone().multiply(off));
         this.lamps.setColorAt(i * 2 + j, this.c.setRGB(0.05, 0.03, 0.01));
       }
@@ -1054,8 +1085,12 @@ function trussGeometry(len: number, size: number): THREE.BufferGeometry {
       parts.push(c);
     }
   }
-  const g = mergeGeometries(parts.map((x) => x.toNonIndexed()));
-  for (const x of parts) x.dispose();
+  // the cable loom taped along one chord: black rubber among the aluminium (vertex colour)
+  const metal = parts.length;
+  parts.push(...trussLoom(len, size));
+  const alu = new THREE.Color(1, 1, 1);
+  const rubber = new THREE.Color(0.05, 0.05, 0.055);
+  const g = mergeParts(parts, (i) => (i < metal ? alu : rubber));
   g.computeVertexNormals();
   trussGeoCache.set(key, g);
   return g;
@@ -1064,7 +1099,7 @@ function trussGeometry(len: number, size: number): THREE.BufferGeometry {
 let trussMat: THREE.MeshStandardMaterial | undefined;
 /** a run of box truss from a to b, `size` metres square */
 export function truss(a: THREE.Vector3, b: THREE.Vector3, size = 0.3): THREE.Mesh {
-  trussMat ??= new THREE.MeshStandardMaterial({ color: 0xc4c8cf, metalness: 0.9, roughness: 0.32 });
+  trussMat ??= new THREE.MeshStandardMaterial({ color: 0xc4c8cf, metalness: 0.9, roughness: 0.32, vertexColors: true });
   const len = a.distanceTo(b);
   const m = new THREE.Mesh(trussGeometry(len, size), trussMat);
   m.position.copy(a).add(b).multiplyScalar(0.5);
