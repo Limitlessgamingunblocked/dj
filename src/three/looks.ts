@@ -3,10 +3,12 @@
  * picture. Each camera angle can bring its own look (the fisheye on the booth,
  * the security camera, the 90s camcorder…), and any look can be put on any
  * angle from the camera menu or Settings. Looks are plain numbers so they can
- * blend smoothly when the camera changes.
+ * blend smoothly when the camera changes. Four of them redraw the whole
+ * picture before the bloom (picture.ts): LiDAR scan, Scanline club, ASCII club
+ * and Long exposure.
  */
 
-export type LensLook = 'none' | 'fisheye' | 'vhs' | 'cctv' | 'tiltshift' | 'cinema' | 'thermal' | 'nightvision';
+export type LensLook = 'none' | 'fisheye' | 'vhs' | 'cctv' | 'tiltshift' | 'cinema' | 'thermal' | 'nightvision' | 'lidar' | 'scanline' | 'ascii' | 'longexposure';
 
 export const LENS_LOOKS: { id: LensLook; name: string }[] = [
   { id: 'none', name: 'Clean' },
@@ -17,6 +19,10 @@ export const LENS_LOOKS: { id: LensLook; name: string }[] = [
   { id: 'cinema', name: 'Cinematic widescreen' },
   { id: 'thermal', name: 'Thermal' },
   { id: 'nightvision', name: 'Night vision' },
+  { id: 'lidar', name: 'LiDAR scan' },
+  { id: 'scanline', name: 'Scanline club (video synth)' },
+  { id: 'ascii', name: 'ASCII club' },
+  { id: 'longexposure', name: 'Long exposure' },
 ];
 
 export interface LookParams {
@@ -46,13 +52,22 @@ export interface LookParams {
   sat: number;
   grain: number;
   vignette: number;
+  /**
+   * Whole-picture looks (picture.ts, drawn before the bloom so they glow): the
+   * room as LiDAR dots, as video-synth lines, as text; and the long exposure's
+   * light trails. 0..1 each.
+   */
+  lidar: number;
+  synth: number;
+  ascii: number;
+  trails: number;
   /** frames per second the picture updates at (0 = every frame); not blended */
   fps: number;
   /** vertical field of view the look needs, degrees (0 = the angle's own); not blended */
   fov: number;
 }
 
-const BASE: LookParams = { fish: 0, distort: 0, ca: 0, mono: 0, monoTint: [1, 1, 1], monoGain: 1, scan: 0, vhs: 0, tilt: 0, bars: 0, split: 0, thermal: 0, sat: 0, grain: 0, vignette: 0, fps: 0, fov: 0 };
+const BASE: LookParams = { fish: 0, distort: 0, ca: 0, mono: 0, monoTint: [1, 1, 1], monoGain: 1, scan: 0, vhs: 0, tilt: 0, bars: 0, split: 0, thermal: 0, sat: 0, grain: 0, vignette: 0, lidar: 0, synth: 0, ascii: 0, trails: 0, fps: 0, fov: 0 };
 
 export const LOOKS: Record<LensLook, LookParams> = {
   none: BASE,
@@ -63,6 +78,10 @@ export const LOOKS: Record<LensLook, LookParams> = {
   cinema: { ...BASE, bars: 1, split: 0.8, vignette: 0.35 },
   thermal: { ...BASE, thermal: 1, grain: 0.03, vignette: 0.2 },
   nightvision: { ...BASE, mono: 1, monoTint: [0.38, 1, 0.5], monoGain: 5, scan: 0.25, grain: 0.16, vignette: 0.9 },
+  lidar: { ...BASE, lidar: 1, vignette: 0.2 },
+  scanline: { ...BASE, synth: 1, vignette: 0.3 },
+  ascii: { ...BASE, ascii: 1 },
+  longexposure: { ...BASE, trails: 1, vignette: 0.15 },
 };
 
 /** the angles that come with their own look */
@@ -80,7 +99,7 @@ export function lookFor(view: string, pick: LensLook | 'auto'): LensLook {
   return pick === 'auto' ? (VIEW_LOOKS[view] ?? 'none') : pick;
 }
 
-const NUM_KEYS = ['fish', 'distort', 'ca', 'mono', 'monoGain', 'scan', 'vhs', 'tilt', 'bars', 'split', 'thermal', 'sat', 'grain', 'vignette'] as const;
+const NUM_KEYS = ['fish', 'distort', 'ca', 'mono', 'monoGain', 'scan', 'vhs', 'tilt', 'bars', 'split', 'thermal', 'sat', 'grain', 'vignette', 'lidar', 'synth', 'ascii', 'trails'] as const;
 
 /** Move `cur` towards `target` by fraction k (0..1), in place. fps and fov switch straight away. */
 export function approachLook(cur: LookParams, target: LookParams, k: number): LookParams {
@@ -89,6 +108,11 @@ export function approachLook(cur: LookParams, target: LookParams, k: number): Lo
   cur.fps = target.fps;
   cur.fov = target.fov;
   return cur;
+}
+
+/** how much of the picture a whole-picture look has replaced (the LiDAR dots, the lines, the text): 0..1 */
+export function replaced(l: LookParams): number {
+  return Math.max(l.lidar, l.synth, l.ascii);
 }
 
 export function copyLook(l: LookParams): LookParams {
