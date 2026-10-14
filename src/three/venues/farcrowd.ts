@@ -247,7 +247,8 @@ const VERT = /* glsl */ `
     float s2 = fract(seed * 17.13);
     vLegs = s2 < 0.55 ? vec3(0.025, 0.025, 0.03) : (s2 < 0.85 ? vec3(0.04, 0.06, 0.11) : vec3(0.18, 0.16, 0.13));
     float t = iData.w;
-    vSkin = mix(vec3(0.62, 0.42, 0.3), vec3(0.16, 0.09, 0.06), t);
+    // warm skin tones from fair to deep, as the 3D crowd's (crowd.ts)
+    vSkin = t < 0.5 ? mix(vec3(0.66, 0.41, 0.27), vec3(0.4, 0.2, 0.1), t * 2.0) : mix(vec3(0.4, 0.2, 0.1), vec3(0.16, 0.075, 0.036), t * 2.0 - 1.0);
     float h = fract(seed * 29.7);
     vHair = h < 0.6 ? vec3(0.03, 0.022, 0.018) : (h < 0.85 ? vec3(0.17, 0.1, 0.05) : vec3(0.5, 0.4, 0.22));
     // lit by the show: faces towards the light are bright, backs are silhouettes

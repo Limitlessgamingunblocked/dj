@@ -39,7 +39,7 @@ describe('the front row model', () => {
 
   it('puts the eyes in the face', () => {
     const f = facePoints();
-    expect(f.eye.y).toBeCloseTo(1.607, 3);
+    expect(f.eye.y).toBeCloseTo(1.603, 3);
     expect(f.eye.z).toBeGreaterThan(0.06);
     expect(f.eye.z).toBeLessThan(0.1);
   });

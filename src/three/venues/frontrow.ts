@@ -24,7 +24,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { FOREARM, headGeometry, NECK, PELVIS, PERSON_BONES as B, PERSON_MATS as M, part, shapeHead, SHIN, smooth, THIGH, TORSO, turned, UPPER_ARM } from './crowd';
+import { FOREARM, growHead, headGeometry, NECK, PELVIS, PERSON_BONES as B, PERSON_MATS as M, part, shapeHead, SHIN, smooth, THIGH, TORSO, turned, UPPER_ARM } from './crowd';
 
 /** the venue's look: what the front row wears */
 export type CrowdLook = 'club' | 'dark' | 'beach' | 'festival' | 'playa';
@@ -49,22 +49,22 @@ function sculpt(v: THREE.Vector3): void {
   // fades out round the sides of the face
   const f = smooth(0.02, 0.07, v.z);
   let dz = 0;
-  // eye sockets under a brow ridge
-  dz -= 0.0085 * gauss(ax - 0.031, y - 0.006, 0.018, 0.013);
-  dz += 0.004 * gauss(ax - 0.031, y - 0.028, 0.022, 0.007);
-  // the nose: a bridge between the eyes rising to the tip, narrow at the top, wider at the nostrils
-  const t = THREE.MathUtils.clamp((0.022 - y) / 0.046, 0, 1);
-  const under = smooth(-0.024, -0.036, y);
-  const prof = y > 0.022 ? 0.004 * smooth(0.045, 0.022, y) : (0.005 + 0.016 * t * t) * (1 - under);
-  const w = 0.007 + 0.006 * t;
+  // soft eye sockets under a gentle brow (deep sockets read as hollow and haunted)
+  dz -= 0.0045 * gauss(ax - 0.033, y - 0.003, 0.019, 0.014);
+  dz += 0.0022 * gauss(ax - 0.034, y - 0.027, 0.022, 0.007);
+  // a small, rounded button nose: a low bridge rising to a soft tip, the nostrils either side
+  const t = THREE.MathUtils.clamp((0.018 - y) / 0.04, 0, 1);
+  const under = smooth(-0.022, -0.032, y);
+  const prof = y > 0.018 ? 0.002 * smooth(0.04, 0.018, y) : (0.003 + 0.0105 * t * t) * (1 - under);
+  const w = 0.008 + 0.007 * t;
   dz += prof * Math.exp(-(x * x) / (w * w));
-  dz += 0.0055 * gauss(ax - 0.0125, y + 0.028, 0.0075, 0.0065);
-  // cheekbones, the lips (upper and lower), the dip under the lip, the chin
-  dz += 0.0045 * gauss(ax - 0.046, y + 0.014, 0.02, 0.016);
-  dz += 0.0045 * gauss(x, y + 0.045, 0.021, 0.0065);
-  dz += 0.005 * gauss(x, y + 0.058, 0.019, 0.0065);
-  dz -= 0.0025 * gauss(x, y + 0.069, 0.022, 0.005);
-  dz += 0.006 * gauss(x, y + 0.088, 0.022, 0.012);
+  dz += 0.0035 * gauss(ax - 0.011, y + 0.025, 0.0075, 0.0065);
+  // full, round cheeks, soft lips, a small rounded chin
+  dz += 0.0065 * gauss(ax - 0.047, y + 0.018, 0.022, 0.018);
+  dz += 0.0022 * gauss(x, y + 0.045, 0.02, 0.006);
+  dz += 0.0026 * gauss(x, y + 0.056, 0.018, 0.006);
+  dz -= 0.0012 * gauss(x, y + 0.066, 0.02, 0.005);
+  dz += 0.0035 * gauss(x, y + 0.084, 0.024, 0.012);
   v.z += dz * f;
 }
 
@@ -160,7 +160,7 @@ export interface FacePoints {
 let frontGeo: THREE.BufferGeometry | null = null;
 let face: FacePoints | null = null;
 
-/** the eyes and so on, for the shader that paints them */
+/** the eyes and so on, for the shader that paints them (in the head's own coordinates, before it's grown: see growHead) */
 export function facePoints(): FacePoints {
   frontGeometry();
   return face!;
@@ -178,27 +178,28 @@ export function frontGeometry(): THREE.BufferGeometry {
 
   // the head and its face
   const head = faceHead();
-  const eyeX = 0.031;
-  const eyeY = 0.007;
-  const eyeR = 0.0118;
+  const eyeX = 0.033;
+  const eyeY = 0.003;
+  const eyeR = 0.0135;
   const socket = surfaceZ(head, eyeX, eyeY);
   // the eyeball shows a little proud of the socket's floor, behind the brow and the cheek
   const eyeZ = socket + 0.0052 - eyeR;
   face = { eye: new THREE.Vector3(eyeX, HEAD_Y + eyeY, eyeZ + HEAD_Z), eyeR };
-  const browZ = surfaceZ(head, 0.032, 0.027);
+  const browZ = surfaceZ(head, 0.034, 0.031);
   const foreheadZ = surfaceZ(head, 0.034, 0.064);
   parts.push(part(head.translate(0, HEAD_Y, HEAD_Z), B.head, M.skin));
   for (const sd of [-1, 1]) {
     parts.push(part(sph(eyeR, 8, 6).translate(sd * eyeX, HEAD_Y + eyeY, HEAD_Z + eyeZ), B.head, F.eye));
-    // brows: a short stroke, a little arched
-    parts.push(part(cap(0.0034, 0.024, 1, 5).rotateZ(Math.PI / 2 + sd * 0.12).scale(1, 1, 0.55).translate(sd * 0.033, HEAD_Y + 0.0285, HEAD_Z + browZ + 0.0012), B.head, F.brow));
+    // brows: a soft, level stroke, raised a little (a lifted outer end reads as stern, a lifted inner end as worried)
+    parts.push(part(cap(0.0038, 0.024, 1, 5).rotateZ(Math.PI / 2).scale(1, 1, 0.55).translate(sd * 0.034, HEAD_Y + 0.032, HEAD_Z + browZ + 0.0016), B.head, F.brow));
     // ears: flat, angled back from the head, the fold painted
-    parts.push(part(sph(0.031, 7, 5).scale(0.3, 1, 0.64).rotateY(-sd * 0.35).translate(sd * 0.082, HEAD_Y - 0.004, HEAD_Z - 0.008), B.head, M.skin));
+    parts.push(part(sph(0.031, 7, 5).scale(0.3, 1, 0.64).rotateY(-sd * 0.35).translate(sd * 0.089, HEAD_Y - 0.004, HEAD_Z - 0.01), B.head, M.skin));
   }
-  parts.push(part(turned(NECK, 12, false), B.head, M.skin));
+  const neck = part(turned(NECK, 12, false), B.head, M.skin);
+  parts.push(neck);
 
   // hair: a shell with volume (clumped over the crown), the quiff, long hair, curls, a bun
-  const hair = headGeometry(18, 9, Math.PI * 0.66, (phi) => Math.PI * (0.4 + 0.24 * smooth(0.5, 2.9, Math.abs(phi))), 0.09);
+  const hair = headGeometry(18, 9, Math.PI * 0.66, (phi) => Math.PI * (0.37 + 0.27 * smooth(0.5, 2.9, Math.abs(phi))), 0.09);
   {
     const p = hair.attributes.position;
     const v = new THREE.Vector3();
@@ -212,7 +213,7 @@ export function frontGeometry(): THREE.BufferGeometry {
     hair.computeVertexNormals();
   }
   parts.push(part(hair.translate(0, HEAD_Y, HEAD_Z), B.head, M.hair));
-  parts.push(part(sph(0.078, 10, 6).scale(0.92, 0.34, 0.86).rotateX(-0.32).translate(0, 1.698, 0.03), B.head, M.hairUp));
+  parts.push(part(sph(0.078, 10, 6).scale(0.92, 0.34, 0.86).rotateX(-0.32).translate(0, 1.69, 0.045), B.head, M.hairUp));
   {
     const lh = new THREE.CylinderGeometry(0.098, 0.13, 0.3, 16, 3, true, Math.PI * 0.32, Math.PI * 1.36);
     const p = lh.attributes.position;
@@ -254,9 +255,9 @@ export function frontGeometry(): THREE.BufferGeometry {
   const lensZ = HEAD_Z + eyeZ + eyeR + 0.011;
   for (const sd of [-1, 1]) {
     parts.push(part(twoSided(new THREE.CircleGeometry(0.0205, 10).scale(1.12, 0.84, 1).rotateY(sd * 0.16).translate(sd * eyeX, HEAD_Y + eyeY, lensZ)), B.head, F.glasses));
-    parts.push(part(new THREE.BoxGeometry(0.0045, 0.006, 0.105).translate(sd * 0.073, HEAD_Y + eyeY + 0.012, lensZ - 0.058), B.head, F.glasses));
+    parts.push(part(new THREE.BoxGeometry(0.0045, 0.006, 0.105).translate(sd * 0.085, HEAD_Y + eyeY + 0.012, lensZ - 0.058), B.head, F.glasses));
   }
-  parts.push(part(new THREE.BoxGeometry(0.128, 0.006, 0.006).translate(0, HEAD_Y + eyeY + 0.016, lensZ - 0.002), B.head, F.glasses));
+  parts.push(part(new THREE.BoxGeometry(0.172, 0.006, 0.006).translate(0, HEAD_Y + eyeY + 0.016, lensZ - 0.002), B.head, F.glasses));
   // goggles up on the forehead (the playa): a band round the head and two round lenses
   parts.push(part(new THREE.CylinderGeometry(1, 1, 0.022, 16, 1, true).scale(0.079, 1, 0.094).translate(0, HEAD_Y + 0.064, HEAD_Z - 0.004), B.head, F.goggles));
   for (const sd of [-1, 1]) parts.push(part(new THREE.CylinderGeometry(0.025, 0.027, 0.02, 8, 1).rotateX(Math.PI / 2).rotateY(sd * 0.32).translate(sd * 0.034, HEAD_Y + 0.066, HEAD_Z + foreheadZ + 0.02), B.head, F.goggles));
@@ -316,7 +317,7 @@ export function frontGeometry(): THREE.BufferGeometry {
   parts.push(part(new THREE.TorusGeometry(0.085, 0.032, 4, 8, Math.PI * 1.25).rotateZ(Math.PI * 1.25).rotateX(Math.PI / 2).scale(1.15, 1, 1).translate(0, 1.47, -0.012), B.body, F.hood));
   parts.push(part(sph(0.11, 6, 3).scale(1, 1.05, 0.32).translate(0, 1.35, -0.112), B.body, F.hood));
   // a collar: a fur collar, a bandana or a choker by the venue
-  parts.push(part(new THREE.TorusGeometry(0.062, 0.022, 4, 14).rotateX(Math.PI / 2).scale(1.12, 0.8, 1).translate(0, 1.47, -0.002), B.body, F.collar));
+  parts.push(part(new THREE.TorusGeometry(0.064, 0.014, 4, 14).rotateX(Math.PI / 2).scale(1.12, 0.8, 1).translate(0, 1.47, -0.002), B.body, F.collar));
   // a crossbody bag's pouch at the hip (the strap is painted over the top and the jacket)
   parts.push(part(sph(1, 8, 5).scale(0.078, 0.048, 0.03).translate(-0.12, 1.02, 0.112), B.body, F.strap));
   // a harness's steel ring at the chest (the straps are painted)
@@ -336,6 +337,8 @@ export function frontGeometry(): THREE.BufferGeometry {
     // a folding fan, open, from the left hand (it follows the forearm up)
     part(twoSided(new THREE.CircleGeometry(0.17, 12, Math.PI * 1.08, Math.PI * 0.84).rotateY(Math.PI / 2).translate(-0.205, 0.8, 0.03)), B.foreL, F.fan),
   );
+  // the head drawn a little larger than life, as in the crowd's model
+  for (const g of parts) if (g !== neck && g.attributes.aBone.getX(0) === B.head) growHead(g);
   frontGeo = mergeGeometries(parts.map((g) => (g.index ? g : mergeVertices(g, 1e-9))))!;
   return frontGeo;
 }
@@ -391,7 +394,7 @@ export const FRONT_VIS = /* glsl */ `
         else if (m < 27.5) vis = fanOn * leftFree;
         else if (m < 28.5) vis = curlOn;
         else if (m < 29.5) vis = (fHash(iSeed, 12.0) < 0.16 ? 1.0 : 0.0) * (1.0 - capOn) * (1.0 - hatOn) * (1.0 - curlOn);
-        else if (m < 30.5) vis = (frontPick(iSeed, 8.0, vec4(0.08, 0.16, 0.0, 0.2), 0.45) ? 1.0 : 0.0) * (fShell > 1.5 && fShell < 2.5 || fShell > 3.5 && fShell < 4.5 ? 0.0 : 1.0);
+        else if (m < 30.5) vis = (frontPick(iSeed, 8.0, vec4(0.0, 0.16, 0.0, 0.2), 0.45) ? 1.0 : 0.0) * (fShell > 1.5 && fShell < 2.5 || fShell > 3.5 && fShell < 4.5 ? 0.0 : 1.0);
         else if (m < 31.5) vis = (frontPick(iSeed, 4.0, vec4(0.0, 0.0, 0.0, 0.04), 0.55) ? 1.0 : 0.0) * (1.0 - hatOn) * (1.0 - capOn);
         else vis = (frontPick(iSeed, 7.0, vec4(0.04, 0.35, 0.0, 0.0), 0.06) ? 1.0 : 0.0) * (1.0 - staff);
       }
@@ -471,21 +474,27 @@ export function frontFrag(): string {
         // the eye: the white, the iris and pupil looking out, the lids (they blink), lashes
         vec3 d = p - eyeC;
         float r = length(d.xy);
-        float iris = fh1 < 0.45 ? 0.0 : fh1 < 0.7 ? 1.0 : fh1 < 0.85 ? 2.0 : 3.0;
-        vec3 irisCol = iris < 0.5 ? vec3(0.13, 0.06, 0.02) : iris < 1.5 ? vec3(0.1, 0.2, 0.32) : iris < 2.5 ? vec3(0.14, 0.2, 0.08) : vec3(0.25, 0.15, 0.05);
-        col = vec3(0.78, 0.74, 0.7);
-        crowdRough = 0.12;
+        float iris = fh1 < 0.45 || tone > 0.45 ? 0.0 : fh1 < 0.7 ? 1.0 : fh1 < 0.85 ? 2.0 : 3.0;
+        vec3 irisCol = iris < 0.5 ? vec3(0.12, 0.055, 0.02) : iris < 1.5 ? vec3(0.08, 0.2, 0.34) : iris < 2.5 ? vec3(0.12, 0.22, 0.08) : vec3(0.25, 0.15, 0.05);
+        col = vec3(0.74, 0.71, 0.68);
+        crowdRough = 0.1;
         if (d.z > 0.0) {
-          col = mix(col, irisCol, 1.0 - smoothstep(0.0052, 0.0052 + aa, r));
-          col = mix(col, vec3(0.008), 1.0 - smoothstep(0.0022, 0.0022 + aa, r));
+          // a big iris (a friendly, open look), the pupil, a ring a shade darker round the iris
+          col = mix(col, irisCol * 0.6, 1.0 - smoothstep(0.0084, 0.0084 + aa, r));
+          col = mix(col, irisCol, 1.0 - smoothstep(0.0072, 0.0072 + aa, r));
+          col = mix(col, vec3(0.008), 1.0 - smoothstep(0.0033, 0.0033 + aa, r));
+          // a catch light, high on the same side in both eyes
+          col = mix(col, vec3(1.2), 1.0 - smoothstep(0.0017, 0.0017 + aa, length(d.xy - vec2(-0.0028, 0.0031))));
         }
+        // relaxed lids: the upper lid just over the top of the iris, the lower lid lifted a touch as if smiling
         float blink = step(0.965, fract(uTime * 0.23 + vSeed.x * 7.0));
-        float lid = mix(0.0055, -0.012, blink);
-        float lidMix = smoothstep(lid - aa, lid + aa, d.y) + (1.0 - smoothstep(-0.0085 - aa, -0.0085 + aa, d.y));
-        vec3 lidCol = skin * 0.92;
+        float lid = mix(0.0078, -0.0125, blink) - 0.0012 * (d.x / 0.0135) * (d.x / 0.0135);
+        float lower = -0.0088 + 0.0016 * (1.0 - (d.x / 0.0135) * (d.x / 0.0135));
+        float lidMix = smoothstep(lid - aa, lid + aa, d.y) + (1.0 - smoothstep(lower - aa, lower + aa, d.y));
+        vec3 lidCol = skin * 0.95;
         col = mix(col, lidCol, clamp(lidMix, 0.0, 1.0));
-        float lash = 1.0 - smoothstep(0.0, 0.0016 + aa, abs(d.y - lid));
-        col = mix(col, vec3(0.02), lash * 0.9);
+        float lash = 1.0 - smoothstep(0.0012, 0.0012 + 0.0008 + aa, abs(d.y - lid));
+        col = mix(col, vec3(0.02, 0.015, 0.015), lash * 0.95 * (1.0 - step(lid + 0.002, d.y)));
         if (lidMix > 0.5) crowdRough = 0.55;
       }
       else if (m < 19.5) { col = hair * 0.75; crowdRough = 0.7; }
@@ -623,23 +632,28 @@ export function frontFrag(): string {
       crowdRough = mix(crowdRough, 0.05, bead);
       if (vBone > 8.5 && vBone < 9.5 && p.z > 0.04 && p.y > 1.48) {
         vec2 q = vec2(abs(p.x), p.y - ${e(HEAD_Y)});
-        // the lips, and the mouth open (a shout, a sung line): dark inside, a glimpse of teeth
+        // a smile: the mouth line curves up at the corners, soft lips round it
         float mx = q.x / 0.022;
-        float lips = (1.0 - smoothstep(0.9, 1.0, mx)) * (1.0 - smoothstep(0.0075, 0.0105, abs(q.y + 0.051)));
-        vec3 lipCol = mix(skin, vec3(0.45, 0.12, 0.12), 0.45 + 0.25 * step(0.75, fh1));
-        col = mix(col, lipCol, lips);
         float open = vMouth;
-        float mouth = 1.0 - smoothstep(0.85, 1.0, length(vec2(q.x / (0.016 + 0.003 * open), (q.y + 0.051) / max(0.0008, 0.0016 + 0.0085 * open))));
-        vec3 inside = q.y + 0.051 > 0.0045 * open ? vec3(0.75, 0.72, 0.66) : vec3(0.06, 0.015, 0.015);
-        col = mix(col, inside, mouth);
-        // the line between the lips when it's closed
-        col *= 1.0 - 0.45 * (1.0 - smoothstep(0.0, 0.0016 + aa, abs(q.y + 0.051))) * (1.0 - smoothstep(0.85, 1.0, mx)) * (1.0 - open);
-        // the shadow in the sockets, a little colour in the cheeks, the nostrils
-        col *= 1.0 - 0.12 * exp(-dot(q - vec2(0.031, 0.006), q - vec2(0.031, 0.006)) / 0.0003);
-        col = mix(col, col * vec3(1.12, 0.92, 0.9), 0.5 * exp(-dot(q - vec2(0.046, -0.022), q - vec2(0.046, -0.022)) / 0.0004));
-        col *= 1.0 - 0.5 * exp(-dot(q - vec2(0.008, -0.034), q - vec2(0.008, -0.034)) / 0.000012);
+        float topY = -0.045 + 0.0075 * mx * mx;
+        float lipW = 0.0042 - 0.0022 * mx * mx;
+        float lips = (1.0 - smoothstep(0.88, 1.0, mx)) * (1.0 - smoothstep(lipW, lipW + 0.0015, abs(q.y - topY + 0.0008)));
+        vec3 lipCol = mix(skin, vec3(0.5, 0.16, 0.15), 0.28 + 0.22 * step(0.75, fh1));
+        col = mix(col, lipCol, lips * 0.8);
+        // open (a cheer, a sung line): a D-shaped grin, teeth along the top, dark below
+        float botY = topY - (0.0012 + 0.017 * open) * (1.0 - mx * mx);
+        float inMouth = (1.0 - smoothstep(0.92, 1.0, mx)) * smoothstep(botY - aa, botY + aa, q.y) * (1.0 - smoothstep(topY - aa, topY + aa, q.y));
+        vec3 inside = q.y > topY - 0.0045 ? vec3(0.74, 0.71, 0.66) : mix(vec3(0.07, 0.015, 0.015), vec3(0.32, 0.08, 0.08), smoothstep(topY - 0.008, botY, q.y) * step(0.3, open));
+        col = mix(col, inside, inMouth);
+        // the line of the smile, and a dimple at each corner
+        col *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.0012 + aa, abs(q.y - topY))) * (1.0 - smoothstep(0.85, 1.0, mx));
+        col *= 1.0 - 0.18 * exp(-dot(q - vec2(0.025, -0.039), q - vec2(0.025, -0.039)) / 0.000006);
+        // a soft shade in the sockets, rosy cheeks, the nostrils
+        col *= 1.0 - 0.06 * exp(-dot(q - vec2(0.033, 0.003), q - vec2(0.033, 0.003)) / 0.0003);
+        col = mix(col, col * vec3(1.16, 0.9, 0.88), 0.65 * exp(-dot(q - vec2(0.048, -0.02), q - vec2(0.048, -0.02)) / 0.00045));
+        col *= 1.0 - 0.35 * exp(-dot(q - vec2(0.0085, -0.027), q - vec2(0.0085, -0.027)) / 0.00001);
         // stubble on some
-        if (fh2 > 0.72 && q.y < -0.04 && q.y > -0.115) col *= 0.87 + 0.08 * crowdHash(floor(p.xy * 900.0)) * fine;
+        if (fh2 > 0.85) col *= 1.0 - (0.06 - 0.05 * crowdHash(floor(p.xy * 900.0)) * fine) * smoothstep(-0.05, -0.062, q.y) * smoothstep(-0.118, -0.1, q.y);
         // glitter on the cheekbones at a festival or on the playa
         if (look > 2.5 && fh1 > 0.6) glow += vec3(1.2, 0.9, 1.4) * step(0.985, crowdHash(floor(p.xy * 700.0) + floor(uTime * 3.0))) * exp(-dot(q - vec2(0.05, -0.006), q - vec2(0.05, -0.006)) / 0.0003);
         // a phone's light on the face when they're filming
