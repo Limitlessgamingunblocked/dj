@@ -49,6 +49,12 @@ export const GESTURES: Gesture[] = [
     tip: 'Raise both open hands near the top of the picture and hold for a moment. You do the "hands up" move and the crowd throws theirs up with you. Up there the filters stay put.',
   },
   {
+    icon: '👋',
+    name: 'Hands up, then sway: crowd control',
+    does: 'the whole room sways with your arms',
+    tip: 'After hands up, keep your arms in the air and sway them left and right. Your DJ and the whole crowd follow your arms, the back of the room a beat behind the front. Bring your hands down to let them go.',
+  },
+  {
     icon: '✊',
     name: 'Fist: rest',
     does: 'does nothing',
