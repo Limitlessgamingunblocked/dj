@@ -4,7 +4,7 @@ import { AOPass, DepthTap } from '../src/three/ao';
 import { QUALITY_STEPS } from '../src/three/quality';
 import { REFLECT_LAYER, ReflectPass, isBright, tagBright } from '../src/three/reflect';
 import { PERSON_BONES, PERSON_MATS, personGeometry } from '../src/three/venues/crowd';
-import { JOINTS, LANDMARKS } from '../src/three/venues/crowdbody';
+import { JOINTS } from '../src/three/venues/crowdbody';
 import { boneMatrix, posedPerson, type HeldPose } from '../src/three/venues/crowdpose';
 import { FAR_POSES, atlasColor, padEdges } from '../src/three/venues/farcrowd';
 import { speakerGeometry, truss } from '../src/three/venues/fixtures';
@@ -107,7 +107,7 @@ describe('the crowd model', () => {
   });
 
   it('stays inside its vertex budget at both levels of detail', () => {
-    expect(personGeometry(0).attributes.position.count).toBeLessThan(3300);
+    expect(personGeometry(0).attributes.position.count).toBeLessThan(4000);
     expect(personGeometry(1).attributes.position.count).toBeLessThan(1300);
   });
 
@@ -132,17 +132,17 @@ describe('the crowd model', () => {
           e.set(s, (e.get(s) ?? 0) + 1);
         }
       }
-      return [...e].filter(([, c]) => c !== 2).map(([s]) => Number(s.split('|')[0].split(',')[1]) / 1e4);
+      return [...e].filter(([, c]) => c !== 2).map(([s]) => s.split('|')[0].split(',').map((n) => Number(n) / 1e4));
     };
     const body = new Set([PERSON_MATS.skin, PERSON_MATS.top, PERSON_MATS.bottoms, PERSON_MATS.sleeveUp, PERSON_MATS.sleeveLo, PERSON_MATS.shin]);
     for (const detail of [0, 1] as const) {
       const g = personGeometry(detail);
       const open = openEdges(g, (m) => body.has(m));
       expect(open.length, `detail ${detail}`).toBeGreaterThan(0);
-      // (the simplest model's fingers are pinched together by the simplifier, which can leave an edge or two there)
-      const fingers = (y: number) => detail === 1 && y > LANDMARKS.handLo && y < LANDMARKS.hand[1];
-      for (const y of open) if (!fingers(y)) expect(y, `detail ${detail}`).toBeLessThan(0.15);
-      expect(open.filter(fingers).length).toBeLessThan(10);
+      // (the simplest model's thin parts, the fingers and the ears, can be pinched together by the simplifier, leaving an
+      // edge or two there; the close-up model has none)
+      const above = open.filter((p) => p[1] >= 0.15);
+      expect(above.length, `detail ${detail}`).toBeLessThan(detail === 0 ? 1 : 8);
       expect(openEdges(g, (m) => m === PERSON_MATS.shoes).length, `shoes at detail ${detail}`).toBe(0);
     }
   });

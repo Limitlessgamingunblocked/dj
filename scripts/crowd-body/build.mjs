@@ -35,7 +35,7 @@ if (!dir) throw new Error('set MH_DIR to the MakeHuman data folder');
 const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../src/three/venues/crowdbody.data.ts');
 const HEIGHT = 1.75;
 /* the triangle budgets of the three levels of detail */
-const LOD_TRIS = [5600, 3300, 1050];
+const LOD_TRIS = [5600, 4200, 1050];
 
 const mh = loadMH(dir);
 const N = mh.obj.pos.length / 3;
@@ -133,7 +133,46 @@ function shape({ gender, race = [1 / 3, 1 / 3, 1 / 3], build = 0, muscle = 0 }) 
   RACES.forEach((r, i) => add(T(`${r}-${gender}-young`), race[i]));
   if (build) add(T(`universal-${gender}-young-averagemuscle-${build > 0 ? 'max' : 'min'}weight`), Math.abs(build));
   if (muscle) add(T(`universal-${gender}-young-${muscle > 0 ? 'max' : 'min'}muscle-averageweight`), Math.abs(muscle));
-  return smoothCrotch(repose(P));
+  return relax(smoothCrotch(repose(P)));
+}
+
+/*
+ * A friendly, relaxed face: MakeHuman's base face is blank. The corners of
+ * the mouth are lifted and drawn back into a soft smile, the cheeks rising a
+ * touch with it.
+ */
+let ORIS = null;
+function relax(P) {
+  ORIS ??= sum((b) => (b.startsWith('oris') ? 1 : 0));
+  let lo = Infinity;
+  let hi = -Infinity;
+  let w = 0;
+  let zf = -Infinity;
+  for (const i of bodyVerts) {
+    if (ORIS[i] <= 0.45) continue;
+    lo = Math.min(lo, P[i * 3 + 1]);
+    hi = Math.max(hi, P[i * 3 + 1]);
+    w = Math.max(w, P[i * 3]);
+    zf = Math.max(zf, P[i * 3 + 2]);
+  }
+  const my = (lo + hi) / 2;
+  for (const i of bodyVerts) {
+    const x = P[i * 3];
+    const y = P[i * 3 + 1];
+    const z = P[i * 3 + 2];
+    if (z < zf - 0.05 || Math.abs(y - my) > 0.05 || Math.abs(x) > w + 0.04) continue;
+    const ax = Math.abs(x);
+    // (the lips are closed by the crowd shader: the line between them is drawn facing forward)
+    const dz = 0;
+    // the corners up and back, a little wider
+    const c = Math.exp(-(((ax - w * 0.92) / 0.011) ** 2) - ((y - my) / 0.011) ** 2);
+    // the cheeks lift with the smile
+    const ck = Math.exp(-(((ax - w - 0.012) / 0.016) ** 2) - ((y - my - 0.022) / 0.014) ** 2);
+    P[i * 3] += Math.sign(x) * 0.0012 * c;
+    P[i * 3 + 1] += 0.003 * c + 0.0016 * ck;
+    P[i * 3 + 2] += dz - 0.0012 * c + 0.0012 * ck;
+  }
+  return P;
 }
 
 /* everyone is dressed: the groin is smoothed flat, as trousers and shorts would hold it */
@@ -465,6 +504,28 @@ const LM = {};
   LM.chestZ = chest.hi[2];
   LM.chestX = chest.hi[0];
   console.log('landmarks', JSON.stringify(LM));
+}
+
+/* the whole face turns with the head: the jaw and lips take none of the neck's lag (they'd shear off the face, and the mouth
+   would open, every time the head nodded) */
+{
+  let n = 0;
+  for (const i of bodyVerts) {
+    if (vBone[i] !== 9 || vF[i] >= 0.999) continue;
+    const y = male[i * 3 + 1];
+    const z = male[i * 3 + 2];
+    // in front of the neck, from under the chin up; behind it, from the ears up; blended over a couple of centimetres
+    const fz = Math.min(1, Math.max(0, (z - JM.neck[2] - 0.01) / 0.03));
+    const yFace = LM.chin[1] - 0.012;
+    const yBack = JM.eye[1] - 0.04;
+    const y0 = yFace * fz + yBack * (1 - fz);
+    const k = Math.min(1, Math.max(0, (y - (y0 - 0.02)) / 0.02));
+    if (k > 0) {
+      vF[i] = vF[i] + (1 - vF[i]) * k;
+      n++;
+    }
+  }
+  console.log('face vertices made rigid with the head', n);
 }
 
 /* ------------------------------------------------------------------ normals */

@@ -112,8 +112,8 @@ export function frontGeometry(): THREE.BufferGeometry {
   parts.push(part(new THREE.TorusGeometry(0.017, 0.004, 4, 10).translate(0, 1.3, LANDMARKS.chestZ + 0.008), B.body, F.harness));
 
   // a bucket hat: the crown and a sloping brim
-  parts.push(part(new THREE.CylinderGeometry(0.084, 0.096, 0.075, 14, 1).scale(1.0, 1, 1.12).translate(0, LANDMARKS.headTop - 0.03, H.c.z - 0.005), B.head, F.hat));
-  parts.push(part(twoSided(new THREE.CylinderGeometry(0.1, 0.152, 0.04, 14, 1, true).scale(1.0, 1, 1.12).translate(0, LANDMARKS.headTop - 0.085, H.c.z - 0.005)), B.head, F.hat));
+  parts.push(part(new THREE.CylinderGeometry(0.084, 0.096, 0.075, 14, 1).scale(1.06, 1, 1.25).translate(0, LANDMARKS.headTop - 0.028, H.c.z + 0.004), B.head, F.hat));
+  parts.push(part(twoSided(new THREE.CylinderGeometry(0.1, 0.152, 0.04, 14, 1, true).scale(1.06, 1, 1.25).translate(0, LANDMARKS.headTop - 0.083, H.c.z + 0.004)), B.head, F.hat));
   // sunglasses: two lenses over the eyes, the top bar, the arms back to the ears
   const lensZ = E[2] + LANDMARKS.eyeR * 0.75 + 0.012;
   for (const sd of [-1, 1]) {
@@ -164,6 +164,7 @@ export const FRONT_VIS = /* glsl */ `
     {
       float fShell = frontShell(iSeed);
       float hatOn = (frontPick(iSeed, 5.0, vec4(0.04, 0.0, 0.24, 0.24), 0.14) ? 1.0 : 0.0) * (1.0 - capOn) * (1.0 - staff);
+      poseCap = max(poseCap, hatOn);
       float glowOn = (frontPick(iSeed, 9.0, vec4(0.3, 0.04, 0.12, 0.32), 0.42) ? 1.0 : 0.0) * (1.0 - staff) * (1.0 - dj);
       float fanOn = (frontPick(iSeed, 10.0, vec4(0.08, 0.16, 0.1, 0.06), 0.1) ? 1.0 : 0.0) * (1.0 - glowOn) * (1.0 - staff) * (1.0 - dj);
       float leftFree = (1.0 - step(0.5, wDrink)) * (1.0 - sign);

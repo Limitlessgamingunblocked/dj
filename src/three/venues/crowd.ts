@@ -216,16 +216,18 @@ export function headKit(lo: boolean): THREE.BufferGeometry[] {
  * inside shows past the face).
  */
 function longHair(lo: boolean): THREE.BufferGeometry {
-  const nu = lo ? 8 : 20;
-  const nv = lo ? 3 : 8;
+  const nu = lo ? 8 : 22;
+  const nv = lo ? 4 : 9;
   const reach = Math.PI * 0.66;
   const len = 0.44;
   const pos: number[] = [];
   const idx: number[] = [];
   for (let j = 0; j <= nv; j++) {
     for (let i = 0; i <= nu; i++) {
-      const phi = -reach + (2 * reach * i) / nu;
       const v = j / nv;
+      // below the jaw the front edges fall back towards the shoulders rather than hanging down the chest
+      const fall = smooth(0.25, 0.75, v);
+      const phi = (-reach + (2 * reach * i) / nu) * (1 - 0.22 * fall);
       const side = Math.abs(phi) / reach;
       const yTop = HEAD.c.y + 0.075 - 0.07 * side * side;
       const y = yTop - v * len;
@@ -233,7 +235,10 @@ function longHair(lo: boolean): THREE.BufferGeometry {
       const rr = y > HEAD.c.y ? Math.sqrt(Math.max(0.05, 1 - ey * ey)) : 1;
       const k = 1.08 + 0.1 * smooth(0.05, 1, v) + (lo ? 0 : 0.015 * Math.sin(phi * 9 + v * 4));
       const th = Math.PI - phi;
-      pos.push(Math.sin(th) * HEAD.r.x * rr * k, y, HEAD.c.z + Math.cos(th) * HEAD.r.z * rr * k);
+      // and it spreads out over the shoulders and the back as it falls
+      const kx = k * (1 + 0.6 * fall);
+      const kz = k * (1 + 0.3 * fall);
+      pos.push(Math.sin(th) * HEAD.r.x * rr * kx, y, HEAD.c.z - 0.02 * fall + Math.cos(th) * HEAD.r.z * rr * kz);
     }
   }
   for (let j = 0; j < nv; j++) {
@@ -844,11 +849,25 @@ const HAIR_VOLUME = /* glsl */ `
       objectNormal = normalize(mix(objectNormal, vec3(0.0, 0.0, 1.0), 0.8 * fork));
     }
   }
+  // the lips meet: round the line between them (and the mouth behind it) the surface is lit as if facing forward, so
+  // the parted lips of the base face read as a closed mouth instead of a dark gap
+  if (aBone > 8.5 && aMat > 1.5 && aMat < 2.5) {
+    float mw = ${(LANDMARKS.mouthSize[0] * 1.05).toFixed(4)};
+    float shut = (1.0 - smoothstep(0.0035, 0.0065, abs(position.y - ${LANDMARKS.mouth[1].toFixed(4)}))) * (1.0 - smoothstep(mw * 0.8, mw, abs(position.x))) * step(${(LANDMARKS.mouth[2] - 0.04).toFixed(4)}, position.z);
+    objectNormal = normalize(mix(objectNormal, vec3(0.0, 0.1, 1.0), shut));
+    // round the eyes the simplified lids catch the light in sharp slivers: their normals are eased towards the face's
+    vec2 eo = vec2(abs(position.x) - ${LANDMARKS.eye[0].toFixed(4)}, position.y - ${LANDMARKS.eye[1].toFixed(4)});
+    float lidZone = (1.0 - smoothstep(0.8, 1.3, length(eo / vec2(0.022, 0.014)))) * step(${(LANDMARKS.eye[2] - 0.03).toFixed(4)}, position.z);
+    objectNormal = normalize(mix(objectNormal, normalize(vec3(sign(position.x) * 0.15, 0.1, 1.0)), 0.6 * lidZone));
+  }
   if (aMat > 2.5 && aMat < 3.5) {
     float st = vLook.x;
     float vol = st < 1.5 ? 0.12 : st < 2.5 ? 0.45 : st < 3.5 ? 0.7 : st < 4.5 ? 0.55 : st < 5.5 ? 0.6 : st > 7.5 ? 0.35 : 0.75;
     vol = mix(vol, 0.1, poseCap);
     bodyPos -= normal * uv.x * (1.0 - vol);
+    // tousled: the surface rises and falls in clumps, so the outline isn't a smooth helmet (not on crops and buzz cuts)
+    float tousle = sin(position.x * 150.0 + iSeed.x * 20.0) * sin(position.y * 120.0 + iSeed.y * 9.0) * sin(position.z * 135.0 + iSeed.w * 7.0);
+    bodyPos += normal * uv.x * vol * 0.55 * tousle * step(1.5, st) * (1.0 - poseCap);
   }
 `;
 
@@ -1015,21 +1034,25 @@ const FRAG_COLOR = /* glsl */ `
       vec2 ed = vec2(ax - ${gl(EYE[0])}, p.y - ${gl(EYE[1])});
       float er = length(ed / vec2(0.0165, 0.0095));
       col *= 1.0 - 0.1 * (1.0 - smoothstep(0.9, 1.9, er));
-      float lash = (1.0 - smoothstep(0.08, 0.2 + aa * 60.0, abs(er - 1.02))) * step(-0.001, ed.y) * step(0.1, p.z);
-      col = mix(col, vec3(0.02, 0.015, 0.012), lash * mix(0.55, 0.85, woman));
+      // (the lash line sits on the lid's edge, just over the eye: a fine line, not a drawn-on arc)
+      float erL = length((ed - vec2(0.0, 0.0005)) / vec2(0.0158, 0.0058));
+      float lash = (1.0 - smoothstep(0.05, 0.12 + aa * 60.0, abs(erL - 1.0))) * step(0.0, ed.y) * step(0.1, p.z);
+      col = mix(col, vec3(0.03, 0.022, 0.018), lash * mix(0.4, 0.7, woman));
       // makeup on some: eyeliner and a shadow on the lid
       float mk = fract(vSeed.z * 17.3);
       if (woman > 0.5 && mk < 0.45) col = mix(col, mix(col * 0.6, vec3(0.25, 0.12, 0.2), 0.3), (1.0 - smoothstep(1.1, 1.7, er)) * step(0.0, ed.y) * 0.5);
       // lips: the upper's bow and the fuller lower lip, darker and rosier than the skin; lipstick on some
+      // (the line between them curves up a little at the corners: a soft smile)
       vec2 ld = vec2(p.x / 0.024, p.y - ${gl(MOUTH[1])});
+      ld.y -= 0.0022 * ld.x * ld.x - 0.0005;
       float lw = max(0.0, 1.0 - ld.x * ld.x);
-      float up = 0.0075 * sqrt(lw) * (1.0 - 0.25 * exp(-ld.x * ld.x * 40.0));
-      float lo = 0.0095 * sqrt(lw);
+      float up = 0.0062 * sqrt(lw) * (1.0 - 0.25 * exp(-ld.x * ld.x * 40.0));
+      float lo = 0.0078 * sqrt(lw);
       float lips = (1.0 - smoothstep(-aa, aa, ld.y - up)) * smoothstep(-aa, aa, ld.y + lo) * step(${gl(MOUTH[2] - 0.03)}, p.z);
       vec3 lipCol = mix(skin * vec3(0.86, 0.6, 0.6), skin * vec3(0.72, 0.58, 0.62), smoothstep(0.5, 0.9, tone));
       if (woman > 0.5 && mk > 0.6) lipCol = mk > 0.85 ? vec3(0.35, 0.03, 0.05) : mk > 0.72 ? vec3(0.42, 0.12, 0.15) : skin * vec3(0.9, 0.62, 0.6);
-      col = mix(col, lipCol, lips * 0.9);
-      col *= 1.0 - 0.45 * (1.0 - smoothstep(0.0006, 0.0014 + aa, abs(ld.y))) * step(abs(ld.x), 1.0) * step(${gl(MOUTH[2] - 0.02)}, p.z);
+      col = mix(col, lipCol, lips * mix(0.45, 0.75, woman));
+      col *= 1.0 - 0.5 * (1.0 - smoothstep(0.0004, 0.0011 + aa, abs(ld.y))) * (1.0 - smoothstep(0.85, 1.0, abs(ld.x))) * step(${gl(MOUTH[2] - 0.04)}, p.z);
       // colour in the cheeks, nose and ears (shows more on fair skin)
       float rosy = (1.0 - smoothstep(0.35, 0.8, tone)) * 0.5;
       vec2 cq = vec2(ax - 0.045, p.y - ${gl(EYE[1] - 0.04)});
@@ -1058,17 +1081,25 @@ const FRAG_COLOR = /* glsl */ `
     float a = abs(atan(p.x, p.z - 0.035)) / 3.14159;
     float recede = woman < 0.5 ? smoothstep(0.6, 1.0, fract(vSeed.x * 7.3)) : 0.0;
     float front = ${gl(EYE[1] + 0.062)} + 0.012 * recede * smoothstep(0.03, 0.14, a);
-    if (st > 2.5 && st < 3.5) front = ${gl(EYE[1] + 0.036)} + 0.025 * smoothstep(0.06, 0.2, a) + 0.005 * abs(sin(p.x * 160.0 + vSeed.x * 9.0));
+    // a fringe swept to one side: longer over one brow, lifting off the other
+    float sweep = clamp((fract(vSeed.z * 3.1) < 0.5 ? -1.0 : 1.0) * p.x / 0.06, -1.0, 1.0);
+    if (st > 2.5 && st < 3.5) front = ${gl(EYE[1] + 0.041)} + 0.011 * sweep + 0.022 * smoothstep(0.06, 0.2, a) + 0.004 * abs(sin(p.x * 160.0 + vSeed.x * 9.0));
     if (st > 3.5 && st < 4.5) front += 0.006;
     float temple = ${gl(EYE[1] + 0.03)};
     float sideY = st < 2.5 ? ${gl(EYE[1] + 0.026)} : ${gl(EYE[1] + 0.014)};
     float back = st < 2.5 ? ${gl(EYE[1] - 0.07)} : ${gl(EYE[1] - 0.105)};
     float line = a < 0.22 ? mix(front, temple, smoothstep(0.1, 0.22, a)) : a < 0.5 ? mix(temple, sideY, smoothstep(0.22, 0.5, a)) : mix(sideY, back, smoothstep(0.5, 0.85, a));
+    // the line wanders strand by strand (hair never ends in a ruled line), finer close up
+    float hAng = atan(p.x, p.z - 0.035);
+    line += (crowdHash(vec2(floor(hAng * 300.0), floor(vSeed.x * 97.0))) - 0.5) * 0.007 * fine + 0.0025 * sin(hAng * 41.0 + vSeed.y * 13.0);
     if (p.y < line) discard;
-    // a soft edge: wider where it's cut short (a fade at the sides and back)
-    float edge = smoothstep(line, line + mix(0.012, 0.035, step(a, 0.9) * step(0.25, a) * step(st, 2.5)), p.y);
+    // a soft edge: the hair thins to single strands with skin between them over the last centimetre or two (more where
+    // it's cut short, a fade at the sides and back)
+    float edge = smoothstep(line, line + mix(0.016, 0.04, step(a, 0.9) * step(0.25, a) * step(st, 2.5)), p.y);
+    float thin = 0.5 + 0.5 * sin(hAng * 520.0 + p.y * 90.0 + vSeed.x * 10.0);
+    float cover = clamp(edge * 1.25 - 0.1 + 0.5 * (thin - 0.5) * (1.0 - edge) * fine, 0.0, 1.0);
     float bare = st < 1.5 ? 0.55 : st < 2.5 ? 0.2 : 0.0;
-    col = mix(mix(skin * 0.9, hair, 0.5), hair, edge * (1.0 - bare));
+    col = mix(skin * 0.93, hair, cover * (1.0 - bare) + 0.25 * bare);
     // hair scatters light rather than shining like a shell
     crowdRough = mix(0.72, 0.8, bare);
   }
@@ -1121,15 +1152,22 @@ const FRAG_COLOR = /* glsl */ `
     float r = length(d.xy);
     float iv = vLook.w + step(0.3, tone) * 2.0;
     vec3 irisC = iv < 0.5 || iv > 1.0 ? vec3(0.09, 0.04, 0.015) : iv < 0.68 ? vec3(0.16, 0.09, 0.03) : iv < 0.8 ? vec3(0.1, 0.16, 0.08) : iv < 0.93 ? vec3(0.1, 0.2, 0.32) : vec3(0.2, 0.22, 0.24);
-    col = vec3(0.7, 0.66, 0.62);
+    col = vec3(0.64, 0.6, 0.57);
     col *= 1.0 - 0.5 * smoothstep(0.004, 0.0095, abs(d.y)) - 0.25 * smoothstep(0.0, 0.006, d.y);
     if (d.z > 0.0) {
-      col = mix(col, irisC * 0.5, 1.0 - smoothstep(0.0063 - aa, 0.0063 + aa, r));
-      col = mix(col, irisC * (0.8 + 0.4 * sin(atan(d.y, d.x) * 13.0) * fine), 1.0 - smoothstep(0.0055 - aa, 0.0055 + aa, r));
-      col = mix(col, vec3(0.005), 1.0 - smoothstep(0.0024 - aa, 0.0024 + aa, r));
-      col = mix(col, vec3(1.1), (1.0 - smoothstep(0.0011, 0.0011 + aa, length(d.xy - vec2(-0.0022, 0.0022)))) * fine);
+      // a full-sized iris (a small one in a lot of white reads as a stare)
+      col = mix(col, irisC * 0.5, 1.0 - smoothstep(0.0072 - aa, 0.0072 + aa, r));
+      col = mix(col, irisC * (0.8 + 0.4 * sin(atan(d.y, d.x) * 13.0) * fine), 1.0 - smoothstep(0.0064 - aa, 0.0064 + aa, r));
+      col = mix(col, vec3(0.005), 1.0 - smoothstep(0.0026 - aa, 0.0026 + aa, r));
+      col = mix(col, vec3(1.1), (1.0 - smoothstep(0.0011, 0.0011 + aa, length(d.xy - vec2(-0.0024, 0.0024)))) * fine);
     }
     crowdRough = 0.08;
+    // relaxed lids: the upper over the top of the iris, the lower just touching it, a soft lash line along the upper
+    float ex = d.x / 0.012;
+    float upLid = 0.0036 - 0.003 * ex * ex;
+    float loLid = -0.0062 + 0.0025 * ex * ex;
+    float lid = max(smoothstep(upLid - aa, upLid + aa, d.y), 1.0 - smoothstep(loLid - aa, loLid + aa, d.y));
+    if (lid > 0.5) { col = skin * mix(0.78, 0.9, step(d.y, 0.0)); crowdRough = 0.55; }
   }
   else if (m > 27.5 && m < 29.5 || m > 32.5) {
     // curls or an afro, a bun, a ponytail
@@ -1158,8 +1196,12 @@ const FRAG_COLOR = /* glsl */ `
   // hair: strands that flow back over the crown and down the length, a sheen across them
   if ((m > 2.5 && m < 3.5) || (m > 13.5 && m < 14.5) || (m > 16.5 && m < 17.5) || (m > 28.5 && m < 29.5) || m > 32.5) {
     float ang = atan(p.x, p.z - 0.035);
+    // strands in clumps, light and dark, following the way it's combed; darker down in it, lighter at the surface
     float strand = sin(ang * 70.0 + p.y * 30.0 + vSeed.x * 20.0) * 0.6 + sin(ang * 31.0 - p.y * 90.0) * 0.4;
-    col *= 0.9 + 0.14 * strand * fine;
+    float fineStrand = sin(ang * 260.0 + p.y * 70.0 + vSeed.y * 7.0) * sin(ang * 170.0 - p.y * 40.0);
+    float clump = sin(ang * 17.0 + p.y * 21.0 + vSeed.x * 5.0);
+    col *= 0.84 + (0.13 * strand + 0.1 * fineStrand + 0.08 * clump) * fine;
+    col = mix(col, col * vec3(1.12, 1.08, 1.02) + vec3(0.01), 0.35 * max(0.0, clump) * fine);
     float sh = (p.y - ${gl(LANDMARKS.headTop - 0.035)}) / 0.016;
     col *= 1.0 + 0.3 * exp(-sh * sh) * step(0.0, p.z - 0.02);
   }
