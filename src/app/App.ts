@@ -40,7 +40,8 @@ import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
 import { formatKey, setKeyNotation } from '../analysis/keys';
 import { setCrowdScale } from '../three/venues/crowd';
-import { setWaveScheme } from '../ui/waveform';
+import { setGridStyle, setPhraseSource, setSectionColors, setWaveScheme } from '../ui/waveform';
+import { deckPhrase } from '../game/mixtools';
 import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData } from '../core/types';
 import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
@@ -109,6 +110,7 @@ import { WaveStrip } from '../ui/WaveStrip';
 import { hwButton, type Widget } from '../ui/widgets';
 import type { AppContext, AppEvents } from './context';
 import { registerControls } from './controlDefs';
+import { GridEditor, registerGridControls } from './gridEdit';
 import { bindKeyboard } from './keyboard';
 import { moments, setClock } from '../three/venues/moments';
 import { addPosts, clipPost } from '../game/social';
@@ -173,6 +175,8 @@ export class App implements AppContext {
   private libPanel!: LibraryPanel;
   /** the next-track coach, in every mode */
   nextUp!: NextUp;
+  /** grid edit: sliding a track's beat grid onto the music */
+  grid!: GridEditor;
   private nextCard: NextUpCard | null = null;
   private setupPanel!: SetupPanel;
   private meters = { ch: [[0, 0], [0, 0], [0, 0], [0, 0]] as [number, number][], master: [0, 0] as [number, number] };
@@ -922,6 +926,9 @@ export class App implements AppContext {
       midiConnected: () => !!this.midi.access && this.midi.devices().length > 0,
       recording: () => this.desk.recording,
     });
+    this.grid = new GridEditor(this.engine.decks, (t, g) => this.library.updateGrid(t, g));
+    registerGridControls(this.reg, this.engine.decks, this.grid, (msg) => toast(msg));
+    setPhraseSource((d) => deckPhrase(d, this.engine.masterDeck));
     this.markDaily();
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
@@ -1635,6 +1642,8 @@ export class App implements AppContext {
     const root = document.documentElement.style;
     if (has('keyNotation')) setKeyNotation(prefs.keyNotation);
     if (has('waveScheme')) setWaveScheme(prefs.waveScheme);
+    if (has('beatGrid')) setGridStyle(prefs.beatGrid);
+    if (has('sectionColors')) setSectionColors(prefs.sectionColors);
     if (has('uiScale')) {
       root.setProperty('--ui-zoom', String(prefs.uiScale));
       if (changed) requestAnimationFrame(() => this.stage.resize());

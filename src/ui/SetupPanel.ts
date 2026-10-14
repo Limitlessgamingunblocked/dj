@@ -12,7 +12,7 @@ import type { FaderCurve } from '../audio/Channel';
 import { formatKey, makeKey } from '../analysis/keys';
 import { clearAllSettings, makeBackup, parseBackup, readAllSettings, restoreSettings } from '../core/backup';
 import { uiSound } from '../audio/uisound';
-import { BEAT_CHOICES, DEFAULT_DECK_COLORS, KEY_NOTATIONS, NIGHT_CHOICES, onPrefs, SCREENSAVER_CHOICES, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
+import { BEAT_CHOICES, DEFAULT_DECK_COLORS, GRID_STYLES, KEY_NOTATIONS, NIGHT_CHOICES, onPrefs, SCREENSAVER_CHOICES, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
 import { beatLabel } from '../audio/Deck';
 import { LENS_LOOKS } from '../three/looks';
 import type { Quality, Stage } from '../three/Stage';
@@ -227,6 +227,10 @@ export class SetupPanel {
       'waveScheme',
       WAVE_SCHEMES.map((w) => [w.id, w.name]),
     );
+    const grid = this.prefSelect(
+      'beatGrid',
+      GRID_STYLES.map((g) => [g.id, g.name]),
+    );
     return this.card(
       'Appearance',
       'look theme colours color size zoom scale text',
@@ -236,6 +240,8 @@ export class SetupPanel {
       h('div', { class: 'set-row field', 'data-k': 'deck colours colors' }, h('span', {}, 'Deck colours'), deckCols),
       this.row('Key notation', notation, 'camelot open key musical harmonic', 'Library, decks, Set Builder and the board screens.'),
       this.row('Waveform colours', wave, 'waveform rgb 3-band blue colour color'),
+      this.prefCheck('sectionColors', 'Colour song sections on the waveforms (intro, breakdown, build, drop, outro)', 'sections drop breakdown intro outro build colour color waveform'),
+      this.row('Beat grid', grid, 'beat grid lines bars waveform visible', 'On the scrolling waveforms and the board screens. To line a grid up with the music, use Grid edit in the deck tools.'),
       this.row(
         'Interface sounds',
         this.slider(
