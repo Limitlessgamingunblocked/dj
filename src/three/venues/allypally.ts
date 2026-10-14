@@ -29,6 +29,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
+import { MAIN_WALLS } from './wallshow';
 import { barCounter, boothClutter, DustMotes, exitSign } from './details';
 import { Dresser } from './dress';
 import { atBar } from './crew';
@@ -691,6 +692,8 @@ class AllyPally extends VenueBase {
     wall.position.set(0, 4.6, 9.0);
     wall.rotation.y = Math.PI;
     this.nameScreen(wall, 23, 7, nameStyleFor('allypally').screen!);
+    // on the drops: the wall flies apart in panels, or opens into a box (wallshow.ts)
+    this.mainWall(wall, MAIN_WALLS.allypally);
     const wallFrame = block(23.4, 7.4, 0.3, black, 2);
     wallFrame.position.set(0, 4.6, 9.2);
     this.group.add(wallFrame);

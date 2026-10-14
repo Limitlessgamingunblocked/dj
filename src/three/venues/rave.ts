@@ -29,6 +29,7 @@ import { moments, PeakTrigger } from './moments';
 import { Pyro } from './pyro';
 import type { ShowState } from './show';
 import { KineticRig } from './showfx';
+import { MAIN_WALLS } from './wallshow';
 import { canvasTexture, concreteTexture, floorTexture, rng, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -228,6 +229,8 @@ class WarehouseRave extends VenueBase {
     led.position.set(0, 1.0 + 3.5, 5.6);
     led.rotation.y = Math.PI;
     if (nm.screen) this.nameScreen(led, 16, 7, nm.screen);
+    // on the drops: a box opens behind the wall and a chrome blob comes out over the DJ (wallshow.ts)
+    this.mainWall(led, MAIN_WALLS.warehouse);
     for (const s of [-1, 1]) {
       const arr = lineArray(10, 1.1, 0.4, 0.75);
       arr.position.set(s * 8.4, H - 2.8, -1.2);
