@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a212c"/>
+      <stop offset="1" stop-color="#07090d"/>
+    </linearGradient>
+    <radialGradient id="platter" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#1d2531"/>
+      <stop offset="1" stop-color="#0a0d12"/>
+    </radialGradient>
+    <linearGradient id="label" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4cc9f0"/>
+      <stop offset="1" stop-color="#ff9f1c"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <rect id="tile" x="0" y="0" width="1024" height="1024" rx="0" fill="url(#bg)"/>
+  <g transform="translate(512 512) scale(0.78)">
+    <!-- glowing ring: deck 1 cyan, deck 2 orange -->
+    <g filter="url(#glow)" opacity="0.85">
+      <path d="M 0 -352 A 352 352 0 0 0 0 352" fill="none" stroke="#4cc9f0" stroke-width="30"/>
+      <path d="M 0 -352 A 352 352 0 0 1 0 352" fill="none" stroke="#ff9f1c" stroke-width="30"/>
+    </g>
+    <path d="M 0 -352 A 352 352 0 0 0 0 352" fill="none" stroke="#4cc9f0" stroke-width="22"/>
+    <path d="M 0 -352 A 352 352 0 0 1 0 352" fill="none" stroke="#ff9f1c" stroke-width="22"/>
+    <!-- the platter with its grooves -->
+    <circle r="318" fill="url(#platter)" stroke="#2d3848" stroke-width="6"/>
+    <g fill="none" stroke="#222b38" stroke-width="4">
+      <circle r="280"/><circle r="245"/><circle r="210"/><circle r="175"/>
+    </g>
+    <!-- the label and spindle -->
+    <circle r="132" fill="url(#label)"/>
+    <circle r="132" fill="none" stroke="#07090d" stroke-opacity="0.35" stroke-width="6"/>
+    <text x="0" y="52" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, Arial, sans-serif" font-weight="800" font-size="150" fill="#07090d">D</text>
+    <!-- the cue marker -->
+    <rect x="-9" y="-312" width="18" height="96" rx="9" fill="#e7ecf3"/>
+  </g>
+</svg>

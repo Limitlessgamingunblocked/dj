@@ -10,6 +10,7 @@ const PATHS = {
   film: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/>',
   phone: '<rect x="7" y="3" width="10" height="18" rx="2.2"/><path d="M11 18h2"/>',
   chevron: '<path d="m9 6 6 6-6 6"/>',
+  download: '<path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
   more: '<circle cx="6" cy="12" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/><circle cx="18" cy="12" r="1.2" fill="currentColor"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',

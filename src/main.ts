@@ -1,6 +1,9 @@
 import './ui/styles.css';
 import { App } from './app/App';
 import { mountVjSurface } from './ui/VjSurface';
+import { setupInstall } from './pwa/install';
+
+setupInstall();
 
 const root = document.getElementById('app')!;
 // VJ mode's controls: their own light page, without the decks or the stage
