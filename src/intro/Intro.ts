@@ -24,7 +24,7 @@ import { h } from '../ui/dom';
 import { Film, type FilmState } from './film';
 import FilmWorker from './film.worker?worker&inline';
 import { BAR, BARS, BEAT, BPM, BREAK_BAR, type Cut, doorStart, openTime, type Part, shotAt, type Timeline, timeline } from './plan';
-import { type Kit, renderDrop, renderKit, renderPart } from './score';
+import { type Kit, limiter, renderDrop, renderKit, renderPart } from './score';
 
 const SEEN_KEY = 'introSeen';
 
@@ -138,8 +138,8 @@ export class Intro {
     this.outro.type = 'lowpass';
     this.outro.frequency.value = 20000;
     this.music = ctx.createGain();
-    this.music.gain.value = 0.9;
-    this.music.connect(this.outro);
+    this.music.gain.value = 0.7;
+    this.music.connect(limiter(ctx)).connect(this.outro);
     this.outro.connect(ctx.destination);
     this.filmState = { cut, open: null, calm: this.calm };
 

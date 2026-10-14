@@ -681,8 +681,23 @@ export async function renderPart(part: Part, kit: Kit, sampleRate: number): Prom
 export async function renderDrop(kit: Kit, sampleRate: number): Promise<AudioBuffer> {
   const n = Math.ceil(BAR * 1.5 * sampleRate);
   const tr: Tracks = { club: new Track(n, sampleRate), keys: new Track(n, sampleRate), room: new Track(n, sampleRate), street: new Track(n, sampleRate) };
-  tr.club.add(kit.crash, 0, 0.55);
-  tr.street.add(kit.boom, 0, 0.55);
+  tr.club.add(kit.crash, 0, 0.45);
+  tr.street.add(kit.boom, 0, 0.45);
   tr.room.add(kit.crash, 0, 0.2);
   return mix(tr, sampleRate).ctx.startRendering();
+}
+
+/**
+ * The music bus's limiter: the drop lands on the title loop's first downbeat with the room's last
+ * bar still ringing, and the sum would clip. (A DynamicsCompressor adds its own make-up gain, about
+ * +2.3 dB at these settings, so the bus feeding it runs a little lower.)
+ */
+export function limiter(ctx: BaseAudioContext): DynamicsCompressorNode {
+  const c = ctx.createDynamicsCompressor();
+  c.threshold.value = -4;
+  c.knee.value = 2;
+  c.ratio.value = 20;
+  c.attack.value = 0.001;
+  c.release.value = 0.15;
+  return c;
 }
