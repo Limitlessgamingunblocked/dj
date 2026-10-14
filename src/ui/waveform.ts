@@ -9,6 +9,7 @@
 import type { Deck } from '../audio/Deck';
 import type { GridStyle, WaveScheme } from '../core/prefs';
 import type { TrackAnalysis } from '../core/types';
+import { countdown, countdownText, mixPoints, phraseLabel, type PhraseState } from '../game/mixtools';
 import { trackInfo, type Section, type SectionKind } from '../game/tracks';
 
 const TILE_W = 2048;
@@ -295,6 +296,77 @@ function drawSections(g: CanvasRenderingContext2D, sections: Section[], duration
   }
 }
 
+let phraseOf: ((d: Deck) => PhraseState | null) | null = null;
+
+/** where the app finds a deck's phrase against the master (for the phrase badge) */
+export function setPhraseSource(fn: (d: Deck) => PhraseState | null): void {
+  phraseOf = fn;
+}
+
+/** a filled tag with dark text; returns its width */
+function pill(g: CanvasRenderingContext2D, text: string, x: number, y: number, fs: number, u: number, color: string, alpha = 1): number {
+  g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  const w = g.measureText(text).width + 8 * u;
+  const hh = fs + 4 * u;
+  g.globalAlpha = alpha;
+  g.fillStyle = color;
+  g.fillRect(x, y, w, hh);
+  g.fillStyle = '#05070a';
+  g.fillText(text, x + 4 * u, y + hh / 2 + u / 2);
+  g.globalAlpha = 1;
+  g.textBaseline = 'alphabetic';
+  return w;
+}
+
+/**
+ * Mixing prompts over the scrolling waveform: dashed flags where to have the
+ * next track in (end of the intro) and where to start mixing out (the outro),
+ * a countdown to the next drop or the outro beside the playhead, and the
+ * phrase badge (does this deck's 8-bar phrase line up with the master's?).
+ */
+function drawMixPrompts(g: CanvasRenderingContext2D, deck: Deck, sections: Section[] | null, pos: number, cx: number, x: number, pxPerSec: number, y: number, h: number, compact: boolean): void {
+  const u = Math.max(1, Math.round(h / 64));
+  const fs = Math.max(9, 9 * u);
+  const tick = Math.max(3 * u, Math.round(h * 0.13));
+  const { mixIn, mixOut } = mixPoints(sections);
+  const flag = (t: number | null, label: string) => {
+    if (t === null) return;
+    const fx = Math.round(cx + (t - pos) * pxPerSec);
+    g.fillStyle = '#ffffff';
+    for (let yy = y; yy < y + h; yy += 6 * u) g.fillRect(fx, yy, u, 3 * u);
+    if (compact) return;
+    // the tag sits left of the line, clear of the bar number on its right
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    const w = g.measureText(label).width + 8 * u;
+    pill(g, label, fx - w - u, y + tick + u, fs, u, '#ffffff');
+  };
+  flag(mixIn, 'MIX IN');
+  flag(mixOut, 'MIX OUT');
+
+  const bl = deck.beatLen;
+  const c = countdown(sections, pos, bl);
+  if (c && !compact) {
+    const what = c.kind === 'drop' ? 'DROP' : 'MIX OUT';
+    const text = c.beats < 0.5 ? `${what}!` : `${what} IN ${countdownText(c)}`;
+    const color = c.kind === 'drop' ? SECTION_STYLE.drop.color : '#ffffff';
+    // the last bar pulses on each beat
+    const frac = c.beats < 4 ? c.beats % 1 : 0;
+    const big = Math.round(fs * 1.25);
+    pill(g, text, cx + 6 * u, y + tick + u, big, u, color, c.beats < 4 ? 0.55 + 0.45 * frac : 0.95);
+  }
+
+  const ph = phraseOf?.(deck) ?? null;
+  if (ph && !deck.gridEdit) {
+    const l = phraseLabel(ph);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    // above the section's name tag in the bottom-left corner
+    const band = Math.max(3 * u, Math.round(h * 0.07));
+    pill(g, l.text, x + 4 * u, y + h - band - (fs + 3 * u) - (fs + 4 * u) - 2 * u, fs, u, l.color);
+  }
+}
+
 export interface ZoomOpts {
   pxPerSec: number; // pixels per second of real time
   playheadX?: number; // fraction of width
@@ -371,6 +443,7 @@ export function drawZoomed(g: CanvasRenderingContext2D, deck: Deck, x: number, y
   }
 
   if (sections) drawSections(g, sections, deck.duration, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact, 'band');
+  drawMixPrompts(g, deck, sections, pos, cx, x, pxPerTrackSec, y, h, !!opts.compact);
 
   // cues
   if (opts.showCues !== false) {
@@ -469,6 +542,19 @@ export function drawOverview(g: CanvasRenderingContext2D, deck: Deck, w: number,
         g.fillText(label, x0 + 2 * dpr, h - band - 2 * dpr);
       }
     }
+  }
+  // mix in / mix out flags
+  const mp = mixPoints(sections);
+  for (const t of [mp.mixIn, mp.mixOut]) {
+    if (t === null) continue;
+    const fx = Math.round(px(t));
+    g.fillStyle = '#ffffff';
+    for (let yy = 0; yy < h; yy += 4 * dpr) g.fillRect(fx, yy, dpr, 2 * dpr);
+    g.beginPath();
+    g.moveTo(fx, 0);
+    g.lineTo(fx - 5 * dpr, 0);
+    g.lineTo(fx, 5 * dpr);
+    g.fill();
   }
   if (deck.loop.end > deck.loop.start) {
     g.fillStyle = deck.loop.active ? 'rgba(61,220,151,0.35)' : 'rgba(61,220,151,0.12)';

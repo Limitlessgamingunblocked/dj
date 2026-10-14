@@ -40,7 +40,8 @@ import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
 import { formatKey, setKeyNotation } from '../analysis/keys';
 import { setCrowdScale } from '../three/venues/crowd';
-import { setGridStyle, setSectionColors, setWaveScheme } from '../ui/waveform';
+import { setGridStyle, setPhraseSource, setSectionColors, setWaveScheme } from '../ui/waveform';
+import { deckPhrase } from '../game/mixtools';
 import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData } from '../core/types';
 import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
@@ -927,6 +928,7 @@ export class App implements AppContext {
     });
     this.grid = new GridEditor(this.engine.decks, (t, g) => this.library.updateGrid(t, g));
     registerGridControls(this.reg, this.engine.decks, this.grid, (msg) => toast(msg));
+    setPhraseSource((d) => deckPhrase(d, this.engine.masterDeck));
     this.markDaily();
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
