@@ -327,11 +327,72 @@ function flattenChest(w: ReturnType<typeof welded>, on: Uint8Array) {
 const GRAIN_TILE = 0.09;
 
 /**
- * Even UVs for the suit's grain. The body's own UVs crowd and stretch (the
+ * Cloth over the chest doesn't follow the body in under the bust or between
+ * the pecs: it spans the gap and hangs from what sticks out furthest. On the
+ * front of the torso (`on`), each point comes out to at least the cloth
+ * bridging across to either side of it, and the cloth hanging, angled in a
+ * little, from the points above it.
+ */
+function drape(w: ReturnType<typeof welded>, on: Uint8Array) {
+  const { N, P } = w;
+  const X0 = -0.2;
+  const NX = 40;
+  const Y0 = 0.8;
+  const NY = 60;
+  const xb = (x: number) => Math.floor((x - X0) / 0.01);
+  const yb = (y: number) => Math.floor((y - Y0) / 0.01);
+  const z = new Float32Array(NX * NY).fill(-1);
+  const front = (v: number) => on[v] && P[v * 3 + 2] > 0 && xb(P[v * 3]) >= 0 && xb(P[v * 3]) < NX && yb(P[v * 3 + 1]) >= 0 && yb(P[v * 3 + 1]) < NY;
+  for (let v = 0; v < N; v++) if (front(v)) z[yb(P[v * 3 + 1]) * NX + xb(P[v * 3])] = Math.max(z[yb(P[v * 3 + 1]) * NX + xb(P[v * 3])], P[v * 3 + 2]);
+  // the body's front blurred over a few centimetres: the bust stays, the nipples go
+  const blur = new Float32Array(NX * NY).fill(-1);
+  for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+    let sum = 0;
+    let n = 0;
+    for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+      const jj = j + dj;
+      const ii = i + di;
+      if (jj < 0 || jj >= NY || ii < 0 || ii >= NX || z[jj * NX + ii] < 0) continue;
+      sum += z[jj * NX + ii];
+      n++;
+    }
+    if (n && z[j * NX + i] >= 0) blur[j * NX + i] = sum / n;
+  }
+  z.set(blur);
+  const fill = new Float32Array(z);
+  // spanning the gap between the pecs (or the cleavage), across the middle of the chest
+  for (let j = 0; j < NY; j++) {
+    for (let i = 8; i < NX - 8; i++) {
+      let left = -1;
+      let right = -1;
+      for (let k = 8; k <= i; k++) left = Math.max(left, z[j * NX + k]);
+      for (let k = i; k < NX - 8; k++) right = Math.max(right, z[j * NX + k]);
+      if (left > 0 && right > 0) fill[j * NX + i] = Math.max(fill[j * NX + i], Math.min(left, right) - 0.004);
+    }
+  }
+  // hanging down from there, falling in by a quarter of the drop
+  for (let j = NY - 2; j >= 0; j--) for (let i = 0; i < NX; i++) if (fill[(j + 1) * NX + i] > 0 && fill[j * NX + i] > 0) fill[j * NX + i] = Math.max(fill[j * NX + i], fill[(j + 1) * NX + i] - 0.0025);
+  for (let v = 0; v < N; v++) {
+    if (!front(v)) continue;
+    const cell = yb(P[v * 3 + 1]) * NX + xb(P[v * 3]);
+    const t = fill[cell];
+    if (t < 0) continue;
+    // out to the hanging cloth, and no point standing proud of it
+    const to = Math.min(Math.max(P[v * 3 + 2], t), Math.max(t, blur[cell]) + 0.002);
+    // (eased in from the sides, which keep to the body)
+    const k = sm(0.17, 0.12, Math.abs(P[v * 3]));
+    P[v * 3 + 2] += (to - P[v * 3 + 2]) * k;
+  }
+}
+
+/**
+ * Even UVs for cut clothes. The body's own UVs crowd and stretch (the
  * nipples, the armpits get islands of their own), which shows up as spots in
- * the grain, so the suit is wrapped round a vertical axis through each part
- * (the arms hang straight at rest) with a whole number of tiles round it, and
- * the triangles that cross the seam get their own corners.
+ * a weave, so each part is wrapped round a vertical axis through it (the arms
+ * hang straight at rest), and the triangles that cross the seam at the back
+ * get their own corners. Two sets: `uv` for the fabric's pattern (once round,
+ * the chest at the middle, as the old turned shells had it) and `uv1` for its
+ * weave or grain (a whole number of small tiles round).
  */
 function wrapUV(indexed: THREE.BufferGeometry, region: BodyRegion): THREE.BufferGeometry {
   const geo = indexed.toNonIndexed();
@@ -348,16 +409,25 @@ function wrapUV(indexed: THREE.BufferGeometry, region: BodyRegion): THREE.Buffer
   const round = /arm/.test(region) ? 0.3 : region === 'chest' ? 0.95 : 0.45;
   const tiles = Math.max(1, Math.round(round / GRAIN_TILE));
   const uv = new Float32Array(pos.count * 2);
+  const uv1 = new Float32Array(pos.count * 2);
   for (let i = 0; i < pos.count; i++) {
-    uv[i * 2] = (Math.atan2(pos.getX(i) - cx, pos.getZ(i) - cz) / (Math.PI * 2) + 0.5) * tiles;
-    uv[i * 2 + 1] = pos.getY(i) / GRAIN_TILE;
+    const round = Math.atan2(pos.getX(i) - cx, pos.getZ(i) - cz) / (Math.PI * 2) + 0.5;
+    uv[i * 2] = round;
+    uv[i * 2 + 1] = (pos.getY(i) - 1.2) / 0.45 + 0.5;
+    uv1[i * 2] = round * tiles;
+    uv1[i * 2 + 1] = pos.getY(i) / GRAIN_TILE;
   }
   for (let t = 0; t < pos.count; t += 3) {
     const us = [uv[t * 2], uv[t * 2 + 2], uv[t * 2 + 4]];
-    if (Math.max(...us) - Math.min(...us) < tiles / 2) continue;
-    for (let j = 0; j < 3; j++) if (us[j] < tiles / 2) uv[(t + j) * 2] += tiles;
+    if (Math.max(...us) - Math.min(...us) < 0.5) continue;
+    for (let j = 0; j < 3; j++) {
+      if (us[j] >= 0.5) continue;
+      uv[(t + j) * 2] += 1;
+      uv1[(t + j) * 2] += tiles;
+    }
   }
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
   return geo;
 }
 
@@ -368,14 +438,15 @@ function wrapUV(indexed: THREE.BufferGeometry, region: BodyRegion): THREE.Buffer
  * the seams between them (the armholes, the hips), so the cloth runs on
  * unbroken over a seam; each region then keeps a mesh of its own.
  */
-function garment(parts: { src: THREE.SkinnedMesh; region: BodyRegion }[], thick: (r: BodyRegion, p: THREE.Vector3) => number, mat: THREE.Material): THREE.SkinnedMesh[] {
+function garment(parts: { src: THREE.SkinnedMesh; region: BodyRegion }[], thick: (r: BodyRegion, p: THREE.Vector3) => number, mat: THREE.Material, shape: Record<string, number> = SUIT_SHAPE, name = 'suit'): THREE.SkinnedMesh[] {
+  const suit = name === 'suit';
   const geos = parts.map(({ src }) => {
     const geo = src.geometry.clone();
-    // the suit's own build, baked in (the look's body sliders don't reach it)
+    // the build it's cut for, baked in (the suit's own, or the look's body sliders)
     const pos0 = geo.attributes.position as THREE.BufferAttribute;
     for (const [key, i] of Object.entries(src.morphTargetDictionary ?? {})) {
       const delta = geo.morphAttributes.position?.[i];
-      const k = SUIT_SHAPE[key] ?? 0;
+      const k = shape[key] ?? 0;
       if (delta && k) for (let v = 0; v < pos0.count; v++) pos0.setXYZ(v, pos0.getX(v) + delta.getX(v) * k, pos0.getY(v) + delta.getY(v) * k, pos0.getZ(v) + delta.getZ(v) * k);
     }
     geo.morphAttributes = {};
@@ -408,11 +479,13 @@ function garment(parts: { src: THREE.SkinnedMesh; region: BodyRegion }[], thick:
     for (let i = 0; i < g.attributes.position.count; i++) regionAt[w.id[offsets[k] + i]] ??= parts[k].region;
   });
   const chest = Uint8Array.from(regionAt, (r) => (r === 'chest' ? 1 : 0));
-  if (chest.some((c) => c)) flattenChest(w, chest);
+  // (the robot's suit is pressed flat over the chest; everyday clothes keep the figure under them)
+  if (suit && chest.some((c) => c)) flattenChest(w, chest);
+  if (name === 'top' || name === 'outer') drape(w, chest);
   taubin(w, 10);
   // the torso's anatomy and the crotch go under more smoothing than the limbs
   const body = chest.map((c, v) => (c || (w.P[v * 3 + 1] > 0.7 && Math.abs(w.P[v * 3]) < 0.1) ? 1 : 0));
-  taubin(w, 40, body);
+  taubin(w, suit ? 40 : 70, body);
   const nrm = weldedNormals(w);
   const p = new THREE.Vector3();
   const n = new THREE.Vector3();
@@ -436,7 +509,7 @@ function garment(parts: { src: THREE.SkinnedMesh; region: BodyRegion }[], thick:
       nor.setXYZ(i, shade[v], shade[v + 1], shade[v + 2]);
     }
     const m = new THREE.SkinnedMesh(wrapUV(geo, region), mat);
-    m.name = `suit_${region}`;
+    m.name = `${name}_${region}`;
     m.position.copy(src.position);
     m.quaternion.copy(src.quaternion);
     m.scale.copy(src.scale);
@@ -703,6 +776,251 @@ function indexed(g: THREE.BufferGeometry): THREE.BufferGeometry {
 }
 
 /* ------------------------------------------------------------------ */
+/* everyday clothes, cut from the body like the suit                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A top, an outer layer or a pair of trousers or shorts, cut from the body's
+ * own surface the way the robot suit is, so it fits like real clothes do:
+ * close over the shoulders and chest, loose where the cut is loose, with a
+ * little slack creasing at the waist and elbows. Where the garment stops (a
+ * short sleeve, a cropped hem, the waistband) it sinks back under the skin or
+ * the layer beneath, and a ribbed hem or cuff hides the fold.
+ */
+export interface ClothCut {
+  slot: 'top' | 'outer' | 'bottom';
+  mat: THREE.Material;
+  /** the collar, cuffs, hem and front edges */
+  trim: THREE.Material;
+  /** how loose it is (the old shells' push, metres) */
+  push: number;
+  sleeves?: 'none' | 'short' | 'elbow' | 'long';
+  crop?: boolean;
+  /** how much longer than a tee it hangs */
+  length?: number;
+  /** the gap down the front of an open jacket (radians round the body) */
+  open?: number;
+  collar?: 'crew' | 'high' | 'shirt' | 'none';
+  puffy?: boolean;
+  shorts?: boolean;
+  /** how baggy the legs are */
+  baggy?: number;
+  flare?: boolean;
+  /** a print on the chest: a transparent material, square */
+  print?: THREE.Material;
+  /** cargo pockets on the outside of each thigh */
+  pockets?: boolean;
+}
+
+/** where a tee's hem falls, and a crop top's */
+const TEE_HEM = 0.935;
+const CROP_HEM = 1.13;
+/** how far along an arm a sleeve reaches (0 the shoulder, 1 the wrist) */
+const SLEEVE_END = { none: 0, short: 0.22, elbow: 0.46, long: 0.96 };
+/** where shorts stop, part way down the thigh */
+const SHORTS_HEM = 0.63;
+/** how far inside the skin (or the layer beneath) a garment tucks where it stops */
+const TUCKED = -0.012;
+
+/** along an arm from the shoulder (0) to the wrist (1) at a point on its sleeve */
+function alongArm(region: BodyRegion, p: THREE.Vector3): number {
+  const k = region.endsWith('_l') ? 1 : -1;
+  const upper = region.startsWith('upper');
+  const a = upper ? SHOULDER(k) : ELBOW(k);
+  const b = upper ? ELBOW(k) : WRIST(k);
+  const ab = b.clone().sub(a);
+  const u = Math.max(0, Math.min(1, _d.copy(p).sub(a).dot(ab) / ab.lengthSq()));
+  return upper ? u * 0.5 : 0.5 + u * 0.5;
+}
+
+/** the layers a garment has to sit over, at the hips and on the body above */
+interface Under {
+  hips: number;
+  body: number;
+}
+
+/** how far out a pair of trousers or shorts sits */
+function bottomThickness(c: ClothCut): (region: BodyRegion, p: THREE.Vector3) => number {
+  const baggy = c.baggy ?? 0.01;
+  return (region, p) => {
+    if (region === 'chest') {
+      // over the hips, then sunk under the top above the waistband
+      const t = 0.008 + baggy * 0.6;
+      return TUCKED + (t - TUCKED) * sm(WAISTBAND + 0.012, WAISTBAND, p.y);
+    }
+    // straight legs, with ease over the thigh and hanging clear of the calf
+    let t = 0.01 + baggy * 1.1 + 0.012 * sm(0.55, 0.2, p.y);
+    // soft folds behind the knee and where the legs break over the shoes
+    const knee = Math.exp(-((p.y - 0.5) ** 2) / (2 * 0.04 * 0.04));
+    t += 0.0022 * knee * Math.sin(p.y * 220) + 0.003 * sm(0.2, 0.1, p.y) * Math.sin(p.y * 160 + Math.atan2(p.x, p.z) * 2);
+    if (c.flare) t += 0.05 * sm(0.42, 0.08, p.y);
+    if (c.shorts) t = TUCKED + (t - TUCKED) * sm(SHORTS_HEM - 0.012, SHORTS_HEM, p.y);
+    return t;
+  };
+}
+
+/** how far out a top or an outer layer sits, over what's `under` it */
+function topThickness(c: ClothCut, under: Under): (region: BodyRegion, p: THREE.Vector3) => number {
+  const outer = c.slot === 'outer';
+  const base = Math.max((outer ? 0.012 : 0.007) + c.push * 0.5, under.body + 0.008);
+  const hem = c.crop ? CROP_HEM : TEE_HEM - (c.length ?? 0) - (outer ? 0.02 : 0);
+  const end = SLEEVE_END[c.sleeves ?? 'short'];
+  return (region, p) => {
+    const round = Math.atan2(p.x, p.z);
+    if (region === 'chest') {
+      let t = base;
+      // easing out over the waistband of whatever's beneath
+      t += Math.max(0, under.hips + 0.008 - t) * sm(WAISTBAND + 0.12, WAISTBAND - 0.02, p.y);
+      // slack creasing round the middle
+      t += 0.0016 * sm(1.16, 0.98, p.y) * Math.sin(p.y * 210 + Math.sin(round * 3) * 2.2);
+      if (c.puffy) t += 0.022 * (0.6 + 0.4 * Math.cos(p.y * 48));
+      // an open front: the edges stop either side of the gap
+      if (c.open && Math.abs(round) < c.open / 2 + 0.03) t = TUCKED + (t - TUCKED) * sm(c.open / 2, c.open / 2 + 0.03, Math.abs(round));
+      return TUCKED + (t - TUCKED) * sm(hem - 0.012, hem, p.y);
+    }
+    // a sleeve
+    const along = alongArm(region, p);
+    let t = base * 0.85;
+    const len = along * 0.52;
+    const atElbow = Math.exp(-((along - 0.5) ** 2) / (2 * 0.12 * 0.12));
+    t += (0.0008 + 0.0018 * atElbow) * Math.sin(len * 190 + Math.sin(len * 40) * 2) * sm(0.08, 0.2, along);
+    if (c.puffy) t += 0.018 * (0.6 + 0.4 * Math.cos(along * 40));
+    return TUCKED + (t - TUCKED) * sm(end, end - 0.025, along);
+  };
+}
+
+/** the open edge of a cut part near `y` (its boundary loop), round the body's middle, in order */
+function boundaryLoop(cloth: Cloth, part: RegExp, keep: (p: THREE.Vector3) => boolean): THREE.Vector3[] {
+  const pts: THREE.Vector3[] = [];
+  for (const m of cloth.parts) {
+    if (!part.test(m.name)) continue;
+    const pos = m.geometry.attributes.position as THREE.BufferAttribute;
+    const key = (i: number) => `${pos.getX(i).toFixed(4)},${pos.getY(i).toFixed(4)},${pos.getZ(i).toFixed(4)}`;
+    const edges = new Map<string, number>();
+    for (let t = 0; t < pos.count; t += 3) {
+      for (let e = 0; e < 3; e++) {
+        const a = key(t + e);
+        const b = key(t + ((e + 1) % 3));
+        const k = a < b ? `${a}|${b}` : `${b}|${a}`;
+        edges.set(k, (edges.get(k) ?? 0) + 1);
+      }
+    }
+    const seen = new Set<string>();
+    for (const [k, n] of edges) {
+      if (n !== 1) continue;
+      for (const v of k.split('|')) {
+        if (seen.has(v)) continue;
+        seen.add(v);
+        const [x, y, z] = v.split(',').map(Number);
+        const p = new THREE.Vector3(x, y, z);
+        if (keep(p)) pts.push(p);
+      }
+    }
+  }
+  return pts.sort((a, b) => Math.atan2(a.x, a.z) - Math.atan2(b.x, b.z));
+}
+
+/** a cut garment's ribbed collar, cuffs and hem, its open front's edges and its print */
+function cutTrims(cloth: Cloth, c: ClothCut, out: THREE.Object3D[]): void {
+  const R = c.slot === 'bottom' ? 0.0045 : 0.004;
+  const tube = (curve: THREE.CatmullRomCurve3 | null, on: RegExp, closed = false, r = R) => {
+    if (!curve) return;
+    const m = cloth.add(new THREE.TubeGeometry(curve, Math.max(24, curve.points.length * 3), r, 6, closed), c.trim, on);
+    m.name = `${c.slot}_trim`;
+    out.push(m);
+  };
+  const ring = (y: number, on: RegExp, centre = new THREE.Vector3(0, y, 0.01), from = -Math.PI, to = Math.PI) => {
+    const closed = to - from >= Math.PI * 2 - 1e-6;
+    const path: [THREE.Vector3, THREE.Vector3][] = steps(40)
+      .slice(0, closed ? 40 : 41)
+      .map((u) => {
+        const a = from + (to - from) * u;
+        return [centre.clone(), new THREE.Vector3(-Math.sin(a), 0, -Math.cos(a))];
+      });
+    return cloth.line(path, R * 0.5, on, closed);
+  };
+  if (c.slot === 'bottom') {
+    // the waistband and, on shorts, the hems round each leg
+    tube(ring(WAISTBAND - 0.004, TORSO), TORSO, true, 0.006);
+    for (const k of [1, -1]) {
+      const thigh = k > 0 ? /thigh_l/ : /thigh_r/;
+      if (c.shorts) tube(ring(SHORTS_HEM + 0.004, thigh, new THREE.Vector3(k * 0.1, SHORTS_HEM + 0.004, 0.0)), thigh, true);
+      // a cargo pocket: a flapped box stitched to the outside of the thigh
+      const h = c.pockets ? cloth.hit(new THREE.Vector3(k * 0.5, 0.66, 0.0), new THREE.Vector3(-k, 0, 0), thigh) : null;
+      if (h) {
+        const g = new THREE.BoxGeometry(0.075, 0.1, 0.022);
+        const flap = new THREE.BoxGeometry(0.08, 0.03, 0.026).translate(0, 0.04, 0.003);
+        const box = mergeAll([g, flap]);
+        box.lookAt(h.n);
+        box.translate(h.p.x + h.n.x * 0.008, h.p.y + h.n.y * 0.008, h.p.z + h.n.z * 0.008);
+        out.push(cloth.add(box, c.mat, thigh));
+      }
+    }
+    return;
+  }
+  const outer = c.slot === 'outer';
+  const hem = c.crop ? CROP_HEM : TEE_HEM - (c.length ?? 0) - (outer ? 0.02 : 0);
+  const gap = c.open ? c.open / 2 + 0.03 : 0;
+  // the hem (round the back only, on an open front)
+  tube(ring(hem + 0.004, TORSO, undefined, -Math.PI + gap, Math.PI - gap), TORSO, !gap);
+  // the collar, round the neckline the body's own edge makes
+  if (c.collar === 'crew' || c.collar === 'none') {
+    const neck = boundaryLoop(cloth, TORSO, (p) => p.y > 1.33 && Math.abs(p.x) < 0.1 && (!gap || Math.abs(Math.atan2(p.x, p.z)) > gap));
+    if (neck.length > 6) tube(new THREE.CatmullRomCurve3(neck.map((p) => p.clone().setY(p.y - 0.003)), !gap), TORSO, !gap, c.collar === 'crew' ? 0.006 : 0.003);
+  }
+  // an open front's two edges, from the neck down to the hem
+  if (c.open) {
+    for (const s of [-1, 1]) {
+      const a = s * (c.open / 2 + 0.012);
+      const path: [THREE.Vector3, THREE.Vector3][] = steps(24).map((u) => [new THREE.Vector3(0, 1.4 - (1.4 - hem - 0.01) * u, 0.01), new THREE.Vector3(-Math.sin(a), 0, -Math.cos(a))]);
+        tube(cloth.line(path, R * 0.5, TORSO), TORSO, false, 0.005);
+    }
+  }
+  // the cuffs where the sleeves stop
+  const end = SLEEVE_END[c.sleeves ?? 'short'];
+  if (end > 0) {
+    for (const k of [1, -1]) {
+      const at = end < 0.5 ? lerpV(SHOULDER(k), ELBOW(k), (end - 0.03) * 2) : lerpV(ELBOW(k), WRIST(k), (end - 0.03 - 0.5) * 2);
+      const on = end < 0.5 ? new RegExp(`upper_arm_${k > 0 ? 'l' : 'r'}`) : new RegExp(`forearm_${k > 0 ? 'l' : 'r'}`);
+      tube(ring(at.y, on, at), on, true);
+    }
+  }
+  // the print on the chest, laid over the cloth
+  if (c.print) {
+    const N = 10;
+    const size = 0.17;
+    const g = new THREE.PlaneGeometry(size, size, N, N);
+    const pos = g.attributes.position as THREE.BufferAttribute;
+    const dir = new THREE.Vector3(0, 0, -1);
+    let ok = true;
+    for (let i = 0; i < pos.count; i++) {
+      const h = cloth.hit(new THREE.Vector3(pos.getX(i), 1.2 + pos.getY(i), 0.5), dir, TORSO);
+      if (!h) {
+        ok = false;
+        break;
+      }
+      h.p.addScaledVector(h.n, 0.0015);
+      pos.setXYZ(i, h.p.x, h.p.y, h.p.z);
+    }
+    if (ok) {
+      g.computeVertexNormals();
+      out.push(cloth.add(g, c.print, TORSO));
+    } else g.dispose();
+  }
+}
+
+/** whether cut clothes leave a body region wholly covered (so nothing built under them pokes through) */
+export function cutCovers(cuts: Pick<ClothCut, 'slot' | 'sleeves' | 'crop' | 'shorts'>[], region: BodyRegion): boolean {
+  return cuts.some((c) => {
+    if (c.slot === 'bottom') return /^(thigh|calf)/.test(region) && !c.shorts;
+    if (region === 'chest') return !c.crop;
+    if (region.startsWith('upper_arm')) return c.sleeves === 'elbow' || c.sleeves === 'long';
+    if (region.startsWith('forearm')) return c.sleeves === 'long';
+    return false;
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* the body                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -773,6 +1091,7 @@ export class ModelBody {
     look: Look,
     private tuck: Tuck,
     suit: Suit | null = null,
+    cuts: ClothCut[] = [],
   ) {
     if (!ready) throw new Error('body model not loaded');
     // a copy of the loaded scene (skinned meshes keep their own skeleton)
@@ -794,9 +1113,29 @@ export class ModelBody {
         this.meshes.push(m);
       }
     });
+    const parts = (on: RegExp) => this.meshes.map((src) => ({ src, region: regionOf.get(src)! })).filter(({ region }) => on.test(region));
+    // everyday clothes, cut from the body in the look's own build: trousers, then the top over them, then a jacket over that
+    const shape: Record<string, number> = {};
+    for (const key of Object.keys(MORPH_GAIN)) shape[key] = slider(look, key) * MORPH_GAIN[key];
+    const under: Under = { hips: 0, body: 0 };
+    for (const slot of ['bottom', 'top', 'outer'] as const) {
+      for (const c of cuts.filter((x) => x.slot === slot)) {
+        const legs = c.shorts ? '|thigh' : '|thigh|calf';
+        const sleeves = c.sleeves === 'none' ? '' : c.sleeves === 'short' || c.sleeves === 'elbow' ? '|upper_arm' : '|upper_arm|forearm';
+        const thick = slot === 'bottom' ? bottomThickness(c) : topThickness(c, under);
+        const made = garment(parts(new RegExp(`^(chest${slot === 'bottom' ? legs : sleeves})`)), thick, c.mat, shape, slot);
+        this.suit.push(...made);
+        const cloth = new Cloth(made);
+        cutTrims(cloth, c, this.suit);
+        cloth.dispose();
+        // what the next layer has to clear
+        const at = new THREE.Vector3(0, WAISTBAND - 0.06, 0);
+        under.hips = Math.max(under.hips, thick('chest', at), slot === 'bottom' ? thick('thigh_l', new THREE.Vector3(0.1, 0.92, 0)) + 0.003 : 0);
+        if (slot !== 'bottom') under.body = Math.max(under.body, thick('chest', at.set(0.12, 1.25, 0)));
+      }
+    }
     // the robot suit, cut from the regions it covers
     if (suit) {
-      const parts = (on: RegExp) => this.meshes.map((src) => ({ src, region: regionOf.get(src)! })).filter(({ region }) => on.test(region));
       const jacket = suit.jacket ? garment(parts(/^(chest|upper_arm|forearm)/), jacketThickness, suit.jacket) : [];
       const trousers = suit.trousers ? garment(parts(/^(chest|thigh|calf)/), trouserThickness, suit.trousers) : [];
       this.suit.push(...jacket, ...trousers);

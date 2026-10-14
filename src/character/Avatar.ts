@@ -45,8 +45,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { Look } from '../core/models';
 import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
-import { fabricCanvas, irisCanvas, leatherCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
-import { bodyReady, ModelBody, modelRegions, modelTuck, preloadBody, type BodyRegion, type Cover } from './modelBody';
+import { fabricCanvas, irisCanvas, leatherCanvases, weaveCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
+import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, type BodyRegion, type ClothCut, type Cover } from './modelBody';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
 
 export type BoneName = 'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'shoulder_l' | 'upper_arm_l' | 'forearm_l' | 'hand_l' | 'shoulder_r' | 'upper_arm_r' | 'forearm_r' | 'hand_r' | 'thigh_l' | 'shin_l' | 'foot_l' | 'thigh_r' | 'shin_r' | 'foot_r';
@@ -513,6 +513,8 @@ export class Avatar {
   /** the modelled body, when it's loaded, and the skin regions it shows (the code builds the rest) */
   private model: ModelBody | null = null;
   private modelShows = new Set<BodyRegion>();
+  /** the clothes cut from the modelled body (once it's loaded) in place of turned shells */
+  private cuts: ClothCut[] = [];
   /** the robot suit's layers that come from the modelled body this build */
   private suit: { jacket: boolean; trousers: boolean } | null = null;
   /** a robot head in place of the face, and what its face does this frame */
@@ -658,8 +660,9 @@ export class Avatar {
     const jacket = bodyReady() && outer === 'jacket_robot';
     const trousers = bodyReady() && l.items.bottom === 'pants_robot';
     this.suit = jacket || trousers ? { jacket, trousers } : null;
-    // (no skin under the modelled robot suit either: it would poke through)
-    const suited = (r: BodyRegion) => (!!this.suit?.jacket && /^(chest|upper_arm|forearm)/.test(r)) || (!!this.suit?.trousers && /^(chest|thigh|calf)/.test(r));
+    this.cuts = bodyReady() ? this.planCuts() : [];
+    // (no skin under the modelled robot suit or cut clothes either: it would poke through)
+    const suited = (r: BodyRegion) => (!!this.suit?.jacket && /^(chest|upper_arm|forearm)/.test(r)) || (!!this.suit?.trousers && /^(chest|thigh|calf)/.test(r)) || cutCovers(this.cuts, r);
     const code = (r: BodyRegion) => !this.modelShows.has(r) && !suited(r);
 
     // the body (under the clothes; clothes are shells around it)
@@ -688,7 +691,7 @@ export class Avatar {
     }
     this.buildClothes();
     this.buildAccessories();
-    if (this.modelShows.size || this.suit) {
+    if (this.modelShows.size || this.suit || this.cuts.length) {
       // the game's bones at rest, in the body's space (no rotations yet)
       const rest = {} as Record<BoneName, THREE.Vector3>;
       for (const name of Object.keys(b) as BoneName[]) {
@@ -703,7 +706,7 @@ export class Avatar {
         trousers: this.suit.trousers ? cut('bottom') : null,
         trims: { piping: this.fabric(this.suit.jacket ? 'outer' : 'bottom', 2), zip: this.std(0x2a2c31, { metalness: 0.8, roughness: 0.35 }), metal: this.std(0xd9dde3, { metalness: 0.95, roughness: 0.2 }) },
       };
-      this.model = new ModelBody(this.body, b, rest, this.hands, this.modelShows, this.skin('body'), l, modelTuck(l, topCut, outerCut), suit);
+      this.model = new ModelBody(this.body, b, rest, this.hands, this.modelShows, this.skin('body'), l, modelTuck(l, topCut, outerCut), suit, this.cuts);
     }
   }
 
@@ -1431,6 +1434,8 @@ export class Avatar {
     m.normalMap = this.keep(toTexture(normal, repeat, false));
     m.normalScale.setScalar(0.7);
     m.roughnessMap = this.keep(toTexture(rough, repeat, false));
+    // (cut clothes carry their weave's tiles in a second set of UVs)
+    if (repeat === 1) m.normalMap.channel = m.roughnessMap.channel = 1;
     m.roughness = 1;
     m.clearcoat = 0.3;
     m.clearcoatRoughness = 0.38;
@@ -1611,6 +1616,71 @@ export class Avatar {
     }
   }
 
+  /** the tops, outer layers and trousers cut from the modelled body: their cut, their fabric, a print */
+  private planCuts(): ClothCut[] {
+    const l = this.look;
+    const cuts: ClothCut[] = [];
+    const cut = (slot: 'top' | 'outer', o: ShellStyle, push: number) => {
+      const c: ClothCut = { slot, mat: this.cloth(slot), trim: this.cloth(slot, o.trim ?? 2), push, sleeves: o.sleeves, crop: o.crop, length: o.length, collar: o.collar, puffy: o.puffy };
+      if (o.open) c.open = o.open;
+      return c;
+    };
+    const top = l.items.top;
+    if (top) {
+      const o = TOP_STYLE[top] ?? { sleeves: 'short', collar: 'crew' };
+      const c = cut('top', o, o.push ?? 0.01);
+      // the band tee's faded print and the jersey's number on the chest
+      if (top === 'tee_band' || top === 'jersey_football') c.print = this.printMat(top);
+      cuts.push(c);
+    }
+    const outer = l.items.outer;
+    if (outer && !this.suit?.jacket) {
+      const o = OUTER_STYLE[outer] ?? { sleeves: 'long', collar: 'crew', open: 0.4 };
+      cuts.push(cut('outer', o, o.push ?? 0.03));
+    }
+    const bottom = l.items.bottom;
+    if (bottom && !this.suit?.trousers && !bottom.startsWith('skirt')) {
+      const baggy = ['cargos_baggy', 'cargos_black', 'cargo_tech', 'joggers'].includes(bottom) ? 0.028 : bottom === 'trousers_flared' ? 0.012 : 0.01;
+      cuts.push({ slot: 'bottom', mat: this.cloth('bottom'), trim: this.cloth('bottom', 2), push: 0, baggy, shorts: bottom.startsWith('shorts'), flare: bottom === 'trousers_flared', pockets: bottom.startsWith('cargo') });
+    }
+    return cuts;
+  }
+
+  /** a slot's fabric for cut clothes: its pattern round the body, its weave in the second UVs */
+  private cloth(slot: Slot, zone?: 1 | 2 | 3): THREE.MeshPhysicalMaterial {
+    const m = this.fabric(slot, zone);
+    const material = slotMaterial(this.look, slot);
+    if (material === 'leather') return m.normalMap ? m : this.hide(m, 1);
+    const kind = material === 'denim' ? 'twill' : material === 'cotton' || material === 'velvet' ? 'knit' : material === 'satin' ? 'satin' : null;
+    if (!kind) return m;
+    const { normal, rough } = weaveCanvases(kind);
+    m.normalMap = this.keep(toTexture(normal, 1, false));
+    m.normalMap.channel = 1;
+    m.normalScale.setScalar(kind === 'satin' ? 0.25 : 0.55);
+    // the weave's roughness on top of the fabric's own
+    m.roughnessMap = this.keep(toTexture(rough, 1, false));
+    m.roughnessMap.channel = 1;
+    m.roughness = Math.min(1, m.roughness * 1.15);
+    m.side = THREE.FrontSide;
+    return m;
+  }
+
+  /** the band tee's or the jersey's chest print */
+  private printMat(top: string): THREE.Material {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const g = canvas.getContext('2d')!;
+    g.fillStyle = zoneColors(this.look, 'top')[2];
+    g.font = `900 ${top === 'jersey_football' ? 150 : 64}px "Barlow Condensed", sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.globalAlpha = top === 'tee_band' ? 0.7 : 1;
+    g.fillText(top === 'jersey_football' ? '9' : 'LOW END', 128, 128);
+    const tex = this.keep(toTexture(canvas));
+    return this.keep(new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }));
+  }
+
   private buildClothes(): void {
     const l = this.look;
     const d = this.d;
@@ -1642,6 +1712,23 @@ export class Avatar {
         for (const a of [-0.32, 0.32]) for (const y of [-0.004, 0.024]) {
           const st = this.mesh(new THREE.CylinderGeometry(0.0052, 0.0058, 0.003, 14).rotateX(Math.PI / 2), stud, b.neck, V(Math.sin(a) * 0.069, y, Math.cos(a) * 0.069));
           st.rotation.y = a;
+        }
+        return;
+      }
+      // cut from the modelled body: only the collar's and hood's extras are built here
+      const cut = this.cuts.some((c) => c.slot === slot);
+      if (cut) {
+        if (o.collar === 'high') this.mesh(new THREE.CylinderGeometry(0.062, 0.072, 0.07, 20, 1, true), trim, b.neck, V(0, 0.01, 0));
+        else if (o.collar === 'shirt') {
+          for (const s of [-1, 1]) {
+            const flap = this.mesh(new THREE.BoxGeometry(0.06, 0.004, 0.05), trim, b.neck, V(s * 0.045, -0.025, 0.04));
+            flap.rotation.set(0.6, 0, s * 0.5);
+          }
+        }
+        if (o.hood) {
+          const hood = this.mesh(new THREE.SphereGeometry(d.headR * 1.05, 20, 12, Math.PI * 0.95, Math.PI * 1.1, 0, Math.PI * 0.55), m, b.spine, V(0, 0.36 * d.H, -0.05));
+          hood.scale.set(1.1, 0.8, 1);
+          hood.rotation.x = 1.2;
         }
         return;
       }
@@ -1700,7 +1787,7 @@ export class Avatar {
       shell('top', o.push ?? 0.01, o);
       // the band tee's faded print and the jersey's number on the chest
       const covered = !!l.items.outer && !['utility_vest', 'jacket_sequin', 'denim_jacket', 'velvet_blazer', 'bomber'].includes(l.items.outer ?? '');
-      if ((top === 'tee_band' || top === 'jersey_football') && !covered) {
+      if ((top === 'tee_band' || top === 'jersey_football') && !covered && !this.cuts.some((c) => c.slot === 'top')) {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
         canvas.height = 256;
@@ -1737,7 +1824,7 @@ export class Avatar {
 
     // bottoms
     const bottom = item('bottom');
-    if (bottom && !this.suit?.trousers) {
+    if (bottom && !this.suit?.trousers && (bottom.startsWith('skirt') || !this.cuts.some((c) => c.slot === 'bottom'))) {
       const m = this.fabric('bottom');
       const baggy = ['cargos_baggy', 'cargos_black', 'cargo_tech', 'joggers'].includes(bottom) ? 0.028 : bottom === 'trousers_flared' ? 0.012 : 0.01;
       const shorts = bottom.startsWith('shorts');
