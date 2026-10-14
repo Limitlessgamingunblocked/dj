@@ -1,6 +1,6 @@
 # Deckhouse DJ
 
-A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks, Alexandra Palace (an arena show, or in the round under 43,000 hanging lights) or the house warehouse — each with its own room, a dancing crowd (sign holders, VIP guests by the booth) and a light show of lasers, moving heads, strobes, blinders, CO2 and pyro that follows the beat. Fly an FPV drone camera through the room. Load your own music, mix it, add effects and watch an audio-reactive visual player, with the lyrics of whatever is playing as kinetic type on the LED walls.
+A DJ studio that runs in the browser. Pick a real-world style board — from an entry-level controller to a four-player festival booth, a hybrid vinyl + media player rig or turntables with a rotary mixer — and play it in 3D: every knob, fader, jog wheel, pad and button works. Pick where you play — Circoloco @ DC-10 in Ibiza, Boiler Room in LA, Berghain, Printworks, Alexandra Palace (an arena show, or in the round under 43,000 hanging lights) or the house warehouse — each with its own room, a dancing crowd (sign holders, VIP guests by the booth) and a light show of lasers, moving heads, strobes, blinders, CO2 and pyro that follows the beat. Fly an FPV drone camera through the room. Load your own music, mix it, add effects and watch an audio-reactive visual player, with the lyrics of whatever is playing as kinetic type on the LED walls and as karaoke over the stage. No lyrics? The AI listens to the song and writes them down, timed word by word, right in the browser.
 
 It ships no music: it opens on the Library tab, where you add your own (files, a folder, or a playlist from another app). Load a track on each deck, or press **Play a gig** in the top bar for a scored set.
 
@@ -129,11 +129,7 @@ One gig a day, the same for everyone who plays it that day.
   - Settings → Show & venue turns it off.
 - The results show your best streak and how many requests you met.
 
-### Party: hype dancers and the air horn
-- **Hype dancers:** two glam go-go dancers on glowing podiums either side of the booth, in every club (not the Bedroom).
-  - They dance on the beat: a new move every two bars (sway, waving, hair flips, pointing at you, body rolls).
-  - They clap overhead through the build and jump on the drop.
-  - Show → Party switches them off.
+### Party: the air horn
 - **The air horn** (Show → Party, or Shift+J) works as often as you like.
 - **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
 - **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.
@@ -151,7 +147,7 @@ One gig a day, the same for everyone who plays it that day.
 All in the bookings calendar (Play a gig).
 - **Promoters remember you.** Every booking moves how its (fictional) promoter feels: good sets and hit objectives warm them, bad ones and pulling out cool them. Keen promoters pay up to a third more and give you the peak slots; one you let down enough stops calling, and their offers stop. Each card shows the promoter's mood, and a Promoters list under the offers shows them all.
 - **Residencies:** from tier 2, a promoter who likes you offers a weekly night at their club. The crowd remembers last week: a track you played then gets a groan and costs a little. Keep it fresh and play well and the room fills up week by week (it shows how full); play stale or badly and it empties. End it any time.
-- **The World Tour** (tier 4): a map of real cities with fictional promoters and the game's own rooms. Pick two to five, in order, and they're booked one a night, travelling by van, then train and planes (tier 5), then private jet (tier 6). Each city's crowd has its taste (Berlin wants techno, London drum & bass and garage, Ibiza house on the terrace…): their genres lift the room, and they say so when you're off it. Finish every city for a reward in followers and fame.
+- **The World Tour** (tier 4): a 3D globe of real cities (drag to turn it, scroll to zoom; the flat map stands in without WebGL) with fictional promoters and the game's own rooms. Pick two to five, in order, and they're booked one a night, travelling by van, then train and planes (tier 5), then private jet (tier 6). Each city's crowd has its taste (Berlin wants techno, London drum & bass and garage, Ibiza house on the terrace…): their genres lift the room, and they say so when you're off it. Finish every city for a reward in followers and fame. On the globe the route flies between the cities as arcs in your travel's colour, with your van, train or jet riding along it, and the globe turns to each city you add.
 - **Festival clashes** (tier 6): you're on at the same time as a rival on the other stage. A panel shows your share of the field; play better than them and their crowd drifts over to you, play worse and you can watch your field thin out. Hold more than half for +20 fame.
 - **Night events:** about one set in three something happens mid-set, with a banner and a countdown in the HUD:
   - **Power cut:** the lights die and half come back on the generator. Keep the room up and it pays.
@@ -238,7 +234,8 @@ Everything you can change is on the Settings tab, in sections with a search box 
 - **Your settings:** export everything (preferences, keyboard, MIDI mappings, saved views, Set Builder options) to a file, import it in another browser, or reset to the defaults. The music library isn't part of the file. Saved and imported settings are checked on load, so an old or edited file can't break the app.
 
 ### Boards (3D, Three.js)
-- **Easy to read in any room:** a soft deck light over every board, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
+- **The board showroom** (the Board picker in the top bar or Settings): every board stands on its own lit plinth in a dark showroom, real size, with its finishes. ‹ › (or ← →, or the names along the bottom, or clicking a board at the side) turns the floor to the next one; drag to spin a board, scroll to zoom, and the swatches repaint it. **Play on this** (Enter, or double-click the board) dives the camera in and puts it in the booth. **Grid view** shows the flat cards instead, and they stand in by themselves where WebGL isn't available.
+- **Easy to read in any room:** a soft deck light over every board that comes up by itself when the room is dark, no contact-shadow smudges or mirrored glare on the hardware, the drinks and laptop kept off the controls, print drawn larger and brighter than the real silk-screen, lit fader slots, satin knob caps with bold pointers, backlit buttons and pads that glow faintly even when off, and an outline round the control you're pointing at. The performance view frames the hardware so its controls fill the picture.
 
 | Board | Class | Decks |
 |---|---|---|
@@ -324,11 +321,13 @@ Builds a set from the analysed tracks in your library (or one crate), around art
 The engine is in `src/setbuilder/` (profiling, harmony, arcs, generation, exports) and has no UI dependencies.
 
 ### Lyrics on the screens
+- **AI lyrics**: the AI listens to a song with vocals and writes down the lyrics with every word timed. It runs OpenAI's Whisper speech model in the browser (Hugging Face's transformers.js, on the graphics card through WebGPU where it can, otherwise on the processor), in a worker so the mixing never waits for it. It hears the vocal stem (the centre of the mix, bass and kick cut), finds the sung stretches with the vocal-activity scan below and only listens there, cut into windows under the model's 30 s, starting from the part under the playhead so the words you're about to hear come first. Music tags, the stock sign-offs speech models invent over instrumentals and runaway repeats are filtered out, then the words are grouped into lines at breaths and sentence ends. The words show as karaoke while it's still listening, and the finished lyrics are saved with the track, so it only listens to a song once. **Time with AI** keeps lyrics you already have (pasted, from the tags or LRCLIB) word for word and takes only their timing from what it hears, by aligning the two word lists. The first time, a guide explains it all before anything downloads; then it can listen to every track you load that has no lyrics (Show → AI lyrics), or one at a time from a deck's ✨ chip or ⋯ menu. Two models: Standard (Whisper Base, about 80–150 MB) and Best (Whisper Small, about 250–450 MB), downloaded once from Hugging Face; your music never leaves the device. Pick the language if it guesses wrong.
+- **Karaoke over the stage** (Shift+K): the line being sung, big, each word filling with the deck's colour from left to right over the time it's held, the next line waiting underneath, and beat dots counting you in after a long gap. With two singing decks in a blend both show, the louder one big and the other smaller and fading with its fader and the crossfader. Hook lines go uppercase and glow in the venue's colour.
 - **Where lyrics come from**: the file's own tags (ID3 USLT and synced SYLT, Vorbis `LYRICS`, MP4 `©lyr`), an `.lrc` or `.txt` file with the same name dropped in with the audio, text you paste, or an optional LRCLIB lookup (lrclib.net; it asks first and sends only the artist, title and length). LRC and enhanced LRC (per-word `<mm:ss.xx>` stamps) keep their timing.
 - **Aligning plain lyrics to the vocals**: the track is scanned for centre-panned tonal energy in the voice band (250 Hz–3.5 kHz, side channel subtracted, broadband drums ignored). That gives a vocal-activity curve and syllable onsets. Lines are laid over the sung parts in proportion to their syllables, and words snap to nearby onsets. This is signal analysis, not speech recognition, so it can drift on dense tracks: the editor has tap-sync (tap at the start of each line while the track plays), an offset slider, a live preview and .lrc export.
 - **Kinetic typography**: the loudest playing deck's lyrics appear on the LED walls and in the visual player. Words pop in as they're sung, the type breathes with the kick, ripples with the vocal and glitches on snares. Styles: neon outline, glitch (slice displacement and RGB split), kinetic wave, tracking (letter-spacing glides in), karaoke wipe, or auto (hooks in neon and glitch, verses tracking and waving). Colours follow the light show's palette.
 - **Key phrases hit the lights**: repeated lines and `[Chorus]`/`[Hook]` sections are hooks. When one lands, the lights fire a beat of strobes, a blinder pop and a burst of lit haze, and the crowd throws their arms up.
-- The 🎤 button on each deck (Pro layout, or the deck's ⋯ menu) opens the editor; the Show tab has the style and switches (hook lighting, booth subtitle).
+- The 🎤 button on each deck (Pro layout, or the deck's ⋯ menu) opens the editor; the Show tab has the style and switches (hook lighting, karaoke, AI lyrics).
 
 ### Venues and light show
 | Venue | What it is |
@@ -506,7 +505,7 @@ src/audio/                 engine, decks, channel strips, mixer, beat FX, sample
 src/analysis/              tempo/grid, key, waveform, PCM parsers, worker pool
 src/library/               IndexedDB storage, tags, crates, search
 src/setbuilder/            SmartDJ set generation: track profiles, artist styles, key/tempo rules, energy arcs, exports
-src/lyrics/                lyric formats (LRC, tags, LRCLIB), vocal activity + alignment, lyrics clock
+src/lyrics/                lyric formats (LRC, tags, LRCLIB), vocal activity + alignment, lyrics clock, AI lyrics (Whisper worker, vocal stem, cleanup, alignment)
 src/three/                 stage, camera rig (incl. drone and the moving angles), lens pass and looks, board parts and presets, stickers
 src/three/venues/          venues, light show director, fixtures (beams, lasers, strobes…), crowd, pyro
 src/three/venues/rooms/    the crazy rooms and their shared engine (pads, scenes, drop moments, mirror probes)

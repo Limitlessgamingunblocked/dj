@@ -477,7 +477,9 @@ export abstract class CrazyRoom extends VenueBase implements RoomControls {
   /** a crowd that reacts to the room (updated here, not as a plain fixture) */
   protected people(density: number, seed: number, o: CrowdOptions & { area?: [number, number, number, number]; y?: number; spots?: CrowdSpot[] } = {}): Crowd {
     const [ax0, ax1, az0, az1] = o.area ?? [this.x0 + 1, this.x1 - 1, -1.6, this.z0 + 1.4];
-    const c = new Crowd(o.spots ?? crowdArea(ax0, ax1, az0, az1, density, seed, { y: o.y ?? 0 }), { seed, ...o });
+    // nobody stands in the booth (round the decks at the origin), whatever area a room asks for
+    const spots = o.spots ?? crowdArea(ax0, ax1, az0, az1, density, seed, { y: o.y ?? 0 }).filter((p) => o.booth || !(Math.abs(p.x) < 1.8 && p.z > -1.4 && p.z < 1.4));
+    const c = new Crowd(spots, { seed, ...o });
     this.crowds.push(c);
     this.group.add(c.object);
     return c;

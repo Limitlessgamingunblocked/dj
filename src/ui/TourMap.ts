@@ -7,7 +7,9 @@
  */
 import { CITIES, MAX_TOUR_CITIES, travelFor, tourReward, type City } from '../game/circuit';
 import type { Career } from '../game/Career';
+import { LABEL, LAND } from '../three/globe';
 import { h } from './dom';
+import { tourGlobe } from './TourGlobe';
 import { openModal, type ModalHandle } from './modal';
 
 export interface TourHooks {
@@ -17,47 +19,9 @@ export interface TourHooks {
   booked(): void;
 }
 
-/** rough outlines, [lat, lon] (no map data: hand-placed points, enough to read as the world) */
-const LAND: [number, number][][] = [
-  // North America
-  [[70, -165], [72, -140], [70, -100], [75, -80], [62, -62], [47, -53], [44, -66], [35, -76], [25, -80], [30, -90], [26, -97], [20, -97], [15, -92], [8, -78], [10, -84], [15, -95], [20, -105], [30, -115], [40, -124], [50, -127], [58, -137], [60, -147], [55, -163], [65, -168]],
-  // Greenland
-  [[83, -35], [80, -15], [70, -20], [60, -43], [66, -55], [77, -70], [82, -60]],
-  // South America
-  [[12, -72], [10, -62], [5, -52], [-5, -35], [-23, -41], [-34, -53], [-40, -62], [-55, -68], [-52, -75], [-40, -73], [-18, -70], [-5, -81], [2, -80], [8, -77]],
-  // Europe and Asia
-  [[36, -9], [43, -9], [48, -5], [51, 2], [54, 8], [57, 8], [58, 11], [63, 5], [71, 25], [69, 40], [73, 55], [77, 105], [72, 130], [70, 160], [66, 180], [60, 165], [52, 157], [59, 143], [53, 141], [43, 132], [38, 122], [30, 122], [22, 114], [10, 106], [1, 104], [8, 98], [17, 95], [22, 90], [16, 82], [8, 77], [20, 72], [25, 62], [25, 57], [30, 48], [30, 35], [35, 36], [37, 27], [40, 26], [36, 22], [40, 19], [45, 13], [40, 15], [38, 16], [44, 8], [43, 3], [37, -1]],
-  // Arabia
-  [[30, 35], [28, 48], [24, 57], [17, 55], [12, 45], [20, 40]],
-  // Britain and Ireland
-  [[50, -5], [51, 1.5], [53, 0.3], [56, -2], [58.5, -3], [58, -6], [55, -5], [53, -4.5], [51.5, -5]],
-  [[51.5, -10], [54.5, -10], [55, -7], [52, -6]],
-  // Africa
-  [[35, -6], [37, 10], [32, 32], [30, 33], [12, 44], [11, 51], [-2, 41], [-12, 40], [-26, 33], [-34, 26], [-35, 19], [-29, 16], [-17, 12], [-6, 12], [4, 9], [4, -8], [6, -10], [15, -17], [21, -17], [28, -13]],
-  [[-12, 49], [-16, 50], [-25, 47], [-22, 43], [-16, 44]],
-  // Australia and New Zealand
-  [[-11, 131], [-12, 137], [-17, 141], [-11, 142], [-25, 153], [-37, 150], [-39, 146], [-32, 134], [-35, 117], [-22, 114], [-14, 127]],
-  [[-35, 173], [-41, 176], [-46, 170], [-41, 172]],
-  // Japan, the islands of South East Asia
-  [[31, 130], [34, 135], [35, 140], [41, 141], [45, 142], [43, 145], [40, 140], [36, 136], [34, 131]],
-  [[5, 95], [-1, 101], [-6, 106], [-4, 103], [2, 98]],
-  [[7, 117], [1, 109], [-3, 111], [-3, 116], [1, 119]],
-  [[-2, 131], [-6, 139], [-9, 141], [-10, 148], [-6, 147], [-3, 141]],
-];
-
 const xy = (lat: number, lon: number): [number, number] => [(lon + 180) / 360, (80 - lat) / 140];
 
-/** where each city's name sits, so the close ones in Europe don't overlap */
-const LABEL: Record<string, [number, number, CanvasTextAlign]> = {
-  london: [-10, 4, 'right'],
-  amsterdam: [0, -12, 'center'],
-  berlin: [10, 4, 'left'],
-  ibiza: [0, 18, 'center'],
-  detroit: [-10, -6, 'right'],
-  newyork: [10, 10, 'left'],
-};
-
-const TRAVEL_COLOR = { van: '#ffc43d', train: '#3dc8ff', jet: '#ff4fd8' };
+export const TRAVEL_COLOR = { van: '#ffc43d', train: '#3dc8ff', jet: '#ff4fd8' };
 
 export function openTourMap(o: TourHooks): ModalHandle {
   const c = o.career;
@@ -68,7 +32,8 @@ export function openTourMap(o: TourHooks): ModalHandle {
   const H = 520;
   const canvas = h('canvas', { width: W, height: H, class: 'tm-map', role: 'img', 'aria-label': 'World map: click cities to add them to the tour' }) as HTMLCanvasElement;
   const g = canvas.getContext('2d')!;
-  const land = landDots(W, H);
+  // the flat map's land dots, made the first time it draws (the globe doesn't need them)
+  let land: number[] | null = null;
   let hover: string | null = null;
   let t0 = performance.now();
 
@@ -85,6 +50,7 @@ export function openTourMap(o: TourHooks): ModalHandle {
     else if (route.length < MAX_TOUR_CITIES) route.push(id);
     t0 = performance.now();
     renderSide();
+    globe?.update();
   };
 
   const draw = (now: number) => {
@@ -116,6 +82,7 @@ export function openTourMap(o: TourHooks): ModalHandle {
     }
     // the land, as dots
     g.fillStyle = 'rgb(150 175 230 / 26%)';
+    land ??= landDots(W, H);
     for (let i = 0; i < land.length; i += 2) g.fillRect(land[i] - 1.1, land[i + 1] - 1.1, 2.2, 2.2);
     // the route
     const col = TRAVEL_COLOR[travel.mode];
@@ -218,7 +185,7 @@ export function openTourMap(o: TourHooks): ModalHandle {
     );
     const reward = tourReward(route.map(() => ({ grade: 'A' })));
     summary.replaceChildren(
-      h('b', {}, route.length ? route.map((id) => CITIES.find((x) => x.id === id)!.name).join(' → ') : 'Click cities on the map'),
+      h('b', {}, route.length ? route.map((id) => CITIES.find((x) => x.id === id)!.name).join(' → ') : globe ? 'Click cities on the globe' : 'Click cities on the map'),
       h('span', { class: 'gs-note' }, route.length < 2 ? `Two to ${MAX_TOUR_CITIES} cities, one a night, in the order you pick them.` : `${route.length} nights by ${travel.label.toLowerCase()} (${travel.note.toLowerCase()}). Good nights all round: about +${reward.followers.toLocaleString()} followers.`),
     );
     book.toggleAttribute('disabled', route.length < 2);
@@ -233,17 +200,20 @@ export function openTourMap(o: TourHooks): ModalHandle {
   clear.addEventListener('click', () => {
     route.length = 0;
     renderSide();
+    globe?.update();
   });
 
+  // the globe, or the flat map without WebGL
+  const globe = tourGlobe({ route, travel: travel.mode, color: TRAVEL_COLOR[travel.mode], toured: c.circuit.toured, toggle });
   renderSide();
   const body = h(
     'div',
     { class: 'tour-map' },
-    h('div', { class: 'tm-left' }, canvas, h('div', { class: 'tm-legend' }, h('i', { style: `--tc:${TRAVEL_COLOR[travel.mode]}` }), `You travel by ${travel.label.toLowerCase()}. `, travel.mode === 'jet' ? null : h('span', { class: 'gs-note' }, travel.mode === 'van' ? 'Tier 5 brings trains and planes, tier 6 a private jet.' : 'Tier 6 brings a private jet.')), summary, h('div', { class: 'gs-actions' }, clear, book)),
+    h('div', { class: 'tm-left' }, globe ? globe.el : canvas, h('div', { class: 'tm-legend' }, h('i', { style: `--tc:${TRAVEL_COLOR[travel.mode]}` }), `You travel by ${travel.label.toLowerCase()}. `, travel.mode === 'jet' ? null : h('span', { class: 'gs-note' }, travel.mode === 'van' ? 'Tier 5 brings trains and planes, tier 6 a private jet.' : 'Tier 6 brings a private jet.')), summary, h('div', { class: 'gs-actions' }, clear, book)),
     list,
   );
   const modal = openModal('World Tour', body, { wide: true });
-  requestAnimationFrame(draw);
+  if (!globe) requestAnimationFrame(draw);
   return modal;
 }
 

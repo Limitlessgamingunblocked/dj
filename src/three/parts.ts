@@ -600,7 +600,7 @@ function jogRingKnurled(): THREE.MeshStandardMaterial {
 
 /** a controller jog's brushed aluminium top, with faint fingerprints */
 function jogTopMetal(): THREE.MeshStandardMaterial {
-  return (alloyTop ??= new THREE.MeshStandardMaterial({ color: 0xb9bec7, metalness: 1, roughness: 1, roughnessMap: fingerprintRoughness(0.36, 0.2, true) }));
+  return (alloyTop ??= new THREE.MeshStandardMaterial({ color: 0x8f949c, metalness: 1, roughness: 1, roughnessMap: fingerprintRoughness(0.44, 0.2, true) }));
 }
 
 /** fingerprints for a display glass, turned to its uv (a cylinder cap's) so they sit on the near side */

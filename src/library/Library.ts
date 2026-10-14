@@ -160,6 +160,12 @@ export class Library extends Emitter<LibraryEvents> {
     this.emit('changed', undefined);
   }
 
+  /** Note that the AI listened to a track for lyrics. */
+  setAiScan(t: LibraryTrack, scan: LibraryTrack['aiScan'] | null): void {
+    t.aiScan = scan ?? undefined;
+    this.saveTrack(t, 0);
+  }
+
   list(): LibraryTrack[] {
     return [...this.tracks.values()];
   }
