@@ -45,8 +45,10 @@ import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData
 import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
 import { isPlaylistFile, parsePlaylistFile, type Playlist } from '../library/playlists';
-import type { LyricLine } from '../lyrics/lyrics';
 import { LyricsEngine } from '../lyrics/LyricsEngine';
+import { LyricsAI } from '../lyrics/LyricsAI';
+import { Karaoke } from '../ui/Karaoke';
+import { openLyricsAiGuide } from '../ui/LyricsAiGuide';
 import { MidiManager } from '../midi/MidiManager';
 import { presetFor } from '../midi/rev5';
 import { songLook } from '../visualizer/songLook';
@@ -188,8 +190,10 @@ export class App implements AppContext {
   vj!: VjHost;
   private callouts!: HTMLElement;
   private lyrics!: LyricsEngine;
-  private lyricHud!: HTMLElement;
-  private lyricShown: { line: LyricLine | null; words: HTMLElement[] } = { line: null, words: [] };
+  /** karaoke over the stage */
+  private karaoke = new Karaoke();
+  /** AI lyrics: listens to tracks for their words (lyrics/LyricsAI.ts) */
+  lyricsAi!: LyricsAI;
   private viewers = 900;
   private stageDt = 0;
   private uiDt = 0;
@@ -380,6 +384,8 @@ export class App implements AppContext {
       }
       deck.load(t, pcm, analysis);
       this.library.markPlayed(t);
+      // no lyrics yet: the AI listens for them (when it's switched on)
+      this.lyricsAi.trackLoaded(t, 0);
     } catch (err) {
       toast(`Couldn't load “${t.meta.title}”: ${err instanceof Error ? err.message : String(err)}`, 'error');
     } finally {
@@ -455,6 +461,7 @@ export class App implements AppContext {
     for (const ch of this.engine.channels) ch.faderCurve = this.settings.faderCurve;
     this.pool = new AnalysisPool();
     this.library = new Library(this.pool, (bytes) => this.decode(bytes));
+    this.lyricsAi = new LyricsAI(this.library);
     registerControls(this.reg, this.engine, {
       loadSelected: (d) => {
         if (this.selected) void this.loadTrack(d, this.selected.id);
@@ -718,7 +725,11 @@ export class App implements AppContext {
     });
     this.lyrics = new LyricsEngine(this.engine, (id) => {
       const t = this.engine.deck(id).track;
-      return t?.lyrics ? { lyrics: t.lyrics, title: t.meta.title } : null;
+      if (!t) return null;
+      if (t.lyrics) return { lyrics: t.lyrics, title: t.meta.title };
+      // the AI is still listening: what it's heard so far
+      const heard = this.lyricsAi.partial(t.id);
+      return heard ? { lyrics: heard, title: t.meta.title, listening: true } : null;
     });
 
     this.buildLayout();
@@ -843,7 +854,8 @@ export class App implements AppContext {
       autodj: () => this.setAutoDJ(!this.autodj.on),
       broadcast: () => this.broadcast.set(!this.broadcast.on),
       airdj: () => this.airdj.set(!this.airdj.on),
-      help: () => openHelp(),
+      karaoke: () => this.toggleKaraoke(),
+      help: () => this.help(),
       search: () => {
         this.showTab('library');
         this.libPanel.focusSearch();
@@ -1003,10 +1015,15 @@ export class App implements AppContext {
     const mixer = new MixerPanel(this);
     const fx = new FxPanel(this);
     const sampler = new SamplerPanel(this, (s, f) => this.loadSampleFile(s, f), (s) => this.resetSample(s));
-    const visuals = new VisualsPanel(this.stage, () => this.saveVis(), (v, fs) => {
-      this.setView(v);
-      if (fs) this.fullscreen();
-    });
+    const visuals = new VisualsPanel(
+      this.stage,
+      () => this.saveVis(),
+      (v, fs) => {
+        this.setView(v);
+        if (fs) this.fullscreen();
+      },
+      this.lyricsAi,
+    );
     const midi = new MidiPanel(this.midi, this.reg, this.engine.mixer);
     const lights = new LightsPanel(this, this.stage, () => this.saveLights());
     this.setupPanel = new SetupPanel(this, this.stage, {
@@ -1102,6 +1119,20 @@ export class App implements AppContext {
     this.stage.resize();
   }
 
+  private help(): void {
+    openHelp({ aiLyrics: () => openLyricsAiGuide(this.lyricsAi) });
+  }
+
+  /** karaoke over the stage on or off (Shift+K) */
+  private toggleKaraoke(): void {
+    const s = this.stage.visualizer.settings;
+    const on = !(s.lyrics && s.lyricHud);
+    s.lyricHud = on;
+    if (on) s.lyrics = true;
+    this.saveVis();
+    toast(on ? 'Karaoke on: the words show over the stage as they’re sung.' : 'Karaoke off.');
+  }
+
   /** the top bar's ⋯ menu: view, full screen, MIDI, help */
   private moreMenu(x: number, y: number): void {
     const v = this.stage.view;
@@ -1132,7 +1163,7 @@ export class App implements AppContext {
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
       { label: 'Your label…', action: () => openLabel(this.mashupHooks()) },
       'sep',
-      { label: 'Help and shortcuts', hint: '?', action: () => openHelp() },
+      { label: 'Help and shortcuts', hint: '?', action: () => this.help() },
     ]);
   }
 
@@ -1231,8 +1262,7 @@ export class App implements AppContext {
     const pad = this.buildCameraPad();
     this.hud = { camBtn, zoomChip, expandBtn, fullBtn, framing, pad: pad.el, padWidgets: pad.widgets };
     this.callouts = h('div', { class: 'callouts', 'aria-live': 'polite' });
-    this.lyricHud = h('div', { class: 'lyric-hud', 'aria-hidden': 'true' });
-    this.stage.el.append(this.callouts, this.lyricHud, pad.el);
+    this.stage.el.append(this.callouts, this.karaoke.el, pad.el);
     return h('div', { class: 'stage-hud' }, zoomChip, h('div', { class: 'stage-tools' }, framing, camBtn, expandBtn, fullBtn));
   }
 
@@ -1381,32 +1411,6 @@ export class App implements AppContext {
     const z = this.stage.zoomedLabel;
     zoomChip.hidden = !z || this.stage.view === 'visual';
     if (z) setText(zoomChip, `${z} · zoom out`);
-  }
-
-  /** the line being sung, as a subtitle over the booth (the screens show it big) */
-  private updateLyricHud(): void {
-    const s = this.stage.visualizer.settings;
-    const fr = this.stage.lyric;
-    const line = s.lyrics && s.lyricHud && this.stage.view !== 'visual' ? (fr?.line ?? null) : null;
-    const shown = this.lyricShown;
-    if (line !== shown.line) {
-      shown.line = line;
-      if (line) {
-        shown.words = (line.words.length ? line.words : [{ t: line.t, end: line.end, text: line.text }]).map((w) => h('span', {}, w.text));
-        this.lyricHud.replaceChildren(...shown.words.flatMap((el, i) => (i ? [document.createTextNode(' '), el] : [el])));
-      }
-      this.lyricHud.classList.toggle('on', !!line);
-      this.lyricHud.classList.toggle('hook', !!line?.hook);
-    }
-    if (line && fr) {
-      const words = line.words.length ? line.words : [{ t: line.t, end: line.end, text: line.text }];
-      words.forEach((w, i) => {
-        const el = shown.words[i];
-        if (!el) return;
-        el.classList.toggle('sung', fr.pos >= w.t);
-        el.classList.toggle('now', fr.pos >= w.t && fr.pos <= w.end + 0.05);
-      });
-    }
   }
 
   /** a short message from the crowd, over the stage */
@@ -1932,7 +1936,11 @@ export class App implements AppContext {
       this.engine.crowd.update(dt);
       this.chant?.update(dt, this.stage.hype, this.clock.playing);
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
-      this.stage.lyric = this.lyrics.frame();
+      const lyricFrames = this.lyrics.frames();
+      this.stage.lyric = lyricFrames[0] ?? null;
+      // karaoke every frame: the sweep through each word has to be smooth
+      const vs = this.stage.visualizer.settings;
+      this.karaoke.update(lyricFrames, vs.lyrics && vs.lyricHud && this.stage.view !== 'visual');
       lap('audio + game');
       // a dialog over the stage: the club only needs a third of the frames
       this.stageDt += dt;
@@ -1959,7 +1967,6 @@ export class App implements AppContext {
       this.uiDt += dt;
       if (this.frame % 2 === 0) {
         for (const d of this.decksUi) d.update();
-        this.updateLyricHud();
       } else {
         this.topbar.update();
         this.updateHud();
