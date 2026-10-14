@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Deck } from '../src/audio/Deck';
 import { downbeatAt, GridEditor, gridOffset, JOG_BEATS_PER_REV, nearestBeat, slideGrid, snapOffset, stretchGrid, type Grid } from '../src/app/gridEdit';
 import { Emitter } from '../src/core/emitter';
+import { detectSections } from '../src/game/sections';
 import type { LibraryTrack, TrackAnalysis } from '../src/core/types';
 
 const g120: Grid = { bpm: 120, firstBeat: 0.3 };
@@ -157,5 +158,15 @@ describe('grid editor', () => {
     d.emit('loaded', deck);
     expect(ed.active(deck)).toBe(false);
     expect(save).toHaveBeenCalledWith(old, expect.objectContaining({ firstBeat: expect.closeTo(0.305, 6) }));
+  });
+
+  it('song sections move with the grid', () => {
+    const { d, deck, ed } = setup();
+    d.analysis.duration = 60;
+    const before = detectSections(d.analysis)!;
+    expect(before.length).toBeGreaterThan(1);
+    ed.slide(deck, 0.1);
+    const after = detectSections(d.analysis)!;
+    expect(after[1].t - before[1].t).toBeCloseTo(0.1);
   });
 });

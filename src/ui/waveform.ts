@@ -9,6 +9,7 @@
 import type { Deck } from '../audio/Deck';
 import type { GridStyle, WaveScheme } from '../core/prefs';
 import type { TrackAnalysis } from '../core/types';
+import { trackInfo, type Section, type SectionKind } from '../game/tracks';
 
 const TILE_W = 2048;
 export const WAVE_H = 72;
@@ -221,6 +222,79 @@ function drawBoldGrid(g: CanvasRenderingContext2D, bpm: number, firstBeat: numbe
   }
 }
 
+let sectionsOn = true;
+
+/** Song section colours on the waveforms (Settings → Appearance). */
+export function setSectionColors(on: boolean): void {
+  sectionsOn = on;
+}
+
+/** a colour and a name for each part of a song */
+export const SECTION_STYLE: Record<SectionKind, { color: string; label: string }> = {
+  intro: { color: '#3fa7ff', label: 'Intro' },
+  groove: { color: '#2ecc71', label: 'Groove' },
+  breakdown: { color: '#9b6bff', label: 'Breakdown' },
+  build: { color: '#ffb020', label: 'Build' },
+  drop: { color: '#ff2e88', label: 'Drop' },
+  outro: { color: '#7a8599', label: 'Outro' },
+};
+
+/** the loaded track's sections, when there are any to show */
+export function deckSections(deck: Deck): Section[] | null {
+  if (!sectionsOn || !deck.loaded || !deck.track || !deck.analysis) return null;
+  const s = trackInfo(deck.track).sections;
+  return s?.length ? s : null;
+}
+
+/** each section's span [start, end) in track seconds */
+function spans(sections: Section[], duration: number): { s: Section; t0: number; t1: number }[] {
+  return sections.map((s, i) => ({ s, t0: i === 0 ? 0 : s.t, t1: sections[i + 1]?.t ?? duration }));
+}
+
+/**
+ * Song sections on the scrolling waveform: a faint tint behind each part, a
+ * coloured band along the bottom and a name tag where each part starts.
+ */
+function drawSections(g: CanvasRenderingContext2D, sections: Section[], duration: number, pos: number, cx: number, pxPerSec: number, t0: number, t1: number, y: number, h: number, compact: boolean, layer: 'tint' | 'band'): void {
+  const u = Math.max(1, Math.round(h / 64));
+  const band = Math.max(3 * u, Math.round(h * 0.07));
+  for (const { s, t0: a, t1: b } of spans(sections, duration)) {
+    if (b < t0 || a > t1) continue;
+    const x0 = cx + (a - pos) * pxPerSec;
+    const x1 = cx + (b - pos) * pxPerSec;
+    const st = SECTION_STYLE[s.kind];
+    if (layer === 'tint') {
+      g.globalAlpha = 0.09;
+      g.fillStyle = st.color;
+      g.fillRect(x0, y, x1 - x0, h);
+      g.globalAlpha = 1;
+      continue;
+    }
+    g.fillStyle = st.color;
+    g.fillRect(x0, y + h - band, x1 - x0, band);
+    if (compact) continue;
+    // the name rides along the band, held at the left edge while its part is on screen
+    const fs = Math.max(9, 9 * u);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    const label = st.label.toUpperCase();
+    const tw = g.measureText(label).width;
+    const lx = Math.min(Math.max(x0, cx + (t0 - pos) * pxPerSec), x1 - tw - 8 * u);
+    if (x1 - x0 < tw + 8 * u) {
+      g.textBaseline = 'alphabetic';
+      continue;
+    }
+    const th = fs + 3 * u;
+    const ty = y + h - band - th;
+    g.fillStyle = st.color;
+    g.fillRect(lx, ty, tw + 8 * u, th + band);
+    g.fillStyle = '#05070a';
+    g.fillText(label, lx + 4 * u, ty + th / 2 + u / 2);
+    g.textBaseline = 'alphabetic';
+  }
+}
+
 export interface ZoomOpts {
   pxPerSec: number; // pixels per second of real time
   playheadX?: number; // fraction of width
@@ -260,6 +334,9 @@ export function drawZoomed(g: CanvasRenderingContext2D, deck: Deck, x: number, y
     g.fillRect(lx0, y, lx1 - lx0, h);
   }
 
+  const sections = deckSections(deck);
+  if (sections) drawSections(g, sections, deck.duration, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact, 'tint');
+
   // every other 4-bar phrase a shade lighter, so phrases read at a glance
   if (opts.showGrid !== false && a.bpm > 0 && (gridStyle === 'bold' || deck.gridEdit)) {
     const phrase = (60 / a.bpm) * 16;
@@ -292,6 +369,8 @@ export function drawZoomed(g: CanvasRenderingContext2D, deck: Deck, x: number, y
     if (deck.gridEdit || gridStyle === 'bold') drawBoldGrid(g, a.bpm, a.firstBeat, pos, cx, pxPerTrackSec, t0, t1, y, h, deck.gridEdit, !!opts.compact);
     else if (gridStyle === 'subtle') drawSubtleGrid(g, a.bpm, a.firstBeat, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact);
   }
+
+  if (sections) drawSections(g, sections, deck.duration, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact, 'band');
 
   // cues
   if (opts.showCues !== false) {
@@ -370,6 +449,26 @@ export function drawOverview(g: CanvasRenderingContext2D, deck: Deck, w: number,
     const phrase = (60 / a.bpm) * 64;
     g.fillStyle = gridStyle === 'bold' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.14)';
     for (let t = a.firstBeat; t < dur; t += phrase) g.fillRect(Math.round(px(t)), 0, 1 * dpr, h);
+  }
+  // the song's sections: a coloured band along the bottom, with names where there's room
+  const sections = deckSections(deck);
+  if (sections) {
+    const band = Math.max(3 * dpr, Math.round(h * 0.14));
+    const fs = Math.round(9 * dpr);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    g.textAlign = 'left';
+    for (const { s, t0, t1 } of spans(sections, dur)) {
+      const st = SECTION_STYLE[s.kind];
+      const x0 = px(t0);
+      const x1 = px(t1);
+      g.fillStyle = st.color;
+      g.fillRect(x0, h - band, Math.max(1, x1 - x0 - dpr), band);
+      const label = st.label.toUpperCase();
+      if (h >= 30 * dpr && x1 - x0 > g.measureText(label).width + 6 * dpr) {
+        g.fillStyle = st.color;
+        g.fillText(label, x0 + 2 * dpr, h - band - 2 * dpr);
+      }
+    }
   }
   if (deck.loop.end > deck.loop.start) {
     g.fillStyle = deck.loop.active ? 'rgba(61,220,151,0.35)' : 'rgba(61,220,151,0.12)';

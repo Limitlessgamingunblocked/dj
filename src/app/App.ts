@@ -40,7 +40,7 @@ import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
 import { formatKey, setKeyNotation } from '../analysis/keys';
 import { setCrowdScale } from '../three/venues/crowd';
-import { setGridStyle, setWaveScheme } from '../ui/waveform';
+import { setGridStyle, setSectionColors, setWaveScheme } from '../ui/waveform';
 import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData } from '../core/types';
 import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
@@ -1641,6 +1641,7 @@ export class App implements AppContext {
     if (has('keyNotation')) setKeyNotation(prefs.keyNotation);
     if (has('waveScheme')) setWaveScheme(prefs.waveScheme);
     if (has('beatGrid')) setGridStyle(prefs.beatGrid);
+    if (has('sectionColors')) setSectionColors(prefs.sectionColors);
     if (has('uiScale')) {
       root.setProperty('--ui-zoom', String(prefs.uiScale));
       if (changed) requestAnimationFrame(() => this.stage.resize());

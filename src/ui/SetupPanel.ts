@@ -240,6 +240,7 @@ export class SetupPanel {
       h('div', { class: 'set-row field', 'data-k': 'deck colours colors' }, h('span', {}, 'Deck colours'), deckCols),
       this.row('Key notation', notation, 'camelot open key musical harmonic', 'Library, decks, Set Builder and the board screens.'),
       this.row('Waveform colours', wave, 'waveform rgb 3-band blue colour color'),
+      this.prefCheck('sectionColors', 'Colour song sections on the waveforms (intro, breakdown, build, drop, outro)', 'sections drop breakdown intro outro build colour color waveform'),
       this.row('Beat grid', grid, 'beat grid lines bars waveform visible', 'On the scrolling waveforms and the board screens. To line a grid up with the music, use Grid edit in the deck tools.'),
       this.row(
         'Interface sounds',

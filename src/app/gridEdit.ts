@@ -12,6 +12,7 @@
 import type { Deck } from '../audio/Deck';
 import type { ControlRegistry, LedState } from '../core/controls';
 import type { LibraryTrack, TrackAnalysis } from '../core/types';
+import { forgetSections } from '../game/sections';
 import { GRID_EDIT_COLOR } from '../ui/waveform';
 
 export interface Grid {
@@ -213,6 +214,8 @@ export class GridEditor {
     if (!Number.isFinite(g.bpm) || !Number.isFinite(g.firstBeat) || g.bpm <= 0) return;
     a.bpm = g.bpm;
     a.firstBeat = g.firstBeat;
+    // the song's sections sit on the grid's bars: find them again on the new grid
+    forgetSections(a);
     d.emit('change', d);
     // dragging and jogging edit many times a second: save once it settles
     clearTimeout(this.timers.get(d));

@@ -20,6 +20,8 @@ export interface Prefs {
   waveScheme: WaveScheme;
   /** beat grid on the scrolling waveforms: bold lines, the old faint ones, or none */
   beatGrid: GridStyle;
+  /** colour the song's sections (intro, breakdown, drop…) on the waveforms */
+  sectionColors: boolean;
   /** interface accent colour; '' follows the venue */
   accent: string;
   deckColors: [string, string, string, string];
@@ -93,6 +95,7 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   keyNotation: 'camelot',
   waveScheme: 'threeband',
   beatGrid: 'bold',
+  sectionColors: true,
   accent: '',
   deckColors: DEFAULT_DECK_COLORS,
   uiScale: 1,
@@ -143,6 +146,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
     keyNotation: oneOf(r.keyNotation, KEY_NOTATIONS.map((n) => n.id), d.keyNotation),
     waveScheme: oneOf(r.waveScheme, WAVE_SCHEMES.map((s) => s.id), d.waveScheme),
     beatGrid: oneOf(r.beatGrid, GRID_STYLES.map((s) => s.id), d.beatGrid),
+    sectionColors: bool(r.sectionColors, d.sectionColors),
     accent: r.accent === '' ? '' : colour(r.accent, d.accent),
     deckColors: [0, 1, 2, 3].map((i) => colour(dc[i], d.deckColors[i])) as Prefs['deckColors'],
     uiScale: Math.round(num(r.uiScale, 0.8, 1.3, d.uiScale) * 20) / 20,
