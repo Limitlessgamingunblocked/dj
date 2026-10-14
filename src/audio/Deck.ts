@@ -804,7 +804,7 @@ export class Deck extends Emitter<DeckEvents> {
   jogTouch(zone: 'top' | 'ring' | null): void {
     this.jogTouched = zone !== null;
     this.jogZone = zone;
-    if (zone === 'top' && this.loaded && (this.vinyl || !this.playing)) {
+    if (zone === 'top' && this.loaded && !this.gridJog && (this.vinyl || !this.playing)) {
       this.scratching = true;
       this.post({ type: 'scratch', on: true });
     } else if (zone === null && this.scratching) {
@@ -816,9 +816,20 @@ export class Deck extends Emitter<DeckEvents> {
   /** someone listening to the jog (the scratch challenges), whatever's loaded */
   onJog: ((revs: number, touched: boolean) => void) | null = null;
 
+  /** grid edit (app/gridEdit.ts): while set, the jog slides the beat grid and leaves the music alone */
+  gridJog: ((revs: number) => void) | null = null;
+
+  get gridEdit(): boolean {
+    return this.gridJog !== null;
+  }
+
   jogTurn(revs: number): void {
     this.onJog?.(revs, this.jogTouched);
     if (!this.loaded) return;
+    if (this.gridJog) {
+      this.gridJog(revs);
+      return;
+    }
     if (this.scratching) {
       this.recordAngle -= revs * Math.PI * 2;
       this.post({ type: 'scratchDelta', value: revs * SECONDS_PER_REV * this.jogScale * this.srcRate });

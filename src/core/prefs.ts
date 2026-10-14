@@ -13,10 +13,13 @@ import { loadSetting, saveSetting } from './settings';
 export type { KeyNotation } from '../analysis/keys';
 export type WaveScheme = 'rgb' | 'threeband' | 'blue' | 'mono';
 export type JogMode = 'vinyl' | 'cdj';
+export type GridStyle = 'bold' | 'subtle' | 'off';
 
 export interface Prefs {
   keyNotation: KeyNotation;
   waveScheme: WaveScheme;
+  /** beat grid on the scrolling waveforms: bold lines, the old faint ones, or none */
+  beatGrid: GridStyle;
   /** interface accent colour; '' follows the venue */
   accent: string;
   deckColors: [string, string, string, string];
@@ -74,6 +77,12 @@ export const WAVE_SCHEMES: { id: WaveScheme; name: string }[] = [
   { id: 'mono', name: 'Single colour' },
 ];
 
+export const GRID_STYLES: { id: GridStyle; name: string }[] = [
+  { id: 'bold', name: 'Bold (every beat, bars and phrases stand out)' },
+  { id: 'subtle', name: 'Subtle' },
+  { id: 'off', name: 'Off' },
+];
+
 export const TEMPO_RANGE_CHOICES = [0.06, 0.08, 0.1, 0.16, 0.25, 0.5, 1];
 export const NIGHT_CHOICES = [10, 20, 45, 90];
 export const SCREENSAVER_CHOICES = [0, 2, 5, 10];
@@ -83,6 +92,7 @@ export const DEFAULT_DECK_COLORS: [string, string, string, string] = ['#4cc9f0',
 export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   keyNotation: 'camelot',
   waveScheme: 'threeband',
+  beatGrid: 'bold',
   accent: '',
   deckColors: DEFAULT_DECK_COLORS,
   uiScale: 1,
@@ -132,6 +142,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
   return {
     keyNotation: oneOf(r.keyNotation, KEY_NOTATIONS.map((n) => n.id), d.keyNotation),
     waveScheme: oneOf(r.waveScheme, WAVE_SCHEMES.map((s) => s.id), d.waveScheme),
+    beatGrid: oneOf(r.beatGrid, GRID_STYLES.map((s) => s.id), d.beatGrid),
     accent: r.accent === '' ? '' : colour(r.accent, d.accent),
     deckColors: [0, 1, 2, 3].map((i) => colour(dc[i], d.deckColors[i])) as Prefs['deckColors'],
     uiScale: Math.round(num(r.uiScale, 0.8, 1.3, d.uiScale) * 20) / 20,
