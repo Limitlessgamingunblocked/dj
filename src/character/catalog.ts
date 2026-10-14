@@ -252,7 +252,7 @@ export const ITEMS: ItemDef[] = [
   // robot heads: they cover the face, hair and eyewear (zones: shell, visor or eyes, lights or ink)
   it('helmet_chrome', 'head', 'Silver LED helmet', 'start', ['future', 'bold'], ['#eceff3', '#07080a', '#ff2a2a'], 'chrome'),
   it('helmet_gold', 'head', 'Gold rainbow-visor helmet', 'start', ['future', 'glam'], ['#e0b04a', '#07080a', '#1a1b1f'], 'chrome'),
-  it('robot_smiley', 'head', 'Smiley robot head', 'start', ['bright', 'bold'], ['#e1261c', '#f5c431', '#0a0a0a'], 'satin'),
+  it('robot_smiley', 'head', 'Smiley robot head', 'start', ['bright', 'bold'], ['#e1261c', '#ffd21f', '#0a0a0a'], 'satin'),
   it('robot_box', 'head', 'Box robot head', 'start', ['future', 'bright'], ['#dcdde0', '#e3261b', '#1b1c20'], 'satin'),
   // eyewear
   it('shades_oval', 'eyewear', 'Small oval shades', 'start', ['underground', 'smart'], ['#111111', '#2a2018', '#c9a24a']),

@@ -546,7 +546,8 @@ function smileyHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
   const tex = kit.keep(new THREE.CanvasTexture(canvas));
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
-  const decal = kit.keep(new THREE.MeshToonMaterial({ map: tex, transparent: true, alphaTest: 0.4, gradientMap: ramp }));
+  // (lit a little from within, so the yellow eyes stay bright like a printed cartoon)
+  const decal = kit.keep(new THREE.MeshToonMaterial({ map: tex, transparent: true, alphaTest: 0.4, gradientMap: ramp, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.3 }));
   const HALF = 0.95;
   const TOP = 0.16;
   const BOT = 0.78;
