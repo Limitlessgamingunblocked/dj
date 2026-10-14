@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeHighlights, DEFAULT_EXPOSURE, nextExposure } from '../src/three/exposure';
+import { decodeHighlights, DEFAULT_EXPOSURE, nextExposure, regionLevel } from '../src/three/exposure';
 
 const enc = (lin: number) => Math.round(((Math.log2(Math.max(lin, 1 / 4096)) + 12) / 16) * 255);
 
@@ -47,5 +47,18 @@ describe('auto exposure', () => {
     // all dark
     for (let i = 0; i < cells; i++) bytes[i * 4] = enc(0.02);
     expect(decodeHighlights(bytes, cells)).toBeCloseTo(0.02, 2);
+  });
+
+  it('meters one patch of the frame (the board, for the deck light)', () => {
+    const w = 16;
+    const h = 9;
+    const bytes = new Uint8Array(w * h * 4);
+    // a dark room, with a lit patch in the lower middle (row 0 is the bottom of the frame)
+    for (let i = 0; i < w * h; i++) bytes[i * 4] = enc(0.01);
+    for (let y = 0; y < 3; y++) for (let x = 6; x < 10; x++) bytes[(y * w + x) * 4] = enc(0.2);
+    expect(regionLevel(bytes, w, h, 0.375, 0, 0.625, 0.33)).toBeCloseTo(0.2, 2);
+    expect(regionLevel(bytes, w, h, 0, 0.5, 1, 1)).toBeCloseTo(0.01, 3);
+    // smaller than a cell: the cell under its middle
+    expect(regionLevel(bytes, w, h, 0.5, 0.1, 0.51, 0.11)).toBeCloseTo(0.2, 2);
   });
 });

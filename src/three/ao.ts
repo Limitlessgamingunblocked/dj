@@ -28,7 +28,7 @@ const VERT = /* glsl */ `
 const AO_FRAG = /* glsl */ `
   uniform sampler2D tDepth;
   uniform mat4 uProjInv;
-  uniform float uProjScale, uRadius, uBias, uIntensity, uFadeNear, uFadeFar;
+  uniform float uProjScale, uRadius, uBias, uIntensity, uFadeNear, uFadeFar, uClearTo, uClearSoft;
   uniform vec2 uTexel;
   varying vec2 vUv;
   vec3 viewAt(vec2 uv) {
@@ -75,6 +75,10 @@ const AO_FRAG = /* glsl */ `
     float ao = clamp(1.0 - uIntensity * 9.0 * occ / 12.0, 0.0, 1.0);
     ao = ao * ao;
     ao = mix(ao, 1.0, smoothstep(uFadeNear, uFadeFar, dist));
+    // none on the board and the desk round it: at arm's length the estimate is mostly noise from the
+    // print, caps and bevels, and it read as smoky smudges round every jog and knob (the deck light
+    // and the shadows already ground the hardware)
+    ao = mix(1.0, ao, smoothstep(uClearTo, uClearTo + uClearSoft, dist));
     gl_FragColor = vec4(ao, dist, 0.0, 1.0);
   }
 `;
@@ -215,6 +219,9 @@ export class AOPass extends Pass {
   strength = 1;
   /** show the occlusion itself (the debug menu) */
   debug = false;
+  /** metres from the camera with no occlusion at all (the board you're looking at), and the fade after it */
+  clearTo = 0;
+  clearSoft = 1;
   private aoRT: THREE.WebGLRenderTarget;
   private blurRT: THREE.WebGLRenderTarget;
   private aoMat: THREE.ShaderMaterial;
@@ -242,6 +249,8 @@ export class AOPass extends Pass {
         uIntensity: { value: 1 },
         uFadeNear: { value: 18 },
         uFadeFar: { value: 45 },
+        uClearTo: { value: 0 },
+        uClearSoft: { value: 1 },
         uTexel: { value: new THREE.Vector2(1, 1) },
       },
       vertexShader: VERT,
@@ -282,6 +291,8 @@ export class AOPass extends Pass {
     (u.uProjInv.value as THREE.Matrix4).copy(cam.projectionMatrixInverse);
     // half the screen height in uv per metre at 1 m away
     u.uProjScale.value = cam.projectionMatrix.elements[5] * 0.5;
+    u.uClearTo.value = this.clearTo;
+    u.uClearSoft.value = Math.max(0.05, this.clearSoft);
     this.quad.material = this.aoMat;
     renderer.setRenderTarget(this.aoRT);
     this.quad.render(renderer);
