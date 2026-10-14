@@ -32,7 +32,8 @@ import { CameraRig, type ActiveShot, type ViewId } from './CameraRig';
 import { guardScale, landmarkPose, scalePose, SHOTS, venueScale, type ShotId, type ShotPose } from './shots';
 import { FX } from './fx';
 import { FINITE_GLSL, LensOutputPass, NEUTRAL_GRADE } from './lens';
-import { approachLook, copyLook, lookFor, LOOKS, type LensLook } from './looks';
+import { approachLook, copyLook, lookFor, LOOKS, replaced, type LensLook } from './looks';
+import { PicturePass } from './picture';
 import { ExposurePass } from './exposure';
 import { AdaptiveQuality } from './quality';
 import { planeHit, type Part, type PartCtx, type PointerInfo } from './parts';
@@ -155,6 +156,8 @@ export class Stage {
   /** reflective floors (public for the debug menu) */
   readonly reflect: ReflectPass;
   private lens: LensOutputPass;
+  /** the looks that redraw the whole picture (LiDAR, video-synth lines, ASCII) and the long exposure */
+  private picture: PicturePass;
   /** steps the render load down (and back up) when frames run long */
   readonly adaptive = new AdaptiveQuality();
   private msaa = 4;
@@ -200,6 +203,8 @@ export class Stage {
   private fade: { k: number; phase: 'none' | 'out' | 'in'; go: (() => void) | null } = { k: 1, phase: 'none', go: null };
   /** the lens look on the director's own moves when the look is on Auto (the cinematic style letterboxes) */
   shotLook: LensLook = 'none';
+  /** a look the director puts on for a moment, over any angle (a drop in LiDAR or ASCII, a long exposure); on Auto only */
+  directorLook: LensLook | null = null;
   /** a photo was asked for: called with the canvas right after the next frame is drawn */
   private shotWanted: ((src: HTMLCanvasElement) => void) | null = null;
   /** called with the canvas after every frame (recording, the replay buffer's video), same task as the draw */
@@ -330,6 +335,10 @@ export class Stage {
     this.composer.addPass(this.dof);
     // measures the scene for auto exposure (leaves the picture alone)
     this.composer.addPass(this.exposure);
+    // the whole-picture looks, after the measuring (the deck light and the exposure read the real room)
+    // and before the bloom, so the scan line, the lit glyphs and the light trails glow
+    this.picture = new PicturePass(this.camera, tap);
+    this.composer.addPass(this.picture);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.5, 0.4, BLOOM_THRESHOLD);
     // the bloom blurs its input across the whole frame, so a single NaN pixel would black it all
     // out: scrub non-finite values as they enter
@@ -869,8 +878,13 @@ export class Stage {
     this.cutWith(() => this.rig.goTo(v, true), cut);
   }
 
-  private cutWith(go: () => void, cut: 'dip' | 'hard'): void {
+  private cutWith(cutGo: () => void, cut: 'dip' | 'hard'): void {
     this.focusedZone = null;
+    // a cut starts the long exposure again: one shot's light trails don't smear over the next
+    const go = () => {
+      cutGo();
+      this.picture.resetTrails();
+    };
     if (cut === 'hard' || this.view === 'visual') {
       go();
       this.fade = { k: 1, phase: 'none', go: null };
@@ -1000,7 +1014,7 @@ export class Stage {
   /** The text some looks burn into the picture, refreshed twice a second. */
   private updateLensText(look: LensLook): void {
     const t = this.lensText;
-    const kind = this.view === 'visual' ? '' : look === 'cctv' || look === 'vhs' ? look : '';
+    const kind = this.view === 'visual' ? '' : look === 'cctv' || look === 'vhs' || look === 'lidar' ? look : '';
     if (kind !== t.shown) {
       t.shown = kind;
       t.el.dataset.look = kind;
@@ -1016,6 +1030,14 @@ export class Stage {
       t.tr.textContent = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}  ${clock}`;
       t.bl.textContent = '● REC';
       t.br.textContent = '';
+    } else if (kind === 'lidar') {
+      // the scanner's readout: the scan count, its range and rate, the points it's returning
+      const s = this.show.state;
+      const pts = this.picture.points;
+      t.tl.textContent = `LIDAR  SCAN ${String(Math.max(0, s.bar) % 10000).padStart(4, '0')}`;
+      t.tr.textContent = `RANGE ${this.picture.range} M  ·  ${(this.venueDef?.short ?? this.venueDef?.name ?? '').toUpperCase()}`;
+      t.bl.textContent = `${Math.round(s.bpm)} BPM  ·  ${this.picture.sweepsPerBar}× / BAR`;
+      t.br.textContent = `${(pts / 1000).toFixed(1)}K PTS  ${clock}`;
     } else {
       const el = Math.floor(this.ctx.now - t.since);
       t.tl.textContent = '● REC';
@@ -1409,8 +1431,8 @@ export class Stage {
       return;
     }
     this.bloom.enabled = this.quality !== 'low';
-    // contact shadow: not on Low, and not when the adaptive step drops it
-    this.ao.enabled = this.quality !== 'low' && this.adaptive.step.surfaces;
+    // contact shadow: not on Low, not when the adaptive step drops it, and not under a look that redraws the whole picture
+    this.ao.enabled = this.quality !== 'low' && this.adaptive.step.surfaces && replaced(this.look) < 0.98;
     // close on the board, no occlusion on the hardware or the desk round it (it smudged the print and
     // ringed every jog and knob); the crowd and the room behind still get it
     const close = this.rig.focused || this.rig.view === 'top' || this.rig.view === 'perf' || this.rig.view === 'booth' || !!this.rig.shot?.close;
@@ -1472,7 +1494,9 @@ export class Stage {
     // under the deck light crossed the room's threshold and bloomed into rings and blobs
     this.bloom.threshold = (BLOOM_THRESHOLD * (close ? CLOSE_BLOOM : 1)) / Math.min(1, Math.max(0.05, r.toneMappingExposure));
     // lens looks (looks.ts): the angle's own or the one picked; clean while zoomed in on the board
-    const lookId = this.rig.focused ? 'none' : this.rig.shot ? (this.lensPick === 'auto' ? this.shotLook : this.lensPick) : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick);
+    // on Auto the director can put a look of its own over any angle for a moment
+    const special = this.lensPick === 'auto' && this.directing ? this.directorLook : null;
+    const lookId = this.rig.focused ? 'none' : (special ?? (this.rig.shot ? (this.lensPick === 'auto' ? this.shotLook : this.lensPick) : lookFor(this.rig.view === 'custom' ? this.rig.named : this.rig.view, this.lensPick)));
     if (lookId !== this.lookId) {
       this.lookId = lookId;
       this.lookHold = 1e9;
@@ -1502,6 +1526,27 @@ export class Stage {
     lu.uThermal.value = L.thermal < 0.002 ? 0 : L.thermal;
     lu.uSatBoost.value = L.sat;
     if (L.fish > 0) this.fisheyeUniforms();
+    // the whole-picture looks (picture.ts): the music drives them every frame, the pass runs only while one is on
+    const pic = this.picture;
+    pic.lidar = L.lidar < 0.002 ? 0 : L.lidar;
+    pic.synth = L.synth < 0.002 ? 0 : L.synth;
+    pic.ascii = L.ascii < 0.002 ? 0 : L.ascii;
+    pic.trails = L.trails < 0.002 ? 0 : L.trails;
+    pic.exposure = r.toneMappingExposure;
+    pic.low = this.quality === 'low';
+    pic.follow(show, sdt);
+    pic.enabled = pic.active;
+    // a look that redraws the picture is a screen, not a lens: no dirt, ghosts or stars on it, and its black stays black
+    const whole = replaced(L);
+    if (whole > 0.002) {
+      const keep = 1 - whole;
+      lu.uGhost.value *= keep;
+      lu.uDirt.value *= keep;
+      lu.uStar.value *= keep;
+      lu.uStreak.value *= 1 - 0.6 * whole;
+      lu.uSharpen.value *= keep;
+      lu.uLift.value *= keep;
+    }
     this.updateLensText(lookId);
     // the booth light's shadows update at 30 Hz
     r.shadowMap.needsUpdate = this.frame % 2 === 0 || !this.keyLight.shadow.map;
@@ -1533,7 +1578,10 @@ export class Stage {
     // a photo is drawn at full resolution (at least 1920 px wide), whatever the live frames use
     const photo = !!this.shotWanted;
     if (photo) this.setPixels(Math.min(3, Math.max(this.livePixelRatio(), 1920 / this.size.w)));
+    // the long exposure keeps its buffer (at the live size) through a photo's bigger frame
+    this.picture.still = photo;
     this.composer.render(dt);
+    this.picture.still = false;
     if (photo) {
       // the photo (and any recording) gets the full-size frame before the canvas shrinks back, which clears it
       this.frameDone();

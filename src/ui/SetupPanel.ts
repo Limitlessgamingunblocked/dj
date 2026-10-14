@@ -384,7 +384,7 @@ export class SetupPanel {
       ),
       this.prefCheck('cameraMotion', 'Camera moves with the music (idle sway, beat shake)', 'motion sway shake', 'Always off when your system asks for reduced motion.'),
       this.prefCheck('walkOut', 'Walk out from backstage before a gig', 'walk out backstage corridor intro cutscene gig', 'Click or press a key to skip it. Off with reduced motion.'),
-      this.row('Lens effect', this.prefSelect('lens', [['auto', 'Auto — each angle brings its own'], ...LENS_LOOKS.map((l): [Prefs['lens'], string] => [l.id, l.name])]), 'lens fisheye vhs camcorder security cctv tilt-shift miniature cinematic thermal night vision effect filter', 'The fisheye, camcorder and security-camera angles bring their own look on Auto.'),
+      this.row('Lens effect', this.prefSelect('lens', [['auto', 'Auto — each angle brings its own'], ...LENS_LOOKS.map((l): [Prefs['lens'], string] => [l.id, l.name])]), 'lens fisheye vhs camcorder security cctv tilt-shift miniature cinematic thermal night vision lidar scan point cloud scanline video synth rutt-etra ascii text long exposure light trails effect filter', 'The fisheye, camcorder and security-camera angles bring their own look on Auto, and the auto director now and then cuts a drop to LiDAR or ASCII, or holds a slow wide shot as a long exposure.'),
       h('div', { class: 'set-row field', 'data-k': 'saved camera views anchors' }, h('span', {}, 'Saved camera views'), h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl),
       h('p', { class: 'note set-row', 'data-k': 'orbit pan zoom drag' }, 'Drag to orbit, right-drag to pan, scroll to zoom.'),
     );

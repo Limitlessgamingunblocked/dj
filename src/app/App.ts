@@ -77,7 +77,7 @@ import { NextUp } from './nextup';
 import { NextUpCard } from '../ui/NextUpCard';
 import { roomFor } from '../audio/room';
 import { venueLock } from '../game/progression';
-import { Director, sectionOf, styleFor, STYLE_LABELS, type DirectorMenu, type DirectorPick } from '../three/director';
+import { Director, LookDirector, sectionOf, styleFor, STYLE_LABELS, type DirectorMenu, type DirectorPick } from '../three/director';
 import { SHOTS as SHOT_TABLE, type ShotId } from '../three/shots';
 import { RecordingDesk } from './recording';
 import { MySetsPanel } from '../ui/MySetsPanel';
@@ -200,6 +200,8 @@ export class App implements AppContext {
   private last = 0;
   private frame = 0;
   private director = new Director();
+  /** the director's special looks (LiDAR or ASCII on some drops, a long exposure on a slow wide shot) */
+  private directorLooks = new LookDirector();
   /** the stage alone for streaming, and the idle screensaver (broadcast.ts) */
   private broadcast!: Broadcast;
   /** play with your hands in front of the webcam (airdj/) */
@@ -1346,6 +1348,8 @@ export class App implements AppContext {
     if (on === this.settings.director) return;
     this.settings.director = on;
     this.stage.directing = on;
+    this.directorLooks.reset();
+    this.stage.directorLook = null;
     if (on) this.director.reset();
     else this.stage.rig.orbit = 0;
     if (!quiet) toast(on ? 'Auto director on: the camera cuts with the music. Move the camera to take over.' : 'Auto director off');
@@ -1820,6 +1824,9 @@ export class App implements AppContext {
     this.stage.shotLook = menu.style === 'cinematic' ? 'cinema' : 'none';
     const take = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop, mixing: up >= 2, track: this.engine.masterDeck?.track?.id ?? null }, menu);
     this.clockDrop = false;
+    if (take) this.directorLooks.onTake(take, this.director.state, s.t, this.clock.bar);
+    // the special looks only when the lens is on Auto: a look picked by hand stays put
+    this.stage.directorLook = prefs.lens === 'auto' ? this.directorLooks.update(this.clock.playing, this.clock.bar) : null;
     if (take) {
       const id = take.id;
       if (id === 'landmark' || id in SHOT_TABLE) {
