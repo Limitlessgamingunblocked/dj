@@ -94,8 +94,9 @@ export function frontGeometry(): THREE.BufferGeometry {
     shellGeometry(
       0,
       // whole triangles to a little past the hem, the cuffs and the collar (the base of the neck); the shader cuts them straight
-      (r, y) =>
-        (r === R.torso || r === R.thigh) && y > SHELL_HEM - 0.04 ? F.shell : r === R.upper ? F.shell : r === R.fore && y > SHELL_CUFF - 0.035 ? F.shellLo : r === R.head && y < LANDMARKS.neckBase + 0.03 ? F.shell : null,
+      // (any triangle reaching over the line: the long ones down the side of the hips would leave slits by their middles)
+      (r, _y, lo, hi) =>
+        (r === R.torso || r === R.thigh) && hi > SHELL_HEM - 0.01 ? F.shell : r === R.upper ? F.shell : r === R.fore && hi > SHELL_CUFF - 0.01 ? F.shellLo : r === R.head && lo < LANDMARKS.neckBase + 0.03 ? F.shell : null,
       0.009,
     ),
   );
@@ -103,7 +104,7 @@ export function frontGeometry(): THREE.BufferGeometry {
   const NB = LANDMARKS.neckBase;
   const nz = JOINTS.neck[2];
   parts.push(part(new THREE.TorusGeometry(0.08, 0.03, 5, 10, Math.PI * 1.25).rotateZ(Math.PI * 0.875).rotateX(Math.PI / 2).scale(1.2, 1, 1).translate(0, NB - 0.015, nz - 0.02), B.body, F.hood));
-  parts.push(part(new THREE.SphereGeometry(0.11, 8, 4).scale(1, 1.05, 0.3).translate(0, NB - 0.13, nz - 0.135), B.body, F.hood));
+  parts.push(part(new THREE.SphereGeometry(0.11, 16, 8).scale(1, 1.05, 0.3).translate(0, NB - 0.13, nz - 0.135), B.body, F.hood));
   // a collar: a fur collar, a bandana or a choker by the venue
   parts.push(part(new THREE.TorusGeometry(0.058, 0.012, 5, 16).rotateX(Math.PI / 2).scale(1.05, 0.8, 1.05).rotateX(-0.25).translate(0, JOINTS.neck[1] - 0.04, nz + 0.012), B.head, F.collar));
   // a crossbody bag's pouch at the hip (the strap is painted over the top and the jacket)
@@ -118,9 +119,10 @@ export function frontGeometry(): THREE.BufferGeometry {
   const lensZ = E[2] + LANDMARKS.eyeR * 0.75 + 0.012;
   for (const sd of [-1, 1]) {
     parts.push(part(twoSided(new THREE.CircleGeometry(0.022, 12).scale(1.15, 0.86, 1).rotateY(sd * 0.14).translate(sd * E[0], E[1] - 0.002, lensZ)), B.head, F.glasses));
-    parts.push(part(new THREE.BoxGeometry(0.0045, 0.006, 0.12).translate(sd * (LANDMARKS.earX - 0.006), E[1] + 0.01, lensZ - 0.065), B.head, F.glasses));
+    // (as wide as the face and ending at the ear, tucked in under the hair: any wider or longer and they stick out round the head)
+    parts.push(part(new THREE.BoxGeometry(0.0045, 0.006, 0.085).translate(sd * 0.07, E[1] + 0.01, lensZ - 0.047), B.head, F.glasses));
   }
-  parts.push(part(new THREE.BoxGeometry(LANDMARKS.earX * 2 - 0.008, 0.006, 0.006).translate(0, E[1] + 0.014, lensZ - 0.002), B.head, F.glasses));
+  parts.push(part(new THREE.BoxGeometry(0.144, 0.006, 0.006).translate(0, E[1] + 0.014, lensZ - 0.002), B.head, F.glasses));
   // goggles up on the forehead (the playa): a band round the head and two round lenses
   parts.push(part(new THREE.CylinderGeometry(1, 1, 0.022, 18, 1, true).scale(H.r.x + 0.006, 1, H.r.z + 0.008).translate(0, E[1] + 0.058, H.c.z), B.head, F.goggles));
   for (const sd of [-1, 1]) parts.push(part(new THREE.CylinderGeometry(0.025, 0.027, 0.02, 10, 1).rotateX(Math.PI / 2).rotateY(sd * 0.3).translate(sd * 0.034, E[1] + 0.062, LANDMARKS.headFront - 0.01), B.head, F.goggles));
@@ -289,7 +291,8 @@ export function frontFrag(): string {
         }
         // (by position alone: the bone varies across the triangles round the neck)
         if (fShell != 2.0 && p.z > 0.0 && m < 20.5) {
-          float open = 0.028 + 0.05 * smoothstep(1.2, 1.46, p.y);
+          // (wider over a bikini: the top shows between the fronts)
+          float open = 0.028 + (swim && woman > 0.5 ? 0.03 : 0.0) + 0.05 * smoothstep(1.2, 1.46, p.y);
           if (abs(p.x) < open && p.y < ${e(JOINTS.neck[1] - 0.06)}) discard;
           col *= 1.0 - 0.35 * (1.0 - smoothstep(open, open + 0.012, abs(p.x)));
         }
@@ -363,8 +366,8 @@ export function frontFrag(): string {
           else if (gr < 0.028) { col = vec3(0.5, 0.38, 0.15); crowdRough = 0.35; }
         }
       }
-      else {
-        // the harness's steel ring
+      else if (m < 32.5) {
+        // the harness's steel ring (the ponytail past it is the crowd's hair)
         col = vec3(0.6);
         crowdRough = 0.2;
       }
@@ -374,7 +377,8 @@ export function frontFrag(): string {
       if (m < 0.5) {
         col = skin;
         crowdRough = mix(0.55, 0.25, uSweat);
-        if (woman > 0.5 && look > 1.5 && look < 3.5 && fh2 < 0.5) {
+        // (every woman in swimwear has a bikini top on)
+        if (woman > 0.5) {
           vec2 cup = vec2(abs(p.x) - 0.08, p.y - 1.28);
           float tri = step(0.0, p.z) * step(cup.y, 0.035 - abs(cup.x) * 1.2) * step(-0.03, cup.y);
           float band = step(abs(p.y - 1.25), 0.008);

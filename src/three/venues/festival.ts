@@ -445,7 +445,7 @@ class Festival extends OpenAir {
 
     // the crowd: the front pit as people, then cut-outs to the back of the field
     const clothes = ['#111214', '#f2efe8', '#2a3a5a', '#ff2e88', '#3ad7ff', '#b6ff3b', '#5a1e2a', '#d8c8a8', '#1b1d22', '#ffd23f', '#7a3cff', '#e8e2d4'];
-    this.crowd = new Crowd(crowdArea(-17, 17, -5.2, -12.5, 1.9, 602, { y: FL }), { seed: 603, phones: 0.16, drinks: 0.15, signs: 6, clothes, riders: 7, shorts: 0.35, look: 'festival' });
+    this.crowd = new Crowd(crowdArea(-17, 17, -5.2, -12.5, 1.9, 602, { y: FL }), { seed: 603, phones: 0.16, drinks: 0.15, clothes, riders: 7, shorts: 0.35, look: 'festival' });
     // the stage party behind you, security in the pit, the lighting tech out at the mix tent
     const crew = vipCrew(crewArc(0, 2.8, 4.4, 0.6, 2.8), 608, clothes);
     if (crew) this.add(crew);

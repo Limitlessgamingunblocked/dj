@@ -364,15 +364,15 @@ export function browGeometry(lod: 0 | 1 | 2, mat: number): THREE.BufferGeometry 
  * A shell over a region of the body (a jacket over the top and sleeves):
  * the body's own triangles pushed out, so it fits every figure.
  */
-export function shellGeometry(lod: 0 | 1 | 2, pick: (region: number, y: number) => number | null, out: number): THREE.BufferGeometry {
+export function shellGeometry(lod: 0 | 1 | 2, pick: (region: number, y: number, lo: number, hi: number) => number | null, out: number): THREE.BufferGeometry {
   const d = decode();
   const src = d.lods[lod];
   const tris: number[] = [];
   const mats: number[] = [];
   for (let t = 0; t < src.length; t += 3) {
     const r = d.region[src[t + 1]] === d.region[src[t + 2]] ? d.region[src[t + 1]] : d.region[src[t]];
-    const y = (d.pos[src[t] * 3 + 1] + d.pos[src[t + 1] * 3 + 1] + d.pos[src[t + 2] * 3 + 1]) / 3;
-    const m = pick(r, y);
+    const ys = [0, 1, 2].map((k) => d.pos[src[t + k] * 3 + 1]);
+    const m = pick(r, (ys[0] + ys[1] + ys[2]) / 3, Math.min(...ys), Math.max(...ys));
     if (m === null) continue;
     tris.push(src[t], src[t + 1], src[t + 2]);
     mats.push(m);

@@ -304,7 +304,6 @@ class Rooftop extends OpenAir {
       shorts: 0.3,
       phones: 0.1,
       drinks: 0.6,
-      signs: 1,
       clothes: ['#f2efe8', '#a9c4de', '#1c2a44', '#d8c8a8', '#111214', '#5a1e2a', '#e8e2d4', '#3a4a5a', '#c9a07a', '#2a2a2e'],
     });
     this.group.add(this.crowd.object);

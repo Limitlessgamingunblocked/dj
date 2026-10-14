@@ -280,7 +280,7 @@ class Beach extends OpenAir {
 
     // the crowd: linen, swimwear, holiday colours
     const clothes = ['#f4f1ea', '#e8dcc4', '#7ac0d8', '#f28a6a', '#2a3a5a', '#f2d06a', '#ffffff', '#c86a8a', '#3a7a6a', '#d8b890'];
-    this.crowd = new Crowd(crowdArea(x0 + 2, x1 - 2, -1.4, -10, 1.6, 403, { avoid: [new THREE.Box2(new THREE.Vector2(x0, -21), new THREE.Vector2(x0 + 3, -11))] }), { seed: 404, phones: 0.12, drinks: 0.45, signs: 2, clothes, shorts: 0.55, look: 'beach' });
+    this.crowd = new Crowd(crowdArea(x0 + 2, x1 - 2, -1.4, -10, 1.6, 403, { avoid: [new THREE.Box2(new THREE.Vector2(x0, -21), new THREE.Vector2(x0 + 3, -11))] }), { seed: 404, phones: 0.12, drinks: 0.45, clothes, shorts: 0.55, look: 'beach' });
     this.group.add(this.crowd.object);
     const density = (x: number, z: number) => (Math.abs(x) > 14.5 ? 0 : z > -10 ? 0 : 1.9 - ((-10 - z) / 22) * 0.7);
     this.farCrowd = new FarCrowd(scatter(x0 + 1, x1 - 1, z0 + 0.5, -10, density, 405, [new THREE.Box2(new THREE.Vector2(x0, -21), new THREE.Vector2(x0 + 3, -11))]), { seed: 406, clothes, phones: 0.1, focus: V(0, 2, 0) });

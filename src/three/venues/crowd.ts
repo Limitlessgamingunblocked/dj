@@ -73,7 +73,7 @@ export interface CrowdOptions {
   drinks?: number;
   /** LED signs held up (picked from the people closest to the booth) */
   signs?: number;
-  /** hand-made cardboard signs (requests and messages; default a few in a crowd of 24 or more) */
+  /** hand-made cardboard signs (requests and messages; none unless asked for) */
   cards?: number;
   /** role for spots that don't name one */
   role?: CrowdRole;
@@ -474,6 +474,19 @@ function drawSigns(): void {
   signTex.needsUpdate = true;
 }
 
+/**
+ * Whoever stands where the camera is (the view from in the crowd, or walking through it) steps out of it: anyone
+ * within an arm's length of the lens isn't drawn, instead of a head or a back filling the screen.
+ */
+const NEAR_CAMERA = /* glsl */ `
+  {
+    vec4 crowdAt = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vec2 crowdD = crowdAt.xz - cameraPosition.xz;
+    float crowdH = cameraPosition.y - crowdAt.y;
+    if (dot(crowdD, crowdD) < 0.36 && crowdH > 0.3 && crowdH < 2.6) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+  }
+`;
+
 export const VERT_HEAD = /* glsl */ `
   attribute vec4 aRig;
   #define aBone aRig.x
@@ -856,7 +869,7 @@ const HAIR_VOLUME = /* glsl */ `
   }
   #ifdef CROWD_FRONT
   // a jacket, shirt or coat over it all sits clear of the loosest trousers and tops beneath
-  if (aMat > 19.5 && aMat < 21.5) bodyPos += normal * (0.004 + 0.012 * smoothstep(${WAIST_Y.toFixed(4)}, ${(WAIST_Y - 0.08).toFixed(4)}, position.y));
+  if (aMat > 19.5 && aMat < 21.5) bodyPos += normal * (0.006 + 0.016 * smoothstep(${(WAIST_Y + 0.15).toFixed(4)}, ${(WAIST_Y - 0.06).toFixed(4)}, position.y));
   #endif
   // the lips meet: round the line between them (and the mouth behind it) the surface is lit as if facing forward, so
   // the parted lips of the base face read as a closed mouth instead of a dark gap
@@ -1125,7 +1138,8 @@ const FRAG_COLOR = /* glsl */ `
       sideY = worn ? ${gl(EYE[1] + 0.001)} : ${gl(EYE[1] + 0.012)};
     }
     float back = st < 2.5 ? ${gl(EYE[1] - 0.07)} : ${gl(EYE[1] - 0.105)};
-    float line = a < 0.22 ? mix(front, temple, smoothstep(0.1, 0.22, a)) : a < 0.5 ? mix(temple, sideY, smoothstep(0.22, 0.5, a)) : mix(sideY, back, smoothstep(0.5, 0.85, a));
+    // (behind the ear it drops straight to the nape: no bare wedge between the ear and the hair at the back)
+    float line = a < 0.22 ? mix(front, temple, smoothstep(0.1, 0.22, a)) : a < 0.5 ? mix(temple, sideY, smoothstep(0.22, 0.5, a)) : mix(sideY, back, smoothstep(0.5, 0.64, a));
     // the line wanders strand by strand (hair never ends in a ruled line), finer close up
     float hAng = atan(p.x, p.z - 0.035);
     float ragged = st > 5.5 ? 0.25 : 1.0;
@@ -1364,7 +1378,7 @@ export class Crowd implements Fixture {
     }
     // cardboard signs: a few people in the front rows (not the LED sign holders)
     const cardIdx = new Set<number>();
-    const wantCards = o.cards ?? (n >= 24 ? Math.min(6, Math.round(n / 15)) : 0);
+    const wantCards = o.cards ?? 0;
     if (wantCards > 0) {
       const front = spots
         .map((s, i) => ({ i, d: Math.hypot(s.x - booth.x, s.z - booth.z) }))
@@ -1447,6 +1461,7 @@ export class Crowd implements Fixture {
         sh.vertexShader = sh.vertexShader
           .replace('#include <common>', `#include <common>\n${common}${front ? VERT_HEAD.replace('/*FRONT_VIS*/', FRONT_VIS) : VERT_HEAD}`)
           .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\ncomputePose();\nbodyPos = position;\n${HAIR_VOLUME}\nmorphBody(bodyPos, objectNormal);\nobjectNormal = poseR * objectNormal;`)
+          .replace('#include <project_vertex>', `#include <project_vertex>\n${NEAR_CAMERA}`)
           .replace('#include <begin_vertex>', `#include <begin_vertex>\ntransformed = poseR * bodyPos + poseT;\nvMat = aMat;\nvSeed = iSeed;\nvUv2 = uv;\nvSignRow = iInfo.z;\nvRest = position;\nvBone = aBone;${front ? '\nvMouth = poseMouth;\nvFilm = poseFilm;' : ''}`);
         sh.fragmentShader = sh.fragmentShader
           .replace('#include <common>', `#include <common>\n${FRAG_HEAD}${common}`)

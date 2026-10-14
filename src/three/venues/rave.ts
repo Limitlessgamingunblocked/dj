@@ -294,7 +294,7 @@ class WarehouseRave extends VenueBase {
 
     // ravers: black clothes, all in
     const clothes = ['#0e0e10', '#16171a', '#1d1f24', '#0e0e10', '#2a2d33', '#101114', '#3a3d44', '#d9d6cf', '#5a1e22'];
-    this.add(new Crowd(crowdArea(-10, 10, -2.4, -11, 2.2, 804, { y: FL }), { seed: 805, phones: 0.05, drinks: 0.15, signs: 3, clothes }));
+    this.add(new Crowd(crowdArea(-10, 10, -2.4, -11, 2.2, 804, { y: FL }), { seed: 805, phones: 0.05, drinks: 0.15, clothes }));
     // the crew on stage behind you, security at the barrier, the lighting tech beside the stage
     const crew = vipCrew(crewArc(0, 2.4, 3.6, 0.7, 2.6), 812, clothes);
     if (crew) this.add(crew);
