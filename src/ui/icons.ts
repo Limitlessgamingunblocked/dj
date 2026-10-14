@@ -40,6 +40,10 @@ const PATHS = {
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   bag: '<path d="M5.5 8h13l-1 12h-11z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/>',
   trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4"/>',
+  grid: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/>',
+  hanger: '<path d="M10 6.5a2 2 0 1 1 2.6 1.9c-.4.1-.6.5-.6.9V11"/><path d="M12 11 3.6 16.4c-.9.6-.5 2 .6 2h15.6c1.1 0 1.5-1.4.6-2z"/>',
+  hair: '<path d="M6.5 20v-6.5a5.5 5.5 0 0 1 11 0V20"/><path d="M6.5 13.5C6.5 8 9 4 12 4s5.5 4 5.5 9.5"/><path d="M9 9.5c1.6.6 4.5.4 6.5-1.5"/><path d="M9.5 20c.8-2 1.5-3 2.5-3s1.7 1 2.5 3"/>',
+  eye: '<path d="M2.8 12S6 5.8 12 5.8 21.2 12 21.2 12 18 18.2 12 18.2 2.8 12 2.8 12z"/><circle cx="12" cy="12" r="3.1"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

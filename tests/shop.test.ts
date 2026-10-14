@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { PROGRESS, type Progress } from '../src/core/models';
 import { ITEMS, OUTFIT_SETS } from '../src/character/catalog';
-import { ownedThing } from '../src/character/look';
+import { defaultLook, ownedThing } from '../src/character/look';
 import { homeOf } from '../src/game/home';
 import { applySet, newUnlocks } from '../src/game/progression';
-import { buy, cantBuy, forSale, isOwned, priceFor, shopCatalog } from '../src/game/shop';
+import { buy, cantBuy, focusOf, forSale, isOwned, priceFor, shopAction, shopCatalog, tryOn, wearing } from '../src/game/shop';
 
 const fresh = (o: Partial<Progress> = {}): Progress => ({ ...PROGRESS.defaults(), ...o });
 const entry = (key: string) => shopCatalog().find((e) => e.key === key)!;
@@ -78,6 +78,54 @@ describe('the shop', () => {
     if (!r.ok) throw new Error(r.why);
     const saved = PROGRESS.validate(JSON.parse(JSON.stringify({ ...fresh({ cash: 5000 }), ...r.patch })));
     expect(isOwned(e, saved)).toBe(true);
+  });
+
+  it('tries pieces on without touching the look it was given', () => {
+    const base = defaultLook();
+    const before = JSON.stringify(base);
+    const item = ITEMS.find((i) => forSale(i.unlock) && base.items[i.slot] !== i.id)!;
+    const e = entry(`item:${item.id}`);
+    const on = tryOn(base, e)!;
+    expect(on.items[item.slot]).toBe(item.id);
+    expect(wearing(on, e)).toBe(true);
+    expect(wearing(base, e)).toBe(false);
+    expect(JSON.stringify(base)).toBe(before);
+    // a set puts on all of its pieces
+    const set = entry('set:warehouse_ghost');
+    const dressed = tryOn(base, set)!;
+    for (const id of set.pieces!) expect(Object.values(dressed.items)).toContain(id);
+    expect(wearing(dressed, set)).toBe(true);
+    // a haircut and an iris
+    const hair = shopCatalog().find((x) => x.kind === 'hair')!;
+    expect(tryOn(base, hair)!.items.hair).toBe(hair.id);
+    const iris = shopCatalog().find((x) => x.kind === 'iris')!;
+    expect(wearing(tryOn(base, iris)!, iris)).toBe(true);
+    // a home isn't worn
+    expect(tryOn(base, entry('home:1'))).toBeNull();
+  });
+
+  it('frames each entry on the part of you it goes on', () => {
+    expect(focusOf(entry('home:1'))).toBe('home');
+    expect(focusOf(entry('set:warehouse_ghost'))).toBe('full');
+    expect(focusOf(shopCatalog().find((x) => x.kind === 'hair')!)).toBe('head');
+    expect(focusOf(shopCatalog().find((x) => x.kind === 'iris')!)).toBe('eyes');
+    const shoes = shopCatalog().find((x) => x.kind === 'item' && ITEMS.find((i) => i.id === x.id)?.slot === 'shoes');
+    if (shoes) expect(focusOf(shoes)).toBe('feet');
+  });
+
+  it('the one button: buy, then confirm, then wear (or why not)', () => {
+    const e = entry('set:warehouse_ghost');
+    const look = defaultLook();
+    expect(shopAction(e, fresh({ cash: 0 }), look, false)).toEqual({ label: expect.stringMatching(/short/), act: null });
+    const rich = fresh({ cash: e.price });
+    expect(shopAction(e, rich, look, false)).toEqual({ label: `Buy $${e.price.toLocaleString()}`, act: 'buy' });
+    expect(shopAction(e, rich, look, true)).toEqual({ label: `Confirm $${e.price.toLocaleString()}`, act: 'confirm' });
+    const r = buy(rich, e);
+    if (!r.ok) throw new Error(r.why);
+    const after = { ...rich, ...r.patch };
+    expect(shopAction(e, after, look, false).act).toBe('wear');
+    expect(shopAction(e, after, tryOn(look, e)!, false)).toEqual({ label: 'Wearing', act: null });
+    expect(shopAction(entry('home:1'), fresh({ tier: 5 }), look, false)).toEqual({ label: 'Owned', act: null });
   });
 
   it('sets still pay as before alongside it', () => {
