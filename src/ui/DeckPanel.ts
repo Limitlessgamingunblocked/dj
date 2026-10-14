@@ -10,6 +10,8 @@ import { formatBpm, formatTime } from '../core/util';
 import { h, setClass, setText, setVar } from './dom';
 import { icon } from './icons';
 import { openLyricsEditor } from './LyricsEditor';
+import { withAiLyrics } from './LyricsAiGuide';
+import { statusText } from '../lyrics/LyricsAI';
 import { contextMenu, openModal, type MenuItem } from './modal';
 import { toast } from './toast';
 import { drawOverview, fitCanvas } from './waveform';
@@ -29,6 +31,11 @@ export class DeckPanel {
   /** an empty deck suggests a track: the coach's pick, one click to load it here */
   private tryBtn: HTMLButtonElement;
   private tryId = '';
+  /** AI lyrics: listening progress, or an offer to listen */
+  private aiChip: HTMLButtonElement;
+  private aiBar: HTMLElement;
+  /** when a track's AI job finished (its result shows on the chip for a few seconds) */
+  private aiFinished = new Map<string, number>();
   private artist: HTMLElement;
   private bpm: HTMLElement;
   private bpmOrig: HTMLElement;
@@ -67,6 +74,12 @@ export class DeckPanel {
     this.tryBtn = h('button', { class: 'deck-try', type: 'button', hidden: true }) as HTMLButtonElement;
     this.tryBtn.addEventListener('click', () => {
       if (this.tryId) this.app.nextUp.load(this.tryId, this.app.sideDeck(side));
+    });
+    this.aiBar = h('i');
+    this.aiChip = h('button', { class: 'ai-chip', type: 'button', hidden: true }, h('span'), this.aiBar) as HTMLButtonElement;
+    this.aiChip.addEventListener('click', (e) => this.aiClick(e));
+    app.lyricsAi.on('state', (st) => {
+      if (st.status === 'done' || st.status === 'nothing' || st.status === 'error') this.aiFinished.set(st.trackId, performance.now());
     });
     // on a four-deck board each side holds two decks: which one this panel shows
     const [a, b] = side === 'L' ? [1, 3] : [2, 4];
@@ -182,7 +195,7 @@ export class DeckPanel {
     this.el = h(
       'section',
       { class: `deck-panel ${side === 'L' ? 'left' : 'right'}`, 'aria-label': `Deck ${side === 'L' ? 'left' : 'right'}` },
-      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist, this.tryBtn), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '4px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
+      h('div', { class: 'deck-head' }, this.art, h('div', { class: 'deck-title' }, this.title, this.artist, this.tryBtn, this.aiChip), h('div', { class: 'deck-layer' }, this.keyChip, h('div', { class: 'toggle-row', style: { gap: '4px', justifyContent: 'flex-end' } }, this.layerBtn, more))),
       h('div', { class: 'readouts' }, h('div', { class: 'bpm-line' }, bpmBox, this.tempoChip), this.time),
       h('div', { class: 'overview-wrap' }, ovBox, h('div', { class: 'phase', title: 'Beat within the bar' }, ...this.phase)),
       h(
@@ -295,9 +308,84 @@ export class DeckPanel {
         { label: 'Shift grid ½ beat', action: () => set({ firstBeat: a.firstBeat + d.beatLen / 2 }) },
         'sep',
         { label: t.lyrics ? 'Edit lyrics…' : 'Add lyrics…', action: () => openLyricsEditor(this.app, d) },
+        ...this.aiItems(),
       );
     }
     contextMenu(e.clientX, e.clientY, items);
+  }
+
+  /** the deck menu's AI lyrics items */
+  private aiItems(): MenuItem[] {
+    const d = this.deck();
+    const t = d.track;
+    const ai = this.app.lyricsAi;
+    if (!t) return [];
+    if (ai.busy(t.id)) return [{ label: 'Stop the AI listening', action: () => ai.cancel(t.id) }];
+    const items: MenuItem[] = [{ label: t.lyrics ? 'Hear the lyrics again with AI' : 'Hear the lyrics with AI', action: () => this.aiListen('detect') }];
+    if (t.lyrics && t.lyrics.source !== 'ai') items.push({ label: 'Time these lyrics with AI', action: () => this.aiListen('time') });
+    return items;
+  }
+
+  private aiListen(mode: 'detect' | 'time'): void {
+    const d = this.deck();
+    const t = d.track;
+    if (!t) return;
+    const ai = this.app.lyricsAi;
+    withAiLyrics(ai, () => {
+      if (mode === 'detect' && t.lyrics && !confirm('Replace this track’s lyrics with what the AI hears?')) return;
+      ai.listen(t, mode, { from: d.displayPosition(), replace: mode === 'detect' && !!t.lyrics })
+        .then((r) => {
+          if (mode === 'time' && r.lyrics) toast(`“${t.meta.title}”: the AI heard ${Math.round((r.matched ?? 0) * 100)}% of the words and timed them all.`);
+        })
+        .catch((e: Error) => {
+          if (e.message !== 'Stopped.') toast(e.message, 'error');
+        });
+    });
+  }
+
+  private aiClick(e: MouseEvent): void {
+    const d = this.deck();
+    const t = d.track;
+    if (!t) return;
+    if (this.app.lyricsAi.busy(t.id)) {
+      contextMenu(e.clientX, e.clientY, [
+        { label: 'Stop the AI listening', action: () => this.app.lyricsAi.cancel(t.id) },
+        { label: 'Open the lyrics…', action: () => openLyricsEditor(this.app, d) },
+      ]);
+    } else if (!t.lyrics) this.aiListen('detect');
+    else openLyricsEditor(this.app, d);
+  }
+
+  /** the AI chip: progress while listening, the result for a few seconds, else an offer to listen */
+  private updateAiChip(): void {
+    const d = this.deck();
+    const t = d.track;
+    const ai = this.app.lyricsAi;
+    let text = '';
+    let title = '';
+    let p = 0;
+    let err = false;
+    const st = t ? ai.state(t.id) : undefined;
+    if (t && st && ai.busy(t.id)) {
+      text = `✨ ${statusText(st)}`;
+      title = st.lines ? `${st.lines} lines heard so far: they show as karaoke while it listens. Click to stop.` : 'The AI is listening for the lyrics. Click to stop.';
+      p = st.overall;
+    } else if (t && st && performance.now() - (this.aiFinished.get(t.id) ?? -1e9) < 8000) {
+      err = st.status === 'error';
+      text = st.status === 'done' ? (st.mode === 'time' ? '✨ Words timed' : `✨ ${st.lines} lines heard`) : st.status === 'nothing' ? '✨ No vocals heard' : `✨ ${statusText(st)}`;
+      title = st.status === 'nothing' ? 'The AI heard no words in this track.' : st.message ?? 'Click to see the lyrics.';
+      p = 1;
+    } else if (t && d.loaded && !t.lyrics && !t.aiScan && t.source !== 'demo') {
+      text = '✨ Hear the lyrics';
+      title = 'The AI listens to the vocals and shows the words karaoke-style as they’re sung';
+    }
+    const show = !!text;
+    if (this.aiChip.hidden === show) this.aiChip.hidden = !show;
+    if (!show) return;
+    setText(this.aiChip.firstElementChild as HTMLElement, text);
+    if (this.aiChip.title !== title) this.aiChip.title = title;
+    setClass(this.aiChip, 'err', err);
+    setVar(this.aiChip, '--p', p.toFixed(3));
   }
 
   private tap(): void {
@@ -377,6 +465,7 @@ export class DeckPanel {
       this.tryBtn.title = `Load “${pick.title}”${pick.artist ? ` by ${pick.artist}` : ''} here · ${pick.why}`;
     }
     if (!pick) this.tryId = '';
+    this.updateAiChip();
     setText(this.bpm, d.loaded ? formatBpm(d.bpm) : '--.-');
     setText(this.bpmOrig, 'BPM');
     this.bpmOrig.title = d.analysis ? `Track tempo ${formatBpm(d.analysis.bpm)} BPM` : '';

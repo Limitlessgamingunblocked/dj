@@ -15,7 +15,7 @@ export interface FaceStyle {
 }
 
 /** print is drawn a little bigger and bolder than the real silk-screen: on screen it's read from much further away */
-const LEGIBLE = 1.24;
+const LEGIBLE = 1.4;
 /** line weights (ticks, outlines, scales) likewise */
 const LINE = 1.5;
 

@@ -438,15 +438,15 @@ export function mats(): MatSet {
     rubberWorn: new THREE.MeshStandardMaterial({ color: 0x272a30, roughness: 0.62, metalness: 0, roughnessMap: wornRubberRoughness() }),
     rubberLight: new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.7, metalness: 0 }),
     plasticDark: new THREE.MeshStandardMaterial({ color: 0x101114, roughness: 0.45, metalness: 0.1 }),
-    chrome: new THREE.MeshStandardMaterial({ color: 0xdfe3ea, roughness: 0.18, metalness: 1 }),
-    aluminium: new THREE.MeshStandardMaterial({ color: 0xb9bec7, roughness: 0.38, metalness: 1, roughnessMap: radialBrushed() }),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xa9adb5, roughness: 0.24, metalness: 1 }),
+    aluminium: new THREE.MeshStandardMaterial({ color: 0x9ca1aa, roughness: 0.42, metalness: 1, roughnessMap: radialBrushed() }),
     black: new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.6 }),
     white: new THREE.MeshBasicMaterial({ color: 0xf2f4f8 }),
     slot: new THREE.MeshStandardMaterial({ color: 0x060607, roughness: 0.9 }),
     glass: new THREE.MeshPhysicalMaterial({ color: 0x0a0c10, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
     faderCap: new THREE.MeshStandardMaterial({ color: 0x33373e, roughness: 0.42, metalness: 0.15 }),
     jogRing: new THREE.MeshStandardMaterial({ color: 0x1c1e22, roughness: 0.5, metalness: 0.6 }),
-    platterMetal: new THREE.MeshStandardMaterial({ color: 0xc7cbd2, roughness: 0.32, metalness: 1, roughnessMap: radialBrushed() }),
+    platterMetal: new THREE.MeshStandardMaterial({ color: 0x9ea2aa, roughness: 0.42, metalness: 1, roughnessMap: radialBrushed() }),
   };
   return shared;
 }

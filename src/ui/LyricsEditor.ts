@@ -1,7 +1,8 @@
 /*
- * Lyrics editor for the track on a deck: load an .lrc/.txt file, paste text,
- * look it up on LRCLIB (opt-in), align plain text to the vocals, tap-sync
- * each line while the track plays, nudge the offset, preview, save.
+ * Lyrics editor for the track on a deck: let the AI hear the lyrics (or time
+ * yours), load an .lrc/.txt file, paste text, look it up on LRCLIB (opt-in),
+ * align plain text to the vocals, tap-sync each line while the track plays,
+ * nudge the offset, preview, save.
  */
 import { saveFile } from '../core/download';
 import type { AppContext } from '../app/context';
@@ -10,7 +11,9 @@ import type { LibraryTrack } from '../core/types';
 import { formatTime } from '../core/util';
 import { lineAt, lrclibLookup, lyricsFromText, retime, toLrc, type LyricLine, type Lyrics } from '../lyrics/lyrics';
 import { alignToVocals, analyzeVocals, snapLine } from '../lyrics/vocal';
+import { statusText } from '../lyrics/LyricsAI';
 import { h, setText } from './dom';
+import { openLyricsAiGuide, withAiLyrics } from './LyricsAiGuide';
 import { openModal } from './modal';
 import { toast } from './toast';
 
@@ -27,6 +30,7 @@ const SOURCE_LABEL: Record<Lyrics['source'], string> = {
   lrclib: 'from LRCLIB',
   demo: 'demo vocal chops',
   tapped: 'tap-synced',
+  ai: 'heard by the AI',
 };
 
 const clone = (l: Lyrics): Lyrics => ({ ...l, lines: l.lines.map((x) => ({ ...x, words: x.words.map((w) => ({ ...w })) })) });
@@ -73,6 +77,15 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
   const tapUndo = btn('Undo tap', 'btn small');
   const tapDone = btn('Done', 'btn small');
   const tapNext = h('div', { class: 'ly-tapnext' });
+  // AI: hear the lyrics, or time the ones in the box
+  const ai = app.lyricsAi;
+  const aiDetect = btn('✨ Hear the lyrics', 'btn primary', 'The AI listens to the vocals and writes down every word with its timing');
+  const aiTime = btn('Time with AI', 'btn', 'Keep these words exactly and let the AI time each one from the vocals');
+  const aiStop = btn('Stop', 'btn small ghost');
+  const aiHelp = btn('How it works', 'btn small ghost');
+  const aiState = h('span', { class: 'ly-ai-state' });
+  const aiBar = h('div', { class: 'ly-progress', hidden: true }, h('i'));
+  const aiBox = h('div', { class: 'ly-ai' }, h('div', { class: 'ly-ai-head' }, h('b', {}, 'AI lyrics'), aiState, h('span', { style: { flex: '1' } }), aiDetect, aiTime, aiStop, aiHelp), aiBar);
   const tapBox = h('div', { class: 'ly-tapbox', hidden: true }, tapNext, tapPad, h('div', { class: 'toggle-row' }, tapUndo, tapDone, h('span', { class: 'note' }, 'Space or Enter taps too.')));
 
   const refreshText = () => {
@@ -92,10 +105,22 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
     saveBtn.disabled = !dirty || busy;
     exportBtn.disabled = !draft || draft.timing === 'none';
     removeBtn.disabled = !t.lyrics && !draft;
+    refreshAi();
     offset.disabled = !draft;
     offset.value = String(draft?.offset ?? 0);
     setText(offsetOut, `${(draft?.offset ?? 0) >= 0 ? '+' : ''}${(draft?.offset ?? 0).toFixed(2)} s`);
   };
+  function refreshAi(): void {
+    const st = ai.state(t.id);
+    const running = ai.busy(t.id);
+    aiDetect.disabled = running || busy;
+    aiTime.disabled = running || busy || !draft || !draft.lines.length;
+    aiStop.hidden = !running;
+    aiBar.hidden = !running;
+    (aiBar.firstElementChild as HTMLElement).style.width = `${Math.round((st?.overall ?? 0) * 100)}%`;
+    const hint = draft?.source === 'ai' ? (draft.ai?.timedOnly ? 'These words are timed by the AI.' : 'These lyrics were heard by the AI: check them and fix any word.') : draft ? 'Time with AI keeps these words and times each one.' : 'Let the AI listen to the vocals and write the lyrics.';
+    setText(aiState, st && (running || st.status === 'error' || st.status === 'nothing') ? statusText(st) : draft?.ai?.timedOnly ? 'These words are timed by the AI.' : hint);
+  }
   const set = (l: Lyrics | null, rewrite = true) => {
     draft = l;
     dirty = true;
@@ -143,6 +168,42 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
       lookupBtn.disabled = false;
       lookupBtn.textContent = 'Find online';
     }
+  });
+
+  aiDetect.addEventListener('click', () =>
+    withAiLyrics(ai, () => {
+      if ((t.lyrics || draft) && !confirm('Replace these lyrics with what the AI hears?')) return;
+      ai.listen(t, 'detect', { from: deck.displayPosition(), replace: true }).catch(() => {});
+      refreshAi();
+    }),
+  );
+  aiTime.addEventListener('click', () =>
+    withAiLyrics(ai, () => {
+      if (!draft) return;
+      // the box may hold newer text than the draft
+      if (text.value.trim() && draft.timing === 'none' && text.value.trim() !== draft.raw) fromText(text.value, 'pasted');
+      if (!draft) return;
+      ai.listen(t, 'time', { known: clone(draft) }).catch(() => {});
+      refreshAi();
+    }),
+  );
+  aiStop.addEventListener('click', () => {
+    ai.cancel(t.id);
+    refreshAi();
+  });
+  aiHelp.addEventListener('click', () => openLyricsAiGuide(ai));
+  const offState = ai.on('state', (st) => {
+    if (st.trackId === t.id) refreshAi();
+  });
+  const offDone = ai.on('done', (r) => {
+    if (r.track.id !== t.id) return;
+    if (r.lyrics) {
+      draft = clone(r.lyrics);
+      dirty = false;
+      refreshText();
+      refreshStatus();
+      toast(r.mode === 'time' ? `Timed by the AI: it heard ${Math.round((r.matched ?? 0) * 100)}% of your words, and the rest sit between them.` : `The AI heard ${r.lyrics.lines.length} lines. They’re saved; check them and fix any word it misheard.`);
+    } else refreshAi();
   });
 
   alignBtn.addEventListener('click', async () => {
@@ -282,11 +343,12 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
     { class: 'ly-editor' },
     h('div', { class: 'ly-track' }, h('b', {}, t.meta.title), h('span', {}, t.meta.artist || t.fileName), clock),
     status,
+    aiBox,
     h('div', { class: 'toggle-row' }, loadBtn, lookupBtn, applyBtn, alignBtn, tapBtn, fileIn),
     progress,
     tapBox,
     h('div', { class: 'ly-cols' }, text, h('div', { class: 'ly-side' }, h('div', { class: 'label' }, 'Preview'), preview, h('div', { class: 'toggle-row' }, toStart, back5, playBtn), h('label', { class: 'field', for: 'ly-offset' }, h('span', {}, 'Offset ', offsetOut), offset), h('p', { class: 'note' }, 'Words early? Slide right. Late? Slide left.'))),
-    h('p', { class: 'note' }, 'Lyrics come from the file’s tags or a matching .lrc/.txt file. “Align to vocals” is a best guess: check it and tap-sync where it drifts.'),
+    h('p', { class: 'note' }, 'Lyrics come from the file’s tags, a matching .lrc/.txt file, a lookup or the AI. The AI can mishear a word, and “Align to vocals” is a rougher guess: check them, edit any line, and tap-sync where it drifts.'),
     h('div', { class: 'toggle-row', style: { justifyContent: 'space-between' } }, h('div', { class: 'toggle-row' }, removeBtn, exportBtn), saveBtn),
   );
   const m = openModal('Lyrics', body, { wide: true });
@@ -306,21 +368,26 @@ export function openLyricsEditor(app: AppContext, deck: Deck): void {
   const loop = () => {
     if (!body.isConnected) {
       document.removeEventListener('keydown', onKey, true);
+      offState();
+      offDone();
       return;
     }
     const pos = deck.displayPosition();
     setText(clock, `${formatTime(pos, true)} / ${formatTime(duration)}`);
     setText(playBtn, deck.playing ? '❚❚ Pause' : '▶ Play');
-    if (draft && draft.timing !== 'none') {
-      const lp = pos - draft.offset;
-      const i = lineAt(draft.lines, lp + 0.05);
-      if (i !== lastLine) {
-        lastLine = i;
-        const cur = draft.lines[i];
+    // while the AI listens, what it's heard so far
+    const shown = draft && draft.timing !== 'none' ? draft : !draft ? ai.partial(t.id) : null;
+    if (shown) {
+      const lp = pos - shown.offset;
+      const i = lineAt(shown.lines, lp + 0.05);
+      const key = i + shown.lines.length * 1e4;
+      if (key !== lastLine) {
+        lastLine = key;
+        const cur = shown.lines[i];
         preview.replaceChildren(
-          h('small', {}, draft.lines[i - 1]?.text ?? ''),
+          h('small', {}, shown.lines[i - 1]?.text ?? ''),
           h('div', { class: `ly-now${cur?.hook ? ' hook' : ''}` }, ...(cur ? (cur.words.length ? cur.words : [{ t: cur.t, end: cur.end, text: cur.text }]).map((w) => h('span', { 'data-t': w.t }, `${w.text} `)) : [h('span', {}, '…')])),
-          h('small', {}, draft.lines[i + 1]?.text ?? ''),
+          h('small', {}, shown.lines[i + 1]?.text ?? ''),
         );
       }
       preview.querySelectorAll<HTMLElement>('.ly-now span[data-t]').forEach((s) => s.classList.toggle('sung', lp >= parseFloat(s.dataset.t!)));

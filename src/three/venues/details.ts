@@ -328,6 +328,7 @@ function laptopOnStand(group: THREE.Group, x: number, top: number, z: number, ry
   laptop.add(stand, base, lid);
   laptop.position.set(x, top, z);
   laptop.rotation.y = ry;
+  laptop.userData.deskProp = true;
   group.add(laptop);
 }
 
@@ -345,6 +346,8 @@ export function boothClutter(group: THREE.Group, w: number, top: number, front: 
   cup.position.set(-side * (w / 2 - 0.16), top + 0.06, front + 0.3);
   const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.24, 10), new THREE.MeshStandardMaterial({ color: 0xbfd8e8, roughness: 0.1, metalness: 0, transparent: true, opacity: 0.55 }));
   bottle.position.set(-side * (w / 2 - 0.28), top + 0.12, front + 0.5);
+  // the stage keeps these off the hardware (Stage.clearDesk)
+  cup.userData.deskProp = bottle.userData.deskProp = true;
   group.add(cup, bottle);
   // cable run hanging off the back of the booth
   const curve = new THREE.CatmullRomCurve3([V(side * 0.4, top + 0.01, front + 0.9), V(side * 0.6, top - 0.05, front + 1.02), V(side * 0.75, top - 0.5, front + 1.08), V(side * 0.95, 0.02, front + 1.25)]);
