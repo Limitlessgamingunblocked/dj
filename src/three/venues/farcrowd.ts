@@ -88,7 +88,7 @@ export const FAR_POSES: (HeldPose & { phone?: boolean })[] = [
 
 /** the data colour (R, G, B 0..255) of a posed triangle in the atlas */
 export function atlasColor(mat: number, n: THREE.Vector3): [number, number, number] {
-  const r = mat === M.skin ? 255 : mat === M.hair || mat === M.longHair ? 128 : 0;
+  const r = mat === M.skin || mat === M.eye ? 255 : mat === M.hair || mat === M.longHair ? 128 : 0;
   const g = mat === M.phone || mat === M.screen ? 0 : mat === M.bottoms || mat === M.shoes || mat === M.shin ? 100 : 255;
   // front and above, a little from one side; a wrap so the turn of the body falls off softly
   const l = n.x * 0.28 + n.y * 0.5 + n.z * 0.82;
