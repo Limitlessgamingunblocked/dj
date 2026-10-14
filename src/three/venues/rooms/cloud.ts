@@ -160,7 +160,7 @@ class CloudRoom extends CrazyRoom {
       this.group.add(mesh);
       this.bolts.push({ mesh, t: 99 });
     }
-    this.people(0.85, 2501, { area: [-DECK + 2, DECK - 2, CZ + DECK - 2.6, CZ - DECK + 2], phones: 0.35, clothes: ['#f4efe6', '#ffd8a0', '#2a2d33', '#d0d4dc', '#ff8a6a', '#16171a'] });
+    this.people(0.85, 2501, { area: [-DECK + 2, DECK - 2, -1.6, CZ - DECK + 2], phones: 0.35, clothes: ['#f4efe6', '#ffd8a0', '#2a2d33', '#d0d4dc', '#ff8a6a', '#16171a'] });
     this.wash(V(-20, 4, CZ - 30), 0, 2.5, 60, 0.3);
     this.wash(V(0, 6, CZ), 1, 1.2, 16);
   }
