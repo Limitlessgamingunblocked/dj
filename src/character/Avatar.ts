@@ -426,8 +426,11 @@ function handFrame(fx: number, fy: number, fz: number, px: number, py: number, p
 export class Avatar {
   readonly object = new THREE.Group();
   readonly bones = {} as Record<BoneName, THREE.Object3D>;
-  /** 'dj' stands at the decks; 'idle' stands and grooves (the dressing room); 'hype' dances by the booth */
-  mode: 'dj' | 'idle' | 'hype' = 'dj';
+  /** 'dj' stands at the decks; 'idle' stands and grooves (the dressing room); 'hype' dances by the booth; 'walk' walks (out to the booth) */
+  mode: 'dj' | 'idle' | 'hype' | 'walk' = 'dj';
+  /** strides a second while walking (one stride: a step with each foot) */
+  walkRate = 1;
+  private stride = 0;
   /** a hype dancer's own pick of moves, and which side of the DJ she's on (-1 left, 1 right) */
   seed = 0;
   side = 1;
@@ -1966,6 +1969,13 @@ export class Avatar {
       this.settle(dt);
       return;
     }
+    if (this.mode === 'walk') {
+      this.walk(dt);
+      this.express(s, dt, beat, hit, 0);
+      this.settle(dt);
+      this.model?.sync();
+      return;
+    }
     const dj = this.mode === 'dj';
 
     // the groove, locked to the beat
@@ -2166,6 +2176,43 @@ export class Avatar {
     this.express(s, dt, beat, hit, dj ? (lookUp ? -0.06 : 0.3) : 0);
     this.settle(dt);
     this.model?.sync();
+  }
+
+  /**
+   * A walk: each leg swings through with the knee bent and lands straight,
+   * the arms swing against the legs, the hips dip as the feet pass wide and
+   * turn with the stride (the chest turning back against them). Where the
+   * body goes is up to whoever moves the avatar.
+   */
+  private walk(dt: number): void {
+    const b = this.bones;
+    this.stride += dt * this.walkRate * Math.PI * 2;
+    const p = this.stride;
+    const s = Math.sin(p);
+    const c = Math.cos(p);
+    for (const side of ['l', 'r'] as const) {
+      const k = side === 'l' ? 1 : -1;
+      const thigh = -0.42 * s * k - 0.04;
+      // the knee bends while the leg swings forward (the thigh moving forward: cos > 0 for this side)
+      const swing = Math.max(0, c * k);
+      const shin = 0.1 + 0.62 * swing * Math.sqrt(swing);
+      b[`thigh_${side}`].rotation.x = thigh;
+      b[`shin_${side}`].rotation.x = shin;
+      // the foot stays near flat, the toes up a touch as the heel lands
+      b[`foot_${side}`].rotation.x = -(thigh + shin) * 0.75 - 0.08 * Math.max(0, -s * k);
+      // the arms swing against the legs, the forward one bending a little more
+      const arm = 0.36 * s * k;
+      b[`upper_arm_${side}`].rotation.set(arm, 0, 0.1 * k);
+      b[`forearm_${side}`].rotation.set(-0.22 - 0.22 * Math.max(0, -arm / 0.36), 0, 0);
+      this.curlHand(side, 0.4, dt, null);
+    }
+    b.hips.position.y = this.d.hipY - 0.028 * s * s + 0.006;
+    b.hips.rotation.y = 0.1 * s;
+    b.hips.rotation.z = 0.035 * c;
+    b.spine.rotation.y = -0.14 * s;
+    b.spine.rotation.x = 0.05;
+    b.neck.rotation.y = 0.04 * s;
+    b.neck.rotation.x = 0.02;
   }
 
   /**

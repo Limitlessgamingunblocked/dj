@@ -69,6 +69,7 @@ const TITLE_VENUE = 'deckhouse';
 import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
+import { walkOut } from '../ui/WalkOut';
 import { GigDirector, type Callout } from './gigs';
 import { NextUp } from './nextup';
 import { NextUpCard } from '../ui/NextUpCard';
@@ -621,6 +622,22 @@ export class App implements AppContext {
         // already here: walk in anyway, it's the night's start
         if (!this.stage.arriving) this.stage.arrive();
         this.stage.arrivalFlyer = null;
+      },
+      walkOut: (w, done) => {
+        const v = venueById(w.venue);
+        const el = walkOut({
+          look: this.career.look,
+          djName: nameService.text,
+          ui: v.ui,
+          venueName: v.name,
+          flyer: w.flyer,
+          bill: { dj: nameService.text || 'You', slot: w.slot, minutes: w.minutes },
+          // the club through the walls, unless there's music on already
+          ctx: this.engine.decks.some((d) => d.playing) ? null : this.engine.ctx,
+          done,
+        });
+        if (el) this.stage.el.append(el);
+        else done();
       },
       venueName: (id) => venueById(id).name,
       gigVenues: () => {
@@ -1919,7 +1936,7 @@ export class App implements AppContext {
       lap('audio + game');
       // a dialog over the stage: the club only needs a third of the frames
       this.stageDt += dt;
-      const covered = document.body.classList.contains('modal-open');
+      const covered = document.body.classList.contains('modal-open') || document.body.classList.contains('walking-out');
       if (!covered || this.frame % 3 === 0) {
         this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
         this.stageDt = 0;

@@ -1,7 +1,8 @@
-/* Venue gallery: illustrated cards for every venue. */
+/* Venue picker: the venue globe (VenueGlobe), with illustrated cards for every venue as its grid view. */
 import { VENUES, type VenueDef } from '../three/venues';
 import { h, clear } from './dom';
-import { openModal } from './modal';
+import { openModal, type ModalHandle } from './modal';
+import { venueGlobe } from './VenueGlobe';
 
 const thumbs = new Map<string, string>();
 
@@ -47,11 +48,23 @@ export function venueCards(current: () => string, pick: (id: string) => void, lo
   return { el, refresh };
 }
 
-export function openVenuePicker(current: () => string, pick: (id: string) => void, locked?: (id: string) => string | null): void {
-  const cards = venueCards(current, pick, locked);
-  openModal(
-    'Venue',
-    h('div', { style: { display: 'grid', gap: '12px' } }, cards.el, h('p', { class: 'note fineprint' }, 'Real venues are fan-made recreations, not affiliated with the clubs.')),
-    { wide: true },
-  );
+const fineprint = () => h('p', { class: 'note fineprint' }, 'Real venues are fan-made recreations, not affiliated with the clubs.');
+
+export function openVenuePicker(current: () => string, pick: (id: string) => void, locked: (id: string) => string | null = () => null): void {
+  let modal: ModalHandle | null = null;
+  const showGrid = (canGoBack: boolean) => {
+    const cards = venueCards(current, pick, locked);
+    const back = canGoBack ? h('button', { type: 'button', class: 'btn ghost small', style: { justifySelf: 'start' } }, 'Back to the globe') : null;
+    back?.addEventListener('click', showGlobe);
+    modal?.body.replaceChildren(h('div', { style: { display: 'grid', gap: '12px' } }, back, cards.el, fineprint()));
+  };
+  const showGlobe = () => {
+    const globe = venueGlobe({ current, pick, locked, grid: () => showGrid(true) }, () => modal);
+    if (globe) {
+      modal?.body.replaceChildren(globe);
+      globe.focus({ preventScroll: true });
+    } else showGrid(false);
+  };
+  modal = openModal('Venue', h('div'), { wide: true });
+  showGlobe();
 }
