@@ -1373,6 +1373,8 @@ export class Stage {
       this.placeAvatar(show, sdt);
     }
 
+    // the set so far grows whether or not the player is on screen
+    this.visualizer.listen(f, dt);
     // on the venue screens the visual player can run at half rate when the load is high
     const needVis = this.view !== 'booth' || (!!venue && this.onScreen(venue.visObjects));
     const visFrame = this.view !== 'booth' || this.adaptive.step.visualizerFull || this.frame % 2 === 0;
