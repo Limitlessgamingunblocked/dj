@@ -365,25 +365,27 @@ function seal(kit: RobotKit, parent: THREE.Object3D, rx: number, rz: number, y: 
 
 function silverHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [string, string, string], name: string): RobotHead {
   const grp = new THREE.Group();
-  grp.position.set(0, r * 1.0, 0.004);
+  grp.position.set(0, r * 0.95, 0.004);
   headBone.add(grp);
   const RX = r * 1.1;
-  const RY = r * 1.3;
+  const RY = r * 1.42;
   const RZ = r * 1.18;
-  // a dome over a flatter face, the jaw a little wider than the brow
+  // taller than wide: a high dome over a flat face, the jaw narrowing to the chin under the visor
   const form = (d: THREE.Vector3, o: THREE.Vector3) => {
     const z = d.z > 0.45 ? 0.45 + (d.z - 0.45) * 0.5 : d.z;
-    const flare = d.y < 0 ? 1 + 0.07 * -d.y : 1;
-    o.set(d.x * RX * flare, d.y * RY, z * RZ);
+    const taper = d.y < 0 ? 1 - 0.24 * Math.pow(-d.y, 1.4) : 1;
+    // the faceplate under the visor comes straight down and forward to the chin
+    const chin = d.y < 0 && z > 0 ? 1 + 0.12 * -d.y * z : 1;
+    o.set(d.x * RX * taper, d.y * RY, z * RZ * chin);
   };
   const shell = kit.keep(pearlMat(zones[0]));
   kit.mesh(shaped(new THREE.SphereGeometry(1, 72, 48, 0, Math.PI * 2, 0, Math.PI * 0.8), form), shell, grp);
-  seal(kit, grp, RX * 0.64, RZ * 0.56, -RY * 0.8, r * 0.06);
+  seal(kit, grp, RX * 0.5, RZ * 0.54, -RY * 0.8, r * 0.06);
 
   // the goggle band: a frame standing proud of the shell, the visor glass recessed in it
-  const F0 = [-1.32, 1.32, 0.3, 0.6] as const;
-  const G0 = [-1.12, 1.12, 0.345, 0.555] as const;
-  const FRAME = 1.075;
+  const F0 = [-1.32, 1.32, 0.315, 0.605] as const;
+  const G0 = [-1.12, 1.12, 0.36, 0.56] as const;
+  const FRAME = 1.095;
   for (const [a0, a1, t0, t1] of [
     [F0[0], F0[1], F0[2], G0[2]],
     [F0[0], F0[1], G0[3], F0[3]],
@@ -391,15 +393,15 @@ function silverHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones:
     [G0[1], F0[1], G0[2], G0[3]],
   ]) kit.mesh(shaped(patch(a0, a1, t0, t1, 40, 6), form, FRAME), shell, grp);
   // its edges, rounded down to the shell outside and into the glass inside
-  kit.mesh(new THREE.TubeGeometry(loopOn(form, rectPts(...F0), 1.038), 120, r * 0.046, 8, true), shell, grp);
-  kit.mesh(new THREE.TubeGeometry(loopOn(form, rectPts(...G0), 1.064), 120, r * 0.016, 6, true), shell, grp);
+  kit.mesh(new THREE.TubeGeometry(loopOn(form, rectPts(...F0), 1.045), 120, r * 0.056, 8, true), shell, grp);
+  kit.mesh(new THREE.TubeGeometry(loopOn(form, rectPts(...G0), 1.08), 120, r * 0.018, 6, true), shell, grp);
 
   // the visor: black glass, the LED panel behind it, split down the middle
   const led = new DotMatrix(32, 9, () => zones[2], name);
   kit.keep(led.tex);
   const glass = kit.keep(new THREE.MeshPhysicalMaterial({ color: zones[1], roughness: 0.05, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.02, emissive: 0xffffff, emissiveMap: led.tex, emissiveIntensity: 1.6 }));
-  kit.mesh(shaped(patch(...G0, 48, 12), form, 1.052), glass, grp);
-  kit.mesh(new THREE.TubeGeometry(loopOn(form, [[0.02, G0[2]], [0.02, (G0[2] + G0[3]) / 2], [0.02, G0[3]]], 1.056, false), 8, r * 0.012, 6, false), shell, grp);
+  kit.mesh(shaped(patch(...G0, 48, 12), form, 1.068), glass, grp);
+  kit.mesh(new THREE.TubeGeometry(loopOn(form, [[0.02, G0[2]], [0.02, (G0[2] + G0[3]) / 2], [0.02, G0[3]]], 1.072, false), 8, r * 0.012, 6, false), shell, grp);
 
   // a slot of a mouth on the chin
   const mouth = new THREE.Vector3();
@@ -409,8 +411,8 @@ function silverHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones:
   // pods over the ears, a dark ring in each
   const dark = kit.keep(rubberMat(0x2a2c31));
   for (const s of [-1, 1]) {
-    kit.mesh(new THREE.CylinderGeometry(r * 0.3, r * 0.34, r * 0.1, 32).rotateZ(Math.PI / 2), shell, grp, V(s * RX * 0.985, -r * 0.08, -r * 0.1));
-    kit.mesh(new THREE.TorusGeometry(r * 0.2, r * 0.025, 8, 32).rotateY(Math.PI / 2), dark, grp, V(s * (RX * 0.985 + r * 0.052), -r * 0.08, -r * 0.1));
+    kit.mesh(new THREE.CylinderGeometry(r * 0.2, r * 0.24, r * 0.08, 32).rotateZ(Math.PI / 2), shell, grp, V(s * RX * 0.975, -r * 0.12, -r * 0.12));
+    kit.mesh(new THREE.TorusGeometry(r * 0.13, r * 0.02, 8, 32).rotateY(Math.PI / 2), dark, grp, V(s * (RX * 0.975 + r * 0.042), -r * 0.12, -r * 0.12));
   }
 
   const bars = new Float32Array(8);
@@ -425,18 +427,19 @@ function silverHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones:
 
 function goldHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [string, string, string]): RobotHead {
   const grp = new THREE.Group();
-  grp.position.set(0, r * 1.0, 0.004);
+  grp.position.set(0, r * 0.97, 0.004);
   headBone.add(grp);
   const RX = r * 1.1;
-  const RY = r * 1.3;
+  const RY = r * 1.45;
   const RZ = r * 1.2;
+  // an egg: taller than wide, narrowing to the chin
   const form = (d: THREE.Vector3, o: THREE.Vector3) => {
-    const flare = d.y < 0 ? 1 + 0.05 * -d.y : 1;
-    o.set(d.x * RX * flare, d.y * RY, d.z * RZ);
+    const taper = d.y < 0 ? 1 - 0.16 * Math.pow(-d.y, 1.4) : 1;
+    o.set(d.x * RX * taper, d.y * RY, d.z * RZ * (d.y < 0 ? 1 - 0.05 * -d.y : 1));
   };
   const shell = kit.keep(metalMat(zones[0], 0.24));
   kit.mesh(shaped(new THREE.SphereGeometry(1, 72, 48, 0, Math.PI * 2, 0, Math.PI * 0.8), form), shell, grp);
-  seal(kit, grp, RX * 0.62, RZ * 0.6, -RY * 0.8, r * 0.06);
+  seal(kit, grp, RX * 0.52, RZ * 0.56, -RY * 0.8, r * 0.06);
 
   // the visor: a U of black glass down the face (u left to right, v bottom to top)
   const A0 = -1.22;
@@ -472,14 +475,28 @@ function goldHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
   const HUES = [225, 195, 172, 140, 95, 58, 35, 12, 0];
   const glass = kit.keep(new THREE.MeshPhysicalMaterial({ color: zones[1], roughness: 0.04, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.02, alphaMap: maskTex, alphaTest: 0.5, emissive: 0xffffff, emissiveMap: ledTex, emissiveIntensity: 1.4 }));
   kit.mesh(shaped(patch(A0, A1, T0, T1, 64, 40), form, 1.006), glass, grp);
-  // the thick gold rim round the U
-  const rim = U.map(([u, v]) => [A0 + (A1 - A0) * u, T0 + (T1 - T0) * (1 - v)] as [number, number]);
-  kit.mesh(new THREE.TubeGeometry(loopOn(form, rim, 1.02), 160, r * 0.06, 10, true), shell, grp);
+  // the thick gold rim round the U: a broad flat band standing off the shell, rounded at both edges
+  const at = (u: number, v: number) => [A0 + (A1 - A0) * u, T0 + (T1 - T0) * (1 - v)] as [number, number];
+  const rim = U.map(([u, v]) => at(u, v));
+  const BAND = 1.26;
+  const outer = U.map(([u, v]) => at(0.5 + (u - 0.5) * BAND, 0.5 + (v - 0.5) * BAND));
+  const inner = loopOn(form, rim, 1.03).getSpacedPoints(160);
+  const outerPts = loopOn(form, outer, 1.03).getSpacedPoints(160);
+  const band = new THREE.BufferGeometry().setFromPoints(inner.flatMap((p, i) => [p, outerPts[i]]));
+  const idx: number[] = [];
+  for (let i = 0; i < 160; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+  band.setIndex(idx);
+  band.computeVertexNormals();
+  const bandMat = kit.keep(shell.clone());
+  bandMat.side = THREE.DoubleSide;
+  kit.mesh(band, bandMat, grp);
+  kit.mesh(new THREE.TubeGeometry(loopOn(form, rim, 1.022), 160, r * 0.045, 10, true), shell, grp);
+  kit.mesh(new THREE.TubeGeometry(loopOn(form, outer, 1.012), 160, r * 0.035, 8, true), shell, grp);
   // raised gold panels over the ears, a dark port in each
   const port = kit.keep(rubberMat(zones[2]));
   for (const s of [-1, 1]) {
-    kit.mesh(kit.keep(new RoundedBoxGeometry(r * 0.12, r * 0.66, r * 0.44, 2, r * 0.04)), shell, grp, V(s * RX * 0.99, -r * 0.1, -r * 0.02));
-    kit.mesh(new THREE.CylinderGeometry(r * 0.1, r * 0.1, r * 0.03, 24).rotateZ(Math.PI / 2), port, grp, V(s * (RX * 0.99 + r * 0.06), -r * 0.02, -r * 0.02));
+    kit.mesh(kit.keep(new RoundedBoxGeometry(r * 0.16, r * 0.8, r * 0.5, 2, r * 0.05)), shell, grp, V(s * RX * 0.97, -r * 0.12, -r * 0.04));
+    kit.mesh(new THREE.CylinderGeometry(r * 0.11, r * 0.11, r * 0.03, 24).rotateZ(Math.PI / 2), port, grp, V(s * (RX * 0.97 + r * 0.075), -r * 0.02, -r * 0.04));
   }
 
   let t = 0;
@@ -503,12 +520,12 @@ function goldHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
         for (const side of [-1, 1]) {
           // each bar a slanted slab following the curve of the rim
           const inset = 0.13 + Math.max(0, (0.6 - v0) * 0.25);
-          const x0 = side < 0 ? inset : 1 - inset - 0.12;
+          const x0 = side < 0 ? inset : 1 - inset - 0.17;
           lg.beginPath();
           lg.moveTo(x0 * S, (1 - v0) * S);
-          lg.lineTo((x0 + 0.12) * S, (1 - v0 - side * 0.012) * S);
-          lg.lineTo((x0 + 0.12) * S, (1 - v0 + 0.045 - side * 0.012) * S);
-          lg.lineTo(x0 * S, (1 - v0 + 0.045) * S);
+          lg.lineTo((x0 + 0.17) * S, (1 - v0 - side * 0.018) * S);
+          lg.lineTo((x0 + 0.17) * S, (1 - v0 + 0.048 - side * 0.018) * S);
+          lg.lineTo(x0 * S, (1 - v0 + 0.048) * S);
           lg.closePath();
           lg.fill();
         }
@@ -520,16 +537,16 @@ function goldHelmet(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
 
 function smileyHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [string, string, string]): RobotHead {
   const grp = new THREE.Group();
-  grp.position.set(0, r * 1.38, 0.01);
+  grp.position.set(0, r * 1.3, 0.01);
   headBone.add(grp);
-  const RX = r * 1.02;
-  const RY = r * 1.7;
+  const RX = r * 1.12;
+  const RY = r * 1.62;
   const RZ = r * 0.95;
-  // a tall bullet: straight sides, round at the crown, a little narrower at the chin, the face flatter
+  // a tall bullet: straight sides, round at the crown, narrowing to a rounder chin, the face flatter
   const form = (d: THREE.Vector3, o: THREE.Vector3) => {
     const h = Math.sqrt(Math.max(1e-6, 1 - d.y * d.y));
     const want = Math.pow(Math.max(0, 1 - Math.pow(Math.abs(d.y), 3)), 1 / 3);
-    const k = (want / h) * (1 - 0.12 * Math.max(0, -d.y));
+    const k = (want / h) * (1 - 0.26 * Math.pow(Math.max(0, -d.y), 1.3));
     const z = d.z * k > 0.6 ? 0.6 + (d.z * k - 0.6) * 0.6 : d.z * k;
     o.set(d.x * k * RX, d.y * RY, z * RZ);
   };
@@ -547,10 +564,10 @@ function smileyHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   // (lit a little from within, so the yellow eyes stay bright like a printed cartoon)
-  const decal = kit.keep(new THREE.MeshToonMaterial({ map: tex, transparent: true, alphaTest: 0.4, gradientMap: ramp, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.3 }));
+  const decal = kit.keep(new THREE.MeshToonMaterial({ map: tex, transparent: true, alphaTest: 0.4, gradientMap: ramp, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.35 }));
   const HALF = 0.95;
   const TOP = 0.16;
-  const BOT = 0.78;
+  const BOT = 0.86;
   kit.mesh(shaped(patch(-HALF, HALF, TOP, BOT, 48, 32), form, 1.004), decal, grp);
   // a canvas pixel is wider than it is tall on the head: draw circles wider to keep them round
   const A = (Math.PI * (BOT - TOP) * RY) / (HALF * 2 * RX * 1.05);
@@ -567,9 +584,9 @@ function smileyHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
     const ink = zones[2];
     // eyes: big yellow discs, a thick black ring round each (happy arcs at a peak)
     for (const s of [-1, 1]) {
-      const ex = W / 2 + s * W * 0.2;
-      const ey = W * 0.36;
-      const R = W * 0.085;
+      const ex = W / 2 + s * W * 0.27;
+      const ey = W * 0.33;
+      const R = W * 0.12;
       g.strokeStyle = ink;
       g.lineCap = 'round';
       if (happy && !f.blink) {
@@ -587,9 +604,9 @@ function smileyHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [
       g.stroke();
     }
     // the grin: a D on its back, black inside, a dark red tongue at the bottom
-    const my = W * 0.6;
-    const mw = W * 0.2 * (shout ? 0.82 : 1);
-    const depth = W * (0.05 + open * 0.09);
+    const my = W * 0.72;
+    const mw = W * 0.25 * (shout ? 0.82 : 1);
+    const depth = W * (0.08 + open * 0.08);
     const lips = new Path2D();
     lips.moveTo(W / 2 - mw, my);
     lips.quadraticCurveTo(W / 2, my + W * 0.02, W / 2 + mw, my);
@@ -634,7 +651,7 @@ function boxHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [str
   const eyes: THREE.Object3D[] = [];
   for (const s of [-1, 1]) {
     const eye = new THREE.Object3D();
-    eye.position.set(s * W * 0.22, r * 0.12, front + r * 0.005);
+    eye.position.set(s * W * 0.245, r * 0.2, front + r * 0.005);
     grp.add(eye);
     kit.mesh(new THREE.CylinderGeometry(r * 0.38, r * 0.38, r * 0.02, 40).rotateX(Math.PI / 2), blackMat, eye);
     const disc = kit.mesh(new THREE.SphereGeometry(r * 0.33, 40, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(Math.PI / 2), eyeMat, eye, V(0, 0, r * 0.012));
@@ -642,15 +659,17 @@ function boxHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [str
     eyes.push(eye);
   }
 
-  // buck teeth: four, hanging over the bottom edge, outlined; on a jaw that chatters
+  // buck teeth: four, set in a black mouth at the bottom edge and poking out under it,
+  // outlined; on a jaw that chatters
   const toothMat = kit.keep(new THREE.MeshToonMaterial({ color: 0xf3ecc9, gradientMap: ramp }));
+  kit.mesh(new THREE.BoxGeometry(r * 1.02, r * 0.3, r * 0.02), blackMat, grp, V(-r * 0.16, -H / 2 + r * 0.17, front + r * 0.003));
   const jaw = new THREE.Group();
-  const jawY = -H / 2 + r * 0.06;
-  jaw.position.set(-r * 0.12, jawY, front + r * 0.02);
+  const jawY = -H / 2 + r * 0.12;
+  jaw.position.set(-r * 0.16, jawY, front + r * 0.025);
   grp.add(jaw);
   for (let i = 0; i < 4; i++) {
-    const tg = kit.keep(new THREE.BoxGeometry(r * 0.22, r * 0.3, r * 0.06));
-    const at = V((i - 1.5) * r * 0.25, -r * 0.05, 0);
+    const tg = kit.keep(new THREE.BoxGeometry(r * 0.22, r * 0.4, r * 0.06));
+    const at = V((i - 1.5) * r * 0.24, 0, 0);
     kit.mesh(tg, toothMat, jaw, at);
     outline(kit, tg, jaw, 1.12, at, ink);
   }
@@ -661,9 +680,9 @@ function boxHead(kit: RobotKit, headBone: THREE.Object3D, r: number, zones: [str
   grp.add(antenna);
   kit.mesh(new THREE.CylinderGeometry(r * 0.022, r * 0.03, r * 1.15, 6).translate(0, r * 0.575, 0), blackMat, antenna);
   const ballMat = kit.keep(new THREE.MeshToonMaterial({ color: zones[1], emissive: zones[1], emissiveIntensity: 0.1, gradientMap: ramp }));
-  const ballGeo = kit.keep(new THREE.SphereGeometry(r * 0.25, 24, 16));
-  kit.mesh(ballGeo, ballMat, antenna, V(0, r * 1.3, 0));
-  outline(kit, ballGeo, antenna, 1.1, V(0, r * 1.3, 0), ink);
+  const ballGeo = kit.keep(new THREE.SphereGeometry(r * 0.32, 24, 16));
+  kit.mesh(ballGeo, ballMat, antenna, V(0, r * 1.4, 0));
+  outline(kit, ballGeo, antenna, 1.08, V(0, r * 1.4, 0), ink);
   kit.spring(antenna, 1.6);
 
   let t = 0;

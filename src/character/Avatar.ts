@@ -111,11 +111,13 @@ function dims(l: Look): Dims {
   const M = 1 + 0.14 * slider(l, 'muscle_definition');
   const thigh = 0.43 * H * L;
   const shin = 0.42 * H * L;
+  // the robot suit is padded: broad in the shoulders and the chest, the arms set wider to clear it
+  const suit = l.items.outer === 'jacket_robot' ? 1 : 0;
   return {
     H,
-    shoulder: (0.18 + 0.03 * slider(l, 'shoulder_width')) * (0.96 + 0.04 * M) * Math.sqrt(H),
-    chestR: (0.15 + 0.022 * slider(l, 'chest')) * W * (0.97 + 0.03 * M),
-    waistR: (0.125 + 0.025 * slider(l, 'waist')) * W,
+    shoulder: (0.18 + 0.03 * slider(l, 'shoulder_width')) * (0.96 + 0.04 * M) * Math.sqrt(H) * (1 + 0.2 * suit),
+    chestR: (0.15 + 0.022 * slider(l, 'chest')) * W * (0.97 + 0.03 * M) * (1 + 0.1 * suit),
+    waistR: (0.125 + 0.025 * slider(l, 'waist')) * W * (1 + 0.08 * suit),
     hipsR: (0.145 + 0.025 * slider(l, 'hips')) * W,
     depth: 0.64 + 0.04 * slider(l, 'chest'),
     armR: (0.04 + 0.009 * slider(l, 'arm_thickness')) * (0.6 + 0.4 * W) * M,
@@ -143,10 +145,24 @@ interface ShellStyle {
   trim?: 1 | 2 | 3;
   /** white piping down the sleeves and over the shoulders (zone 2), the cuffs and collar ribbed */
   piping?: boolean;
+  /** padded: the sleeves this many times as thick */
+  padded?: number;
+}
+
+/** a sleeve's radius round the shoulder cap, at the elbow and at the cuff */
+function sleeveRadii(d: Dims, o: ShellStyle, push: number): { cap: number; elbow: number; cuff: number } {
+  const pad = o.padded ?? 1;
+  return {
+    cap: (d.armR * 1.18 + push * (o.puffy ? 0.9 : 0.55)) * pad,
+    elbow: (d.armR * 1.02 + push * 0.5) * pad,
+    cuff: (d.armR * 0.85 + push * 0.45) * pad,
+  };
 }
 
 /** the robot DJ's patent-shiny pieces */
 const ROBOT_LEATHER = new Set(['jacket_robot', 'pants_robot', 'boots_robot']);
+/** how much bigger the robot hands are than a person's */
+const ROBOT_HAND_SCALE = 1.32;
 
 /** each top's cut */
 const TOP_STYLE: Record<string, ShellStyle> = {
@@ -175,7 +191,7 @@ const OUTER_STYLE: Record<string, ShellStyle> = {
   bomber: { sleeves: 'long', collar: 'crew', open: 0.3, push: 0.034 },
   denim_jacket: { sleeves: 'long', collar: 'shirt', open: 0.45, push: 0.03 },
   velvet_blazer: { sleeves: 'long', collar: 'shirt', open: 0.6, push: 0.028, length: 0.06 },
-  jacket_robot: { sleeves: 'long', collar: 'high', push: 0.03, trim: 3, piping: true },
+  jacket_robot: { sleeves: 'long', collar: 'high', push: 0.034, trim: 3, piping: true, padded: 1.3 },
 };
 
 /** a capsule hanging down from its joint */
@@ -689,8 +705,16 @@ export class Avatar {
    */
   private buildHand(side: 'l' | 'r', k: number, meshes = true): void {
     const d = this.d;
-    const hb = this.bones[`hand_${side}`];
     const robot = ROBOT_HANDS.has(this.look.items.wrists ?? '');
+    // robot hands are big, chunky things: the whole hand built a size up on its own joint
+    // (the bone itself stays as it is, for whatever the hand holds)
+    let hb = this.bones[`hand_${side}`];
+    if (robot) {
+      const big = new THREE.Object3D();
+      big.scale.setScalar(ROBOT_HAND_SCALE);
+      hb.add(big);
+      hb = big;
+    }
     const zones = zoneColors(this.look, 'wrists');
     // pearly silver (or polished gold) plates, black between them, a bigger hand than a person's
     const plate = (c: string) => this.keep(this.look.items.wrists === 'gloves_chrome' ? pearlMat(c) : metalMat(c, 0.24));
@@ -1479,7 +1503,7 @@ export class Avatar {
    * chest panels and the outside of each sleeve, a zip down the front, ribbed
    * cuffs, collar and hem (zone 3) with a line of piping above each.
    */
-  private piping(slot: Slot, push: number, hipPts: [number, number][], chestPts: [number, number][]): void {
+  private piping(slot: Slot, push: number, o: ShellStyle, hipPts: [number, number][], chestPts: [number, number][]): void {
     const d = this.d;
     const b = this.bones;
     const pipe = this.fabric(slot, 2);
@@ -1545,12 +1569,10 @@ export class Avatar {
     top.rotation.x = Math.PI / 2;
     for (const s of ['l', 'r'] as const) {
       const k = s === 'l' ? 1 : -1;
-      const sr = d.armR * 1.18 + push * 0.55;
+      const { cap: sr, elbow: f0, cuff: f1 } = sleeveRadii(d, o, push);
       // over the cap of the shoulder, then down the outside of the sleeve to the cuff
       line(steps(6, (t) => V(k * Math.sin((t * Math.PI) / 2) * (sr + 0.002), -0.004 + Math.cos((t * Math.PI) / 2) * (sr * 0.9 + 0.002), 0)), b[`shoulder_${s}`]);
       line(steps(6, (t) => V(k * (sr * (1 - 0.08 * t) + 0.0015), -d.upperArm * t, 0)), b[`upper_arm_${s}`]);
-      const f0 = d.armR * 1.02 + push * 0.5;
-      const f1 = d.armR * 0.85 + push * 0.45;
       const fl = d.foreArm * 0.94;
       line(steps(6, (t) => V(k * (f0 + (f1 - f0) * t + 0.0015), -fl * 0.92 * t, 0)), b[`forearm_${s}`]);
       // the cuff: ribbed, piping above it
@@ -1598,13 +1620,13 @@ export class Avatar {
       this.mesh(lathe(chestPts, d.depth * 1.02, ps, pl), m, b.spine);
       for (const s of ['l', 'r'] as const) {
         if (o.sleeves === 'none') continue;
-        const sr = d.armR * 1.18 + push * (o.puffy ? 0.9 : 0.55);
+        const { cap: sr, elbow, cuff: wrist } = sleeveRadii(d, o, push);
         const capM = this.mesh(new THREE.SphereGeometry(sr, 16, 12), m, b[`shoulder_${s}`], V(0, -0.004, 0));
         capM.scale.set(1, 0.9, 1);
         const len = o.sleeves === 'short' ? d.upperArm * 0.5 : o.sleeves === 'elbow' ? d.upperArm * 0.92 : d.upperArm;
         const loose = o.sleeves === 'long' ? 0.92 : 1.04;
         this.mesh(new THREE.CylinderGeometry(sr, sr * loose, len, 18, 1, o.sleeves !== 'long').translate(0, -len / 2, 0), m, b[`upper_arm_${s}`]);
-        if (o.sleeves === 'long') this.mesh(limb(d.armR * 1.02 + push * 0.5, d.foreArm * 0.94, d.armR * 0.85 + push * 0.45), m, b[`forearm_${s}`]);
+        if (o.sleeves === 'long') this.mesh(limb(elbow, d.foreArm * 0.94, wrist), m, b[`forearm_${s}`]);
         if (o.sleeves === 'short' || o.sleeves === 'elbow') {
           const cuff = this.mesh(new THREE.TorusGeometry(sr * 0.98, 0.004, 6, 20), trim, b[`upper_arm_${s}`], V(0, -len + 0.01, 0));
           cuff.rotation.x = Math.PI / 2;
@@ -1622,7 +1644,7 @@ export class Avatar {
           flap.rotation.set(0.6, 0, s * 0.5);
         }
       }
-      if (o.piping) this.piping(slot, push, hipPts, chestPts);
+      if (o.piping) this.piping(slot, push, o, hipPts, chestPts);
       if (o.hood) {
         const hood = this.mesh(new THREE.SphereGeometry(d.headR * 1.05, 20, 12, Math.PI * 0.95, Math.PI * 1.1, 0, Math.PI * 0.55), m, b.spine, V(0, 0.36 * d.H, -0.05));
         hood.scale.set(1.1, 0.8, 1);
