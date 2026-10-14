@@ -204,8 +204,8 @@ export function headKit(lo: boolean): THREE.BufferGeometry[] {
     out.push(part(pt.translate(0, -0.1, 0).rotateX(0.22).translate(0, HEAD.c.y + 0.05, HEAD.c.z - HEAD.r.z - 0.012), B.head, M.pony));
   }
   // a cap, peak forward
-  out.push(part(onHead(new THREE.SphereGeometry(1.12, R(14, 8), R(5, 3), 0, Math.PI * 2, 0, Math.PI * 0.46).scale(1, 0.92, 1).translate(0, 0.08, -0.02)), B.head, M.cap));
-  out.push(part(onHead(new THREE.CylinderGeometry(0.92, 0.92, 0.08, R(12, 6), 1, false, -Math.PI / 2, Math.PI).scale(1, 1, 0.95).translate(0, 0.32, 0.62)), B.head, M.cap));
+  out.push(part(onHead(new THREE.SphereGeometry(1.2, R(14, 8), R(5, 3), 0, Math.PI * 2, 0, Math.PI * 0.46).scale(1, 0.92, 1.02).translate(0, 0.06, -0.03)), B.head, M.cap));
+  out.push(part(onHead(new THREE.CylinderGeometry(0.95, 0.95, 0.08, R(12, 6), 1, false, -Math.PI / 2, Math.PI).scale(1, 1, 0.95).translate(0, 0.3, 0.75)), B.head, M.cap));
   return out;
 }
 
@@ -534,6 +534,8 @@ export const VERT_HEAD = /* glsl */ `
   mat3 poseR;
   vec3 poseT;
   vec3 bodyPos;
+  // wearing a cap (the hair under it is pressed flat)
+  float poseCap;
   void computePose() {
     vLook = personLook();
     vBody = iBody;
@@ -767,6 +769,7 @@ export const VERT_HEAD = /* glsl */ `
     // props only when they're in use
     float vis = 1.0;
     float capOn = step(0.9, fract(iSeed.z * 5.91)) * (1.0 - staff) * (1.0 - dj);
+    poseCap = capOn;
     // the hair: a style for the person (personLook), the parts it needs
     float style = vLook.x;
     if (aMat > 32.5) vis = style > 8.5 ? 1.0 : 0.0;
@@ -844,6 +847,7 @@ const HAIR_VOLUME = /* glsl */ `
   if (aMat > 2.5 && aMat < 3.5) {
     float st = vLook.x;
     float vol = st < 1.5 ? 0.12 : st < 2.5 ? 0.45 : st < 3.5 ? 0.7 : st < 4.5 ? 0.55 : st < 5.5 ? 0.6 : st > 7.5 ? 0.35 : 0.75;
+    vol = mix(vol, 0.1, poseCap);
     bodyPos -= normal * uv.x * (1.0 - vol);
   }
 `;
@@ -1065,7 +1069,8 @@ const FRAG_COLOR = /* glsl */ `
     float edge = smoothstep(line, line + mix(0.012, 0.035, step(a, 0.9) * step(0.25, a) * step(st, 2.5)), p.y);
     float bare = st < 1.5 ? 0.55 : st < 2.5 ? 0.2 : 0.0;
     col = mix(mix(skin * 0.9, hair, 0.5), hair, edge * (1.0 - bare));
-    crowdRough = mix(0.5, 0.7, bare);
+    // hair scatters light rather than shining like a shell
+    crowdRough = mix(0.72, 0.8, bare);
   }
   else if (m > 3.5 && m < 4.5) {
     col = shoes;
@@ -1104,11 +1109,11 @@ const FRAG_COLOR = /* glsl */ `
     cut += 0.012 * sin(atan(p.x, p.z) * 9.0 + vSeed.x * 6.0);
     if (p.y < cut) discard;
     col = hair;
-    crowdRough = 0.45;
+    crowdRough = 0.7;
   }
   else if (m > 14.5 && m < 15.5) { col = bottoms; crowdRough = 0.84; }
   else if (m > 15.5 && m < 16.5) { float cv = fract(vSeed.x * 9.7); col = cv < 0.45 ? vec3(0.025) : cv < 0.8 ? top * 0.85 : vec3(0.5, 0.46, 0.38); crowdRough = 0.7; }
-  else if (m > 16.5 && m < 17.5) { col = hair; crowdRough = 0.48; }
+  else if (m > 16.5 && m < 17.5) { col = hair; crowdRough = 0.72; }
   else if (m > 17.5 && m < 18.5) {
     // the eye: a wet white, shaded under the lids; the iris (brown for most, hazel, green, blue or grey on fairer skin) with a darker rim; the pupil; a catch light
     vec3 ec = vec3(${gl(EYE[0])} * sign(p.x), ${gl(EYE[1])}, ${gl(EYE[2])});

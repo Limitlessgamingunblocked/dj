@@ -359,9 +359,7 @@ export function frontFrag(): string {
       if (m < 0.5) {
         col = skin;
         crowdRough = mix(0.55, 0.25, uSweat);
-        // a little definition: the chest and the line down the middle
-        col *= 1.0 - 0.06 * smoothstep(0.012, 0.0, abs(p.x)) * step(1.05, p.y) * step(p.y, 1.36) * step(0.0, p.z);
-        if (look > 1.5 && look < 3.5 && fh2 < 0.5) {
+        if (woman > 0.5 && look > 1.5 && look < 3.5 && fh2 < 0.5) {
           vec2 cup = vec2(abs(p.x) - 0.08, p.y - 1.28);
           float tri = step(0.0, p.z) * step(cup.y, 0.035 - abs(cup.x) * 1.2) * step(-0.03, cup.y);
           float band = step(abs(p.y - 1.25), 0.008);
