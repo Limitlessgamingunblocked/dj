@@ -24,7 +24,7 @@ export interface LyricLine {
   hook: boolean;
 }
 
-export type LyricSource = 'tags' | 'lrc' | 'pasted' | 'lrclib' | 'demo' | 'tapped';
+export type LyricSource = 'tags' | 'lrc' | 'pasted' | 'lrclib' | 'demo' | 'tapped' | 'ai';
 
 export interface Lyrics {
   source: LyricSource;
@@ -35,6 +35,8 @@ export interface Lyrics {
   lines: LyricLine[];
   /** the text as it came in (LRC or plain) */
   raw: string;
+  /** set when the AI heard them: the model, when, and whether it only timed text you gave it */
+  ai?: { model: string; at: number; timedOnly?: boolean };
 }
 
 const TS = /\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g;

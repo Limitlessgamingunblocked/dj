@@ -1,54 +1,246 @@
 /* Lyrics: booth subtitle, deck button, editor. */
 
-/* ---- lyrics: booth subtitle, deck button, editor ---- */
-.lyric-hud {
+/* ---- karaoke over the stage ---- */
+.karaoke {
   position: absolute;
   left: 50%;
-  bottom: 46px;
-  transform: translate(-50%, 8px);
-  max-width: min(760px, calc(100% - 32px));
-  padding: 6px 14px;
-  border-radius: 6px;
-  background: rgba(7, 9, 13, 0.6);
-  backdrop-filter: blur(6px);
-  font-family: var(--font-label);
-  font-weight: 700;
-  font-size: var(--text-2xl);
-  line-height: 1.2;
-  letter-spacing: 0.02em;
-  text-align: center;
-  color: rgba(231, 236, 243, 0.45);
+  bottom: 40px;
+  transform: translate(-50%, 10px);
+  width: min(880px, calc(100% - 32px));
+  display: grid;
+  gap: 10px;
+  justify-items: center;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.35s, transform 0.35s;
+  transition: opacity 0.4s, transform 0.4s;
   z-index: 4;
 }
-.lyric-hud.on {
+.karaoke.on {
   opacity: 1;
   transform: translate(-50%, 0);
 }
-.lyric-hud.hook {
+.kara-lane {
+  --kara-size: clamp(22px, 3.1vw, 38px);
+  position: relative;
+  width: fit-content;
+  min-width: min(560px, 100%);
+  max-width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 44px 12px;
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 140% at 50% 120%, color-mix(in srgb, var(--deck) 22%, transparent), transparent 60%),
+    rgba(6, 8, 12, 0.58);
+  backdrop-filter: blur(8px) saturate(1.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35), inset 0 0 0 1px color-mix(in srgb, var(--deck) 26%, transparent);
+  transition: opacity 0.3s, padding 0.3s;
+  animation: kara-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.kara-lane:not(.lead) {
+  --kara-size: clamp(16px, 2vw, 24px);
+  padding: 6px 14px 8px;
+}
+.kara-lane.leaving {
+  opacity: 0 !important;
+  transform: translateY(8px);
+  transition: opacity 0.4s, transform 0.4s;
+}
+@keyframes kara-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+.kara-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  font-family: var(--font-label);
+  font-size: var(--text-s);
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-bottom: 2px solid var(--venue);
+  color: var(--muted);
+  opacity: 0.85;
 }
-.lyric-hud span {
-  transition: color 0.12s, text-shadow 0.2s;
+.kara-tag b {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--deck);
+  color: #07090d;
+  font-size: 11px;
 }
-.lyric-hud span.sung {
-  color: var(--text);
+.kara-tag span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 46ch;
 }
-.lyric-hud span.now {
-  color: #fff;
-  text-shadow: 0 0 14px color-mix(in srgb, var(--venue) 80%, transparent);
+.kara-tag em {
+  font-style: normal;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--deck) 60%, transparent);
+  color: color-mix(in srgb, var(--deck) 70%, #fff);
+  font-size: 10px;
 }
-.stage-focus .lyric-hud {
+.kara-tag em.live {
+  animation: kara-pulse 1.4s ease-in-out infinite;
+}
+@keyframes kara-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.kara-lines {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 100%;
+  min-height: calc(var(--kara-size) * 1.9);
+}
+.kl {
+  max-width: 100%;
+  text-align: center;
+  font-family: var(--font-label);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: 0.01em;
+  transform-origin: 50% 0;
+}
+.kl.cur {
+  font-size: var(--kara-size);
+}
+.kl.next {
+  font-size: calc(var(--kara-size) * 0.6);
+  font-weight: 700;
+  color: rgba(231, 236, 243, 0.42);
+}
+.kl.out {
+  position: absolute;
+  margin: 0;
+  pointer-events: none;
+}
+.kl.hook {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.kara-lane:not(.lead) .kl.next {
+  display: none;
+}
+/* each word fills with the deck colour, left to right, as it's sung (--p 0..1) */
+.kl.cur .kw {
+  --p: 0;
+  display: inline-block;
+  margin: 0 0.12em;
+  background: linear-gradient(90deg, #fff 0%, color-mix(in srgb, var(--deck) 55%, #fff) calc(var(--p) * 108% - 8%), rgba(231, 236, 243, 0.38) calc(var(--p) * 108%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.25s;
+}
+.kl.cur .kw.now {
+  transform: translateY(-2px) scale(1.06);
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--deck) 85%, transparent));
+}
+.kl.cur .kw.sung {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--deck) 45%, transparent));
+}
+.kl.cur.hook .kw.sung,
+.kl.cur.hook .kw.now {
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--venue) 80%, transparent));
+}
+.kl.next .kw {
+  margin: 0 0.1em;
+}
+/* the count-in: beat dots that go out one by one before a line after a long gap */
+.kara-count {
+  position: absolute;
+  top: 30px;
+  left: 18px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.kara-lane.counting .kara-count {
+  opacity: 1;
+}
+.kara-count i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+.kara-count i.on {
+  background: var(--deck);
+  box-shadow: 0 0 10px var(--deck);
+  transform: scale(1.1);
+}
+.kara-lane.waiting .kl.next {
+  color: rgba(231, 236, 243, 0.55);
+}
+.stage-focus .karaoke {
   bottom: 24px;
 }
 @media (max-width: 720px) {
-  .lyric-hud {
-    font-size: var(--text-l);
-    bottom: 40px;
+  .karaoke {
+    bottom: 36px;
   }
+  .kara-lane {
+    --kara-size: 20px;
+    padding: 8px 10px;
+  }
+  .kara-count {
+    top: 8px;
+    left: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kara-lane,
+  .kl.cur .kw {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* the deck's AI lyrics chip */
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  color: var(--text);
+  background: color-mix(in srgb, var(--deck, var(--venue)) 16%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--deck, var(--venue)) 40%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+.ai-chip i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: calc(var(--p, 0) * 100%);
+  background: var(--deck, var(--venue));
+  transition: width 0.3s;
+}
+.ai-chip.err {
+  border-color: #ff8fa3;
 }
 
 .lyrics-btn {
@@ -189,4 +381,56 @@
 }
 .btn.ghost.danger {
   color: #ff8fa3;
+}
+
+/* the AI lyrics guide's settings and the editor's AI row */
+.aig .airg-moves {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 640px) {
+  .aig .airg-moves {
+    grid-template-columns: 1fr;
+  }
+}
+.aig-settings {
+  display: grid;
+  gap: 8px;
+}
+.aig-settings select {
+  max-width: 240px;
+}
+.ly-warn {
+  color: #ffb4c0;
+}
+.ly-ai {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--venue) 35%, var(--line));
+  background: linear-gradient(120deg, color-mix(in srgb, var(--venue) 10%, var(--panel-2)), var(--panel-2));
+}
+.ly-ai-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ly-ai-head b {
+  font-family: var(--font-label);
+  font-size: var(--text-l);
+  letter-spacing: 0.02em;
+}
+.ly-ai-state {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.vis-ai {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.vis-ai select {
+  max-width: 180px;
 }
