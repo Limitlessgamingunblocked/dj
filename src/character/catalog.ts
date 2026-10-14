@@ -423,4 +423,5 @@ export const VENUE_VIBES: Record<string, Vibe[]> = {
   allypally: ['bold', 'future'],
   'allypally-round': ['bold', 'future'],
   burningman: ['bold', 'acid'],
+  dome: ['future', 'bold'],
 };
