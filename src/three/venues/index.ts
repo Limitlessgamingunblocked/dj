@@ -10,6 +10,7 @@ import { berghain } from './berghain';
 import { boilerRoom } from './boilerroom';
 import { burningMan } from './burningman';
 import { dc10 } from './dc10';
+import { dome } from './dome';
 import { printworks } from './printworks';
 import { warehouseRave } from './rave';
 import { rooftop } from './rooftop';
@@ -20,8 +21,8 @@ import { festival } from './festival';
 import { sunrise } from './sunrise';
 import { CRAZY_ROOMS } from './rooms';
 
-/** the career's rooms first (Section 5.2), then the real rooms, then the secret crazy rooms */
-export const VENUES: VenueDef[] = [bedroom, basement, rooftop, warehouseRave, beach, boat, festival, sunrise, dc10, boilerRoom, berghain, printworks, allyPally, allyPallyRound, burningMan, warehouse, ...CRAZY_ROOMS];
+/** the career's rooms first (Section 5.2), then the real rooms, the house rooms, then the secret crazy rooms */
+export const VENUES: VenueDef[] = [bedroom, basement, rooftop, warehouseRave, beach, boat, festival, sunrise, dc10, boilerRoom, berghain, printworks, allyPally, allyPallyRound, burningMan, warehouse, dome, ...CRAZY_ROOMS];
 
 /** the rooms you've built (Room editor): replaced in the venue list whenever they change */
 export function registerCustomRooms(list: CustomRoomConfig[]): void {

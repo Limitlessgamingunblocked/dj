@@ -30,6 +30,8 @@ export const VENUE_NAME_STYLES: Record<string, VenueNameStyle> = {
   allypally: { booth: 'pixel_led', screen: 'pixel_led' },
   'allypally-round': { booth: 'pixel_led' },
   burningman: { booth: 'pixel_led', sign: 'led_sign', screen: 'pixel_led' },
+  // the made-up arena: the name low on the LED dome
+  dome: { booth: 'pixel_led', screen: 'pixel_led' },
 };
 
 export function nameStyleFor(venue: string): VenueNameStyle {
