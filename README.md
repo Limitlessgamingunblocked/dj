@@ -464,17 +464,19 @@ Nineteen secret rooms to DJ in, built to move with the music (`src/three/venues/
 - Measurements and method (draw calls, triangles, heap and allocation rate, before and after each change) are in [docs/overhaul.md](docs/overhaul.md); the lighting and effects pass (volumetric beams, exposure, confetti, mirror balls, lens, AV sync) is in [docs/vfx-master.md](docs/vfx-master.md).
 
 ### Visual player
-28 modes, grouped by how hard they hit:
+30 modes, grouped by how hard they hit:
 
 | Group | Modes |
 |---|---|
-| Calm (breakdowns and warm-ups) | Wave Grid, CRT Monitor, Liquid Chrome, Acid Plasma, Aurora, Deep Water, Op Art, Ink Flow |
-| Groove (the body of the set) | Warp Tunnel, Spectrum Matrix, Kaleidoscope, Cell Pulse, Sonar, Circuit Board, Mandelbulb, Code Rain, Infinity Mirror, Spectrum City, Morph Cloud, Name in Lights |
+| Calm (breakdowns and warm-ups) | Wave Grid, CRT Monitor, Liquid Chrome, Acid Plasma, Aurora, Deep Water, Op Art, Ink Flow, Black & White 16mm |
+| Groove (the body of the set) | Warp Tunnel, Spectrum Matrix, Kaleidoscope, Cell Pulse, Sonar, Circuit Board, Mandelbulb, Code Rain, Infinity Mirror, Spectrum City, Morph Cloud, Name in Lights, Your Set as a Sculpture |
 | Peak (drops) | Particle Galaxy, Laser Show, Strobe Geometry, Fractal Flight, Hyperspace, Hex Floor, Datamosh, Pulse Orb |
 
 - **Some modes remember their last frame** (feedback): Infinity Mirror folds every frame into the last, Datamosh smears the picture along broken motion vectors until a clean frame lands on the bar, and Ink Flow carries coloured ink on a curl-noise current.
 - **3D scenes:** a night drive through towers that grow with the spectrum (Spectrum City), 60,000 points that become a new shape every four bars (Morph Cloud), and a sphere the spectrum pushes out (Pulse Orb).
 - **Name in Lights** puts your DJ name on an LED marquee that steps along with the beat.
+- **Black & White 16mm** is made for deep minimal: two thin white rings turn one notch on every beat, shot on grainy black-and-white film with gate weave, 24 fps flicker, dust, the odd hair and scratch, halation and the gate's round corners. A build strobes the projector's shutter, and the drop flips the frame to a negative for a beat (with Reduce flashing, a slow, soft fade instead). The coloured music layers and colour fringes stay off it.
+- **Your Set as a Sculpture**: every track you play this session becomes a glowing ribbon drawn from its own sound (the rungs follow its level, the kick and the bass, four times a beat), rising round one spiral that widens as the night goes on. When two decks are up at once, the outgoing and incoming tracks' ribbons braid round each other. Each track keeps its song's colour. The camera orbits the growing tip, where a light beats with the kick; a breakdown pulls back to the whole set so far. A small caption says which track is playing, or which two are mixing. It keeps the set in memory for the session only, and thins older tracks so it never grows past a fixed size.
 - **Modes change over on the beat.** The old mode fades, irises, slices, zooms or pixels away over one beat.
 - **Every song has its own look** (Show → Visuals → *Follow each song*, on by default). The colours come from the song's key, so related keys get related colours and minor keys go deeper. How bright and saturated they are comes from the genre, and the song itself picks the colour scheme. Those colours flow into every mode. The auto VJ plays eight modes that suit the genre: hard geometry and op art for techno, warm liquid looks for house, flight and lasers for trance, datamosh and particles for bass music, calmer scenes for ambient and lo-fi. Each song also picks its own drum, melody and vocal styles. When the lead track changes, the new look eases in: the colours over a few seconds, and a four-beat fade to the new song's opening mode on the next bar.
 - **Drums, melody and vocals each have their own layer**, over whatever mode is playing. The live mix is pulled apart the same way the decks' stem knobs do it: harmonic or percussive, then bass, the centred voice and the rest.
