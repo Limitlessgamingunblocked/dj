@@ -18,6 +18,7 @@ import { atBar } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import { KineticRig } from './showfx';
+import { MAIN_WALLS } from './wallshow';
 import { concreteTexture, floorTexture, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -94,6 +95,8 @@ class Warehouse extends VenueBase {
     const main = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(11.2, 6.3)), { size: [11.2, 6.3], pitch: 0.0039 });
     main.position.set(0, 3.3, -8);
     this.nameScreen(main, 11.2, 6.3, nameStyleFor('deckhouse').screen!);
+    // on the drops: the wall flies apart in panels, or opens into a box (wallshow.ts)
+    this.mainWall(main, MAIN_WALLS.deckhouse);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(11.6, 6.7, 0.25), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.8 }));
     frame.position.set(0, 3.3, -8.14);
     this.group.add(frame);

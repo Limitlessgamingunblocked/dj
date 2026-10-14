@@ -28,6 +28,7 @@ import { Blinders, booth, Co2Jets, Crowd, crowdArea, HazeLayer, lineArray, Movin
 import { Lasers, laserStands } from './lasers';
 import { moments, PeakTrigger } from './moments';
 import { OpenAir } from './openair';
+import { MAIN_WALLS } from './wallshow';
 import type { SkyKey } from './outdoor';
 import { Pyro } from './pyro';
 import type { ShowState } from './show';
@@ -346,6 +347,8 @@ class Festival extends OpenAir {
     wall.position.set(0, 1.2 + wallH / 2, 11.5);
     wall.rotation.y = Math.PI;
     this.nameScreen(wall, wallW, wallH, nameStyleFor('festival').screen ?? 'pixel_led');
+    // on the drops: a box opens behind the wall and a chrome blob the size of a house hangs over the stage (wallshow.ts)
+    this.mainWall(wall, MAIN_WALLS.festival);
     // IMAG screens on the wings, and their towers
     for (const s of [-1, 1]) {
       const side = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(10, 14)), { size: [10, 14], pitch: 0.006 });
