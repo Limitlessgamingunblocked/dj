@@ -25,7 +25,7 @@ const fonts =
   '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Pacifico&family=Permanent+Marker&display=swap" rel="stylesheet">';
 
 const body = `<div id="app"></div>\n<script type="module">\n${script}\n</script>`;
-const head = `<title>Deckhouse DJ</title>\n<meta name="theme-color" content="#07090d">\n${fonts}\n<style>\n${style}\n</style>`;
+const head = `<title>Deckhouse DJ</title>\n<meta name="theme-color" content="#07090d">\n${fonts}\n<style>\nhtml,body{background:#000}\n${style}\n</style>`;
 const html = fragment
   ? `${head}\n${body}\n`
   : `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n${head}\n</head>\n<body>\n${body}\n</body>\n</html>\n`;

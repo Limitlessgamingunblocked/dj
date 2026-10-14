@@ -49,14 +49,17 @@ export class AudioEngine {
   deckCount = 2;
   isShift: () => boolean = () => false;
 
-  static async create(): Promise<AudioEngine> {
+  /** `ctx`: one made earlier to take over (the launch cutscene's, so the whole game shares one) */
+  static async create(given?: AudioContext): Promise<AudioEngine> {
     // 48 kHz, so recordings are native 48 kHz / 24-bit (Section 11.2); the browser resamples for the speakers if it must
     let ctx: AudioContext;
-    try {
-      ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
-    } catch {
-      ctx = new AudioContext({ latencyHint: 'interactive' });
-    }
+    if (given) ctx = given;
+    else
+      try {
+        ctx = new AudioContext({ latencyHint: 'interactive', sampleRate: 48000 });
+      } catch {
+        ctx = new AudioContext({ latencyHint: 'interactive' });
+      }
     await loadWorklets(ctx);
     const wasm = await dspWasm();
     return new AudioEngine(ctx, wasm);

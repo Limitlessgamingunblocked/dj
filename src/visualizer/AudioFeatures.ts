@@ -77,6 +77,8 @@ export class AudioFeatures {
   private parts: PartTracker;
   private side: Float32Array<ArrayBuffer> | null = null;
   intensity = 1;
+  /** music playing outside the decks (the launch cutscene's), with its own beat: counts as playing */
+  external: { bpm: number; position: number } | null = null;
 
   constructor(
     private analyser: AnalyserNode,
@@ -219,10 +221,12 @@ export class AudioFeatures {
 
     // beat phase: from the sync master's grid when something is playing
     const m = this.engine.masterDeck;
-    f.playing = this.engine.decks.some((d) => d.playing);
-    if (m && m.playing && m.analysis) {
-      f.bpm = m.bpm;
-      const bp = m.beatPosition(m.displayPosition());
+    const ext = this.external;
+    f.playing = this.engine.decks.some((d) => d.playing) || !!ext;
+    const deckGrid = !!(m && m.playing && m.analysis);
+    if (deckGrid || ext) {
+      f.bpm = deckGrid ? m!.bpm : ext!.bpm;
+      const bp = deckGrid ? m!.beatPosition(m!.displayPosition()) : ext!.position;
       f.beatPhase = ((bp % 1) + 1) % 1;
       const idx = Math.floor(bp);
       f.beatInBar = ((idx % 4) + 4) % 4;
