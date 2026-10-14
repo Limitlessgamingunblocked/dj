@@ -61,6 +61,20 @@ function findBone(names: string[], want: string[]): string | undefined {
   return names.find((n) => want.some((w) => bare(n) === w.toLowerCase()));
 }
 
+/** a copy of a texture drawn at most `size` across */
+function shrink(t: THREE.Texture | null, size: number): THREE.Texture | null {
+  const img = t?.image as { width: number; height: number } | undefined;
+  if (!t || !img || (img.width <= size && img.height <= size)) return t;
+  const k = size / Math.max(img.width, img.height);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * k);
+  c.height = Math.round(img.height * k);
+  c.getContext('2d')!.drawImage(img as CanvasImageSource, 0, 0, c.width, c.height);
+  const out = new THREE.CanvasTexture(c);
+  for (const key of ['flipY', 'wrapS', 'wrapT', 'colorSpace', 'channel'] as const) (out as unknown as Record<string, unknown>)[key] = t[key];
+  return out;
+}
+
 export async function fitScan(o: FitOptions): Promise<FitReport> {
   const [bodyGltf, scanGltf] = await Promise.all([loader.loadAsync(o.body), loader.loadAsync(o.scan)]);
 
@@ -288,6 +302,13 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
     // (no glow: the generator's emissive map only lights the whole figure up flat)
     s.emissiveMap = null;
     s.emissive?.set(0);
+    // (cloth and skin aren't metal: the map's metal channel only darkens them under club lights; its roughness stays)
+    s.metalness = 0;
+    // the colour at full size; the surface maps (bumps, shine) at half, which nobody sees the difference in
+    s.normalMap = shrink(s.normalMap, maxTexture / 2);
+    const rough = shrink(s.roughnessMap, maxTexture / 2);
+    s.roughnessMap = rough;
+    s.metalnessMap = s.metalnessMap ? rough : null;
     for (const t of [s.map, s.normalMap, s.roughnessMap, s.metalnessMap, s.aoMap]) if (t) t.userData.mimeType = 'image/jpeg';
   }
   const glb = (await new GLTFExporter().parseAsync(out, { binary: true, maxTextureSize: maxTexture, onlyVisible: false })) as ArrayBuffer;

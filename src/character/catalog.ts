@@ -378,11 +378,13 @@ export interface OutfitSet {
 }
 
 /**
- * the signature outfits (Section 4.7): the robot DJs first (the starting
+ * the signature outfits (Section 4.7): the scanned realistic DJ, then the robot DJs (the starting
  * look is the first set), then the 12 from the brief. Every piece is also
  * available on its own.
  */
 export const OUTFIT_SETS: OutfitSet[] = [
+  // the realistic DJ: a scanned person (built from a turnaround render), clothes and all
+  { id: 'deep_minimal', label: 'Deep Minimal', vibe: 'Real as it gets', unlock: 'start', pieces: { head: 'cap', top: 'tee_plain', headphones: 'hp_studio', shoes: 'sneakers_worn' }, options: { scan: 'character_scan_minimal_01', phones_wear: 'neck' } },
   { id: 'chrome_android', label: 'Silver Android', vibe: 'Robot DJ, silver unit', unlock: 'start', pieces: { head: 'helmet_chrome', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },
   { id: 'gold_android', label: 'Gold Android', vibe: 'Robot DJ, gold unit', unlock: 'start', pieces: { head: 'helmet_gold', outer: 'jacket_robot', wrists: 'gloves_gold', bottom: 'pants_robot', shoes: 'boots_robot' } },
   { id: 'smiley_bot', label: 'Smiley Bot', vibe: 'Cartoon robot, all grins', unlock: 'start', pieces: { head: 'robot_smiley', outer: 'jacket_robot', wrists: 'gloves_chrome', bottom: 'pants_robot', shoes: 'boots_robot' } },

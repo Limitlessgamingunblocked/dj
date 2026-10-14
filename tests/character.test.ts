@@ -13,8 +13,8 @@ describe('character catalogue', () => {
     expect(HAIR.filter((h) => h.id !== 'bald').length).toBeGreaterThanOrEqual(40);
     expect(BROWS.length).toBeGreaterThanOrEqual(15);
     expect(TATTOOS.length).toBeGreaterThanOrEqual(50);
-    // the 12 from the brief and the four robot DJs
-    expect(OUTFIT_SETS).toHaveLength(16);
+    // the realistic DJ, the four robot DJs and the 12 from the brief
+    expect(OUTFIT_SETS).toHaveLength(17);
     expect(ITEMS.filter((i) => i.slot === 'headphones').length).toBeGreaterThanOrEqual(10);
     // every set's pieces exist and sit in their slot
     for (const s of OUTFIT_SETS) for (const [slot, id] of Object.entries(s.pieces)) expect(ITEM_BY_ID.get(id)?.slot).toBe(slot);
@@ -27,11 +27,16 @@ describe('character catalogue', () => {
 });
 
 describe('looks', () => {
-  it('starts as the chrome robot DJ and wears any set', () => {
+  it('starts as the realistic DJ and wears any set', () => {
     const l = defaultLook();
-    expect(l.items.head).toBe('helmet_chrome');
-    expect(l.items.outer).toBe('jacket_robot');
-    expect(l.items.wrists).toBe('gloves_chrome');
+    expect(l.options.scan).toBe('character_scan_minimal_01');
+    expect(l.items.head).toBe('cap');
+    const robot = wearSet(l, OUTFIT_SETS.find((s) => s.id === 'chrome_android')!);
+    expect(robot.items.head).toBe('helmet_chrome');
+    expect(robot.items.outer).toBe('jacket_robot');
+    expect(robot.items.wrists).toBe('gloves_chrome');
+    // (another set takes the scanned character off)
+    expect(robot.options.scan).toBeUndefined();
     const tk = wearSet(l, OUTFIT_SETS.find((s) => s.id === 'terrace_king')!);
     expect(tk.items.top).toBe('shirt_linen');
     expect(tk.items.hair).toBe('crop');
@@ -110,7 +115,7 @@ describe('the career keeps your looks', () => {
     const c = new Career(new SaveSystem(kv));
     // nothing saved yet: you wear the starter look
     expect(c.looks.items).toHaveLength(0);
-    expect(c.look.items.head).toBe('helmet_chrome');
+    expect(c.look.options.scan).toBe('character_scan_minimal_01');
     const seen: string[] = [];
     c.changed.on('look', (l) => seen.push(l.id));
     const a = { ...defaultLook('look_1', 'Basement'), items: { ...defaultLook().items, hair: 'locs' } };
