@@ -544,6 +544,32 @@ export function bodyReady(): boolean {
   return !!ready;
 }
 
+/*
+ * Scanned characters: a whole person (body, clothes, hair, shoes) made from
+ * pictures and fitted onto this body's skeleton by scripts/scan/fit.ts, so the
+ * same bones drive it. Loaded on demand, one copy each.
+ */
+const scans = new Map<string, THREE.Object3D>();
+const scanLoading = new Map<string, Promise<void>>();
+
+/** start loading a scanned character (once); `then` runs when it's ready */
+export function preloadScan(name: string, then?: () => void): void {
+  if (!hasModel(name) || scans.has(name)) return;
+  let p = scanLoading.get(name);
+  if (!p) {
+    p = loadModel(name)
+      .then((m) => void scans.set(name, m.scene))
+      .catch((e) => console.warn('scanned character failed to load', name, e));
+    scanLoading.set(name, p);
+  }
+  if (then) void p.then(() => scans.has(name) && then());
+}
+
+/** true once a scanned character can be used without waiting */
+export function scanReady(name: string): boolean {
+  return scans.has(name);
+}
+
 /* the suit's trims: raised piping, the zip, studs, laid on the cloth at rest and skinned to it */
 
 /** a rest-pose copy of some garments, to lay trims on, and their skin to borrow */
@@ -1092,10 +1118,13 @@ export class ModelBody {
     private tuck: Tuck,
     suit: Suit | null = null,
     cuts: ClothCut[] = [],
+    /** a scanned character to show in place of the body (its own clothes and materials) */
+    scan: string | null = null,
   ) {
-    if (!ready) throw new Error('body model not loaded');
+    const src = scan ? scans.get(scan) : ready?.scene;
+    if (!src) throw new Error(scan ? `scanned character ${scan} not loaded` : 'body model not loaded');
     // a copy of the loaded scene (skinned meshes keep their own skeleton)
-    this.object = SkeletonUtils.clone(ready.scene);
+    this.object = SkeletonUtils.clone(src);
     this.object.updateMatrixWorld(true);
 
     const modelBones = new Map<string, THREE.Bone>();
@@ -1103,7 +1132,12 @@ export class ModelBody {
     this.object.traverse((o) => {
       if ((o as THREE.Bone).isBone) modelBones.set(o.name, o as THREE.Bone);
       const m = o as THREE.SkinnedMesh;
-      if (m.isSkinnedMesh) {
+      if (m.isSkinnedMesh && scan) {
+        m.castShadow = true;
+        m.receiveShadow = true;
+        m.frustumCulled = false;
+        this.meshes.push(m);
+      } else if (m.isSkinnedMesh) {
         const region = String((m.material as THREE.Material).name).replace(/^skin_/, '') as BodyRegion;
         regionOf.set(m, region);
         m.visible = show.has(region);

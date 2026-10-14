@@ -68,6 +68,8 @@ export function wearSet(l: Look, set: OutfitSet): Look {
     delete out.options[`${slot}_material`];
     delete out.options[`${slot}_pattern`];
   }
+  // (a scanned character belongs to its own set: another set takes it off)
+  delete out.options.scan;
   Object.assign(out.options, set.options ?? {});
   return out;
 }

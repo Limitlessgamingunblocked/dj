@@ -46,7 +46,8 @@ import type { Look } from '../core/models';
 import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, leatherCanvases, weaveCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
-import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, type BodyRegion, type ClothCut, type Cover } from './modelBody';
+import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanReady, type BodyRegion, type ClothCut, type Cover } from './modelBody';
+import { hasModel } from '../three/assets';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
 
 export type BoneName = 'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'shoulder_l' | 'upper_arm_l' | 'forearm_l' | 'hand_l' | 'shoulder_r' | 'upper_arm_r' | 'forearm_r' | 'hand_r' | 'thigh_l' | 'shin_l' | 'foot_l' | 'thigh_r' | 'shin_r' | 'foot_r';
@@ -650,6 +651,29 @@ export class Avatar {
       bone(`foot_${s}`, sn, V(0, -d.shin, 0));
     }
 
+    // the game's bones at rest, in the body's space (no rotations yet)
+    const restOf = () => {
+      const rest = {} as Record<BoneName, THREE.Vector3>;
+      for (const name of Object.keys(b) as BoneName[]) {
+        const p = new THREE.Vector3();
+        for (let o: THREE.Object3D | null = b[name]; o && o !== this.body; o = o.parent) p.add(o.position);
+        rest[name] = p;
+      }
+      return rest;
+    };
+
+    // a scanned character is the whole person, clothes and all: only the hands' joints to build under it
+    const scan = l.options.scan;
+    if (scan && hasModel(scan)) {
+      if (scanReady(scan)) {
+        for (const [s, k] of [['l', 1], ['r', -1]] as const) this.buildHand(s, k, false);
+        this.model = new ModelBody(this.body, b, restOf(), this.hands, new Set(), this.skin('body'), l, modelTuck(l, null, null), null, [], scan);
+        return;
+      }
+      // (built as a modelled look until it arrives)
+      preloadScan(scan, () => this.look.options.scan === scan && this.setLook(this.look));
+    }
+
     // the modelled body shows the skin regions clothes and tattoos leave free
     const top = l.items.top;
     const outer = l.items.outer;
@@ -692,13 +716,7 @@ export class Avatar {
     this.buildClothes();
     this.buildAccessories();
     if (this.modelShows.size || this.suit || this.cuts.length) {
-      // the game's bones at rest, in the body's space (no rotations yet)
-      const rest = {} as Record<BoneName, THREE.Vector3>;
-      for (const name of Object.keys(b) as BoneName[]) {
-        const p = new THREE.Vector3();
-        for (let o: THREE.Object3D | null = b[name]; o && o !== this.body; o = o.parent) p.add(o.position);
-        rest[name] = p;
-      }
+      const rest = restOf();
       // (the suit's UVs count in tiles of grain already)
       const cut = (slot: Slot) => this.hide(this.fabric(slot), 1);
       const suit = this.suit && {
