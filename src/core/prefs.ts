@@ -60,6 +60,8 @@ export interface Prefs {
   beatPulse: boolean;
   /** minutes without a touch before the stage goes to broadcast mode while music plays; 0 = never */
   screensaver: number;
+  /** the cutscene at launch: the full cut the first time then the short one, always the full one, always short, or off */
+  intro: IntroPref;
   /** keyboard: default key → assigned key ('' = no key). Only changed keys are stored. */
   keys: Record<string, string>;
 }
@@ -81,6 +83,8 @@ export const WAVE_SCHEMES: { id: WaveScheme; name: string }[] = [
 export const TEMPO_RANGE_CHOICES = [0.06, 0.08, 0.1, 0.16, 0.25, 0.5, 1];
 export const NIGHT_CHOICES = [10, 20, 45, 90];
 export const SCREENSAVER_CHOICES = [0, 2, 5, 10];
+export type IntroPref = 'auto' | 'full' | 'short' | 'off';
+export const INTRO_CHOICES: IntroPref[] = ['auto', 'full', 'short', 'off'];
 export const BEAT_CHOICES = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 export const DEFAULT_DECK_COLORS: [string, string, string, string] = ['#4cc9f0', '#ff9f1c', '#3ddc97', '#c77dff'];
 
@@ -111,6 +115,7 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   uiSounds: 0.35,
   beatPulse: true,
   screensaver: 0,
+  intro: 'auto',
   keys: {},
 });
 
@@ -162,6 +167,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
     uiSounds: Math.round(num(r.uiSounds, 0, 1, d.uiSounds) * 20) / 20,
     beatPulse: bool(r.beatPulse, d.beatPulse),
     screensaver: oneOf(r.screensaver, SCREENSAVER_CHOICES, d.screensaver),
+    intro: oneOf(r.intro, INTRO_CHOICES, d.intro),
     keys,
   };
 }
