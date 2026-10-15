@@ -7,8 +7,10 @@
  * blue, mids orange, highs white, layered).
  */
 import type { Deck } from '../audio/Deck';
-import type { WaveScheme } from '../core/prefs';
+import type { GridStyle, WaveScheme } from '../core/prefs';
 import type { TrackAnalysis } from '../core/types';
+import { countdown, countdownText, mixPoints, phraseLabel, type PhraseState } from '../game/mixtools';
+import { trackInfo, type Section, type SectionKind } from '../game/tracks';
 
 const TILE_W = 2048;
 export const WAVE_H = 72;
@@ -130,6 +132,241 @@ export function getOverview(a: TrackAnalysis, key: string, w: number, h: number)
   return c;
 }
 
+let gridStyle: GridStyle = 'bold';
+
+/** Beat grid look (Settings → Appearance). */
+export function setGridStyle(style: GridStyle): void {
+  gridStyle = style;
+}
+
+/** the colour grid edit paints the grid, so it's clear the grid (not the music) is what moves */
+export const GRID_EDIT_COLOR = '#ffd23f';
+
+/** The original faint grid: bar lines, beat ticks top and bottom. */
+function drawSubtleGrid(g: CanvasRenderingContext2D, bpm: number, firstBeat: number, pos: number, cx: number, pxPerSec: number, t0: number, t1: number, y: number, h: number, compact: boolean): void {
+  const bl = 60 / bpm;
+  const firstIdx = Math.ceil((t0 - firstBeat) / bl);
+  const lastIdx = Math.floor((t1 - firstBeat) / bl);
+  if (lastIdx - firstIdx >= 400) return;
+  for (let i = firstIdx; i <= lastIdx; i++) {
+    const bx = Math.round(cx + (firstBeat + i * bl - pos) * pxPerSec) + 0.5;
+    const bar = ((i % 4) + 4) % 4 === 0;
+    g.fillStyle = bar ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.18)';
+    g.fillRect(bx, y, 1, bar ? h : h * 0.18);
+    if (!bar) g.fillRect(bx, y + h - h * 0.18, 1, h * 0.18);
+    if (bar && !compact && ((i / 4) | 0) % 4 === 0) {
+      g.fillStyle = 'rgba(255,255,255,0.45)';
+      g.font = '600 9px "JetBrains Mono", monospace';
+      g.fillText(String(Math.floor(i / 4) + 1), bx + 3, y + 10);
+    }
+  }
+}
+
+/**
+ * The bold grid: a line on every beat with bright ticks top and bottom, a
+ * thicker outlined line on every bar with red markers like a CDJ's, phrase
+ * starts (every 4 bars) in red, and bar numbers. In grid edit it all turns
+ * amber.
+ */
+function drawBoldGrid(g: CanvasRenderingContext2D, bpm: number, firstBeat: number, pos: number, cx: number, pxPerSec: number, t0: number, t1: number, y: number, h: number, edit: boolean, compact: boolean): void {
+  const bl = 60 / bpm;
+  const firstIdx = Math.ceil((t0 - firstBeat) / bl);
+  const lastIdx = Math.floor((t1 - firstBeat) / bl);
+  if (lastIdx - firstIdx >= 800) return;
+  const u = Math.max(1, Math.round(h / 64));
+  const beatPx = bl * pxPerSec;
+  const showBeats = beatPx >= 5 * u;
+  const showBars = beatPx * 4 >= 6 * u;
+  const numberEvery = beatPx * 4 >= 34 * u ? 1 : beatPx * 16 >= 34 * u ? 4 : 16;
+  const tick = Math.max(3 * u, Math.round(h * 0.13));
+  const beatLine = edit ? 'rgba(255,210,63,0.45)' : 'rgba(255,255,255,0.26)';
+  const beatTick = edit ? GRID_EDIT_COLOR : 'rgba(255,255,255,0.9)';
+  const barLine = edit ? GRID_EDIT_COLOR : 'rgba(255,255,255,0.9)';
+  const phraseLine = edit ? '#ff9f1c' : '#ff3b5c';
+  const font = `700 ${Math.max(9, 9 * u)}px "JetBrains Mono", monospace`;
+  g.textAlign = 'left';
+  for (let i = firstIdx; i <= lastIdx; i++) {
+    const bx = Math.round(cx + (firstBeat + i * bl - pos) * pxPerSec);
+    const inBar = ((i % 4) + 4) % 4;
+    const barNo = Math.floor(i / 4);
+    const phrase = inBar === 0 && ((barNo % 4) + 4) % 4 === 0;
+    if (inBar !== 0) {
+      if (!showBeats) continue;
+      g.fillStyle = beatLine;
+      g.fillRect(bx, y, u, h);
+      g.fillStyle = beatTick;
+      g.fillRect(bx, y, u, tick);
+      g.fillRect(bx, y + h - tick, u, tick);
+      continue;
+    }
+    if (!showBars && !phrase) continue;
+    const lw = 2 * u;
+    // a dark edge either side keeps the line readable over loud, bright waveform
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(bx - u, y, lw + 2 * u, h);
+    g.fillStyle = phrase ? phraseLine : barLine;
+    g.fillRect(bx, y, lw, h);
+    // CDJ-style markers top and bottom
+    g.fillStyle = phrase ? phraseLine : edit ? GRID_EDIT_COLOR : '#ff3b5c';
+    g.fillRect(bx - u, y, lw + 2 * u, tick);
+    g.fillRect(bx - u, y + h - tick, lw + 2 * u, tick);
+    if (!compact && ((barNo % numberEvery) + numberEvery) % numberEvery === 0) {
+      const label = String(barNo + 1);
+      g.font = font;
+      const tw = g.measureText(label).width;
+      const lh = Math.max(11, 11 * u);
+      g.fillStyle = 'rgba(4,6,10,0.78)';
+      g.fillRect(bx + lw + u, y + tick + u, tw + 4 * u, lh);
+      g.fillStyle = phrase ? phraseLine : edit ? GRID_EDIT_COLOR : '#ffffff';
+      g.fillText(label, bx + lw + 3 * u, y + tick + u + lh - 2.5 * u);
+    }
+  }
+}
+
+let sectionsOn = true;
+
+/** Song section colours on the waveforms (Settings → Appearance). */
+export function setSectionColors(on: boolean): void {
+  sectionsOn = on;
+}
+
+/** a colour and a name for each part of a song */
+export const SECTION_STYLE: Record<SectionKind, { color: string; label: string }> = {
+  intro: { color: '#3fa7ff', label: 'Intro' },
+  groove: { color: '#2ecc71', label: 'Groove' },
+  breakdown: { color: '#9b6bff', label: 'Breakdown' },
+  build: { color: '#ffb020', label: 'Build' },
+  drop: { color: '#ff2e88', label: 'Drop' },
+  outro: { color: '#7a8599', label: 'Outro' },
+};
+
+/** the loaded track's sections, when there are any to show */
+export function deckSections(deck: Deck): Section[] | null {
+  if (!sectionsOn || !deck.loaded || !deck.track || !deck.analysis) return null;
+  const s = trackInfo(deck.track).sections;
+  return s?.length ? s : null;
+}
+
+/** each section's span [start, end) in track seconds */
+function spans(sections: Section[], duration: number): { s: Section; t0: number; t1: number }[] {
+  return sections.map((s, i) => ({ s, t0: i === 0 ? 0 : s.t, t1: sections[i + 1]?.t ?? duration }));
+}
+
+/**
+ * Song sections on the scrolling waveform: a faint tint behind each part, a
+ * coloured band along the bottom and a name tag where each part starts.
+ */
+function drawSections(g: CanvasRenderingContext2D, sections: Section[], duration: number, pos: number, cx: number, pxPerSec: number, t0: number, t1: number, y: number, h: number, compact: boolean, layer: 'tint' | 'band'): void {
+  const u = Math.max(1, Math.round(h / 64));
+  const band = Math.max(3 * u, Math.round(h * 0.07));
+  for (const { s, t0: a, t1: b } of spans(sections, duration)) {
+    if (b < t0 || a > t1) continue;
+    const x0 = cx + (a - pos) * pxPerSec;
+    const x1 = cx + (b - pos) * pxPerSec;
+    const st = SECTION_STYLE[s.kind];
+    if (layer === 'tint') {
+      g.globalAlpha = 0.09;
+      g.fillStyle = st.color;
+      g.fillRect(x0, y, x1 - x0, h);
+      g.globalAlpha = 1;
+      continue;
+    }
+    g.fillStyle = st.color;
+    g.fillRect(x0, y + h - band, x1 - x0, band);
+    if (compact) continue;
+    // the name rides along the band, held at the left edge while its part is on screen
+    const fs = Math.max(9, 9 * u);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    const label = st.label.toUpperCase();
+    const tw = g.measureText(label).width;
+    const lx = Math.min(Math.max(x0, cx + (t0 - pos) * pxPerSec), x1 - tw - 8 * u);
+    if (x1 - x0 < tw + 8 * u) {
+      g.textBaseline = 'alphabetic';
+      continue;
+    }
+    const th = fs + 3 * u;
+    const ty = y + h - band - th;
+    g.fillStyle = st.color;
+    g.fillRect(lx, ty, tw + 8 * u, th + band);
+    g.fillStyle = '#05070a';
+    g.fillText(label, lx + 4 * u, ty + th / 2 + u / 2);
+    g.textBaseline = 'alphabetic';
+  }
+}
+
+let phraseOf: ((d: Deck) => PhraseState | null) | null = null;
+
+/** where the app finds a deck's phrase against the master (for the phrase badge) */
+export function setPhraseSource(fn: (d: Deck) => PhraseState | null): void {
+  phraseOf = fn;
+}
+
+/** a filled tag with dark text; returns its width */
+function pill(g: CanvasRenderingContext2D, text: string, x: number, y: number, fs: number, u: number, color: string, alpha = 1): number {
+  g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  const w = g.measureText(text).width + 8 * u;
+  const hh = fs + 4 * u;
+  g.globalAlpha = alpha;
+  g.fillStyle = color;
+  g.fillRect(x, y, w, hh);
+  g.fillStyle = '#05070a';
+  g.fillText(text, x + 4 * u, y + hh / 2 + u / 2);
+  g.globalAlpha = 1;
+  g.textBaseline = 'alphabetic';
+  return w;
+}
+
+/**
+ * Mixing prompts over the scrolling waveform: dashed flags where to have the
+ * next track in (end of the intro) and where to start mixing out (the outro),
+ * a countdown to the next drop or the outro beside the playhead, and the
+ * phrase badge (does this deck's 8-bar phrase line up with the master's?).
+ */
+function drawMixPrompts(g: CanvasRenderingContext2D, deck: Deck, sections: Section[] | null, pos: number, cx: number, x: number, pxPerSec: number, y: number, h: number, compact: boolean): void {
+  const u = Math.max(1, Math.round(h / 64));
+  const fs = Math.max(9, 9 * u);
+  const tick = Math.max(3 * u, Math.round(h * 0.13));
+  const { mixIn, mixOut } = mixPoints(sections);
+  const flag = (t: number | null, label: string) => {
+    if (t === null) return;
+    const fx = Math.round(cx + (t - pos) * pxPerSec);
+    g.fillStyle = '#ffffff';
+    for (let yy = y; yy < y + h; yy += 6 * u) g.fillRect(fx, yy, u, 3 * u);
+    if (compact) return;
+    // the tag sits left of the line, clear of the bar number on its right
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    const w = g.measureText(label).width + 8 * u;
+    pill(g, label, fx - w - u, y + tick + u, fs, u, '#ffffff');
+  };
+  flag(mixIn, 'MIX IN');
+  flag(mixOut, 'MIX OUT');
+
+  const bl = deck.beatLen;
+  const c = countdown(sections, pos, bl);
+  if (c && !compact) {
+    const what = c.kind === 'drop' ? 'DROP' : 'MIX OUT';
+    const text = c.beats < 0.5 ? `${what}!` : `${what} IN ${countdownText(c)}`;
+    const color = c.kind === 'drop' ? SECTION_STYLE.drop.color : '#ffffff';
+    // the last bar pulses on each beat
+    const frac = c.beats < 4 ? c.beats % 1 : 0;
+    const big = Math.round(fs * 1.25);
+    pill(g, text, cx + 6 * u, y + tick + u, big, u, color, c.beats < 4 ? 0.55 + 0.45 * frac : 0.95);
+  }
+
+  const ph = phraseOf?.(deck) ?? null;
+  if (ph && !deck.gridEdit) {
+    const l = phraseLabel(ph);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    // above the section's name tag in the bottom-left corner
+    const band = Math.max(3 * u, Math.round(h * 0.07));
+    pill(g, l.text, x + 4 * u, y + h - band - (fs + 3 * u) - (fs + 4 * u) - 2 * u, fs, u, l.color);
+  }
+}
+
 export interface ZoomOpts {
   pxPerSec: number; // pixels per second of real time
   playheadX?: number; // fraction of width
@@ -137,6 +374,8 @@ export interface ZoomOpts {
   showCues?: boolean;
   deckColor?: string;
   compact?: boolean;
+  /** a "GRID EDIT" tag in the corner while the deck is in grid edit (the software strip shows its own) */
+  editTag?: boolean;
 }
 
 /** Scrolling waveform around the playhead with beat grid, cues and loop region. */
@@ -167,6 +406,24 @@ export function drawZoomed(g: CanvasRenderingContext2D, deck: Deck, x: number, y
     g.fillRect(lx0, y, lx1 - lx0, h);
   }
 
+  const sections = deckSections(deck);
+  if (sections) drawSections(g, sections, deck.duration, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact, 'tint');
+
+  // every other 4-bar phrase a shade lighter, so phrases read at a glance
+  if (opts.showGrid !== false && a.bpm > 0 && (gridStyle === 'bold' || deck.gridEdit)) {
+    const phrase = (60 / a.bpm) * 16;
+    const k0 = Math.floor((t0 - a.firstBeat) / phrase);
+    const k1 = Math.floor((t1 - a.firstBeat) / phrase);
+    if (k1 - k0 < 200) {
+      g.fillStyle = deck.gridEdit ? 'rgba(255,210,63,0.05)' : 'rgba(255,255,255,0.035)';
+      for (let k = k0; k <= k1; k++) {
+        if (((k % 2) + 2) % 2 === 1) continue;
+        const px0 = cx + (a.firstBeat + k * phrase - pos) * pxPerTrackSec;
+        g.fillRect(px0, y, phrase * pxPerTrackSec, h);
+      }
+    }
+  }
+
   // waveform tiles
   const tiles = getTiles(a);
   const scale = pxPerTrackSec / tiles.rate;
@@ -179,26 +436,14 @@ export function drawZoomed(g: CanvasRenderingContext2D, deck: Deck, x: number, y
     g.drawImage(tile, 0, 0, tile.width, WAVE_H, dx, y + 2, tile.width * scale, h - 4);
   }
 
-  // beat grid
+  // beat grid (on top of the waveform)
   if (opts.showGrid !== false && a.bpm > 0) {
-    const bl = 60 / a.bpm;
-    const firstIdx = Math.ceil((t0 - a.firstBeat) / bl);
-    const lastIdx = Math.floor((t1 - a.firstBeat) / bl);
-    if (lastIdx - firstIdx < 400) {
-      for (let i = firstIdx; i <= lastIdx; i++) {
-        const bx = Math.round(cx + (a.firstBeat + i * bl - pos) * pxPerTrackSec) + 0.5;
-        const bar = ((i % 4) + 4) % 4 === 0;
-        g.fillStyle = bar ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.18)';
-        g.fillRect(bx, y, 1, bar ? h : h * 0.18);
-        if (!bar) g.fillRect(bx, y + h - h * 0.18, 1, h * 0.18);
-        if (bar && !opts.compact && ((i / 4) | 0) % 4 === 0) {
-          g.fillStyle = 'rgba(255,255,255,0.45)';
-          g.font = '600 9px "JetBrains Mono", monospace';
-          g.fillText(String(Math.floor(i / 4) + 1), bx + 3, y + 10);
-        }
-      }
-    }
+    if (deck.gridEdit || gridStyle === 'bold') drawBoldGrid(g, a.bpm, a.firstBeat, pos, cx, pxPerTrackSec, t0, t1, y, h, deck.gridEdit, !!opts.compact);
+    else if (gridStyle === 'subtle') drawSubtleGrid(g, a.bpm, a.firstBeat, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact);
   }
+
+  if (sections) drawSections(g, sections, deck.duration, pos, cx, pxPerTrackSec, t0, t1, y, h, !!opts.compact, 'band');
+  drawMixPrompts(g, deck, sections, pos, cx, x, pxPerTrackSec, y, h, !!opts.compact);
 
   // cues
   if (opts.showCues !== false) {
@@ -240,6 +485,21 @@ export function drawZoomed(g: CanvasRenderingContext2D, deck: Deck, x: number, y
   g.lineTo(cx + 5, y);
   g.lineTo(cx, y + 6);
   g.fill();
+  if (deck.gridEdit && opts.editTag !== false) {
+    const u = Math.max(1, Math.round(h / 64));
+    const fs = Math.max(10, 10 * u);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    const label = 'GRID EDIT';
+    const tw = g.measureText(label).width;
+    const bh = fs + 4 * u;
+    g.fillStyle = GRID_EDIT_COLOR;
+    g.fillRect(x + w - tw - 12 * u, y + 4 * u, tw + 8 * u, bh);
+    g.fillStyle = '#05070a';
+    g.fillText(label, x + w - tw - 8 * u, y + 4 * u + bh / 2);
+    g.textBaseline = 'alphabetic';
+  }
   g.restore();
 }
 
@@ -260,8 +520,41 @@ export function drawOverview(g: CanvasRenderingContext2D, deck: Deck, w: number,
   // phrase markers every 16 bars
   if (a.bpm > 0) {
     const phrase = (60 / a.bpm) * 64;
-    g.fillStyle = 'rgba(255,255,255,0.14)';
+    g.fillStyle = gridStyle === 'bold' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.14)';
     for (let t = a.firstBeat; t < dur; t += phrase) g.fillRect(Math.round(px(t)), 0, 1 * dpr, h);
+  }
+  // the song's sections: a coloured band along the bottom, with names where there's room
+  const sections = deckSections(deck);
+  if (sections) {
+    const band = Math.max(3 * dpr, Math.round(h * 0.14));
+    const fs = Math.round(9 * dpr);
+    g.font = `700 ${fs}px "Barlow Condensed", sans-serif`;
+    g.textAlign = 'left';
+    for (const { s, t0, t1 } of spans(sections, dur)) {
+      const st = SECTION_STYLE[s.kind];
+      const x0 = px(t0);
+      const x1 = px(t1);
+      g.fillStyle = st.color;
+      g.fillRect(x0, h - band, Math.max(1, x1 - x0 - dpr), band);
+      const label = st.label.toUpperCase();
+      if (h >= 30 * dpr && x1 - x0 > g.measureText(label).width + 6 * dpr) {
+        g.fillStyle = st.color;
+        g.fillText(label, x0 + 2 * dpr, h - band - 2 * dpr);
+      }
+    }
+  }
+  // mix in / mix out flags
+  const mp = mixPoints(sections);
+  for (const t of [mp.mixIn, mp.mixOut]) {
+    if (t === null) continue;
+    const fx = Math.round(px(t));
+    g.fillStyle = '#ffffff';
+    for (let yy = 0; yy < h; yy += 4 * dpr) g.fillRect(fx, yy, dpr, 2 * dpr);
+    g.beginPath();
+    g.moveTo(fx, 0);
+    g.lineTo(fx - 5 * dpr, 0);
+    g.lineTo(fx, 5 * dpr);
+    g.fill();
   }
   if (deck.loop.end > deck.loop.start) {
     g.fillStyle = deck.loop.active ? 'rgba(61,220,151,0.35)' : 'rgba(61,220,151,0.12)';

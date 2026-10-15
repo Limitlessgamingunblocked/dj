@@ -29,3 +29,38 @@
   display: flex;
   gap: 4px;
 }
+
+/* grid edit toolbar, one per lane whose deck is in grid edit */
+.wavestrip .grid-bar {
+  position: absolute;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 180px);
+  padding: 3px 5px;
+  border-radius: 6px;
+  background: rgba(5, 7, 10, 0.86);
+  border: 1px solid #ffd23f;
+}
+
+.wavestrip .grid-bar .btn.small {
+  padding: 2px 7px;
+  min-height: 22px;
+}
+
+.wavestrip .grid-tag {
+  font: 700 11px 'Barlow Condensed', sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #05070a;
+  background: #ffd23f;
+  border-radius: 3px;
+  padding: 2px 5px;
+}
+
+.wavestrip .grid-readout {
+  font-size: 11px;
+  color: #ffd23f;
+  min-width: 96px;
+}
