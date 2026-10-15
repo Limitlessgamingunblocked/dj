@@ -31,8 +31,8 @@ export interface HudState {
   score: number;
   /** clean moments in a row, and what the next one is worth */
   streak: { count: number; next: number };
-  /** the crowd's request: what they want and how much of the time is left, 0..1 */
-  request: { text: string; left: number } | null;
+  /** the crowd's request: what they want and how much of the time is left, 0..1; a song request says who's asking and the track */
+  request: { text: string; left: number; who?: string; track?: string; load?: boolean } | null;
   /** the coach's pick for the next track (Chill and Club) */
   coach: { title: string; artist: string; why: string } | null;
   /** the daily's ghost: your best run's vibe now, and how far ahead (+) or behind you are on points */
@@ -48,6 +48,8 @@ export interface HudHooks {
   clip(): void;
   /** load the coach's pick on the free deck */
   loadCoach(): void;
+  /** load the track the crowd asked for on the free deck */
+  loadRequest(): void;
 }
 
 const ASSIST_HINT: Record<Assist, string> = { chill: 'auto-sync', club: 'sync + hints', pro: 'score ×1.5' };
@@ -80,6 +82,9 @@ export class GigHud {
   private reqEl: HTMLElement;
   private reqText: HTMLElement;
   private reqBar: HTMLElement;
+  private reqWho: HTMLElement;
+  private reqTrack: HTMLElement;
+  private reqLoad: HTMLButtonElement;
   private coachEl: HTMLElement;
   private coachText: HTMLElement;
   private coachWhy: HTMLElement;
@@ -125,7 +130,11 @@ export class GigHud {
     this.streakEl = h('span', { class: 'gh-streak', title: 'Clean moments in a row multiply their points', hidden: true });
     this.reqText = h('span', { class: 'gh-req-text' });
     this.reqBar = h('i');
-    this.reqEl = h('div', { class: 'gh-req', role: 'status', hidden: true }, h('span', { class: 'gh-req-k' }, 'Crowd'), this.reqText, h('span', { class: 'gh-req-bar', 'aria-hidden': 'true' }, this.reqBar));
+    this.reqWho = h('span', { class: 'gh-req-k' }, 'Crowd');
+    this.reqTrack = h('span', { class: 'gh-req-track', hidden: true });
+    this.reqLoad = h('button', { type: 'button', class: 'gh-btn gh-load', title: 'Load the track they asked for on the free deck', hidden: true }, 'Load') as HTMLButtonElement;
+    this.reqLoad.addEventListener('click', () => this.hooks.loadRequest());
+    this.reqEl = h('div', { class: 'gh-req', role: 'status', hidden: true }, this.reqWho, h('span', { class: 'gh-req-body' }, this.reqText, this.reqTrack), this.reqLoad, h('span', { class: 'gh-req-bar', 'aria-hidden': 'true' }, this.reqBar));
     this.coachText = h('b');
     this.coachWhy = h('span');
     const load = h('button', { type: 'button', class: 'gh-btn gh-load', title: 'Load it on the free deck' }, 'Load');
@@ -218,7 +227,12 @@ export class GigHud {
     const r = s.request;
     if (this.reqEl.hidden !== !r) this.reqEl.hidden = !r;
     if (r) {
-      setText(this.reqText, r.text);
+      setText(this.reqWho, r.who ?? 'Crowd');
+      setText(this.reqText, r.who ? `“${r.text}”` : r.text);
+      if (this.reqTrack.hidden !== !r.track) this.reqTrack.hidden = !r.track;
+      if (r.track) setText(this.reqTrack, `♪ ${r.track}`);
+      if (this.reqLoad.hidden !== !r.load) this.reqLoad.hidden = !r.load;
+      setClass(this.reqEl, 'song', !!r.who);
       setVar(this.reqBar, '--left', r.left.toFixed(3));
       setClass(this.reqEl, 'late', r.left < 0.25);
     }

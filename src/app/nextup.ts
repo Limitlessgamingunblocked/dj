@@ -120,8 +120,30 @@ export class NextUp {
     if (!this.dirty && this.t - this.at < 2) return;
     this.dirty = false;
     this.at = this.t;
-    const lib = this.host.library;
     const crate = this.host.currentCrate();
+    this.picks = this.rank(crate, 3, this.skipped);
+    const sig = this.picks.map((p) => p.id + p.why).join('|');
+    if (sig !== this.sig) {
+      this.sig = sig;
+      this.events.emit('changed', undefined);
+    }
+  }
+
+  /** the whole library ranked for right now, best first, leaving out what's heard and what's on the decks */
+  candidates(n: number): Suggestion[] {
+    return this.rank(null, n, new Set());
+  }
+
+  /** has the room heard it (tonight, in a gig) or is it on a deck */
+  used(id: string): boolean {
+    const heard = this.gig ? this.gig.heard : this.heard;
+    return heard.has(id) || this.host.engine.decks.some((d) => d.track?.id === id);
+  }
+
+  private rank(crate: string | null, n: number, skip: Set<string>): Suggestion[] {
+    const e = this.host.engine;
+    const leadDeck = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing && d.loaded);
+    const lib = this.host.library;
     const ids = crate ? (lib.crate(crate)?.trackIds ?? []) : null;
     const pool = (ids ? ids.map((id) => lib.get(id)) : lib.list()).filter((t): t is LibraryTrack => !!t && !!t.analysis && t.status !== 'error');
     const onDecks = new Set(e.decks.map((d) => d.track?.id).filter((x): x is string => !!x));
@@ -129,18 +151,13 @@ export class NextUp {
     const lt = leadDeck?.track ?? null;
     const leadEnergy = lt ? this.energyOf(lt) / 10 : null;
     const playing = leadDeck && lt ? { bpm: leadDeck.bpm, key: leadDeck.currentKey(), energy: leadEnergy ?? undefined, genre: genreOf(lt).genre || undefined } : null;
-    this.picks = rankNext({
+    return rankNext({
       playing,
       want: this.gig ? this.gig.want : freeWant(leadEnergy),
       tracks: pool.map((t) => ({ id: t.id, title: t.meta.title, artist: t.meta.artist, bpm: t.analysis!.bpm, key: t.analysis!.key, energy: this.energyOf(t), genre: genreOf(t).genre || undefined })),
-      exclude: new Set([...heard, ...onDecks, ...this.skipped]),
-      n: 3,
+      exclude: new Set([...heard, ...onDecks, ...skip]),
+      n,
     });
-    const sig = this.picks.map((p) => p.id + p.why).join('|');
-    if (sig !== this.sig) {
-      this.sig = sig;
-      this.events.emit('changed', undefined);
-    }
   }
 
   private energyOf(t: LibraryTrack): number {

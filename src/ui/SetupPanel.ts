@@ -3,6 +3,7 @@
  * Appearance, decks, audio, board & camera, show, performance, keyboard and
  * your settings file (export / import / reset). MIDI follows in its own pane.
  */
+import { AI_LOCAL_URLS, aiSettings, FREELLMAPI_KEY, problemText, setAi, testAi, AiError } from '../core/ai';
 import { saveFile } from '../core/download';
 import type { Career } from '../game/Career';
 import { cleanName, cleanTagline, NAME_MAX, TAGLINE_MAX } from '../core/models';
@@ -77,7 +78,7 @@ export class SetupPanel {
       }
     });
 
-    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.performance(), this.install(), this.data(), this.keyboard());
+    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.aiCrowd(), this.performance(), this.install(), this.data(), this.keyboard());
     this.el = h('div', { class: 'pane settings-pane' }, h('div', { class: 'settings-search' }, this.search), grid);
     onPrefs(() => this.syncs.forEach((f) => f()));
     this.renderAnchors();
@@ -431,6 +432,76 @@ export class SetupPanel {
         'If the lights land before the beat you hear (common with Bluetooth speakers), add delay here.',
       ),
       h('p', { class: 'note set-row', 'data-k': 'palette colours lights' }, 'Light colours, lasers and haze are on the Show tab.'),
+    );
+  }
+
+  /** the crowd's song requests, and the AI that writes them (FreeLLMAPI on this computer) */
+  private aiCrowd(): HTMLElement {
+    const text = (type: string, placeholder: string, get: () => string, set: (v: string) => void): HTMLInputElement => {
+      const inp = h('input', { type, placeholder, spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+      inp.value = get();
+      // typing here isn't playing the decks
+      inp.addEventListener('keydown', (e) => e.stopPropagation());
+      inp.addEventListener('change', () => {
+        set(inp.value);
+        inp.value = get();
+        status();
+      });
+      return inp;
+    };
+    const key = text('password', 'freellmapi-…', () => aiSettings().key, (v) => setAi({ key: v }));
+    const url = text('url', `Finds it on this computer (${AI_LOCAL_URLS[0].replace(/^https?:\/\//, '')})`, () => aiSettings().url, (v) => setAi({ url: v }));
+    const model = text('text', 'auto', () => (aiSettings().model === 'auto' ? '' : aiSettings().model), (v) => setAi({ model: v || 'auto' }));
+    const state = h('p', { class: 'note set-row ai-state', role: 'status', 'aria-live': 'polite' });
+    const status = (msg?: string) => {
+      const s = aiSettings();
+      state.textContent =
+        msg ??
+        (!s.key
+          ? 'No key: the crowd uses its own lines. Paste a key to let the AI write them.'
+          : FREELLMAPI_KEY.test(s.key)
+            ? 'Key saved on this computer. The crowd’s requests come from the AI.'
+            : 'Key saved. It doesn’t look like a FreeLLMAPI key (freellmapi- and 48 letters and numbers), but another OpenAI-style server’s key works too.');
+    };
+    status();
+    const test = h('button', { class: 'btn small', type: 'button' }, 'Test') as HTMLButtonElement;
+    test.addEventListener('click', async () => {
+      test.disabled = true;
+      status('Asking the AI…');
+      try {
+        const at = await testAi();
+        status(`It works: the AI answered from ${at}.`);
+      } catch (e) {
+        status(e instanceof AiError ? problemText(e.problem) : problemText('server'));
+      } finally {
+        test.disabled = false;
+      }
+    });
+    const forget = h('button', { class: 'btn small ghost', type: 'button' }, 'Forget key');
+    forget.addEventListener('click', () => {
+      setAi({ key: '' });
+      key.value = '';
+      status();
+    });
+    // the page's own address, the one FreeLLMAPI has to be told to trust ("null" for the downloaded file)
+    const origin = typeof location === 'undefined' ? '' : location.origin;
+    const trusted = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\]):5173$/.test(origin);
+    return this.card(
+      'AI crowd',
+      'ai llm freellmapi key api crowd requests song shout request chatgpt model',
+      this.prefCheck('crowdRequests', 'People in the crowd shout song requests in free play', 'request song shout crowd ask', 'They ask for tracks from your library. In a gig they always do, and a played request scores.'),
+      this.row('FreeLLMAPI key', key, 'api key token unified secret', 'From FreeLLMAPI → Keys → Unified API key. It stays in this browser and is never in your settings file.'),
+      h('div', { class: 'set-row toggle-row', 'data-k': 'test forget key ai' }, test, forget),
+      state,
+      this.row('Server address', url, 'url host port endpoint base openai', 'Leave empty to find FreeLLMAPI on this computer. Any OpenAI-style server works: its address ends in /v1.'),
+      this.row('Model', model, 'model llm router', 'Empty is “auto”: FreeLLMAPI picks a free model.'),
+      h(
+        'p',
+        { class: 'note set-row', 'data-k': 'freellmapi cors origins dashboard_origins setup install' },
+        'FreeLLMAPI is free and runs on your computer: get it from github.com/tashfeenahmed/freellmapi, add your free provider keys there, and copy its unified key here. ',
+        trusted ? 'It already trusts this page.' : `It only answers pages it trusts, so start it with DASHBOARD_ORIGINS=${origin || 'null'} (in its .env file, or before npm start).`,
+        ' Without a key, or when the AI is busy, the crowd still asks with its own lines.',
+      ),
     );
   }
 

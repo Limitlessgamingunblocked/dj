@@ -1849,8 +1849,31 @@ body.hub-open .app .main {
   color: #ffb547;
 }
 
-.gh-req-text {
+.gh-req-body {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gh-req.song .gh-req-k {
+  max-width: 34%;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.gh-req.song .gh-req-text {
+  font-style: italic;
+}
+
+.gh-req-track {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--muted, rgb(255 255 255 / 65%));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gh-req-bar {
