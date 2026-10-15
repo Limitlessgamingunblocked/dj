@@ -47,7 +47,7 @@ import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } 
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, leatherCanvases, weaveCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
 import { DANCE_BEAT, playDance, type DanceClip } from './danceClip';
-import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanReady, type BodyRegion, type ClothCut, type Cover } from './modelBody';
+import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanFrame, scanReady, type BodyRegion, type ClothCut, type Cover } from './modelBody';
 import { hasModel } from '../three/assets';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
 
@@ -104,6 +104,8 @@ interface Dims {
   shin: number;
   hipY: number;
   headR: number;
+  /** how far out the hip joints sit (from the hips' width unless a scanned person says) */
+  hipX?: number;
 }
 
 function dims(l: Look): Dims {
@@ -131,7 +133,19 @@ function dims(l: Look): Dims {
     shin,
     hipY: thigh + shin + 0.075,
     headR: 0.112 * Math.pow(H, 0.3),
+    // a scanned person keeps their own proportions: the skeleton takes their limbs' lengths
+    // (the model's limbs would otherwise be stretched to the game's)
+    ...scanBuild(l),
   };
+}
+
+/** the skeleton's lengths from the scanned person the look wears, when it's loaded */
+function scanBuild(l: Look): Partial<Dims> {
+  const scan = l.options.scan;
+  const f = typeof scan === 'string' && scanReady(scan) ? scanFrame(scan) : null;
+  if (!f) return {};
+  // the hips high enough for the feet to stand where the model's do (the thighs hang 3 cm under the hips)
+  return { upperArm: f.upperArm, foreArm: f.foreArm, thigh: f.thigh, shin: f.shin, shoulder: f.shoulder, hipX: f.hipX, hipY: f.footY + f.thigh + f.shin + 0.03 };
 }
 
 /** how a shell is cut: sleeves, collar, opening, hood, puffiness, length, cropped */
@@ -650,7 +664,7 @@ export class Avatar {
       const ua = bone(`upper_arm_${s}`, sh, V(0, 0, 0));
       const fa = bone(`forearm_${s}`, ua, V(0, -d.upperArm, 0));
       bone(`hand_${s}`, fa, V(0, -d.foreArm, 0));
-      const th = bone(`thigh_${s}`, hips, V(k * d.hipsR * 0.55, -0.03, 0));
+      const th = bone(`thigh_${s}`, hips, V(k * (d.hipX ?? d.hipsR * 0.55), -0.03, 0));
       const sn = bone(`shin_${s}`, th, V(0, -d.thigh, 0));
       bone(`foot_${s}`, sn, V(0, -d.shin, 0));
     }

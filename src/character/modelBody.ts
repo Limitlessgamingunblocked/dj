@@ -570,6 +570,45 @@ export function scanReady(name: string): boolean {
   return scans.has(name);
 }
 
+/** a scanned character's own build, once it's loaded: its limbs' lengths, where its shoulders and hips sit, and its feet's height */
+export interface ScanFrame {
+  upperArm: number;
+  foreArm: number;
+  thigh: number;
+  shin: number;
+  shoulder: number;
+  hipX: number;
+  footY: number;
+}
+const frames = new Map<string, ScanFrame | null>();
+export function scanFrame(name: string): ScanFrame | null {
+  if (frames.has(name)) return frames.get(name)!;
+  const scene = scans.get(name);
+  if (!scene) return null;
+  scene.updateMatrixWorld(true);
+  const at = new Map<string, THREE.Vector3>();
+  scene.traverse((o) => {
+    if ((o as THREE.Bone).isBone && !at.has(o.name)) at.set(o.name, o.getWorldPosition(new THREE.Vector3()));
+  });
+  const need = ['upper_arm_l', 'forearm_l', 'hand_l', 'upper_arm_r', 'forearm_r', 'hand_r', 'thigh_l', 'shin_l', 'foot_l', 'thigh_r', 'shin_r', 'foot_r'];
+  let f: ScanFrame | null = null;
+  if (need.every((n) => at.has(n))) {
+    const len = (a: string, b: string) => (at.get(`${a}_l`)!.distanceTo(at.get(`${b}_l`)!) + at.get(`${a}_r`)!.distanceTo(at.get(`${b}_r`)!)) / 2;
+    const half = (a: string) => Math.abs(at.get(`${a}_l`)!.x - at.get(`${a}_r`)!.x) / 2;
+    f = {
+      upperArm: len('upper_arm', 'forearm'),
+      foreArm: len('forearm', 'hand'),
+      thigh: len('thigh', 'shin'),
+      shin: len('shin', 'foot'),
+      shoulder: half('upper_arm'),
+      hipX: half('thigh'),
+      footY: (at.get('foot_l')!.y + at.get('foot_r')!.y) / 2,
+    };
+  }
+  frames.set(name, f);
+  return f;
+}
+
 /* the suit's trims: raised piping, the zip, studs, laid on the cloth at rest and skinned to it */
 
 /** a rest-pose copy of some garments, to lay trims on, and their skin to borrow */
