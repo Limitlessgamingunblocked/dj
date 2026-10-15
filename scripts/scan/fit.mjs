@@ -1,7 +1,8 @@
 // Fit a generated character onto the DJ body's skeleton (see fit.ts):
 //   node scripts/scan/fit.mjs <character.glb> <asset name, e.g. character_scan_minimal_01>
 // Needs the dev server running (npx vite --port 5179); writes assets/models/<name>.glb.
-// Then give it its light copy for the crowd: node scripts/scan/lod.mjs assets/models/<name>.glb
+// Then re-lay its texture (python3 scripts/scan/rebake.py assets/models/<name>.glb) and give it its
+// light copy for the crowd: node scripts/scan/lod.mjs assets/models/<name>.glb 8000
 import fs from 'fs';
 import path from 'path';
 // (Playwright from the project, or wherever PLAYWRIGHT points)

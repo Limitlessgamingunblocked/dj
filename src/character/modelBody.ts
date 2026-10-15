@@ -41,6 +41,8 @@ import { smoothSkin } from './skinSmooth';
 const LOD = 'scan_lod';
 /** how many rounds of blurring a scan's skin weights get */
 const SKIN_PASSES = 6;
+/** and how many more round the shoulders */
+const SHOULDER_PASSES = 14;
 
 export const BODY_MODEL = 'character_dj_body_01';
 
@@ -560,18 +562,20 @@ const scans = new Map<string, THREE.Object3D>();
 const scanLoading = new Map<string, Promise<void>>();
 
 /**
- * A scan's textures drawn without their shrunk copies. The generator packs its texture in hundreds
- * of patches pressed edge to edge with no gap, so each shrunk copy (what the card draws a figure
- * a few metres off with) blends every patch with its neighbours: the black of the trousers, the hair
- * and the bag spread over the shirt in dark smears. Read at full size, each patch keeps its own colour.
+ * A scan's textures, sharp near and smooth far: the usual shrunk copies (mipmaps), read across
+ * at an angle (anisotropic). The files are laid out for it (scripts/scan/rebake.py): large pieces
+ * with a margin of their own colour round each, so the shrunk copies a figure further back is
+ * drawn with keep each piece its own colour, rather than the speckle and smears the generator's
+ * own layout (hundreds of tiny patches pressed edge to edge) gave.
  */
-function unbleed(material: THREE.Material | THREE.Material[]): void {
+function mipmapped(material: THREE.Material | THREE.Material[]): void {
   for (const m of Array.isArray(material) ? material : [material]) {
     const s = m as THREE.MeshStandardMaterial;
     for (const t of [s.map, s.normalMap, s.roughnessMap, s.metalnessMap, s.aoMap]) {
       if (!t) continue;
-      t.generateMipmaps = false;
-      t.minFilter = THREE.LinearFilter;
+      t.generateMipmaps = true;
+      t.minFilter = THREE.LinearMipmapLinearFilter;
+      t.anisotropy = 8;
       t.needsUpdate = true;
     }
   }
@@ -589,10 +593,12 @@ export function preloadScan(name: string, then?: () => void): void {
         m.scene.traverse((o) => {
           const sm = o as THREE.SkinnedMesh;
           if (!sm.isSkinnedMesh || sm.name === LOD) return;
-          smoothSkin(sm.geometry, SKIN_PASSES);
+          // (the shoulders most: an arm going up pulls the shirt from the chest)
+          const shoulders = sm.skeleton.bones.flatMap((b, i) => (/^(shoulder|upper_arm)_[lr]$/.test(b.name) ? [i] : []));
+          smoothSkin(sm.geometry, SKIN_PASSES, 0.5, { bones: shoulders, passes: SHOULDER_PASSES });
           slimSkin(sm);
         });
-        m.scene.traverse((o) => (o as THREE.Mesh).isMesh && unbleed((o as THREE.Mesh).material));
+        m.scene.traverse((o) => (o as THREE.Mesh).isMesh && mipmapped((o as THREE.Mesh).material));
         scans.set(name, m.scene);
       })
       .catch((e) => console.warn('scanned character failed to load', name, e));

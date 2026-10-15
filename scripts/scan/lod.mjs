@@ -1,7 +1,7 @@
 // Give a fitted scanned person a light copy of their body for the crowd further back:
 //   node scripts/scan/lod.mjs assets/models/character_scan_<name>_01.glb [triangles]
 // Adds a second mesh, `scan_lod`, to the file: the same points, skin and material as the full
-// body (so it costs only its triangle list), simplified to about `triangles` (default 9,000).
+// body (so it costs only its triangle list), simplified to about `triangles` (default 9,000; the people use 8,000).
 // Run it again after a refit (fit.mjs writes the file afresh); running it twice replaces the copy.
 import fs from 'fs';
 import { MeshoptSimplifier } from 'meshoptimizer';

@@ -12,9 +12,12 @@ import type * as THREE from 'three';
 /**
  * Blur a skinned geometry's weights over its surface, in place: `passes`
  * rounds, each moving a point `amount` of the way to its neighbours' average;
- * then the four biggest kept, summing to 1.
+ * then the four biggest kept, summing to 1. `focus` blurs some more where any
+ * of its bones (by index) has a say: the shoulders, say, where an arm going up
+ * pulls the shirt from the chest, so the stretch spreads over a wide sweep
+ * instead of tearing at a seam.
  */
-export function smoothSkin(geo: THREE.BufferGeometry, passes = 4, amount = 0.5): void {
+export function smoothSkin(geo: THREE.BufferGeometry, passes = 4, amount = 0.5, focus?: { bones: number[]; passes: number }): void {
   const pos = geo.getAttribute('position');
   const si = geo.getAttribute('skinIndex');
   const sw = geo.getAttribute('skinWeight');
@@ -64,12 +67,20 @@ export function smoothSkin(geo: THREE.BufferGeometry, passes = 4, amount = 0.5):
   }
   for (let g = 0; g < groups; g++) if (members[g] > 1) for (let b = 0; b < bones; b++) w[g * bones + b] /= members[g];
 
+  // where the focus bones have a say
+  let only: Uint8Array | null = null;
+  if (focus) {
+    only = new Uint8Array(groups);
+    for (let g = 0; g < groups; g++) if (focus.bones.some((b) => b < bones && w[g * bones + b] > 0.02)) only[g] = 1;
+  }
+
   let next = new Float32Array(w.length);
-  for (let p = 0; p < passes; p++) {
+  for (let p = 0; p < passes + (focus?.passes ?? 0); p++) {
+    const some = p >= passes ? only : null;
     for (let g = 0; g < groups; g++) {
       const o = g * bones;
       const nb = near[g];
-      if (!nb.size) {
+      if (!nb.size || (some && !some[g])) {
         for (let b = 0; b < bones; b++) next[o + b] = w[o + b];
         continue;
       }

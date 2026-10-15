@@ -96,8 +96,11 @@ const _q = new THREE.Quaternion();
 const _t = new THREE.Quaternion();
 const _e = new THREE.Euler();
 const UP = new THREE.Vector3(0, 1, 0);
-/** an arm raised overhead turned palm forward (the upper arm and the wrist each taking a share) */
-const OVER = [1, 2] as const;
+/*
+ * Arms go overhead forward and up (the upper arm's x), the way people
+ * raise them, not out to the side and over (its z): that tore loose shirts
+ * open under the arm, and brings the palm round to the front by itself.
+ */
 
 /**
  * The legs under a bounce: the hips `drop` metres down, the knees bending so
@@ -142,7 +145,7 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       // the fist punched up on every beat, the other hand loose at the waist, head nodding with it
       legs(p, 0.025 + 0.03 * push, legLen);
       arm(p, hand, -2.15 - 0.45 * push, 0.35, -1.05 + 0.75 * push);
-      arm(p, other, -0.25, 0.12, -1.5, -0.55);
+      arm(p, other, -0.2, 0.14, -0.95, -0.4, 0, 1.1);
       add(p, 'chest', 0.04 * push, (hand === 'l' ? 0.12 : -0.12) * (0.6 + 0.4 * push));
       set(p, 'neck', 0.06 + 0.16 * push);
       p.curl[hi] = 1.5;
@@ -153,8 +156,8 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       // both hands up and open, swaying slowly over two beats, chin up
       legs(p, 0.015 + 0.02 * push, legLen, lift);
       weight(p, side, 0.8);
-      arm(p, 'l', -0.35, 2.6 + 0.12 * side, -0.5 - 0.12 * push, 0, ...OVER);
-      arm(p, 'r', -0.35, 2.6 - 0.12 * side, -0.5 - 0.12 * push, 0, ...OVER);
+      arm(p, 'l', -2.65, 0.45 + 0.1 * side, -0.35 - 0.12 * push);
+      arm(p, 'r', -2.65, 0.45 - 0.1 * side, -0.35 - 0.12 * push);
       add(p, 'hand_l', 0, 0, 0.15 * side);
       add(p, 'hand_r', 0, 0, 0.15 * side);
       set(p, 'neck', -0.18 + 0.05 * push, 0, 0.06 * side);
@@ -192,7 +195,7 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       weight(p, side, 1.8);
       add(p, 'hips', 0, 0.16 * slow);
       add(p, 'chest', 0, -0.08 * slow, 0.03 * side);
-      arm(p, hand, -0.4, 2.45 + 0.12 * side, -0.75 - 0.1 * push, 0, ...OVER);
+      arm(p, hand, -2.55, 0.4 + 0.1 * side, -0.6 - 0.1 * push);
       arm(p, other, 0.1 * side, 0.1, -0.55 - 0.15 * push, -0.35);
       set(p, 'neck', -0.04, 0.05 * slow, 0.12 * side);
       p.curl[hi] = 0.5;
@@ -207,21 +210,21 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       add(p, 'hips', -0.1 * roll, 0.12 * Math.cos(beat * Math.PI));
       add(p, 'spine', 0.06 * roll);
       add(p, 'chest', 0.07 * roll);
-      arm(p, 'l', -0.3, 2.35 + 0.1 * side, -1.3, 0, ...OVER);
-      arm(p, 'r', -0.3, 2.35 - 0.1 * side, -1.3, 0, ...OVER);
+      arm(p, 'l', -2.6, 0.35 + 0.08 * side, -1.4, -1.0);
+      arm(p, 'r', -2.6, 0.35 - 0.08 * side, -1.4, -1.0);
       set(p, 'neck', -0.1 - 0.06 * roll, 0, 0.1 * side);
       p.curl[0] = p.curl[1] = 0.3;
       break;
     }
     case 'point': {
-      // pointing up at the booth on every beat, the elbow straightening into it, the other hand loose
+      // reaching out to the booth on every beat (this one!), the elbow straightening into it, the other hand loose
       legs(p, 0.02 + 0.03 * push, legLen, lift);
       weight(p, side, 0.6);
       arm(p, hand, -1.75 - 0.22 * push, 0.18, -0.6 + 0.5 * push, -0.12);
-      arm(p, other, -0.2 + 0.06 * side, 0.12, -1.45, -0.5);
+      arm(p, other, -0.2 + 0.06 * side, 0.14, -0.95, -0.4, 0, 1.1);
       add(p, 'chest', 0.03 * push, (hand === 'l' ? 0.1 : -0.1) * (0.7 + 0.3 * push));
       set(p, 'neck', -0.06 + 0.12 * push);
-      p.curl[hi] = 1.3;
+      p.curl[hi] = 0.45;
       p.curl[1 - hi] = 0.45;
       break;
     }
@@ -264,8 +267,8 @@ function clap(beat: number, legLen: number, p: Pose): void {
   legs(p, 0.02 + 0.02 * push, legLen);
   // hands apart between beats, meeting on the beat
   const open = 1 - push;
-  arm(p, 'l', -0.35, 2.3 - 0.35 * open, -0.45, 0, ...OVER);
-  arm(p, 'r', -0.35, 2.3 - 0.35 * open, -0.45, 0, ...OVER);
+  arm(p, 'l', -2.5, -0.25 + 0.5 * open, -0.5, 0, 0, 1.5);
+  arm(p, 'r', -2.5, -0.25 + 0.5 * open, -0.5, 0, 0, 1.5);
   set(p, 'neck', -0.12);
   p.curl[0] = p.curl[1] = 0.1;
 }
@@ -280,8 +283,8 @@ function jump(beat: number, legLen: number, p: Pose): void {
   const crouch = onBeat(ph);
   legs(p, 0.07 * crouch, legLen);
   p.hips[1] += 0.12 * air * air;
-  arm(p, 'l', -0.25, 2.55, -0.3, 0, ...OVER);
-  arm(p, 'r', -0.25, 2.55, -0.3, 0, ...OVER);
+  arm(p, 'l', -2.65, 0.5, -0.3);
+  arm(p, 'r', -2.65, 0.5, -0.3);
   set(p, 'neck', -0.15);
   p.curl[0] = p.curl[1] = 0.12;
 }
@@ -422,8 +425,36 @@ export function applyPose(p: Pose, bones: Record<string, THREE.Object3D>, hipY: 
     if (b) b.rotation.set(p.rot[i * 3], p.rot[i * 3 + 1], p.rot[i * 3 + 2]);
   }
   bones.hips?.position.set(p.hips[0], hipY + p.hips[1], p.hips[2]);
+  shrug(bones);
   plantFeet(bones, hipY, Math.max(0, p.hips[1]));
 }
+
+/**
+ * The shoulders lift as an arm goes overhead, as people's do (the collarbone
+ * turning up from the breastbone, taking the top of the shoulder with it), so
+ * the armpit and the shirt over it aren't torn open by the arm alone. The arm
+ * keeps the direction the pose gave it.
+ */
+function shrug(b: Record<string, THREE.Object3D>): void {
+  for (const [s, k] of [['l', 1], ['r', -1]] as const) {
+    const sh = b[`shoulder_${s}`];
+    const ua = b[`upper_arm_${s}`];
+    if (!sh || !ua) continue;
+    const rest = (sh.userData.rest ??= sh.position.clone()) as THREE.Vector3;
+    // how far the arm's up: its length (hanging down at rest) turned by the shoulder and the arm
+    _v1.set(0, -1, 0).applyQuaternion(_qD.copy(sh.quaternion).multiply(ua.quaternion));
+    const up = Math.acos(THREE.MathUtils.clamp(-_v1.y, -1, 1));
+    const e = SHRUG * THREE.MathUtils.smoothstep(up, 1.3, 2.7);
+    // the collarbone: from near the middle of the chest out to the shoulder joint
+    const len = Math.max(0.05, Math.abs(rest.x) - 0.02);
+    sh.position.set(rest.x + k * len * (Math.cos(e) - 1), rest.y + len * Math.sin(e), rest.z);
+    _qD.setFromAxisAngle(_Z, k * e);
+    sh.quaternion.multiply(_qD);
+    ua.quaternion.premultiply(_qD.invert());
+  }
+}
+/** how far the collarbones turn up with an arm straight overhead (radians) */
+const SHRUG = 0.38;
 
 /**
  * Feet on the floor: the hips sway, tilt, turn and drop, but the feet stay
@@ -505,4 +536,5 @@ const _qD = new THREE.Quaternion();
 const _qF = new THREE.Quaternion();
 const _Y = new THREE.Vector3(0, 1, 0);
 const _X = new THREE.Vector3(1, 0, 0);
+const _Z = new THREE.Vector3(0, 0, 1);
 const _eH = new THREE.Euler();
