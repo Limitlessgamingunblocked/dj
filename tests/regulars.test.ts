@@ -13,23 +13,30 @@ describe('the regulars', () => {
     { x: 5, z: -2.2 },
     { x: 0, z: -3.2, role: 'sign' as const },
   ];
-  it("take the nearest dancers' places, apart, facing the booth", () => {
+  it("take the dancers' places from the front back, apart, facing the booth", () => {
     const r = regularSpots(spots);
-    expect(r.length).toBe(3);
+    expect(r.length).toBe(5);
     for (const p of r) {
-      // never inside the booth, never off to the side
-      expect(Math.hypot(p.x, p.z)).toBeGreaterThan(1.2);
-      expect(Math.abs(p.x)).toBeLessThan(3.5);
+      // never inside the booth
+      expect(Math.hypot(p.x, p.z)).toBeGreaterThan(0.9);
       // in a dancer's own place (never a sign holder's)
       expect(spots[p.of]).toMatchObject({ x: p.x, z: p.z });
       expect(spots[p.of].role).toBeUndefined();
-      // facing the booth: +z turned towards x = 0
-      expect(Math.cos(p.face)).toBeGreaterThan(0.5);
+      // facing the booth (+z turned towards the origin), give or take a little
+      const to = Math.atan2(-p.x, -p.z);
+      expect(Math.cos(p.face - to)).toBeGreaterThan(Math.cos(0.3));
     }
     // the nearest dancer first; the one just behind them is too close
-    expect(r[0].of).toBe(1);
+    expect(r[0].of).toBe(0);
     expect(r.map((p) => p.of)).not.toContain(2);
-    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) expect(Math.hypot(r[i].x - r[j].x, r[i].z - r[j].z)).toBeGreaterThanOrEqual(0.85);
+    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) expect(Math.hypot(r[i].x - r[j].x, r[i].z - r[j].z)).toBeGreaterThanOrEqual(0.7);
+  });
+  it('fill the floor, nearest first, up to a few dozen', () => {
+    const floor = Array.from({ length: 400 }, (_, i) => ({ x: (i % 20) * 0.8 - 7.6, z: -1.6 - Math.floor(i / 20) * 0.8 }));
+    const r = regularSpots(floor);
+    expect(r.length).toBe(72);
+    const d = r.map((p) => Math.hypot(p.x, p.z));
+    for (let i = 1; i < d.length; i++) expect(d[i]).toBeGreaterThanOrEqual(d[i - 1]);
   });
   it('none without a crowd', () => {
     expect(regularSpots([])).toEqual([]);
@@ -37,14 +44,14 @@ describe('the regulars', () => {
   it('are men and women, the first the floor regular, all scanned people, none twice', () => {
     expect(regularCast(0, 0).look.options.scan).toBe(REGULAR_SCAN);
     expect(hasModel(REGULAR_SCAN)).toBe(true);
-    const twelve = Array.from({ length: 12 }, (_, i) => regularCast(i, 5));
+    const twelve = Array.from({ length: 13 }, (_, i) => regularCast(i, 5));
     const scans = twelve.map((r) => r.look.options.scan as string);
     for (const scan of scans) {
       expect(scan).toMatch(/^character_scan_/);
       expect(scan).not.toMatch(/android|bot|minimal/);
       expect(hasModel(scan)).toBe(true);
     }
-    expect(new Set(scans).size).toBe(12);
+    expect(new Set(scans).size).toBe(13);
     expect(twelve.filter((r) => r.woman).length).toBeGreaterThanOrEqual(3);
   });
   it("dance their own kind's moves", () => {

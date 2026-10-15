@@ -34,8 +34,11 @@ import { hasModel, loadModel } from '../three/assets';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ROBOT_HANDS, ROBOT_HEADS } from './catalog';
 import { slider } from './look';
+import { slimSkin } from './slim';
 import { smoothSkin } from './skinSmooth';
 
+/** a scan's light copy of its body (scripts/scan/lod.mjs): the same points, fewer triangles */
+const LOD = 'scan_lod';
 /** how many rounds of blurring a scan's skin weights get */
 const SKIN_PASSES = 6;
 
@@ -582,7 +585,13 @@ export function preloadScan(name: string, then?: () => void): void {
     p = loadModel(name)
       .then((m) => {
         // (the rig's weights blurred over the skin, so it bends instead of tearing; copies share this geometry)
-        m.scene.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && smoothSkin((o as THREE.SkinnedMesh).geometry, SKIN_PASSES));
+        // (and leaner than the generator makes them; the light copy for the crowd further back shares the full body's points, so once each)
+        m.scene.traverse((o) => {
+          const sm = o as THREE.SkinnedMesh;
+          if (!sm.isSkinnedMesh || sm.name === LOD) return;
+          smoothSkin(sm.geometry, SKIN_PASSES);
+          slimSkin(sm);
+        });
         m.scene.traverse((o) => (o as THREE.Mesh).isMesh && unbleed((o as THREE.Mesh).material));
         scans.set(name, m.scene);
       })
@@ -1213,6 +1222,8 @@ export class ModelBody {
         m.castShadow = true;
         m.receiveShadow = true;
         m.frustumCulled = false;
+        // (the light copy only when whoever shows this person asks for it)
+        m.visible = m.name !== LOD;
         this.meshes.push(m);
       } else if (m.isSkinnedMesh) {
         const region = String((m.material as THREE.Material).name).replace(/^skin_/, '') as BodyRegion;

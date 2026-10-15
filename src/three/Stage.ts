@@ -916,6 +916,7 @@ export class Stage {
     const st = this.adaptive.step;
     FX.detail = st.crowdDetail;
     Crowd.detailDistance = (this.quality === 'high' ? 16 : this.quality === 'medium' ? 12 : 8) * st.crowdDetail;
+    this.regulars.share = (this.quality === 'high' ? 1 : this.quality === 'medium' ? 0.7 : 0.35) * st.crowdDetail;
     this.visualizer.bloomAllowed = st.visualizerBloom;
     this.resize();
   }
@@ -1301,7 +1302,7 @@ export class Stage {
       this.dancers.enabled = this.show.controls.dancers;
       this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, sdt);
       this.regulars.enabled = this.show.controls.dancers;
-      this.regulars.update(show, !this.avatarSpot && !this.rig.focused, sdt);
+      this.regulars.update(show, !this.avatarSpot && !this.rig.focused, sdt, this.camera);
     }
 
     // on the venue screens the visual player can run at half rate when the load is high

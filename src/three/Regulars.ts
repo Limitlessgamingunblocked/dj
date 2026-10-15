@@ -1,15 +1,22 @@
 /*
- * The regulars: the realistic clubbers filling the front rows of the dance
- * floor, men and women, made the same way as the DJ (scanned people fitted to
- * the same skeleton) and dancing on the beat: each with their own few club
- * moves (src/character/clubDance.ts), the men's and the women's, changing
- * every few bars at their own times. One is the regular made for the floor;
- * the others wear the outfit sets, so each venue gets its own crowd.
+ * The regulars: the realistic clubbers filling the dance floor, men and
+ * women, made the same way as the DJ (scanned people fitted to the same
+ * skeleton) and dancing on the beat: each with their own few club moves
+ * (src/character/clubDance.ts), the men's and the women's, changing every few
+ * bars at their own times. One is the regular made for the floor; the others
+ * wear the outfit sets, so each venue gets its own crowd.
  *
- * Each takes the place of one of the crowd's front-row dancers (who steps
- * aside while the regular is there, and comes back when they go), so they
- * stand in the crowd, behind any barrier, facing the booth. Off where
- * there's no crowd (the bedroom, the dressing room…).
+ * Each takes the place of one of the crowd's dancers (who steps aside while
+ * the regular is there, and comes back when they go), so they stand in the
+ * crowd, behind any barrier, facing the booth: the whole floor from the
+ * front back, as many as the room can draw smoothly (the light crowd and the
+ * cut-outs carry on behind them). Off where there's no crowd (the bedroom,
+ * the dressing room…).
+ *
+ * Drawing that many: the people near the camera are drawn in full; the rest
+ * with the light copy of their body (scripts/scan/lod.mjs) and no shadow of
+ * their own, and the far ones move every other frame. Anyone out of shot
+ * isn't drawn or moved at all.
  */
 import * as THREE from 'three';
 import { Avatar, type AvatarInput } from '../character/Avatar';
@@ -36,13 +43,22 @@ const CAST: { set: string | null; woman: boolean }[] = [
   { set: 'basement_dweller', woman: false },
   { set: 'chrome_boy', woman: false },
   { set: 'bedroom_legend', woman: false },
+  { set: 'boat_captain', woman: false },
 ];
 
-/** how many at most, and how far apart */
-const COUNT = 12;
-const APART = 0.85;
+/** how many at most, how far apart, and how far back from the booth */
+const COUNT = 72;
+const APART = 0.72;
+const REACH = 16;
 /** crowd people closer than this to a regular step aside too */
-const ROOM = 0.6;
+const ROOM = 0.75;
+/** how many are drawn in full detail at once (the nearest the camera), and within how far of it */
+const FULL = 14;
+const FULL_AT = 7;
+/** past this far from the camera they move every other frame */
+const HALF_RATE_AT = 9;
+/** how tall the men and the women stand (the scans come a little short), give or take */
+const TALL = { man: 1.77, woman: 1.66, spread: 0.05 };
 
 /** the i-th regular in a venue: who they are (each venue starts the cast somewhere else) */
 export function regularCast(i: number, seed: number): { look: Look; woman: boolean } {
@@ -65,14 +81,14 @@ export function regularMoves(woman: boolean, seed: number): ClubMove[] {
 }
 
 /**
- * Where they stand: the crowd's dancers nearest the booth (and near its
- * middle), spread apart; each regular takes that dancer's spot (`of`: its
- * index in the list). Pure, for the tests.
+ * Where they stand: the crowd's dancers from the booth back, spread apart;
+ * each regular takes that dancer's spot (`of`: its index in the list). Pure,
+ * for the tests.
  */
 export function regularSpots(spots: CrowdSpot[], booth = new THREE.Vector2(0, 0), n = COUNT): { x: number; y: number; z: number; face: number; of: number }[] {
   const near = spots
     .map((s, i) => ({ s, i, d: Math.hypot(s.x - booth.x, s.z - booth.y) }))
-    .filter(({ s, d }) => (s.role ?? 'dancer') === 'dancer' && d >= 1.4 && d <= 9 && Math.abs(s.x - booth.x) < 3.5)
+    .filter(({ s, d }) => (s.role ?? 'dancer') === 'dancer' && d >= 0.9 && d <= REACH)
     .sort((a, b) => a.d - b.d);
   const out: { x: number; y: number; z: number; face: number; of: number }[] = [];
   for (const { s, i } of near) {
@@ -93,14 +109,14 @@ interface CrowdInside {
   shadowMesh?: THREE.InstancedMesh | null;
 }
 
-/** the crowd spots of a venue in world space, wherever its crowds sit, each with the crowd it's in */
+/** the crowd spots of a venue in world space, wherever its crowds sit (its fixtures, or a crowd of its own), each with the crowd it's in */
 function crowdSpots(venue: VenueScene): { spot: CrowdSpot; crowd: Crowd; i: number }[] {
   const fixtures = (venue as unknown as { fixtures?: unknown[] }).fixtures ?? [];
+  const crowds = new Set([...fixtures, ...Object.values(venue)].filter((f): f is Crowd => f instanceof Crowd));
   venue.group.updateMatrixWorld(true);
   const out: { spot: CrowdSpot; crowd: Crowd; i: number }[] = [];
   const p = new THREE.Vector3();
-  for (const f of fixtures) {
-    if (!(f instanceof Crowd)) continue;
+  for (const f of crowds) {
     ((f as unknown as CrowdInside).spots ?? []).forEach((s, i) => {
       f.object.localToWorld(p.set(s.x, s.y ?? 0, s.z));
       out.push({ spot: { ...s, x: p.x, y: p.y, z: p.z }, crowd: f, i });
@@ -148,18 +164,42 @@ class StandIn {
 }
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 
+/** one of them on the floor: the person, and how they're drawn this frame */
+interface Regular {
+  av: Avatar;
+  woman: boolean;
+  /** time they've missed while out of shot or skipped a frame */
+  owed: number;
+  /** their full body and its light copy, once the scan's in (found by name: the scan's own meshes) */
+  full: THREE.Object3D | null;
+  lod: THREE.Object3D | null;
+  /** how tall they'll stand */
+  tall: number;
+  /** the crowd's people who step aside for them */
+  standIns: StandIn[];
+}
+
 export class Regulars {
   readonly group = new THREE.Group();
-  private dancers: Avatar[] = [];
-  private standIns: StandIn[] = [];
+  private dancers: Regular[] = [];
   private venue = '';
+  private frame = 0;
+  private frustum = new THREE.Frustum();
+  private viewProj = new THREE.Matrix4();
+  private sphere = new THREE.Sphere();
   enabled = true;
+  /**
+   * how much of the floor they fill (0–1): the graphics quality and how the
+   * frame rate's holding up; the ones further back give their places back to
+   * the light crowd first
+   */
+  share = 1;
 
   constructor() {
     this.group.visible = false;
   }
 
-  /** a new venue: a new handful at the front of its crowd, or none */
+  /** a new venue: its floor filled from the front back, or none */
   setVenue(id: string, venue: VenueScene | null): void {
     if (id === this.venue) return;
     this.venue = id;
@@ -169,8 +209,11 @@ export class Regulars {
     const all = crowdSpots(venue);
     const spots = regularSpots(all.map((a) => a.spot));
     // the crowd's people they stand in for, and any squeezed in right next to them (room to dance)
+    const asides: StandIn[][] = spots.map(() => []);
     all.forEach((a, k) => {
-      if (spots.some((p) => p.of === k || Math.hypot(p.x - a.spot.x, p.z - a.spot.z) < ROOM)) this.standIns.push(new StandIn(a.crowd, a.i));
+      let by = spots.findIndex((p) => p.of === k);
+      if (by < 0) by = spots.findIndex((p) => Math.hypot(p.x - a.spot.x, p.z - a.spot.z) < ROOM);
+      if (by >= 0) asides[by].push(new StandIn(a.crowd, a.i));
     });
     spots.forEach((p, i) => {
       const who = regularCast(i, seed);
@@ -184,27 +227,81 @@ export class Regulars {
       av.object.position.set(p.x, p.y, p.z);
       av.object.rotation.y = p.face;
       this.group.add(av.object);
-      this.dancers.push(av);
+      const base = who.woman ? TALL.woman : TALL.man;
+      this.dancers.push({ av, woman: who.woman, owed: 0, full: null, lod: null, tall: base + ((((own * 7919) % 13) / 12) * 2 - 1) * TALL.spread, standIns: asides[i] });
     });
   }
 
   private clear(): void {
-    for (const s of this.standIns) s.aside = false;
-    this.standIns = [];
     for (const d of this.dancers) {
-      d.object.removeFromParent();
-      d.dispose();
+      for (const st of d.standIns) st.aside = false;
+      d.av.object.removeFromParent();
+      d.av.dispose();
     }
     this.dancers = [];
   }
 
-  /** every frame: dance */
-  update(s: AvatarInput, show: boolean, dt: number): void {
+  /** a regular's scan meshes, once it's in: stood at their height */
+  private find(d: Regular): void {
+    let up: THREE.Object3D | null = d.full;
+    while (up && up !== d.av.object) up = up.parent;
+    if (up) return;
+    d.full = d.lod = null;
+    d.av.object.traverse((o) => {
+      if (o.name === 'scan_body') d.full = o;
+      else if (o.name === 'scan_lod') d.lod = o;
+    });
+    const geo = (d.full as THREE.Mesh | null)?.geometry;
+    if (!geo) return;
+    if (!geo.boundingBox) geo.computeBoundingBox();
+    const h = geo.boundingBox!.max.y;
+    d.av.object.scale.setScalar(h > 1 ? d.tall / h : 1);
+  }
+
+  /** every frame: dance (the ones in shot; the nearest in full, the rest lighter) */
+  update(s: AvatarInput, show: boolean, dt: number, camera?: THREE.Camera): void {
     this.group.visible = this.enabled && show && this.dancers.length > 0;
     // the crowd members they stand in for are back whenever the regulars aren't there
-    for (const st of this.standIns) st.aside = this.group.visible;
+    const here = Math.ceil(this.dancers.length * THREE.MathUtils.clamp(this.share, 0, 1));
+    this.dancers.forEach((d, i) => {
+      const on = this.group.visible && i < here;
+      for (const st of d.standIns) st.aside = on;
+      if (!on) d.av.object.visible = false;
+    });
     if (!this.group.visible) return;
-    for (const d of this.dancers) d.update(s, dt);
+    this.frame++;
+    if (camera) {
+      camera.updateMatrixWorld();
+      this.frustum.setFromProjectionMatrix(this.viewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    }
+    const eye = camera?.getWorldPosition(_eye);
+    // the nearest the camera first: they get the full detail
+    const order = this.dancers
+      .slice(0, here)
+      .map((d, i) => ({ d, i, far: eye ? d.av.object.position.distanceTo(eye) : 0 }))
+      .sort((a, b) => a.far - b.far);
+    let full = 0;
+    for (const { d, i, far } of order) {
+      const o = d.av.object;
+      this.sphere.center.copy(o.position).y += 0.9;
+      this.sphere.radius = 1.3;
+      const seen = !camera || this.frustum.intersectsSphere(this.sphere);
+      o.visible = seen;
+      d.owed += dt;
+      if (!seen) continue;
+      // further back: every other frame (each on their own frame)
+      if (far > HALF_RATE_AT && (this.frame + i) % 2) continue;
+      d.av.update(s, Math.min(d.owed, 0.25));
+      d.owed = 0;
+      this.find(d);
+      const near = !d.lod || (far < FULL_AT && full < FULL);
+      if (near) full++;
+      if (d.full) {
+        d.full.visible = near;
+        d.full.castShadow = near;
+      }
+      if (d.lod) d.lod.visible = !near;
+    }
   }
 
   get count(): number {
@@ -215,3 +312,4 @@ export class Regulars {
     this.clear();
   }
 }
+const _eye = new THREE.Vector3();
