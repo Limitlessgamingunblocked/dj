@@ -12,6 +12,9 @@
  *   higher for more.
  * - point (index only): the crossfader. Slide the finger left and right.
  * - both open palms up high: the "hands up" DJ move, and the crowd copies it.
+ *   Keep them up and you have crowd control: sway your arms left and right
+ *   and the whole room's arms go up and sway with yours, until you bring
+ *   them down.
  * - a fist does nothing: rest there between moves.
  *
  * Every move is relative to where it starts (the filter and crossfader pick
@@ -37,6 +40,8 @@ export interface AirTarget {
   crossfader(): number;
   setCrossfader(v: number): void;
   handsUp(): void;
+  /** crowd control: your arms' lean, -1 (your left) to +1 (your right), or null when they come down */
+  crowdSway?(lean: number | null): void;
 }
 
 /** one hand's state, for drawing over the camera picture */
@@ -72,6 +77,12 @@ const LOST = 0.15;
 const GLIDE = 0.35;
 const HANDS_UP_HOLD = 0.35;
 const HANDS_UP_COOLDOWN = 4;
+/** once crowd control's on, a hand counts as "up" while its wrist is above this */
+export const CROWD_ZONE = 0.45;
+/** picture widths of sway from the middle for a full lean */
+export const SWAY_RANGE = 0.22;
+/** how long crowd control waits for a hand to come back up before it lets go (s) */
+const CROWD_LOST = 0.5;
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -168,6 +179,12 @@ export class AirDJ {
   private upCooldown = 0;
   /** set for a moment after "hands up" fires, for the picture */
   handsUpFlash = 0;
+  /** crowd control is on: your arms are up and the crowd's sway with them */
+  crowd = false;
+  /** where your arms are, -1 (your left) to +1 (your right), while crowd control's on */
+  lean = 0;
+  private crowdCentre = 0.5;
+  private crowdLost = 0;
 
   constructor(private t: AirTarget) {}
 
@@ -197,6 +214,7 @@ export class AirDJ {
       }
     }
     this.checkHandsUp(dt);
+    this.checkCrowd(dt);
     for (const side of ['L', 'R'] as Side[]) this.drive(this.slots[side], dt);
     return (['L', 'R'] as Side[])
       .map((side) => this.slots[side])
@@ -213,6 +231,10 @@ export class AirDJ {
       this.slots[side] = newSlot(side);
     }
     this.xfadeBy = null;
+    if (this.crowd) this.t.crowdSway?.(null);
+    this.crowd = false;
+    this.lean = 0;
+    this.upFor = 0;
   }
 
   /** which side each hand is: by position, but a hand mid-move keeps its side */
@@ -263,7 +285,53 @@ export class AirDJ {
     } else this.upFor = 0;
   }
 
+  /** a hand in the air, for crowd control (any open-ish hand, not a pinch, point or peace sign) */
+  private high(s: Slot): boolean {
+    return s.present && (s.pose === 'open' || s.pose === 'fist' || s.pose === 'none') && s.lm[WRIST].y < CROWD_ZONE;
+  }
+
+  /**
+   * Crowd control: starts with "hands up" (both palms up high) and stays on
+   * while a hand's in the air. The lean is where the raised hands are, from
+   * the middle of where you've been swaying (so standing off to one side of
+   * the picture doesn't tip the crowd over).
+   */
+  private checkCrowd(dt: number): void {
+    const { L, R } = this.slots;
+    if (!this.crowd) {
+      if (this.upFor < HANDS_UP_HOLD) return;
+      this.crowd = true;
+      this.crowdLost = 0;
+      this.crowdCentre = (L.lm[MIDDLE.mcp].x + R.lm[MIDDLE.mcp].x) / 2;
+      this.lean = 0;
+    }
+    const up = [L, R].filter((s) => this.high(s));
+    if (!up.length) {
+      this.crowdLost += dt;
+      if (this.crowdLost > CROWD_LOST) {
+        this.crowd = false;
+        this.lean = 0;
+        this.t.crowdSway?.(null);
+      }
+      return;
+    }
+    this.crowdLost = 0;
+    const x = up.reduce((a, s) => a + s.lm[MIDDLE.mcp].x, 0) / up.length;
+    this.crowdCentre += (x - this.crowdCentre) * Math.min(1, dt * 0.2);
+    this.lean = clamp01(0.5 + (x - this.crowdCentre) / (SWAY_RANGE * 2)) * 2 - 1;
+    this.t.crowdSway?.(this.lean);
+  }
+
   private drive(s: Slot, dt: number): void {
+    // a hand in the air under crowd control works the crowd, not the decks
+    if (this.crowd && this.high(s)) {
+      if (s.move !== 'none') this.end(s);
+      s.at = null;
+      s.action = this.lean < -0.25 ? '◀ CROWD' : this.lean > 0.25 ? 'CROWD ▶' : 'CROWD';
+      this.glide(s, dt);
+      return;
+    }
+    if (s.move === 'none') s.action = '';
     const pose = s.present ? s.pose : 'none';
     const active = pose === 'pinch' || pose === 'open' || pose === 'peace' || (pose === 'point' && (this.xfadeBy === null || this.xfadeBy === s.side));
     const want: Pose = active ? pose : 'none';
@@ -277,6 +345,11 @@ export class AirDJ {
       s.at = s.at ? { x: s.at.x + (raw.x - s.at.x) * 0.65, y: s.at.y + (raw.y - s.at.y) * 0.65 } : raw;
       this.hold(s);
     } else s.at = null;
+    this.glide(s, dt);
+  }
+
+  /** the filter sliding back to off after the palm's gone */
+  private glide(s: Slot, dt: number): void {
     if (s.gliding) {
       const v = this.t.filter(s.side);
       const step = (0.5 / GLIDE) * dt;

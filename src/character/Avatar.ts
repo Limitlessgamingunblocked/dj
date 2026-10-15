@@ -512,6 +512,12 @@ export class Avatar {
     return this.perf?.id ?? null;
   }
 
+  /**
+   * Crowd control (Air DJ): both arms up and leaning with the player's, `k`
+   * 0..1 eased in and out, `lean` -1 (their left) to +1 (their right).
+   */
+  armSway: { k: number; lean: number } | null = null;
+
   setLook(look: Look, djName = this.djName): void {
     this.look = look;
     this.djName = djName;
@@ -2118,6 +2124,25 @@ export class Avatar {
           b.spine.rotation.x = 0.12 * (1 - k);
         }
       }
+    }
+    // crowd control: your arms in the air, leaning where the player's are
+    const sw = this.armSway;
+    if (sw && sw.k > 0.01) {
+      performing = true;
+      dropping = false;
+      const k = sw.k;
+      const tilt = sw.lean * 0.55;
+      // from wherever the arms are (on the decks) up into the air
+      const blend = (side: 'l' | 'r', uz: number) => {
+        const sd = side === 'l' ? 1 : -1;
+        const up = b[`upper_arm_${side}`].rotation;
+        const fore = b[`forearm_${side}`].rotation;
+        setArm(side, up.x + (-0.3 - up.x) * k, sd * up.z + (uz - sd * up.z) * k, fore.x + (-0.3 - fore.x) * k);
+      };
+      blend('l', 2.55 + tilt);
+      blend('r', 2.55 - tilt);
+      b.spine.rotation.y += sw.lean * 0.12 * k;
+      b.neck.rotation.x += (-0.12 - b.neck.rotation.x) * k;
     }
     if (!dropping && this.headphones && this.headphonesHome && this.headphones.parent !== this.headphonesHome.parent) {
       this.headphonesHome.parent.add(this.headphones);

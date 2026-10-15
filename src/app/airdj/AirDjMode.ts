@@ -8,6 +8,7 @@
  * mix back when you take over.
  */
 import type { ControlRegistry, JogControl } from '../../core/controls';
+import { crowdShow } from '../../three/venues/crowdShow';
 import { toast } from '../../ui/toast';
 import { AirDjPanel } from '../../ui/AirDjPanel';
 import { introSeen, openAirDjGuide } from '../../ui/AirDjIntro';
@@ -37,6 +38,7 @@ export function bindTarget(reg: ControlRegistry): AirTarget {
     crossfader: () => reg.value('mixer.xfader'),
     setCrossfader: (v) => reg.setValue('mixer.xfader', v, 'air'),
     handsUp: () => reg.press('dj.move.1', 'air'),
+    crowdSway: (lean) => crowdShow.setSway(lean),
   };
 }
 
@@ -54,7 +56,7 @@ export class AirDjMode {
     this.air = new AirDJ(bindTarget(reg));
     this.panel = new AirDjPanel(this.tracker.video, { close: () => this.set(false), guide: () => openAirDjGuide() });
     this.tracker.onStatus = (s) => this.panel.setStatus(s);
-    this.tracker.onHands = (hands, dt) => this.panel.draw(this.air.update(hands, dt), this.air.handsUpFlash > 0);
+    this.tracker.onHands = (hands, dt) => this.panel.draw(this.air.update(hands, dt), this.air.handsUpFlash > 0, this.air.crowd ? this.air.lean : null);
   }
 
   set(on: boolean): void {

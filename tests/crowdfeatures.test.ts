@@ -161,3 +161,26 @@ describe('room geometry', () => {
     expect(coneFlex(8)).toBeLessThan(coneFlex(4));
   });
 });
+
+describe('crowd control', () => {
+  it('eases the crowd’s arms up and after yours, the back of the room a little later, and back down', () => {
+    crowdShow.setSway(null);
+    for (let i = 0; i < 120; i++) crowdShow.updateSway(1 / 30);
+    expect(crowdShow.swayK).toBe(0);
+    crowdShow.setSway(1);
+    for (let i = 0; i < 6; i++) crowdShow.updateSway(1 / 30);
+    // the front's already most of the way over; the back's still catching up
+    expect(crowdShow.swayNow).toBeGreaterThan(0.75);
+    expect(crowdShow.swayLate).toBeLessThan(crowdShow.swayNow);
+    expect(crowdShow.swayLate).toBeGreaterThan(0);
+    for (let i = 0; i < 60; i++) crowdShow.updateSway(1 / 30);
+    expect(crowdShow.swayK).toBeGreaterThan(0.95);
+    expect(crowdShow.swayLate).toBeGreaterThan(0.9);
+    // out of range is held to the ends
+    crowdShow.setSway(-3);
+    expect(crowdShow.lean).toBe(-1);
+    crowdShow.setSway(null);
+    for (let i = 0; i < 120; i++) crowdShow.updateSway(1 / 30);
+    expect(crowdShow.swayK).toBe(0);
+  });
+});

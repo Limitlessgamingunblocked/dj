@@ -942,6 +942,12 @@
   pointer-events: none;
 }
 
+.air-dj .air-flash.air-flash-crowd {
+  place-items: end center;
+  padding-bottom: 6px;
+  font-size: var(--text-lg);
+}
+
 .air-dj .air-chips {
   display: grid;
   grid-template-columns: 1fr 1fr;

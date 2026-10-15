@@ -86,8 +86,8 @@ export class AirDjPanel {
     this.el.classList.toggle('air-error', s === 'error');
   }
 
-  /** draw the hands over the picture and say what they're doing */
-  draw(hands: HandView[], handsUp: boolean): void {
+  /** draw the hands over the picture and say what they're doing (`crowd`: crowd control's lean, when it's on) */
+  draw(hands: HandView[], handsUp: boolean, crowd: number | null = null): void {
     const { ctx, canvas } = this;
     const w = canvas.width;
     const ht = canvas.height;
@@ -131,7 +131,19 @@ export class AirDjPanel {
       setText(this.chips[side], `${side === 'L' ? 'Left' : 'Right'} deck · ${hand ? hand.action || poseWord(hand.pose) : 'no hand'}`);
       this.chips[side].classList.toggle('on', !!hand?.action);
     }
-    this.flash.hidden = !handsUp;
+    if (crowd !== null) {
+      // crowd control: a bar along the top with your lean on it
+      const y = 14;
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(w * 0.2, y - 9, w * 0.6, 18);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillRect(w * 0.5 + crowd * w * 0.28 - 5, y - 7, 10, 14);
+      ctx.globalAlpha = 1;
+    }
+    setText(this.flash, crowd !== null && !handsUp ? 'CROWD CONTROL' : 'HANDS UP!');
+    this.flash.hidden = !handsUp && crowd === null;
+    this.flash.classList.toggle('air-flash-crowd', crowd !== null && !handsUp);
   }
 }
 
