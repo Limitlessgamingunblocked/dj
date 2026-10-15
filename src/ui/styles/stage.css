@@ -190,8 +190,18 @@
 }
 
 .lens-text[data-look='cctv'],
-.lens-text[data-look='vhs'] {
+.lens-text[data-look='vhs'],
+.lens-text[data-look='lidar'] {
   display: block;
+}
+
+/* LiDAR: a scanner's thin cyan readout */
+.lens-text[data-look='lidar'] {
+  color: #8cf2ff;
+  font-weight: 500;
+  font-size: 0.85em;
+  letter-spacing: 0.16em;
+  text-shadow: 0 0 6px rgba(60, 200, 255, 0.55);
 }
 
 .lens-text span {
