@@ -47,7 +47,7 @@ import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } 
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, leatherCanvases, weaveCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
 import { applyPose, type ClubDancer } from './clubDance';
-import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanFrame, scanReady, type BodyRegion, type ClothCut, type Cover } from './modelBody';
+import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanFrame, scanReady, type BodyRegion, type ScanFrame, type ClothCut, type Cover } from './modelBody';
 import { hasModel } from '../three/assets';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
 
@@ -106,6 +106,8 @@ interface Dims {
   headR: number;
   /** how far out the hip joints sit (from the hips' width unless a scanned person says) */
   hipX?: number;
+  /** a scanned person's own trunk: where their joints sit at rest (body space) */
+  trunk?: ScanFrame['at'];
 }
 
 function dims(l: Look): Dims {
@@ -144,8 +146,8 @@ function scanBuild(l: Look): Partial<Dims> {
   const scan = l.options.scan;
   const f = typeof scan === 'string' && scanReady(scan) ? scanFrame(scan) : null;
   if (!f) return {};
-  // the hips high enough for the feet to stand where the model's do (the thighs hang 3 cm under the hips)
-  return { upperArm: f.upperArm, foreArm: f.foreArm, thigh: f.thigh, shin: f.shin, shoulder: f.shoulder, hipX: f.hipX, hipY: f.footY + f.thigh + f.shin + 0.03 };
+  // the hips where the model's are, so the feet stand where its feet do
+  return { upperArm: f.upperArm, foreArm: f.foreArm, thigh: f.thigh, shin: f.shin, shoulder: f.shoulder, hipX: f.hipX, hipY: f.at.hips.y, trunk: f.at };
 }
 
 /** how a shell is cut: sleeves, collar, opening, hood, puffiness, length, cropped */
@@ -653,17 +655,20 @@ export class Avatar {
       return o;
     };
     // the skeleton
+    // (a scanned person's trunk bends where theirs does: otherwise their shoulders and neck would be pulled about as the game's trunk turns)
+    const T = d.trunk;
+    const up = (a: THREE.Vector3, b: THREE.Vector3) => V(0, b.y - a.y, b.z - a.z);
     const hips = bone('hips', this.body, V(0, d.hipY, 0));
-    const spine = bone('spine', hips, V(0, 0.1 * d.H, 0));
-    const chest = bone('chest', spine, V(0, 0.13 * d.H, 0));
-    const neck = bone('neck', chest, V(0, 0.22 * d.H, 0));
-    bone('head', neck, V(0, 0.085 * d.H, 0.005));
+    const spine = bone('spine', hips, T ? up(T.hips, T.spine) : V(0, 0.1 * d.H, 0));
+    const chest = bone('chest', spine, T ? up(T.spine, T.chest) : V(0, 0.13 * d.H, 0));
+    const neck = bone('neck', chest, T ? up(T.chest, T.neck) : V(0, 0.22 * d.H, 0));
+    bone('head', neck, T ? up(T.neck, T.head) : V(0, 0.085 * d.H, 0.005));
     for (const [s, k] of [['l', 1], ['r', -1]] as const) {
-      const sh = bone(`shoulder_${s}`, chest, V(k * d.shoulder, 0.185 * d.H, -0.01));
+      const sh = bone(`shoulder_${s}`, chest, T ? V(k * d.shoulder, T.upper_arm_l.y - T.chest.y, T.upper_arm_l.z - T.chest.z) : V(k * d.shoulder, 0.185 * d.H, -0.01));
       const ua = bone(`upper_arm_${s}`, sh, V(0, 0, 0));
       const fa = bone(`forearm_${s}`, ua, V(0, -d.upperArm, 0));
       bone(`hand_${s}`, fa, V(0, -d.foreArm, 0));
-      const th = bone(`thigh_${s}`, hips, V(k * (d.hipX ?? d.hipsR * 0.55), -0.03, 0));
+      const th = bone(`thigh_${s}`, hips, V(k * (d.hipX ?? d.hipsR * 0.55), T ? T.thigh_l.y - T.hips.y : -0.03, T ? T.thigh_l.z - T.hips.z : 0));
       const sn = bone(`shin_${s}`, th, V(0, -d.thigh, 0));
       bone(`foot_${s}`, sn, V(0, -d.shin, 0));
     }

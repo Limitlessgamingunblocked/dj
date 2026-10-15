@@ -579,6 +579,8 @@ export interface ScanFrame {
   shoulder: number;
   hipX: number;
   footY: number;
+  /** where its trunk's joints and its limbs' roots sit at rest (body space), so the game's skeleton can bend where the model does */
+  at: Record<'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'upper_arm_l' | 'thigh_l', THREE.Vector3>;
 }
 const frames = new Map<string, ScanFrame | null>();
 export function scanFrame(name: string): ScanFrame | null {
@@ -590,7 +592,7 @@ export function scanFrame(name: string): ScanFrame | null {
   scene.traverse((o) => {
     if ((o as THREE.Bone).isBone && !at.has(o.name)) at.set(o.name, o.getWorldPosition(new THREE.Vector3()));
   });
-  const need = ['upper_arm_l', 'forearm_l', 'hand_l', 'upper_arm_r', 'forearm_r', 'hand_r', 'thigh_l', 'shin_l', 'foot_l', 'thigh_r', 'shin_r', 'foot_r'];
+  const need = ['hips', 'spine', 'chest', 'neck', 'head', 'upper_arm_l', 'forearm_l', 'hand_l', 'upper_arm_r', 'forearm_r', 'hand_r', 'thigh_l', 'shin_l', 'foot_l', 'thigh_r', 'shin_r', 'foot_r'];
   let f: ScanFrame | null = null;
   if (need.every((n) => at.has(n))) {
     const len = (a: string, b: string) => (at.get(`${a}_l`)!.distanceTo(at.get(`${b}_l`)!) + at.get(`${a}_r`)!.distanceTo(at.get(`${b}_r`)!)) / 2;
@@ -603,6 +605,15 @@ export function scanFrame(name: string): ScanFrame | null {
       shoulder: half('upper_arm'),
       hipX: half('thigh'),
       footY: (at.get('foot_l')!.y + at.get('foot_r')!.y) / 2,
+      at: {
+        hips: at.get('hips')!,
+        spine: at.get('spine')!,
+        chest: at.get('chest')!,
+        neck: at.get('neck')!,
+        head: at.get('head')!,
+        upper_arm_l: at.get('upper_arm_l')!,
+        thigh_l: at.get('thigh_l')!,
+      },
     };
   }
   frames.set(name, f);
