@@ -34,6 +34,10 @@ import { hasModel, loadModel } from '../three/assets';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { ROBOT_HANDS, ROBOT_HEADS } from './catalog';
 import { slider } from './look';
+import { smoothSkin } from './skinSmooth';
+
+/** how many rounds of blurring a scan's skin weights get */
+const SKIN_PASSES = 6;
 
 export const BODY_MODEL = 'character_dj_body_01';
 
@@ -558,7 +562,11 @@ export function preloadScan(name: string, then?: () => void): void {
   let p = scanLoading.get(name);
   if (!p) {
     p = loadModel(name)
-      .then((m) => void scans.set(name, m.scene))
+      .then((m) => {
+        // (the rig's weights blurred over the skin, so it bends instead of tearing; copies share this geometry)
+        m.scene.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && smoothSkin((o as THREE.SkinnedMesh).geometry, SKIN_PASSES));
+        scans.set(name, m.scene);
+      })
       .catch((e) => console.warn('scanned character failed to load', name, e));
     scanLoading.set(name, p);
   }

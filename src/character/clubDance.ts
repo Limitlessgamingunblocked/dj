@@ -65,7 +65,7 @@ function add(p: Pose, b: Bone, x: number, y = 0, z = 0): void {
   p.rot[i + 1] += y;
   p.rot[i + 2] += z;
 }
-/** an arm: lift out (z), swing forward (x, negative), turn (y), and the elbow's bend */
+/** an arm: lift out (z), swing forward (x, negative), turn (y: negative rolls it in, so a bent elbow brings the hand in front of the body), and the elbow's bend */
 function arm(p: Pose, s: 'l' | 'r', ux: number, uz: number, fx: number, uy = 0): void {
   const k = s === 'l' ? 1 : -1;
   set(p, `upper_arm_${s}`, ux, uy * k, uz * k);
@@ -115,7 +115,7 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       // the fist punched up on every beat, the other hand loose at the waist, head nodding with it
       legs(p, 0.025 + 0.03 * push, legLen);
       arm(p, hand, -2.15 - 0.45 * push, 0.35, -1.05 + 0.75 * push);
-      arm(p, other, -0.35, 0.22, -1.25);
+      arm(p, other, -0.25, 0.12, -1.5, -0.55);
       add(p, 'chest', 0.04 * push, (hand === 'l' ? 0.12 : -0.12) * (0.6 + 0.4 * push));
       set(p, 'neck', 0.06 + 0.16 * push);
       p.curl[hi] = 1.5;
@@ -140,8 +140,8 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       weight(p, side, 1.2);
       add(p, 'hips', 0, 0.14 * slow);
       add(p, 'chest', 0, -0.1 * slow);
-      arm(p, 'l', -0.1 + 0.25 * side, 0.22, -1.4);
-      arm(p, 'r', -0.1 - 0.25 * side, 0.22, -1.4);
+      arm(p, 'l', -0.2 + 0.22 * side, 0.2, -1.3, -0.25);
+      arm(p, 'r', -0.2 - 0.22 * side, 0.2, -1.3, -0.25);
       set(p, 'shoulder_l', 0, 0, 0.05 * push);
       set(p, 'shoulder_r', 0, 0, -0.05 * push);
       set(p, 'neck', 0.05 + 0.12 * push);
@@ -152,8 +152,8 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       // a drink held at the chest, the free arm hanging easy, the head and shoulders doing the work
       legs(p, 0.015 + 0.02 * push, legLen, lift);
       weight(p, side, 0.5);
-      arm(p, hand, -0.5, 0.18, -1.95);
-      arm(p, other, 0.08 * side, 0.14, -0.35);
+      arm(p, hand, -0.45, 0.1, -1.9, -0.5);
+      arm(p, other, 0.08 * side, 0.1, -0.35, -0.25);
       add(p, 'chest', 0.05 * push, 0.06 * slow);
       set(p, 'neck', 0.04 + 0.2 * push);
       p.curl[hi] = 1.1;
@@ -165,8 +165,8 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       weight(p, side, 1.8);
       add(p, 'hips', 0, 0.16 * slow);
       add(p, 'chest', 0, -0.08 * slow, 0.03 * side);
-      arm(p, hand, -0.35, 2.15 + 0.12 * side, -1.85);
-      arm(p, other, 0.12 * side, 0.22, -0.55 - 0.15 * push);
+      arm(p, hand, -2.6 + 0.1 * side, 0.6, -1.9, -0.5);
+      arm(p, other, 0.1 * side, 0.1, -0.55 - 0.15 * push, -0.35);
       set(p, 'neck', -0.04, 0.05 * slow, 0.12 * side);
       p.curl[hi] = 0.5;
       p.curl[1 - hi] = 0.25;
@@ -193,8 +193,8 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       weight(p, side, 0.9);
       add(p, 'chest', 0, 0.16 * sh);
       add(p, 'spine', 0, -0.05 * sh);
-      arm(p, 'l', 0.05 + 0.15 * sh, 0.25, -1.35);
-      arm(p, 'r', 0.05 - 0.15 * sh, 0.25, -1.35);
+      arm(p, 'l', 0.15 * sh, 0.12, -1.35, -0.5);
+      arm(p, 'r', -0.15 * sh, 0.12, -1.35, -0.5);
       set(p, 'neck', 0.02, -0.1 * sh, 0.08 * side);
       p.curl[0] = p.curl[1] = 0.7;
       break;

@@ -5,8 +5,10 @@
  *   – turned to face +z, scaled to the body's height at the hips and stood on the floor
  *   – the body's skeleton posed into the character's A-pose (each limb turned
  *     along the character's own limb, from its rig's joints)
- *   – each vertex skinned like the posed body's nearest skin (a few
- *     neighbours blended), then un-posed back to the body's rest pose
+ *   – each vertex skinned by the character's own rig (or the posed body's
+ *     nearest skin), then its limbs swung back to the body's rest pose, the
+ *     skeleton's joints left where the character's are (its own proportions:
+ *     nothing stretched to the body's)
  *   – written out as one skinned mesh on the body's skeleton, its textures
  *     shrunk and saved as JPEG to fit the page's size budget
  * Runs in the browser (under the dev server); scripts/scan/fit.mjs drives it.
@@ -236,7 +238,31 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
     }
   body.updateMatrixWorld(true);
   skeleton.update();
-  const posed = bones.map((b, i) => b.matrixWorld.clone().multiply(skeleton.boneInverses[i]));
+  // the rest it's written out in: each bone turned as the body's rest turns it (so a pose means the same
+  // on both), but its joints where the character's own are (limbs only swung round, never stretched:
+  // a scan keeps its own neck, trunk, arms and legs). Each bone's offset from its parent, as the
+  // parent sees it in the character's pose, laid on the parent's rest turn. (Parents first.)
+  const posedWorld = bones.map((b) => b.matrixWorld.clone());
+  const rest: THREE.Matrix4[] = [];
+  bones.forEach((b, i) => {
+    const pp = new THREE.Vector3();
+    const pq = new THREE.Quaternion();
+    const ps = new THREE.Vector3();
+    posedWorld[i].decompose(pp, pq, ps);
+    const rq = new THREE.Quaternion();
+    const rs = new THREE.Vector3();
+    restWorld[i].decompose(new THREE.Vector3(), rq, rs);
+    const parent = bones.indexOf(b.parent as THREE.Bone);
+    if (parent >= 0) {
+      const parentPos = new THREE.Vector3().setFromMatrixPosition(posedWorld[parent]);
+      const parentQ = new THREE.Quaternion().setFromRotationMatrix(posedWorld[parent]);
+      const restPos = new THREE.Vector3().setFromMatrixPosition(rest[parent]);
+      const restQ = new THREE.Quaternion().setFromRotationMatrix(rest[parent]);
+      pp.sub(parentPos).applyQuaternion(parentQ.invert()).applyQuaternion(restQ).add(restPos);
+    }
+    rest[i] = new THREE.Matrix4().compose(pp, rq, rs);
+  });
+  const posed = bones.map((_, i) => posedWorld[i].clone().multiply(rest[i].clone().invert()));
 
   /* ---------------- the posed body's skin, in a grid for nearest lookups */
   const pts: number[] = [];
@@ -346,8 +372,8 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
 
   /* ---------------- back to rest, and out: the body's bones and the fitted mesh */
   bones.forEach((b, i) => {
-    const local = restWorld[i].clone();
-    if (b.parent && (b.parent as THREE.Bone).isBone) local.premultiply(restWorld[bones.indexOf(b.parent as THREE.Bone)].clone().invert());
+    const local = rest[i].clone();
+    if (b.parent && (b.parent as THREE.Bone).isBone) local.premultiply(rest[bones.indexOf(b.parent as THREE.Bone)].clone().invert());
     else if (b.parent) local.premultiply(b.parent.matrixWorld.clone().invert());
     local.decompose(b.position, b.quaternion, b.scale);
   });
@@ -363,7 +389,7 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
   const mesh = new THREE.SkinnedMesh(geo, mat);
   mesh.name = 'scan_body';
   out.add(mesh);
-  mesh.bind(new THREE.Skeleton(bones, skeleton.boneInverses), new THREE.Matrix4());
+  mesh.bind(new THREE.Skeleton(bones, rest.map((m) => m.clone().invert())), new THREE.Matrix4());
   const maxTexture = o.maxTexture ?? 2048;
   for (const m of Array.isArray(mat) ? mat : [mat]) {
     const s = m as THREE.MeshStandardMaterial;
