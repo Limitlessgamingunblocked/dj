@@ -306,7 +306,7 @@ class DC10 extends VenueBase {
     this.add(new Pyro([V(-2.6, 0, -0.5), V(2.6, 0, -0.5), V(-3.6, 0, -0.45), V(3.6, 0, -0.45)].map((pos) => ({ pos, kind: 'spark' as const }))));
 
     // the crowd, right up against the booth, and friends in the booth
-    this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE, avoid: [new THREE.Box2(new THREE.Vector2(6.0, -17.5), new THREE.Vector2(8.6, -11.5)), new THREE.Box2(new THREE.Vector2(-8.6, -15.4), new THREE.Vector2(-7.0, -13.0))] }), { seed: 12, phones: 0.07, signs: 2, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));
+    this.add(new Crowd(crowdArea(-8, 8, -1.45, -16.2, 2.1, 1011, { y: -STAGE, avoid: [new THREE.Box2(new THREE.Vector2(6.0, -17.5), new THREE.Vector2(8.6, -11.5)), new THREE.Box2(new THREE.Vector2(-8.6, -15.4), new THREE.Vector2(-7.0, -13.0))] }), { seed: 12, phones: 0.07, clothes: ['#1b1d22', '#2a2d33', '#8a857c', '#101114', '#3a2f2a', '#23262d', '#6e6250', '#4a1a1e', '#1d2b3a', '#a39d93'] }));
     this.add(new Crowd([{ x: -2.1, z: 1.0 }, { x: -2.9, z: 1.6 }, { x: 2.2, z: 1.1 }, { x: 3.0, z: 1.7 }, { x: -1.9, z: 2.1 }].map((p) => ({ ...p, face: Math.PI + (p.x < 0 ? -0.4 : 0.4), role: 'vip' as const })), { seed: 44, clothes: ['#a39d93', '#1b1d22', '#7d6f5a'] }));
     this.add(new HazeLayer(new THREE.Box3(V(-8, 1.6, -16), V(8, CEIL - 0.2, 0)), 5));
 

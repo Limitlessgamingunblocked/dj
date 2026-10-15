@@ -66,6 +66,9 @@ function holoMaterial(): THREE.ShaderMaterial {
   });
 }
 
+/* the parts only some of the crowd wear (hats, the longer hairstyles) */
+const SOME_HAVE: number[] = [PERSON_MATS.cap, PERSON_MATS.longHair, PERSON_MATS.hairUp, PERSON_MATS.curls, PERSON_MATS.bun, PERSON_MATS.pony];
+
 /** a crowd member's head (with hair, ears and nose) out of the crowd's own model, as one geometry */
 function headGeometry(): THREE.BufferGeometry {
   const g = personGeometry(0).toNonIndexed();
@@ -75,7 +78,7 @@ function headGeometry(): THREE.BufferGeometry {
   const keep: number[] = [];
   for (let i = 0; i < pos.count; i += 3) {
     const m = mat.getX(i);
-    if (bone.getX(i) !== PERSON_BONES.head || m === PERSON_MATS.cap || m === PERSON_MATS.longHair || m === PERSON_MATS.hairUp) continue;
+    if (bone.getX(i) !== PERSON_BONES.head || SOME_HAVE.includes(m)) continue;
     for (let k = 0; k < 3; k++) keep.push(pos.getX(i + k), pos.getY(i + k) - 1.6, pos.getZ(i + k));
   }
   g.dispose();

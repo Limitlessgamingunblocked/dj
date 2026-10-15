@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { frontGeometry, facePoints, FRONT_MATS, FRONT_VIS } from '../src/three/venues/frontrow';
 import { PERSON_BONES, PERSON_MATS, personGeometry, VERT_HEAD } from '../src/three/venues/crowd';
+import { JOINTS, LANDMARKS } from '../src/three/venues/crowdbody';
 
 describe('the front row model', () => {
   it('stays inside its triangle budget', () => {
     const tris = frontGeometry().index!.count / 3;
     expect(tris).toBeGreaterThan(personGeometry(0).index!.count / 3);
-    expect(tris).toBeLessThan(6200);
+    // the realistic body (crowdbody.ts) at its most detailed, for the couple of dozen people nearest the booth
+    expect(tris).toBeLessThan(11000);
   });
 
   it('uses the crowd skeleton and every material the crowd shader colours, plus its own', () => {
@@ -29,19 +31,19 @@ describe('the front row model', () => {
       for (let i = 0; i < pos.count; i++) if (bone[i] === b) bx.expandByPoint(new THREE.Vector3().fromBufferAttribute(pos, i));
       return bx;
     };
-    // the shins stay below the knee (plus the knee cap), the hands hang below the elbow
-    expect(box(PERSON_BONES.shinR).max.y).toBeLessThan(0.6);
-    expect(box(PERSON_BONES.thighR).min.y).toBeGreaterThan(0.4);
+    // the shins stay round and below the knee, the thighs above it, the forearms and hands below the shoulder
+    expect(box(PERSON_BONES.shinR).max.y).toBeLessThan(JOINTS.knee[1] + 0.15);
+    expect(box(PERSON_BONES.thighR).min.y).toBeGreaterThan(JOINTS.knee[1] - 0.15);
     const fore = box(PERSON_BONES.foreR);
-    expect(fore.max.y).toBeLessThan(1.2);
+    expect(fore.max.y).toBeLessThan(JOINTS.shoulder[1]);
     expect(fore.min.y).toBeGreaterThan(0.2);
   });
 
   it('puts the eyes in the face', () => {
     const f = facePoints();
-    expect(f.eye.y).toBeCloseTo(1.607, 3);
+    expect(f.eye.y).toBeCloseTo(LANDMARKS.eye[1], 3);
     expect(f.eye.z).toBeGreaterThan(0.06);
-    expect(f.eye.z).toBeLessThan(0.1);
+    expect(f.eye.z).toBeLessThan(LANDMARKS.headFront);
   });
 
   it('slots its kit into the crowd pose code', () => {

@@ -904,7 +904,6 @@ class AllyPally extends VenueBase {
         seed: 1988,
         clothes,
         phones: 0.08,
-        signs: 7,
         drinks: 0.12,
         lightMap: this.lm,
       }),

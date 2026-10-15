@@ -249,7 +249,8 @@ export class AOPass extends Pass {
         uProjScale: { value: 1 },
         // metres: about a hand's span, so people and props pick up contact shadow without a halo round the room
         uRadius: { value: 0.55 },
-        uBias: { value: 0.002 },
+        // (enough that a gently curved surface, a chest or a shoulder, doesn't shade itself in blotches)
+        uBias: { value: 0.007 },
         uIntensity: { value: 1 },
         uFadeNear: { value: 18 },
         uFadeFar: { value: 45 },

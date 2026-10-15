@@ -306,7 +306,7 @@ class Basement extends VenueBase {
     if (nm.sign) this.nameSign(nm.sign, 2.2, 0.55, V(0, 1.85, z1 - 0.04), Math.PI, 1.05);
 
     // eighty people, close enough to touch the decks
-    this.add(new Crowd(crowdArea(x0 + 0.4, x1 - 0.4, -0.85, z0 + 1.6, 1.15, 808, { y: 0 }), { seed: 808, phones: 0.04, drinks: 0.35, signs: 1, clothes: ['#0e0e10', '#16171a', '#1d1f24', '#2a2d33', '#5a1e22', '#0e0e10', '#d9d6cf'] }));
+    this.add(new Crowd(crowdArea(x0 + 0.4, x1 - 0.4, -0.85, z0 + 1.6, 1.15, 808, { y: 0 }), { seed: 808, phones: 0.04, drinks: 0.35, clothes: ['#0e0e10', '#16171a', '#1d1f24', '#2a2d33', '#5a1e22', '#0e0e10', '#d9d6cf'] }));
 
     this.drips = new Drips(drips);
     this.group.add(this.drips.object);
