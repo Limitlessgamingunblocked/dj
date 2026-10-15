@@ -3,8 +3,8 @@
  * the cab ride across town), covers the game loading behind it, and hands
  * over to the real 3D room when the club's door opens: through the crowd,
  * hands on the decks, the DJ from below, a pull back through the break, and
- * the name slams in on the drop. The groove keeps going under the title
- * screen until you press start.
+ * the title comes in on the drop with a white flash. The groove keeps going
+ * under the title screen until you press start.
  *
  *   first launch   the full cut (about 35 s, longer only if loading is slow)
  *   after that     the door, then the break and the drop (about 8 s)
@@ -58,7 +58,7 @@ export interface IntroHost {
   tap(node: AudioNode): void;
   /** the drop: the whole room goes */
   drop(): void;
-  /** put the title screen up (its name slams in) */
+  /** put the title screen up (with a flash on the drop) */
   title(): void;
 }
 

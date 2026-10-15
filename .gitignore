@@ -5,3 +5,4 @@ dist-artifact
 .DS_Store
 wasm/build
 dist-single
+desktop/release

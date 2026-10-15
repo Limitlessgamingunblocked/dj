@@ -130,6 +130,8 @@ export function cheer(ctx: AudioContext, level = 0.35, secs = 3.2): void {
 export interface WallThump {
   /** the next door set's beat position now (for the room's lights and the avatar's groove) */
   beat(): number;
+  /** louder, and less muffled (a door opening onto it): cutoff in Hz */
+  set(level: number, cutoff?: number): void;
   stop(): void;
 }
 
@@ -182,6 +184,10 @@ export function wallThump(ctx: AudioContext, bpm = 124, level = 0.22): WallThump
   const timer = setInterval(schedule, 100);
   return {
     beat: () => Math.max(0, (ctx.currentTime - t0) / spb),
+    set(lv, cutoff) {
+      o.gain.setTargetAtTime(lv, ctx.currentTime, 0.12);
+      if (cutoff) wall.frequency.setTargetAtTime(cutoff, ctx.currentTime, 0.12);
+    },
     stop() {
       clearInterval(timer);
       o.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
