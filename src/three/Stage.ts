@@ -864,6 +864,16 @@ export class Stage {
     else this.rig.goTo(v);
   }
 
+  /** Cut straight to a camera move of your own (the launch cutscene's), on the beat. */
+  playMove(shot: ActiveShot): void {
+    this.cutWith(() => this.rig.playShot(shot), 'hard');
+  }
+
+  /** a new venue or board's shaders are still compiling (its first frames would hitch) */
+  get preparing(): boolean {
+    return this.compiling !== 0;
+  }
+
   /** Cut to an angle: through a quick dip to black (moves too long to fly), or straight there on the beat (the director). */
   cutTo(v: ViewId, cut: 'dip' | 'hard' = 'dip'): void {
     this.cutWith(() => this.rig.goTo(v, true), cut);

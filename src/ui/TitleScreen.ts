@@ -4,7 +4,8 @@
  * over it. Any key, click, tap or a button on a controller starts: the name
  * flies past the camera and the camera walks you into the venue.
  *
- * Shown at launch (automated test browsers skip it; ?title forces it).
+ * Shown at launch (automated test browsers skip it; ?title forces it). At the
+ * end of the launch cutscene it comes in on the drop with a white flash.
  */
 import * as THREE from 'three';
 import type { ControlRegistry } from '../core/controls';
@@ -44,13 +45,16 @@ export class TitleScreen {
     return !!this.el;
   }
 
-  show(): void {
+  show(o: { flash?: boolean } = {}): void {
     if (this.el) return;
     const { stage, shell } = this.host;
+    const flash = !!o.flash && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     shell.classList.add('titling');
+    // the camera's last move is over: the glide takes it
+    stage.rig.shot = null;
     this.el = h(
       'div',
-      { class: 'title-screen', role: 'dialog', 'aria-label': 'Deckhouse DJ' },
+      { class: `title-screen${flash ? ' flash' : ''}`, role: 'dialog', 'aria-label': 'Deckhouse DJ' },
       h('p', { class: 'title-tag' }, 'From the bedroom to the main stage'),
       h('p', { class: 'title-prompt' }, matchMedia('(pointer: coarse)').matches ? 'Tap to start' : 'Press any key to start'),
     );

@@ -127,7 +127,24 @@ export class SetupPanel {
     return this.select(options, () => prefs[key] as Prefs[K] & (string | number), (v) => setPrefs({ [key]: v } as Partial<Prefs>));
   }
 
-  private prefCheck<K extends keyof Prefs>(key: K, label: string, k = '', hint = ''): HTMLElement {
+  /** the intro's choice, and a button to watch it again (the game reopens with it) */
+  private introControl(): HTMLElement {
+    const pick = this.prefSelect('intro', [
+      ['auto', 'The full one the first time, then short'],
+      ['full', 'The full one every time'],
+      ['short', 'Short every time'],
+      ['off', 'Off'],
+    ]);
+    const watch = h('button', { class: 'btn small', type: 'button', title: 'Reopens the game with the full intro' }, 'Watch it');
+    watch.addEventListener('click', () => {
+      const u = new URL(location.href);
+      u.searchParams.set('intro', 'full');
+      location.href = u.toString();
+    });
+    return h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, pick, watch);
+  }
+
+    private prefCheck<K extends keyof Prefs>(key: K, label: string, k = '', hint = ''): HTMLElement {
     return this.check(label, () => prefs[key] as boolean, (v) => setPrefs({ [key]: v } as Partial<Prefs>), k, hint);
   }
 
@@ -423,6 +440,12 @@ export class SetupPanel {
         this.prefSelect('screensaver', SCREENSAVER_CHOICES.map((m) => [m, m === 0 ? 'Never' : `After ${m} minutes without a touch`])),
         'screensaver idle broadcast stream obs attract away',
         'The stage fills the window and the camera cuts with the music. Any touch brings everything back. Broadcast mode is also in the ⋯ menu (⇧O).',
+      ),
+      this.row(
+        'Intro when the game opens',
+        this.introControl(),
+        'intro cutscene opening loading launch start title skip cinematic',
+        'The night out that plays while the game loads. Esc skips it.',
       ),
       this.row(
         'Lights and visuals delay',

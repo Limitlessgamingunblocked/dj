@@ -64,10 +64,13 @@ import { CharacterCreator } from '../ui/CharacterCreator';
 import { NameChant } from '../ui/NameChant';
 import { NamingScene } from '../ui/NamingScene';
 import { TitleScreen } from '../ui/TitleScreen';
+import { Intro, introCut } from '../intro/Intro';
 import { PhotoMode } from '../ui/PhotoMode';
 
 /** the club the title screen glides through when your own venue is a small room */
 const TITLE_VENUE = 'deckhouse';
+/** let a frame paint (the cutscene's loading line) between long steps */
+const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
 import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
@@ -156,6 +159,8 @@ export class App implements AppContext {
   private chant: NameChant | null = null;
   private naming: NamingScene | null = null;
   private title: TitleScreen | null = null;
+  /** the launch cutscene, while it runs (and the groove under the title) */
+  private intro: Intro | null = null;
   private photo: PhotoMode | null = null;
   private namingBusy = false;
   private creator: CharacterCreator | null = null;
@@ -444,10 +449,15 @@ export class App implements AppContext {
 
   async start(): Promise<void> {
     this.root.innerHTML = '';
-    const loading = h('div', { class: 'loading-overlay', style: { position: 'fixed' } }, 'Setting up the booth…');
+    // the launch cutscene covers the loading (a plain card when it's off)
+    const cut = introCut();
+    const intro = cut ? new Intro(document.body, cut) : null;
+    this.intro = intro;
+    const loading = h('div', { class: 'loading-overlay', style: { position: 'fixed' }, hidden: !!intro }, 'Setting up the booth…');
     this.root.append(loading);
 
-    this.engine = await AudioEngine.create();
+    this.engine = await AudioEngine.create(intro?.ctx);
+    intro?.progress(0.25, 'Opening your record bag');
     this.engine.isShift = () => this.reg.shift;
     // interface clicks and chimes, straight to the output (never into the mix)
     setUiAudio(this.engine.ctx);
@@ -490,6 +500,7 @@ export class App implements AppContext {
       });
     }
     await this.library.init();
+    intro?.progress(0.45, 'Building the room');
     this.autodj = new AutoDJ(this.engine, this.reg, {
       loadTrack: (d, id) => this.loadTrack(d, id),
       nextFromSet: () => this.setsPanel?.takeNext() ?? null,
@@ -815,6 +826,10 @@ export class App implements AppContext {
     // career saves land before the tab goes away
     addEventListener('pagehide', () => this.career.saves.flush());
     loading.remove();
+    if (intro) {
+      intro.progress(0.7, 'Hanging the lights');
+      await breathe();
+    }
     this.setVenue(this.settings.venue, true);
     this.stage.adaptive.enabled = this.settings.autoQuality;
     this.stage.setQuality(this.settings.quality);
@@ -834,13 +849,30 @@ export class App implements AppContext {
       else if (/[?&]dressing\b/.test(location.search)) this.creator?.show();
     };
     // the title screen first (automated test browsers and the deep links skip it; ?title forces it)
-    const title = /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle)\b/.test(location.search));
+    const title = !!intro || /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle)\b/.test(location.search));
     if (title) {
-      // a club at night behind the name (a new player's bedroom is their venue; the title shows them where it goes)
-      const small = ['bedroom', 'basement', 'hub'].includes(this.settings.venue);
+      // a club at night behind the name (a new player's bedroom is their venue; the title shows them where it goes);
+      // the cutscene's always shot in the same club
+      const small = !!intro || ['bedroom', 'basement', 'hub'].includes(this.settings.venue);
       if (small) this.stage.setVenue(venueById(TITLE_VENUE));
-      this.title = new TitleScreen({ stage: this.stage, shell: this.shell, reg: this.reg, accent: () => venueById(small ? TITLE_VENUE : this.settings.venue).ui, start: () => afterTitle(true) });
-      this.title.show();
+      const start = () => {
+        // the cutscene's groove fades out as you walk in
+        this.intro?.release();
+        afterTitle(true);
+      };
+      this.title = new TitleScreen({ stage: this.stage, shell: this.shell, reg: this.reg, accent: () => venueById(small ? TITLE_VENUE : this.settings.venue).ui, start });
+      if (intro) {
+        // the cutscene opens the door onto this room, and ends on the title
+        const v = venueById(small ? TITLE_VENUE : this.settings.venue);
+        intro.ready({
+          stage: this.stage,
+          shell: this.shell,
+          venue: { name: v.name, place: v.place },
+          tap: (node) => node.connect(this.engine.visAnalyser),
+          drop: () => (this.debugDrop = true),
+          title: () => this.title?.show({ flash: true }),
+        });
+      } else this.title.show();
     } else afterTitle();
 
     bindKeyboard(this.reg, {
@@ -1911,6 +1943,8 @@ export class App implements AppContext {
       for (let i = 0; i < 4; i++) this.meters.ch[i] = i < n ? this.engine.channels[i].levels() : [0, 0];
       this.meters.master = this.engine.mixer.masterLevels();
       // the visuals read the audio as the speakers play it, not as it leaves the mixer
+      // the cutscene's music drives the room like a deck would
+      this.features.external = this.intro?.beat ?? null;
       const f = this.avSync.push(t / 1000, this.features.update(dt), avDelay(this.engine.ctx, prefs.avOffset));
       if (this.debugDrop) {
         // the debug menu's drop: the whole game sees it, as if the track dropped
@@ -1930,6 +1964,7 @@ export class App implements AppContext {
       this.crowdDir.update(dt, f.dropHit);
       this.vj.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
+      if (this.intro?.hype != null) this.stage.hype = this.intro.hype;
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);
       this.engine.crowd.dawn = this.settings.venue === 'sunrise' ? Math.max(0, (setClock.progress - 0.55) / 0.45) : 0;
@@ -1948,7 +1983,7 @@ export class App implements AppContext {
       if (!covered || this.frame % 3 === 0) {
         this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
         this.stageDt = 0;
-        if (this.settings.director && this.stage.view !== 'visual' && !this.namingBusy) this.direct();
+        if (this.settings.director && this.stage.view !== 'visual' && !this.namingBusy && !this.intro?.busy) this.direct();
         // a drop the director didn't take (it's off, or the view is the visual player) doesn't wait for later
         this.clockDrop = false;
       }
