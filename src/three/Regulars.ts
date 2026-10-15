@@ -223,7 +223,7 @@ export class Regulars {
       av.seed = (seed + i * 5) % 7;
       // their own moves, changing at their own time, with their own favourite hand
       const own = seed + i * 7;
-      av.club = new ClubDancer(regularMoves(who.woman, own), own % 3 ? 'r' : 'l', (own * 3) % 8);
+      av.club = new ClubDancer(regularMoves(who.woman, own), own % 3 ? 'r' : 'l', (own * 3) % 8, (own * 0.618034) % 1);
       av.object.position.set(p.x, p.y, p.z);
       av.object.rotation.y = p.face;
       this.group.add(av.object);
@@ -294,7 +294,8 @@ export class Regulars {
       d.av.update(s, Math.min(d.owed, 0.25));
       d.owed = 0;
       this.find(d);
-      const near = !d.lod || (far < FULL_AT && full < FULL);
+      // (a little further for whoever's already in full, so nobody flickers between the two at the edge)
+      const near = !d.lod || (far < FULL_AT + (d.full?.visible ? 0.8 : 0) && full < FULL);
       if (near) full++;
       if (d.full) {
         d.full.visible = near;

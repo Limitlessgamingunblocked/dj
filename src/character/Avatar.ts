@@ -46,7 +46,7 @@ import type { Look } from '../core/models';
 import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, leatherCanvases, weaveCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
-import { applyPose, type ClubDancer } from './clubDance';
+import { applyPose, plantFeet, type ClubDancer } from './clubDance';
 import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanFrame, scanReady, type BodyRegion, type ScanFrame, type ClothCut, type Cover } from './modelBody';
 import { hasModel } from '../three/assets';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
@@ -2379,6 +2379,8 @@ export class Avatar {
       b[`shin_${side}`].rotation.x = bend * 2 + step * 1.6;
       b[`foot_${side}`].rotation.x = -bend - step * 0.6;
     }
+    // (the feet stay where they stand while the hips sway over them)
+    plantFeet(b, this.d.hipY);
     b.neck.rotation.x = nod + (dj ? 0.32 : 0.05);
     b.spine.rotation.x = dj ? 0.12 : 0;
     b.shoulder_l.position.y = 0.185 * this.d.H + shoulders * amp;
@@ -2762,6 +2764,8 @@ export class Avatar {
       setArm('l', -0.25, 2.65, -0.3);
       setArm('r', -0.25, 2.65, -0.3);
     }
+    // (the feet stay where they stand while the hips sway and roll over them)
+    plantFeet(b, this.d.hipY);
   }
 
   /** blinking, the hair's springs, sweat and blacklight: every mode */

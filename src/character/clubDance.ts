@@ -7,8 +7,11 @@
  *
  * The men's moves: the fist pump, two hands up, the two-step, the nod with a
  * hand easy at the chest. The women's: the hip sway with one hand up, arms up with the
- * hips rolling, the shoulder shimmy, two hands up. Everyone claps through a
- * build and jumps on the drop.
+ * hips rolling, the shoulder shimmy, two hands up. Both: pointing up at the
+ * booth on the beat, and an easy groove with the arms loose. Everyone claps
+ * through a build and jumps on the drop. The feet stay planted (applyPose),
+ * the arms and head trail the body a moment, and each person sits on the beat
+ * their own way and looks about now and then (ClubDancer).
  *
  * Poses are Euler turns on the game's bones from rest (as Avatar's own moves
  * are): an upper arm's z lifts it out to the side (about 2.6 is straight up),
@@ -17,10 +20,10 @@
  */
 import * as THREE from 'three';
 
-export type ClubMove = 'pump' | 'hands_up' | 'two_step' | 'nod' | 'sway' | 'roll' | 'shimmy';
+export type ClubMove = 'pump' | 'hands_up' | 'two_step' | 'nod' | 'sway' | 'roll' | 'shimmy' | 'point' | 'groove';
 
-export const MEN_MOVES: ClubMove[] = ['pump', 'hands_up', 'two_step', 'nod'];
-export const WOMEN_MOVES: ClubMove[] = ['sway', 'roll', 'shimmy', 'hands_up'];
+export const MEN_MOVES: ClubMove[] = ['pump', 'hands_up', 'two_step', 'nod', 'point', 'groove'];
+export const WOMEN_MOVES: ClubMove[] = ['sway', 'roll', 'shimmy', 'hands_up', 'groove', 'point'];
 
 /** the bones a move turns, and the hips' offset from where they rest */
 const BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'shoulder_l', 'shoulder_r', 'upper_arm_l', 'upper_arm_r', 'forearm_l', 'forearm_r', 'hand_l', 'hand_r', 'thigh_l', 'thigh_r', 'shin_l', 'shin_r', 'foot_l', 'foot_r'] as const;
@@ -210,6 +213,32 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       p.curl[0] = p.curl[1] = 0.3;
       break;
     }
+    case 'point': {
+      // pointing up at the booth on every beat, the elbow straightening into it, the other hand loose
+      legs(p, 0.02 + 0.03 * push, legLen, lift);
+      weight(p, side, 0.6);
+      arm(p, hand, -1.75 - 0.22 * push, 0.18, -0.6 + 0.5 * push, -0.12);
+      arm(p, other, -0.2 + 0.06 * side, 0.12, -1.45, -0.5);
+      add(p, 'chest', 0.03 * push, (hand === 'l' ? 0.1 : -0.1) * (0.7 + 0.3 * push));
+      set(p, 'neck', -0.06 + 0.12 * push);
+      p.curl[hi] = 1.3;
+      p.curl[1 - hi] = 0.45;
+      break;
+    }
+    case 'groove': {
+      // easy: a soft bounce, the weight rocking over the feet, the arms loose and swinging against the hips
+      legs(p, 0.018 + 0.022 * push, legLen, lift);
+      weight(p, side, 1.0);
+      add(p, 'hips', 0, 0.1 * side);
+      add(p, 'chest', 0.02 * push, -0.08 * side);
+      arm(p, 'l', -0.25 - 0.18 * side, 0.14, -1.0 - 0.2 * push, -0.2);
+      arm(p, 'r', -0.25 + 0.18 * side, 0.14, -1.0 - 0.2 * push, -0.2);
+      set(p, 'shoulder_l', 0, 0, 0.04 * push);
+      set(p, 'shoulder_r', 0, 0, -0.04 * push);
+      set(p, 'neck', 0.03 + 0.1 * push, 0.08 * slow, 0.05 * side);
+      p.curl[0] = p.curl[1] = 0.5;
+      break;
+    }
     case 'shimmy': {
       // the shoulders working forward and back against each other, elbows bent, hands loose at the waist
       const sh = Math.sin(beat * Math.PI * 2);
@@ -265,6 +294,26 @@ const lerpPose = (a: Pose, b: Pose, k: number, out: Pose) => {
 const ease = (k: number) => k * k * (3 - 2 * k);
 
 /**
+ * Follow-through: how briskly each part catches up with the beat's pose (a
+ * spring's stiffness, per second). The hips, spine and legs are on the beat;
+ * the head, the arms and last the hands trail it by a moment, so a pump or a
+ * nod carries through and settles instead of moving like one stiff piece.
+ */
+const FOLLOW: Partial<Record<Bone, number>> = {
+  neck: 28,
+  head: 24,
+  shoulder_l: 30,
+  shoulder_r: 30,
+  upper_arm_l: 26,
+  upper_arm_r: 26,
+  forearm_l: 20,
+  forearm_r: 20,
+  hand_l: 14,
+  hand_r: 14,
+};
+const FOLLOW_AT = BONES.flatMap((b, i) => (FOLLOW[b] ? [0, 1, 2].map((c) => ({ at: i * 3 + c, w: FOLLOW[b]! })) : []));
+
+/**
  * A person dancing: their own moves, changing every eight bars (easing from
  * one to the next over a beat), the clap in a build and the jump on a drop
  * blended in and out the same way.
@@ -277,20 +326,32 @@ export class ClubDancer {
   /** how far into the build's clap and the drop's jump each is (eased) */
   private clapW = 0;
   private jumpW = 0;
+  /** the trailing parts where they are and how fast they're going */
+  private at: Float32Array | null = null;
+  private vel = new Float32Array(N * 3);
+  /** this person's own feel: how far behind the beat they sit (beats), and how deep they bounce */
+  private lag: number;
+  private bounce: number;
 
   constructor(
     readonly moves: ClubMove[],
     readonly hand: 'l' | 'r',
     /** bars in before the first change (so neighbours change at different times) */
     readonly offset: number,
-  ) {}
+    /** 0..1, picks their feel (some right on the beat and bouncing deep, some laid back) */
+    style = 0.5,
+  ) {
+    this.lag = 0.02 + 0.08 * style;
+    this.bounce = 0.75 + 0.5 * ((style * 7.31) % 1);
+  }
 
   /** the move for a bar */
   moveAt(bar: number): ClubMove {
     return this.moves[Math.floor((bar + this.offset) / 8) % this.moves.length];
   }
 
-  update(i: ClubInput, legLen: number, dt: number): Pose {
+  update(input: ClubInput, legLen: number, dt: number): Pose {
+    const i = { ...input, beat: input.beat - this.lag };
     const bar = Math.floor(i.beat / 4);
     const now = this.moveAt(bar);
     clubPose(now, i.beat, legLen, this.hand, this.a);
@@ -314,18 +375,134 @@ export class ClubDancer {
       jump(i.beat, legLen, this.c);
       lerpPose(this.a, this.c, ease(this.jumpW), this.a);
     }
-    this.pose.rot.set(this.a.rot);
+    // their own bounce (the feet stay put; the knees take it)
+    this.a.hips[1] = this.a.hips[1] < 0 ? this.a.hips[1] * this.bounce : this.a.hips[1];
+    // looking about now and then: at the booth, a friend, the lights
+    const look = Math.sin(i.beat * 0.11 + this.lag * 80) + 0.5 * Math.sin(i.beat * 0.047 + this.bounce * 20);
+    this.a.rot[IX.head * 3 + 1] += 0.22 * look;
+    this.a.rot[IX.head * 3] += -0.05 * Math.max(0, Math.sin(i.beat * 0.07 + this.lag * 50));
+    this.follow(dt);
     this.pose.hips = [...this.a.hips];
     this.pose.curl = [...this.a.curl];
     return this.pose;
   }
+
+  /** the pose onto `pose`, the trailing parts catching up with it on their springs */
+  private follow(dt: number): void {
+    const to = this.a.rot;
+    const out = this.pose.rot;
+    out.set(to);
+    if (!this.at || dt <= 0 || dt > 0.5) {
+      // (a first frame, or a long gap: straight there)
+      this.at = to.slice();
+      this.vel.fill(0);
+      return;
+    }
+    const steps = Math.ceil(dt / (1 / 120));
+    const h = dt / steps;
+    for (const { at, w } of FOLLOW_AT) {
+      let x = this.at[at];
+      let v = this.vel[at];
+      for (let k = 0; k < steps; k++) {
+        // critically damped: no overshoot to speak of, just a moment behind
+        v += (w * w * (to[at] - x) - 2 * w * v) * h;
+        x += v * h;
+      }
+      this.at[at] = x;
+      this.vel[at] = v;
+      out[at] = x;
+    }
+  }
 }
 
-/** lay a pose on the game's bones (from rest), the hips standing at `hipY` */
+/** lay a pose on the game's bones (from rest), the hips standing at `hipY`, the feet kept where they stand */
 export function applyPose(p: Pose, bones: Record<string, THREE.Object3D>, hipY: number): void {
   for (let i = 0; i < N; i++) {
     const b = bones[BONES[i]];
     if (b) b.rotation.set(p.rot[i * 3], p.rot[i * 3 + 1], p.rot[i * 3 + 2]);
   }
   bones.hips?.position.set(p.hips[0], hipY + p.hips[1], p.hips[2]);
+  plantFeet(bones, hipY, Math.max(0, p.hips[1]));
 }
+
+/**
+ * Feet on the floor: the hips sway, tilt, turn and drop, but the feet stay
+ * planted where they stand at rest, flat, the knees bending to take it (each
+ * leg solved as a thigh and a shin reaching its ankle, the knee kept pointing
+ * the way the pose bent it). A foot can come up a little (a heel lift on the
+ * leg the weight's off), and with the hips (a jump), never down into the floor.
+ */
+export function plantFeet(b: Record<string, THREE.Object3D>, hipY: number, up = 0): void {
+  const hips = b.hips;
+  if (!hips) return;
+  hips.updateMatrix();
+  for (const s of ['l', 'r'] as const) {
+    const thigh = b[`thigh_${s}`];
+    const shin = b[`shin_${s}`];
+    const foot = b[`foot_${s}`];
+    if (!thigh || !shin || !foot) continue;
+    thigh.updateMatrix();
+    shin.updateMatrix();
+    foot.updateMatrix();
+    // the leg as the pose has it (in the hips' parent's space)
+    _mT.multiplyMatrices(hips.matrix, thigh.matrix);
+    _mS.multiplyMatrices(_mT, shin.matrix);
+    _mF.multiplyMatrices(_mS, foot.matrix);
+    _H.setFromMatrixPosition(_mT);
+    _K.setFromMatrixPosition(_mS);
+    _A.setFromMatrixPosition(_mF);
+    // where the ankle stands at rest
+    _R.set(0, hipY, 0).add(thigh.position).add(shin.position).add(foot.position);
+    const heel = THREE.MathUtils.clamp(_A.y - _R.y, 0, 0.025);
+    _T.set(_R.x, _R.y + Math.max(heel, Math.min(_A.y - _R.y, up)), _R.z);
+    const a = shin.position.length();
+    const c = foot.position.length();
+    const toT = _T.clone().sub(_H);
+    const d = THREE.MathUtils.clamp(toT.length(), Math.abs(a - c) + 1e-3, a + c - 1e-4);
+    _dir.copy(toT).normalize();
+    // the knee: in the plane of the hip, the ankle and where the pose had the knee
+    _pole.copy(_K).sub(_H);
+    _pole.addScaledVector(_dir, -_pole.dot(_dir));
+    if (_pole.lengthSq() < 1e-8) _pole.set(0, 0, 1).addScaledVector(_dir, -_dir.z);
+    _pole.normalize();
+    const along = (a * a - c * c + d * d) / (2 * d);
+    const h = Math.sqrt(Math.max(0, a * a - along * along));
+    const knee = _H.clone().addScaledVector(_dir, along).addScaledVector(_pole, h);
+    const ankle = _H.clone().addScaledVector(_dir, d);
+    // turn the thigh, then the shin, onto them (each the least turn from where the pose had it)
+    _qH.copy(hips.quaternion);
+    _qT.copy(_qH).multiply(thigh.quaternion);
+    _v1.copy(shin.position).normalize().applyQuaternion(_qT);
+    _qD.setFromUnitVectors(_v1, _v2.copy(knee).sub(_H).normalize());
+    _qT.premultiply(_qD);
+    thigh.quaternion.copy(_qH).invert().multiply(_qT);
+    _qS.copy(_qT).multiply(shin.quaternion);
+    _v1.copy(foot.position).normalize().applyQuaternion(_qS);
+    _qD.setFromUnitVectors(_v1, _v2.copy(ankle).sub(knee).normalize());
+    _qS.premultiply(_qD);
+    shin.quaternion.copy(_qT).invert().multiply(_qS);
+    // the foot flat (or up on its toes, the heel lifted), toes turned a little the way the hips face
+    _qF.setFromAxisAngle(_Y, _eH.setFromQuaternion(_qH, 'YXZ').y * 0.5).multiply(_qD.setFromAxisAngle(_X, Math.asin(Math.min(0.5, heel / 0.14))));
+    foot.quaternion.copy(_qS).invert().multiply(_qF);
+  }
+}
+const _mT = new THREE.Matrix4();
+const _mS = new THREE.Matrix4();
+const _mF = new THREE.Matrix4();
+const _H = new THREE.Vector3();
+const _K = new THREE.Vector3();
+const _A = new THREE.Vector3();
+const _R = new THREE.Vector3();
+const _T = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _pole = new THREE.Vector3();
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _qH = new THREE.Quaternion();
+const _qT = new THREE.Quaternion();
+const _qS = new THREE.Quaternion();
+const _qD = new THREE.Quaternion();
+const _qF = new THREE.Quaternion();
+const _Y = new THREE.Vector3(0, 1, 0);
+const _X = new THREE.Vector3(1, 0, 0);
+const _eH = new THREE.Euler();
