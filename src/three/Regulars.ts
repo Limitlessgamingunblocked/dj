@@ -1,10 +1,10 @@
 /*
  * The regulars: the realistic clubbers filling the front rows of the dance
- * floor, made the same way as the DJ (scanned people fitted to the same
- * skeleton) and dancing on the beat: motion-captured club dances
- * (src/character/danceClip.ts), each their own, locked to the music. One is the
- * regular made for the floor; the others wear the outfit sets, so each
- * venue gets its own handful.
+ * floor, men and women, made the same way as the DJ (scanned people fitted to
+ * the same skeleton) and dancing on the beat: each with their own few club
+ * moves (src/character/clubDance.ts), the men's and the women's, changing
+ * every few bars at their own times. One is the regular made for the floor;
+ * the others wear the outfit sets, so each venue gets its own crowd.
  *
  * Each takes the place of one of the crowd's front-row dancers (who steps
  * aside while the regular is there, and comes back when they go), so they
@@ -14,15 +14,29 @@
 import * as THREE from 'three';
 import { Avatar, type AvatarInput } from '../character/Avatar';
 import { OUTFIT_SETS } from '../character/catalog';
-import { DANCES } from '../character/danceClip';
+import { ClubDancer, MEN_MOVES, WOMEN_MOVES, type ClubMove } from '../character/clubDance';
 import { defaultLook, wearSet } from '../character/look';
 import type { Look } from '../core/models';
 import { Crowd, type CrowdSpot } from './venues/crowd';
 import type { VenueScene } from './venues/base';
 
-/** the regular made for the floor, then outfit sets the others wear (no robots on the floor) */
+/** the regular made for the floor */
 export const REGULAR_SCAN = 'character_scan_regular_01';
-const REGULAR_SETS = ['afterhours', 'selector', 'acid_smiley', 'sunrise_set', 'basement_dweller', 'tracksuit_royalty', 'terrace_king', 'warehouse_ghost', 'bedroom_legend', 'disco_revival'];
+/** who's out on the floor: the regular, then the outfit sets (no robots, no DJ), the women spread through */
+const CAST: { set: string | null; woman: boolean }[] = [
+  { set: null, woman: false },
+  { set: 'sunrise_set', woman: true },
+  { set: 'selector', woman: false },
+  { set: 'tracksuit_royalty', woman: false },
+  { set: 'afterhours', woman: true },
+  { set: 'acid_smiley', woman: false },
+  { set: 'terrace_king', woman: false },
+  { set: 'disco_revival', woman: true },
+  { set: 'warehouse_ghost', woman: false },
+  { set: 'basement_dweller', woman: false },
+  { set: 'chrome_boy', woman: false },
+  { set: 'bedroom_legend', woman: false },
+];
 
 /** how many at most, and how far apart */
 const COUNT = 12;
@@ -30,16 +44,24 @@ const APART = 0.85;
 /** crowd people closer than this to a regular step aside too */
 const ROOM = 0.6;
 
-/** a regular's look: the floor regular first, then sets picked by seed */
-export function regularLook(i: number, seed: number): Look {
+/** the i-th regular in a venue: who they are (each venue starts the cast somewhere else) */
+export function regularCast(i: number, seed: number): { look: Look; woman: boolean } {
+  const c = CAST[(seed + i) % CAST.length];
   const l = defaultLook(`regular_${seed}_${i}`, 'Regular');
-  if (i === 0) {
+  if (!c.set) {
     l.options = { ...l.options, scan: REGULAR_SCAN };
-    return l;
+    return { look: l, woman: c.woman };
   }
-  const id = REGULAR_SETS[(seed + i * 3) % REGULAR_SETS.length];
-  const set = OUTFIT_SETS.find((s) => s.id === id);
-  return set ? wearSet(l, set) : l;
+  const set = OUTFIT_SETS.find((s) => s.id === c.set);
+  return { look: set ? wearSet(l, set) : l, woman: c.woman };
+}
+
+/** a regular's moves: three of their kind's, in their own order */
+export function regularMoves(woman: boolean, seed: number): ClubMove[] {
+  const all = woman ? WOMEN_MOVES : MEN_MOVES;
+  const start = seed % all.length;
+  const step = seed % 2 ? 1 : all.length - 1;
+  return [0, 1, 2].map((k) => all[(start + k * step) % all.length]);
 }
 
 /**
@@ -151,14 +173,14 @@ export class Regulars {
       if (spots.some((p) => p.of === k || Math.hypot(p.x - a.spot.x, p.z - a.spot.z) < ROOM)) this.standIns.push(new StandIn(a.crowd, a.i));
     });
     spots.forEach((p, i) => {
-      const av = new Avatar(regularLook(i, seed));
+      const who = regularCast(i, seed);
+      const av = new Avatar(who.look);
       av.mode = 'hype';
       av.side = p.x < 0 ? -1 : 1;
-      // (each their own moves, so they're never in lockstep)
       av.seed = (seed + i * 5) % 7;
-      // a motion-captured dance each, started at a different point
-      av.moves = DANCES[(seed + i) % DANCES.length];
-      av.movesAt = ((seed * 7 + i * 13) % 40) * 0.25;
+      // their own moves, changing at their own time, with their own favourite hand
+      const own = seed + i * 7;
+      av.club = new ClubDancer(regularMoves(who.woman, own), own % 3 ? 'r' : 'l', (own * 3) % 8);
       av.object.position.set(p.x, p.y, p.z);
       av.object.rotation.y = p.face;
       this.group.add(av.object);

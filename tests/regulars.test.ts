@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { REGULAR_SCAN, regularLook, regularSpots } from '../src/three/Regulars';
+import { REGULAR_SCAN, regularCast, regularMoves, regularSpots } from '../src/three/Regulars';
+import { MEN_MOVES, WOMEN_MOVES } from '../src/character/clubDance';
 import { hasModel } from '../src/three/assets';
 
 describe('the regulars', () => {
@@ -33,14 +34,26 @@ describe('the regulars', () => {
   it('none without a crowd', () => {
     expect(regularSpots([])).toEqual([]);
   });
-  it('the first is the floor regular, the rest wear outfit sets, all scanned people', () => {
-    expect(regularLook(0, 5).options.scan).toBe(REGULAR_SCAN);
+  it('are men and women, the first the floor regular, all scanned people, none twice', () => {
+    expect(regularCast(0, 0).look.options.scan).toBe(REGULAR_SCAN);
     expect(hasModel(REGULAR_SCAN)).toBe(true);
-    for (let i = 1; i < 6; i++) {
-      const scan = regularLook(i, 5).options.scan as string;
+    const twelve = Array.from({ length: 12 }, (_, i) => regularCast(i, 5));
+    const scans = twelve.map((r) => r.look.options.scan as string);
+    for (const scan of scans) {
       expect(scan).toMatch(/^character_scan_/);
-      expect(scan).not.toMatch(/android|bot/);
+      expect(scan).not.toMatch(/android|bot|minimal/);
       expect(hasModel(scan)).toBe(true);
+    }
+    expect(new Set(scans).size).toBe(12);
+    expect(twelve.filter((r) => r.woman).length).toBeGreaterThanOrEqual(3);
+  });
+  it("dance their own kind's moves", () => {
+    for (let seed = 0; seed < 8; seed++) {
+      const w = regularMoves(true, seed);
+      const m = regularMoves(false, seed);
+      expect(new Set(w).size).toBe(3);
+      for (const x of w) expect(WOMEN_MOVES).toContain(x);
+      for (const x of m) expect(MEN_MOVES).toContain(x);
     }
   });
 });

@@ -46,7 +46,7 @@ import type { Look } from '../core/models';
 import { FACE_SHAPE_BASE, ROBOT_HANDS, ROBOT_HEADS, type FaceShape, type Slot } from './catalog';
 import { option, slider, slotMaterial, slotPattern, zoneColors } from './look';
 import { fabricCanvas, irisCanvas, leatherCanvases, weaveCanvases, meshAlphaCanvas, skinCanvas, skinTone, toTexture } from './textures';
-import { DANCE_BEAT, playDance, type DanceClip } from './danceClip';
+import { applyPose, type ClubDancer } from './clubDance';
 import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanFrame, scanReady, type BodyRegion, type ClothCut, type Cover } from './modelBody';
 import { hasModel } from '../three/assets';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
@@ -479,9 +479,8 @@ export class Avatar {
   /** a hype dancer's own pick of moves, and which side of the DJ she's on (-1 left, 1 right) */
   seed = 0;
   side = 1;
-  /** a motion-captured dance to do in 'hype' mode while the music plays (the regulars), from `movesAt` seconds in */
-  moves: DanceClip | null = null;
-  movesAt = 0;
+  /** a clubber's own moves to dance in 'hype' mode while the music plays (the regulars) */
+  club: ClubDancer | null = null;
   /** 0..1, builds up through a long set; reset between gigs */
   sweat = 0;
   /** how strong the blacklight is (UV paint, irises and bright fabric glow) */
@@ -2318,8 +2317,12 @@ export class Avatar {
     this.body.position.y = 0;
     if (this.mode === 'hype') {
       // a real dance, locked to the beat, while there's music; the routine otherwise
-      if (this.moves && s.playing) playDance(this.moves, this.bones, this.movesAt + beat * DANCE_BEAT, this.d.hipY);
-      else this.dance(s, beat, ph, hit, knee);
+      if (this.club && s.playing) {
+        const p = this.club.update({ beat, build: s.build, sinceDrop: this.dropT, beatLen: 60 / 124 }, this.d.thigh + this.d.shin, dt);
+        applyPose(p, b, this.d.hipY);
+        this.curlHand('l', p.curl[0], dt);
+        this.curlHand('r', p.curl[1], dt);
+      } else this.dance(s, beat, ph, hit, knee);
       this.express(s, dt, beat, hit, 0);
       this.settle(dt);
       this.model?.sync();
