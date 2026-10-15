@@ -6,3 +6,4 @@ dist-artifact
 wasm/build
 dist-single
 desktop/release
+.scan-in/
