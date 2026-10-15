@@ -741,3 +741,46 @@ You asked for a 1:1, ultra-realistic, fully working Burning Man venue, researche
 316. **The flag ripple is for high-energy grooves only.** When the box isn't playing, the panels ripple gently on the beat while the energy is high and the peak meter is up, and fade flat during a build. The name over the wall is pushed forward by the ripple's height so the panels never cut through it.
 317. **Low quality keeps both effects, cheaper.** Bigger panels, and a blob with fewer triangles and an unlit chrome look instead of lit reflections. Medium and High use a lit chrome with a faked room around it (the show palette behind, the rig's glow above, bands of colour) at higher detail on High. Reduce flashing halves the beat pulse and the flash as the box opens.
 318. **Everything is compiled when the venue loads.** The wall show's meshes start visible so the stage's precompile builds their shaders, then hide on the first frame; the panels are always drawn with zero instances between drops. The first drop doesn't stall.
+## The Dome (2026-10-14)
+
+320. **A made-up arena under one LED dome.** The Dome (`src/three/venues/dome.ts`) is a round floor 52 m across under a hemisphere that springs from a 4.5 m wall, and the whole inside of the hemisphere is one screen. It isn't modelled on any real venue: there's no real name, logo or layout in it. So it rides the venue globe's orbit of cards rather than getting a pin, and like the real rooms it's open in free play.
+321. **The stage is at one side, not in the middle.** A giant eye needs a front. The crowd faces a round stage at one end of the floor and the eye is over it, so the crowd camera gets the DJ, the stage and the eye in one frame, and the room still reads as round from the back. The rest of the room follows from that:
+    - the ring truss of moving heads is centred over the floor, not the dome, so from the floor its front arc passes under the eye;
+    - the mix position is mid-floor on a riser;
+    - the bars and the main entrance are round the back wall, with fire doors in between.
+322. **The ceiling is one mesh with one material.** It's a MeshBasicMaterial whose colour is replaced in `onBeforeCompile` (as the LED walls do), in `domeScreen.ts`. That way the stage hands it the visual player's texture like any other screen, and the whole dome is one draw call. The only other surface on it is a small band low over the stage for the DJ name, on drops. The ring truss is merged into one mesh too. A frame, every pass included, comes to about 580 draw calls: Printworks takes 571, the warehouse 559 and Alexandra Palace 486.
+323. **The eye and the picture are both drawn for one spot in the crowd.** There's no single right way to lay a flat picture over a dome, so both are laid out as seen from a spot mid-floor:
+    - The eye is a flat picture seen through the dome, so it's round from the floor and stretches when seen from the booth or the sides, as a real dome show does.
+    - The visual player uses an azimuthal equidistant projection from that spot, the way fulldome shows lay out a picture. The main frame sits over the stage without stretching in the middle. Mirrored copies fill the rest of the dome out to the back, so there's no seam and no pinch, and they get dimmer the further out they are.
+324. **The eye is the sketch's eye, with its timing as plain numbers** (`domeEye.ts`, tested). The lids are almond-shaped with lashes, the white is veined, and the iris has radial fibres from teal to amber. Through a set:
+    - It looks somewhere new every 2 beats: a quick flick, one side of the room then the other.
+    - It blinks every 4 bars, shut on the last off-beat and open again for the downbeat.
+    - Its pupil pumps with the kick.
+    - It squints from halfway into a build.
+    - On the drop it stares straight out, wide open, for a bar, then eases back over two. Its pupil shrinks to a pinpoint, and rings and rays run out from it.
+    - With no music it keeps a slow clock of its own and looks round the room half asleep.
+325. **The show's running order: the eye is the moment, the visual player is the night.** The ceiling shows:
+    - the eye in breakdowns and builds;
+    - the eye for the first 4 bars after a drop;
+    - the visual player through the peak and the groove, with the eye looking in for the last 4 bars of every 32-bar phrase.
+
+    Most of a set is groove, and an eye on the ceiling all night would turn into wallpaper. Each crossfade takes a bar, counted in beats so it follows the tempo. Going to the eye, the picture dims first and the lids open out of the dark; leaving it, the lids close first and then the picture comes up.
+326. **The LEDs are in the shader, at a real dome's build.** The dome is built from rings of 0.5 m panels, with fewer panels per ring towards the top, and LEDs at a 25 mm pitch in each panel.
+    - The LEDs are only drawn where each one covers a couple of screen pixels, so there's no moiré across the room. The panel seams show from a little further out.
+    - The LEDs dim seen off-axis.
+    - The Low tier drops the LEDs, the veins and the finer iris fibres.
+    - Derivatives are worked out before any branch, and colours are clamped before bloom.
+    - The room is tone mapped with ACES, not AgX. Round the eye the screen is switched to black, and AgX lifted that black to a milky grey that showed every panel seam.
+327. **The dome lights the room.** Its light colour follows whatever the dome is showing, crossfaded as the dome is:
+    - for the visual player, its average colour, read back without stalling as the other screens do;
+    - for the eye, white by how open it is, plus the amber glow round it.
+
+    That colour drives three lights high in the dome and the floor's light map, which lights the floor and the crowd. On the drop the dome's own flash is small (0.22, or 0.05 with Reduce flashing) because the dome fills most of the view.
+328. **Lasers stop on the dome.** The lasers' room shape gained an optional sphere (the far root of the ray), so beams end on the screen and not on the box around it.
+329. **The rest of the plumbing follows the other big rooms.**
+    - The sound is a wetter, longer room than a club: a 2.3 s tail with the top end rolled off.
+    - The DJ name is in pixel LED.
+    - The flyer art is rave.
+    - The dress code is future and bold.
+    - The crowd is 1.2 times the usual size.
+    - The director style is festival, with three landmarks: "The eye" from the floor, "Under the dome" from the back, and "Into the eye", a long lens close enough to show the LEDs.

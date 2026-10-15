@@ -11,6 +11,7 @@
  *   festival  huge open air, the delay towers' slap
  *   sunrise   open, warm
  *   burningman the open desert: nothing to bounce off, a heavy sound system
+ *   dome      a big round arena: a long tail off the curved roof, the crowd soaking up the top
  * Every other room gets a moderate club profile.
  */
 
@@ -43,6 +44,7 @@ export const ROOMS: Record<string, RoomProfile> = {
   boilerroom: { wet: 0.04, decay: 0.6, low: 1, high: 0 },
   dc10: { wet: 0.1, decay: 1, low: 2, high: -0.5 },
   burningman: { wet: 0.03, decay: 0.5, low: 2.5, high: -0.5 },
+  dome: { wet: 0.2, decay: 2.3, low: 2.5, high: -1.5 },
 };
 const CLUB: RoomProfile = { wet: 0.1, decay: 1.2, low: 1.5, high: -0.5 };
 /** the dressing room and the naming room: no room colour */

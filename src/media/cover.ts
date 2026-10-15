@@ -22,6 +22,7 @@ const FLYER: Record<string, FlyerStyle> = {
   festival: 'rave',
   allypally: 'rave',
   'allypally-round': 'rave',
+  dome: 'rave',
   rooftop: 'sunset',
   beach: 'sunset',
   boat: 'sunset',

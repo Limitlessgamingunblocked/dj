@@ -128,8 +128,8 @@ const BODY = /* glsl */ `
     } else if (kind < 1.5) {
       // shapes: a ring of polygons
       float n = sides;
-      float rot = uTime * sp * 0.5;
-      vec2 q = rot(rot) * p;
+      float spin = uTime * sp * 0.5;
+      vec2 q = rot(spin) * p;
       float seg = 6.2831853 / n;
       float ang = mod(atan(q.y, q.x) + seg * 0.5, seg) - seg * 0.5;
       float poly = length(q) * cos(ang) / cos(seg * 0.5);

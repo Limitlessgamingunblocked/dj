@@ -128,7 +128,7 @@ const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boa
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
 /** what each venue sounds like round the music */
 const AMBIENCE: Record<string, Ambience> = { rooftop: 'glasses', beach: 'waves', boat: 'water', festival: 'field', sunrise: 'dawn', burningman: 'playa' };
-const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, rooftop: 0.7, boat: 0.8, festival: 1.3, sunrise: 1.1, burningman: 1.2, dressing: 0, naming: 0 };
+const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, rooftop: 0.7, boat: 0.8, festival: 1.3, sunrise: 1.1, burningman: 1.2, dome: 1.2, dressing: 0, naming: 0 };
 
 type TabId = 'library' | 'sets' | 'mysets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */

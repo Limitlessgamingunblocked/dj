@@ -6,7 +6,7 @@
  *   – a hard core with a faint halo, a whisper of red and blue fringe where the
  *     three diode beams don't quite converge, and a little divergence with
  *     distance; scanned beams shimmer
- *   – beams end where they hit the room (floor, walls, ceiling or vault, and
+ *   – beams end where they hit the room (floor, walls, ceiling, vault or dome, and
  *     solid things like the LED wall), with a bright dot on the surface, so a
  *     sweeping fan traces a line of dots across the ceiling
  *   – sheet looks are drawn as real planes of light between neighbouring
@@ -41,6 +41,8 @@ export interface RoomProxy {
   ceilY?: number;
   /** a barrel vault running along z, centred on x = 0 */
   vault?: { centreY: number; radius: number };
+  /** a dome: the inside of a sphere */
+  dome?: { centre: THREE.Vector3; radius: number };
   /** solid things in the room the beams stop on (LED wall, galleries) */
   solids?: THREE.Box3[];
 }
@@ -90,6 +92,19 @@ export function hitDistance(o: THREE.Vector3, d: THREE.Vector3, room: RoomProxy)
         const tc = (-b + Math.sqrt(disc)) / (2 * a);
         if (tc > 0) t = Math.min(t, tc);
       }
+    }
+  }
+  if (room.dome) {
+    // inside the sphere: the far root (d is a unit vector)
+    const c = room.dome.centre;
+    const ox = o.x - c.x;
+    const oy = o.y - c.y;
+    const oz = o.z - c.z;
+    const b = ox * d.x + oy * d.y + oz * d.z;
+    const disc = b * b - (ox * ox + oy * oy + oz * oz - room.dome.radius * room.dome.radius);
+    if (disc >= 0) {
+      const ts = -b + Math.sqrt(disc);
+      if (ts > 0) t = Math.min(t, ts);
     }
   }
   if (room.solids) {
