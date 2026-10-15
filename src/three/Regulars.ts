@@ -1,5 +1,5 @@
 /*
- * The regulars: a few realistic clubbers right at the front of the dance
+ * The regulars: the realistic clubbers filling the front rows of the dance
  * floor, made the same way as the DJ (scanned people fitted to the same
  * skeleton) and dancing on the beat: motion-captured club dances
  * (src/character/danceClip.ts), each their own, locked to the music. One is the
@@ -25,8 +25,10 @@ export const REGULAR_SCAN = 'character_scan_regular_01';
 const REGULAR_SETS = ['afterhours', 'selector', 'acid_smiley', 'sunrise_set', 'basement_dweller', 'tracksuit_royalty', 'terrace_king', 'warehouse_ghost', 'bedroom_legend', 'disco_revival'];
 
 /** how many at most, and how far apart */
-const COUNT = 3;
-const APART = 1.3;
+const COUNT = 12;
+const APART = 0.85;
+/** crowd people closer than this to a regular step aside too */
+const ROOM = 0.6;
 
 /** a regular's look: the floor regular first, then sets picked by seed */
 export function regularLook(i: number, seed: number): Look {
@@ -54,8 +56,9 @@ export function regularSpots(spots: CrowdSpot[], booth = new THREE.Vector2(0, 0)
   for (const { s, i } of near) {
     if (out.length >= n) break;
     if (out.some((o) => Math.hypot(o.x - s.x, o.z - s.z) < APART)) continue;
-    // facing the booth (the avatar faces +z at rest)
-    out.push({ x: s.x, y: s.y ?? 0, z: s.z, face: Math.atan2(booth.x - s.x, booth.y - s.z), of: i });
+    // facing the booth (the avatar faces +z at rest), give or take a little
+    const turn = (((out.length * 7919) % 11) / 10 - 0.5) * 0.5;
+    out.push({ x: s.x, y: s.y ?? 0, z: s.z, face: Math.atan2(booth.x - s.x, booth.y - s.z) + turn, of: i });
   }
   return out;
 }
@@ -142,8 +145,12 @@ export class Regulars {
     if (!venue) return;
     const seed = [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 11) & 0xffff;
     const all = crowdSpots(venue);
-    regularSpots(all.map((a) => a.spot)).forEach((p, i) => {
-      this.standIns.push(new StandIn(all[p.of].crowd, all[p.of].i));
+    const spots = regularSpots(all.map((a) => a.spot));
+    // the crowd's people they stand in for, and any squeezed in right next to them (room to dance)
+    all.forEach((a, k) => {
+      if (spots.some((p) => p.of === k || Math.hypot(p.x - a.spot.x, p.z - a.spot.z) < ROOM)) this.standIns.push(new StandIn(a.crowd, a.i));
+    });
+    spots.forEach((p, i) => {
       const av = new Avatar(regularLook(i, seed));
       av.mode = 'hype';
       av.side = p.x < 0 ? -1 : 1;

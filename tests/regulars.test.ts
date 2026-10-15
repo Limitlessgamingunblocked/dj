@@ -28,7 +28,7 @@ describe('the regulars', () => {
     // the nearest dancer first; the one just behind them is too close
     expect(r[0].of).toBe(1);
     expect(r.map((p) => p.of)).not.toContain(2);
-    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) expect(Math.hypot(r[i].x - r[j].x, r[i].z - r[j].z)).toBeGreaterThanOrEqual(1.3);
+    for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) expect(Math.hypot(r[i].x - r[j].x, r[i].z - r[j].z)).toBeGreaterThanOrEqual(0.85);
   });
   it('none without a crowd', () => {
     expect(regularSpots([])).toEqual([]);
