@@ -258,6 +258,11 @@ export class Channel {
     this.ramp(this.xf.gain, g, 0.005);
   }
 
+  /** The louder side's peak from the last meter reading (no new reading). */
+  get peak(): number {
+    return Math.max(this.peaks[0], this.peaks[1]);
+  }
+
   /** Peak levels (linear) for the L/R meters. Call once per frame. */
   levels(): [number, number] {
     const buf = this.meterBuf;

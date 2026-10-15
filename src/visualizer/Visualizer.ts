@@ -1,5 +1,5 @@
 /*
- * Visual player (28 modes): renders the active mode through its own post chain
+ * Visual player (30 modes): renders the active mode through its own post chain
  *   RenderPass → transition pass (the outgoing mode, faded, irised, sliced,
  *   zoomed or pixelled away over a beat) → music layers (the drums, melody and
  *   vocal over the picture, layers.ts) → lyrics pass (kinetic typography:
@@ -9,7 +9,10 @@
  * mode's palette, the auto VJ plays the modes that suit it, and the layers
  * take its styles. When the lead track changes, all of it eases over.
  * The texture feeds the LED wall / projection screens in the club scene and
- * the full-screen Visuals view. The auto VJ (director.ts) keeps it rotating
+ * the full-screen Visuals view. It also keeps the session's set as it plays
+ * (setHistory.ts), whatever is on screen, for the set sculpture.
+ * A black-and-white mode (`mono`) plays without the coloured music layers or
+ * colour fringes over it, and its lyrics come in white. The auto VJ (director.ts) keeps it rotating
  * through modes that fit the music, always; shaders compile a few at a time in the background so the first
  * switch to a mode never stalls.
  */
@@ -28,12 +31,15 @@ import { MODE_FACTORIES, MODE_INFO, type VisMode } from './modes';
 import { MORE_INFO, MORE_MODES } from './modes2';
 import { INFO3, MODES3 } from './modes3';
 import { INFO4, MODES4 } from './modes4';
+import { INFO5, MODES5 } from './modes5';
 import { MY_INFO, MY_MODES } from './myvisual';
+import { sessionSet, type HistoryInput } from './setHistory';
 import type { SongLook } from './songLook';
 
-const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES, ...MODES3, ...MODES4, ...MY_MODES];
+const FACTORIES = [...MODE_FACTORIES, ...MORE_MODES, ...MODES3, ...MODES4, ...MODES5, ...MY_MODES];
 const DEFAULT_COLORS = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
-const INFO: ModeInfo[] = [...MODE_INFO, ...MORE_INFO, ...INFO3, ...INFO4, ...MY_INFO];
+const MONO_COLORS = [new THREE.Color('#f4f1ea'), new THREE.Color('#d9d5cc'), new THREE.Color('#bab5aa')];
+const INFO: ModeInfo[] = [...MODE_INFO, ...MORE_INFO, ...INFO3, ...INFO4, ...INFO5, ...MY_INFO];
 
 const FinalShader = {
   uniforms: {
@@ -231,6 +237,9 @@ export class Visualizer {
   private fadeT = 0;
   private fadeDur = 0.5;
   private bpm = 124;
+  /** how much of the music layers and colour fringes show: none over a black-and-white mode */
+  private colorFx = 1;
+  private heard: HistoryInput = { dt: 0, bpm: 124, level: 0, kick: 0, sub: 0, decks: undefined };
   private director = new Director(INFO);
   /** shaders still to compile in the background */
   private toWarm: VisMode[] = [];
@@ -309,6 +318,7 @@ export class Visualizer {
     if (look?.id === this.look?.id) return;
     this.look = look;
     if (!look) return;
+    sessionSet.setLook(look.id, look.colors);
     look.colors.forEach((c, i) => this.target[i].set(c));
     this.layers.setLook(look);
     if (this.settings.songLooks) this.director.song(look.pool, look.first, look.pace);
@@ -376,6 +386,21 @@ export class Visualizer {
     for (const m of this.modes) m.resize(w, h);
   }
 
+  /**
+   * Every frame, whether the player is on screen or not: the set so far
+   * grows from what the decks are playing (the set sculpture draws it).
+   */
+  listen(f: Features, dt: number): void {
+    const h = this.heard;
+    h.dt = dt;
+    h.bpm = f.bpm;
+    h.level = f.level;
+    h.kick = f.kickPulse;
+    h.sub = f.sub;
+    h.decks = f.decks;
+    sessionSet.record(h);
+  }
+
   /** Render the current mode into the output texture. */
   render(f: Features, dt: number, lyric?: LyricInput): void {
     const s = this.settings;
@@ -413,12 +438,14 @@ export class Visualizer {
     this.trans.enabled = !!this.prev;
     this.current.prerender?.(r);
     const on: [boolean, boolean, boolean] = [s.layerDrums, s.layerMelody, s.layerVocals];
+    this.colorFx += ((this.current.mono ? 0 : 1) - this.colorFx) * Math.min(1, dt * 3);
     this.layers.update(this.layersPass.uniforms, f, dt, on);
     this.layersPass.uniforms.uAsp.value = this.w / this.h;
-    this.layersPass.enabled = on.some(Boolean);
+    this.layersPass.uniforms.uI.value *= this.colorFx;
+    this.layersPass.enabled = on.some(Boolean) && this.colorFx > 0.01;
     // the lyrics take the song's colours when the visuals follow the song, else the lights'
     const song = this.song;
-    const colors = s.songLooks && this.look ? [song.uSongA.value, song.uSongB.value, song.uSongC.value] : (lyric?.colors ?? DEFAULT_COLORS);
+    const colors = this.current.mono ? MONO_COLORS : s.songLooks && this.look ? [song.uSongA.value, song.uSongB.value, song.uSongC.value] : (lyric?.colors ?? DEFAULT_COLORS);
     const fx = this.lyrics.draw(s.lyrics ? (lyric?.frame ?? null) : null, f, colors, s.lyricStyle, dt, f.time);
     const tu = this.text.uniforms;
     tu.uOn.value = fx.on;
@@ -433,7 +460,7 @@ export class Visualizer {
     this.bloom.enabled = s.bloom && this.bloomAllowed;
     this.bloom.strength = 0.35 + f.level * 0.35 + f.drop * 0.6 * s.intensity;
     const u = this.final.uniforms;
-    u.uAberration.value = s.aberration ? (0.004 + f.snarePulse * 0.018 + f.drop * 0.03) * s.intensity : 0;
+    u.uAberration.value = s.aberration ? (0.004 + f.snarePulse * 0.018 + f.drop * 0.03) * s.intensity * this.colorFx : 0;
     u.uHueShift.value = s.palette ? f.drop * 0.15 : 0;
     u.uTime.value = f.time;
     u.uFlash.value = f.dropHit ? (this.safe ? 0.2 : 0.6) : Math.max(0, (u.uFlash.value as number) - dt * 3);
