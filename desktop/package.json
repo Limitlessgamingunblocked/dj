@@ -8,6 +8,8 @@
   "main": "main.cjs",
   "//": "deckhouseShell: raise it when main.cjs or Electron changes, so older apps offer the new installer instead of taking game updates",
   "deckhouseShell": 1,
+  "//updates": "this branch is a one-off build with unmerged updates: it doesn't update itself, so the main release can't replace it",
+  "deckhouseUpdates": false,
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --publish never"

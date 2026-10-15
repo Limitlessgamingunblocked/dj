@@ -129,7 +129,11 @@ One gig a day, the same for everyone who plays it that day.
   - Settings → Show & venue turns it off.
 - The results show your best streak and how many requests you met.
 
-### Party: the air horn
+### Party: side dancers and the air horn
+- **Side dancers:** two dancers on glowing podiums either side of the booth, in every club (not the Bedroom), in club outfits (crop, mesh or sequin tops with cargos, flares, jeans or skirts).
+  - They dance on the beat with smooth moves that blend into each other: hip sway, hands up, shimmy, body roll, pointing at you and hands in the hair, a new one every two bars.
+  - They clap overhead through the build and jump on the drop.
+  - Show → Party switches them off.
 - **The air horn** (Show → Party, or Shift+J) works as often as you like.
 - **The crowd's signs** carry a few funny lines at every venue ("TOLD MUM I'M AT THE LIBRARY", "MARRY ME DJ", "MORE COWBELL").
 - **New wardrobe pieces** for anyone: a crop top, a sequin halter top, mini and sequin skirts, and go-go boots.

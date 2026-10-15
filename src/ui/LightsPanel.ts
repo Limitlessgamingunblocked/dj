@@ -26,6 +26,7 @@ export class LightsPanel {
   private pyroBtn: HTMLElement;
   private confettiBtn: HTMLElement;
   private calmBtn: HTMLElement;
+  private dancersBtn: HTMLElement;
   private palBtns = new Map<string, HTMLElement>();
   private laserBtns = new Map<string, HTMLElement>();
   private wallBtns = new Map<string, HTMLElement>();
@@ -67,6 +68,7 @@ export class LightsPanel {
     this.calmBtn = toggle('Reduce flashing', 'Strobes and blinders stay under 3 flashes a second, with no blackout before the drop. On by default if your system asks for reduced motion', () => c.reduceFlash, (v) => (c.reduceFlash = v));
     this.pyroBtn = toggle('Pyro on drops', 'Flame jets (or cold-spark fountains indoors) go off on drops, then chase the next downbeats', () => c.pyro, (v) => (c.pyro = v));
     this.confettiBtn = toggle('Confetti on drops', 'The confetti cannons go off on a big drop, at most every 90 seconds so it stays special', () => c.confetti, (v) => (c.confetti = v));
+    this.dancersBtn = toggle('Side dancers', 'Two dancers on podiums either side of the booth (not in the Bedroom)', () => c.dancers, (v) => (c.dancers = v));
 
     const pal = h('div', { class: 'seg', role: 'group', 'aria-label': 'Colours' });
     for (const p of PALETTES) {
@@ -177,7 +179,7 @@ export class LightsPanel {
         h('p', { class: 'note' }, 'Hold a pad or its key to fire it. The rest follows the music by itself.'),
         h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn, this.pyroBtn, this.confettiBtn, this.calmBtn),
         h('h3', {}, 'Party'),
-        h('div', { class: 'toggle-row party-row' }, pad('fun.airhorn', 'Air horn', 'airhorn'), pad('sky.fireworks', 'Fireworks', 'confetti'), pad('sky.drones', 'Drone show', 'co2')),
+        h('div', { class: 'toggle-row party-row' }, pad('fun.airhorn', 'Air horn', 'airhorn'), pad('sky.fireworks', 'Fireworks', 'confetti'), pad('sky.drones', 'Drone show', 'co2'), this.dancersBtn),
         h('p', { class: 'note' }, 'Fireworks and the drone show fly at the open-air venues. The drones come out by themselves at the peak after dark, and the fireworks for the last track at the festival, the beach and the boat.'),
         h('div', { class: 'field' }, 'Colours', pal, customRow),
         h('div', { class: 'field' }, 'Lasers', lasers),
@@ -198,6 +200,7 @@ export class LightsPanel {
     setClass(this.pyroBtn, 'active', c.pyro);
     setClass(this.confettiBtn, 'active', c.confetti);
     setClass(this.calmBtn, 'active', c.reduceFlash);
+    setClass(this.dancersBtn, 'active', c.dancers);
     for (const [id, b] of this.palBtns) setClass(b, 'active', id === c.palette);
     this.customInputs.forEach((inp, i) => {
       if (document.activeElement !== inp && inp.value !== c.custom[i]) inp.value = c.custom[i];

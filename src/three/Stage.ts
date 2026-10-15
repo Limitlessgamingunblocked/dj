@@ -41,6 +41,7 @@ import type { VenueDef, VenueScene } from './venues/base';
 import { Crowd, TABLE_Y } from './venues/fixtures';
 import { Pyro } from './venues/pyro';
 import { LightShow } from './venues/show';
+import { HypeSquad } from './HypeSquad';
 
 export type StageView = 'booth' | 'split' | 'visual';
 export type Quality = 'low' | 'medium' | 'high';
@@ -142,6 +143,8 @@ export class Stage {
   private underGlow: THREE.PointLight;
   /** you: at the decks, seen from the crowd and venue cameras (and in the dressing room) */
   readonly avatar: Avatar;
+  /** the two dancers either side of the booth */
+  readonly dancers = new HypeSquad();
   /**
    * A scene that stands you somewhere other than the decks (the dressing
    * room): where, which way you face, and what you're moving to. The booth
@@ -317,6 +320,7 @@ export class Stage {
     // you, as seen from the crowd and venue cameras
     this.avatar = new Avatar(defaultLook());
     this.scene.add(this.avatar.object);
+    this.scene.add(this.dancers.group);
     this.rig = new CameraRig(this.camera, this.canvas);
 
     this.composer = new EffectComposer(this.renderer, composerTarget(this.msaa));
@@ -473,6 +477,7 @@ export class Stage {
     this.venueDef = def;
     // a new gig: you start it fresh
     this.avatar.sweat = 0;
+    this.dancers.setVenue(def.id);
     const v = def.build();
     this.venue = v;
     // the studio environment map is for the hardware; keep big venue surfaces from mirroring it
@@ -1403,6 +1408,8 @@ export class Stage {
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;
       this.placeAvatar(show, sdt);
+      this.dancers.enabled = this.show.controls.dancers;
+      this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, sdt);
     }
 
     // the set so far grows whether or not the player is on screen

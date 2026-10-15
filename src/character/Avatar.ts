@@ -31,9 +31,10 @@
  *            the build, mouthing along to a vocal, a grin when the room peaks,
  *            a frown of focus on a control, a brow flash for a clean blend
  *            and a wince at a mistake (brows, lids, cheeks, lip corners, jaw)
- *   hype     the dancers by the booth: a new move every two bars (sway, wave,
- *            hair flip, point at the DJ, body roll, clap in the build), and a
- *            jump on the drop
+ *   hype     the dancers beside the booth: a new move every two bars (hip
+ *            sway, hands up, shimmy, point at the DJ, body roll, hands in the
+ *            hair), clapping in the build and a jump on the drop, all blended
+ *            so the arms move smoothly
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -76,6 +77,8 @@ export interface AvatarInput {
 export type HandHold = 'knob' | 'fader' | 'jog' | 'press' | 'grip';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+/** the side dancers' moves, one every two bars */
+export const HYPE_MOVES = ['sway', 'hands_up', 'shimmy', 'point', 'roll', 'sway', 'hair', 'shimmy', 'hands_up', 'roll'] as const;
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
@@ -452,6 +455,8 @@ export class Avatar {
   private prop: THREE.Object3D | null = null;
   private t = 0;
   private dropT = 1e9;
+  /** a side dancer's eased upper body (arms: upper x, z, forearm x, upper y) */
+  private danceState = { init: false, l: [0, 0.2, -0.4, 0], r: [0, 0.2, -0.4, 0], body: [0, 0, 0, 0, 0, 0, 0, 0] };
   private habitAt = -1;
   private lastHead = new THREE.Vector3();
   private blinkAt = 2;
@@ -1970,9 +1975,10 @@ export class Avatar {
     b.hips.position.set(0, this.d.hipY, 0);
     this.body.position.y = 0;
     if (this.mode === 'hype') {
-      this.dance(s, beat, ph, hit, knee);
+      this.dance(s, beat, ph, knee, dt);
       this.express(s, dt, beat, hit, 0);
       this.settle(dt);
+      this.model?.sync();
       return;
     }
     if (this.mode === 'walk') {
@@ -2384,24 +2390,27 @@ export class Avatar {
     this.orientHand('l', this.handQ, this.pressW);
   }
 
-  /** the hype dancers' routine, locked to the beat */
-  private dance(s: AvatarInput, beat: number, ph: number, hit: number, knee: number): void {
+  /**
+   * The side dancers' routine, locked to the beat. A new move every two bars
+   * (hip sway, hands up, body roll, shimmy, pointing at the DJ, hands in the
+   * hair), clapping through the build and jumping on the drop. Each move is a
+   * pose that moves smoothly with the beat (no sawtooth snaps), one move
+   * crossfades into the next over a beat and a half, and the whole upper body
+   * then eases towards that pose, so the arms never jump.
+   */
+  private dance(s: AvatarInput, beat: number, ph: number, knee: number, dt: number): void {
     const b = this.bones;
     const amp = s.playing ? 1 : 0.4;
     const beatLen = 60 / 124;
-    const setArm = (arm: 'l' | 'r', ux: number, uz: number, fx: number, uy = 0) => {
-      const k = arm === 'l' ? 1 : -1;
-      b[`upper_arm_${arm}`].rotation.set(ux, uy * k, uz * k);
-      b[`forearm_${arm}`].rotation.set(fx, 0, 0);
-    };
     const sway = Math.sin(beat * Math.PI);
+    // a soft pump on the beat: 1 on the beat, 0 between, and smooth through both
+    const pump = knee * knee;
     // the hips sway a side a beat and the knees take the bounce
     const bob = 0.03 * knee * amp;
     b.hips.position.y -= bob;
     b.hips.position.x = 0.05 * sway * amp;
     b.hips.rotation.z = -0.14 * sway * amp;
     b.hips.rotation.y = 0.16 * Math.sin(beat * Math.PI * 0.5) * amp;
-    b.spine.rotation.z = 0.1 * sway * amp;
     for (const leg of ['l', 'r'] as const) {
       const step = Math.max(0, sway * (leg === 'l' ? 1 : -1)) * 0.18 * amp;
       b[`thigh_${leg}`].rotation.x = -bob * 6 - step;
@@ -2410,50 +2419,112 @@ export class Avatar {
     }
     // the arm nearest the DJ, for pointing at them
     const near: 'l' | 'r' = this.side < 0 ? 'r' : 'l';
-    const far: 'l' | 'r' = near === 'l' ? 'r' : 'l';
-    const MOVES = ['wave', 'sway', 'point', 'hair', 'roll', 'wave', 'point', 'sway'] as const;
-    const bar = Math.floor(beat / 4);
-    const move = s.build > 0.5 ? 'clap' : MOVES[(Math.floor(bar / 2) + this.seed) % MOVES.length];
-    switch (move) {
-      case 'wave':
-        setArm('l', -0.3, 2.45 + 0.22 * sway * amp, -0.35);
-        setArm('r', -0.3, 2.45 - 0.22 * sway * amp, -0.35);
-        break;
-      case 'sway':
-        setArm(far, -0.3, 2.3 + 0.35 * hit * amp, -0.3);
-        setArm(near, 0.25 * sway, 0.3, -0.5);
-        break;
-      case 'point':
-        // "this one!": pointing at the DJ, a jab on every beat
-        setArm(near, -0.35, 1.45 + 0.12 * hit * amp, -0.08);
-        setArm(far, -0.3, 2.35 + 0.3 * hit * amp, -0.4);
-        b.spine.rotation.y = -this.side * 0.35;
-        b.neck.rotation.y = -this.side * 0.4;
-        break;
-      case 'hair':
-        setArm('l', -0.25, 2.5, -1.9);
-        setArm('r', -0.25, 2.5, -1.9);
-        b.neck.rotation.z = 0.3 * sway * amp;
-        b.neck.rotation.x = 0.18 * Math.cos(beat * Math.PI * 2) * amp;
-        break;
-      case 'roll':
-        b.spine.rotation.x = 0.22 * Math.sin(beat * Math.PI * 2) * amp;
-        b.hips.rotation.x = -0.15 * Math.sin(beat * Math.PI * 2) * amp;
-        setArm('l', -0.35, 2.7 + 0.1 * sway * amp, -0.9);
-        setArm('r', -0.35, 2.7 - 0.1 * sway * amp, -0.9);
-        break;
-      case 'clap':
-        // the build: clapping overhead, hands meeting on the beat
-        setArm('l', -0.3, 2.4 + 0.5 * hit, -0.4);
-        setArm('r', -0.3, 2.4 + 0.5 * hit, -0.4);
-        break;
+    type Pose = { l: number[]; r: number[]; spX: number; spY: number; spZ: number; chY: number; hipX: number; nX: number; nY: number; nZ: number };
+    const pose = (move: (typeof HYPE_MOVES)[number]): Pose => {
+      const p: Pose = { l: [0, 0.2, -0.4, 0], r: [0, 0.2, -0.4, 0], spX: 0, spY: 0, spZ: 0.1 * sway * amp, chY: 0, hipX: 0, nX: 0, nY: 0, nZ: 0 };
+      const far = near === 'l' ? 'r' : 'l';
+      switch (move) {
+        case 'sway':
+          // loose arms swinging low with the hips, a little lift on the beat
+          p.l = [0.18 * sway * amp, 0.28 + 0.06 * pump * amp, -0.55 - 0.2 * pump * amp, 0];
+          p.r = [-0.18 * sway * amp, 0.28 + 0.06 * pump * amp, -0.55 - 0.2 * pump * amp, 0];
+          p.spZ = 0.16 * sway * amp;
+          p.nZ = -0.08 * sway * amp;
+          break;
+        case 'hands_up':
+          p.l = [-0.35, 2.5 + 0.18 * sway * amp, -0.3, 0];
+          p.r = [-0.35, 2.5 - 0.18 * sway * amp, -0.3, 0];
+          p.nX = -0.12;
+          break;
+        case 'roll': {
+          const roll = Math.sin(beat * Math.PI) * amp;
+          p.spX = 0.2 * roll;
+          p.hipX = -0.14 * roll;
+          p.nX = -0.1 * roll;
+          p.l = [-0.35, 2.65 + 0.1 * sway * amp, -0.95, 0];
+          p.r = [-0.35, 2.65 - 0.1 * sway * amp, -0.95, 0];
+          break;
+        }
+        case 'shimmy': {
+          // the shoulders shimmy twice a beat, elbows bent, hands in front
+          const sh = Math.sin(beat * Math.PI * 4) * amp;
+          p.chY = 0.16 * sh;
+          p.spY = 0.05 * sh;
+          p.l = [-0.7 - 0.1 * pump * amp, 0.4, -1.35, 0];
+          p.r = [-0.7 - 0.1 * pump * amp, 0.4, -1.35, 0];
+          p.nZ = 0.06 * sway * amp;
+          break;
+        }
+        case 'point':
+          // "this one!": pointing at the DJ, a little jab on each beat
+          p[near] = [-0.35, 1.45 + 0.1 * pump * amp, -0.1, 0];
+          p[far] = [-0.3, 2.3 + 0.2 * pump * amp, -0.45, 0];
+          p.spY = -this.side * 0.3;
+          p.nY = -this.side * 0.35;
+          break;
+        case 'hair':
+          p.l = [-0.25, 2.45, -1.85, 0];
+          p.r = [-0.25, 2.45, -1.85, 0];
+          p.nZ = 0.22 * sway * amp;
+          p.nX = 0.1 * Math.sin(beat * Math.PI * 2) * amp;
+          break;
+      }
+      return p;
+    };
+    const mix = (a: Pose, c: Pose, w: number): Pose => {
+      const m = (x: number, y: number) => x + (y - x) * w;
+      return {
+        l: a.l.map((v, i) => m(v, c.l[i])),
+        r: a.r.map((v, i) => m(v, c.r[i])),
+        spX: m(a.spX, c.spX),
+        spY: m(a.spY, c.spY),
+        spZ: m(a.spZ, c.spZ),
+        chY: m(a.chY, c.chY),
+        hipX: m(a.hipX, c.hipX),
+        nX: m(a.nX, c.nX),
+        nY: m(a.nY, c.nY),
+        nZ: m(a.nZ, c.nZ),
+      };
+    };
+    // a new move every two bars, crossfading from the last one over a beat and a half
+    const phrase = Math.floor(beat / 8);
+    const moveAt = (i: number) => HYPE_MOVES[(((i + this.seed) % HYPE_MOVES.length) + HYPE_MOVES.length) % HYPE_MOVES.length];
+    let target = mix(pose(moveAt(phrase - 1)), pose(moveAt(phrase)), smooth(0, 1.5, beat - phrase * 8));
+    // the build: clapping overhead, hands meeting on the beat
+    const clapW = smooth(0.4, 0.65, s.build);
+    if (clapW > 0) {
+      const open = 0.5 - 0.5 * Math.cos(ph * Math.PI * 2);
+      const clap = pose('hands_up');
+      clap.l = [-0.3, 2.45 - 0.4 * (1 - open), -0.35, 0];
+      clap.r = [-0.3, 2.45 - 0.4 * (1 - open), -0.35, 0];
+      target = mix(target, clap, clapW);
     }
-    // the drop: jumping, both arms up, for two bars
-    if (this.dropT < beatLen * 8) {
-      this.body.position.y = Math.max(0, Math.sin(ph * Math.PI)) * 0.16;
-      setArm('l', -0.25, 2.65, -0.3);
-      setArm('r', -0.25, 2.65, -0.3);
+    // the drop: jumping, both arms up, for two bars, easing in and out
+    const dropW = this.dropT < beatLen * 8 ? smooth(0, 0.15, this.dropT) * (1 - smooth(beatLen * 7, beatLen * 8, this.dropT)) : 0;
+    if (dropW > 0) {
+      this.body.position.y = Math.max(0, Math.sin(ph * Math.PI)) * 0.16 * dropW;
+      target = mix(target, pose('hands_up'), dropW);
     }
+    // ease the upper body towards the pose
+    const st = this.danceState;
+    const k = st.init ? 1 - Math.exp(-Math.min(dt, 0.1) * 12) : 1;
+    st.init = true;
+    const ease = (from: number, to: number) => from + (to - from) * k;
+    st.l = st.l.map((v, i) => ease(v, target.l[i]));
+    st.r = st.r.map((v, i) => ease(v, target.r[i]));
+    st.body = [target.spX, target.spY, target.spZ, target.chY, target.hipX, target.nX, target.nY, target.nZ].map((v, i) => ease(st.body[i], v));
+    for (const arm of ['l', 'r'] as const) {
+      const [ux, uz, fx, uy] = st[arm];
+      const sd = arm === 'l' ? 1 : -1;
+      b[`upper_arm_${arm}`].rotation.set(ux, uy * sd, uz * sd);
+      b[`forearm_${arm}`].rotation.set(fx, 0, 0);
+      this.curlHand(arm, 0.35, dt, null);
+    }
+    const [spX, spY, spZ, chY, hipX, nX, nY, nZ] = st.body;
+    b.spine.rotation.set(spX, spY, spZ);
+    b.chest.rotation.y = chY;
+    b.hips.rotation.x = hipX;
+    b.neck.rotation.set(nX, nY, nZ);
   }
 
   /** blinking, the hair's springs, sweat and blacklight: every mode */

@@ -19,6 +19,8 @@ const path = require('node:path');
 const { unpack } = require('./webpack-format.cjs');
 
 const SHELL = require('./package.json').deckhouseShell || 1;
+/** a one-off build (deckhouseUpdates: false) plays its own game files and never updates */
+const OFF = require('./package.json').deckhouseUpdates === false;
 const RELEASES = 'https://github.com/Limitlessgamingunblocked/dj/releases/latest';
 const FEED = process.env.DECKHOUSE_UPDATE_FEED || `${RELEASES}/download/update.json`;
 const EVERY = 6 * 60 * 60 * 1000;
@@ -48,6 +50,7 @@ function readJson(file) {
 /** the game files to play: a downloaded update when it's newer than the ones the app came with */
 function currentWeb(bundled) {
   const own = { root: bundled, version: app.getVersion() };
+  if (OFF) return own;
   const cur = readJson(path.join(dataDir(), 'current.json'));
   if (!cur || typeof cur.version !== 'string' || newer(cur.version, own.version) <= 0) return own;
   const root = path.join(dataDir(), cur.version);
@@ -95,6 +98,7 @@ async function install(info, feedUrl, inUse) {
  *   parent()      the window to anchor the prompts to
  */
 function startUpdates({ getWeb, apply, parent }) {
+  if (OFF) return;
   let busy = false;
   /** downloaded, waiting for the next launch ("Later") */
   let pending = null;
