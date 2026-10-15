@@ -556,6 +556,24 @@ export function bodyReady(): boolean {
 const scans = new Map<string, THREE.Object3D>();
 const scanLoading = new Map<string, Promise<void>>();
 
+/**
+ * A scan's textures drawn without their shrunk copies. The generator packs its texture in hundreds
+ * of patches pressed edge to edge with no gap, so each shrunk copy (what the card draws a figure
+ * a few metres off with) blends every patch with its neighbours: the black of the trousers, the hair
+ * and the bag spread over the shirt in dark smears. Read at full size, each patch keeps its own colour.
+ */
+function unbleed(material: THREE.Material | THREE.Material[]): void {
+  for (const m of Array.isArray(material) ? material : [material]) {
+    const s = m as THREE.MeshStandardMaterial;
+    for (const t of [s.map, s.normalMap, s.roughnessMap, s.metalnessMap, s.aoMap]) {
+      if (!t) continue;
+      t.generateMipmaps = false;
+      t.minFilter = THREE.LinearFilter;
+      t.needsUpdate = true;
+    }
+  }
+}
+
 /** start loading a scanned character (once); `then` runs when it's ready */
 export function preloadScan(name: string, then?: () => void): void {
   if (!hasModel(name) || scans.has(name)) return;
@@ -565,6 +583,7 @@ export function preloadScan(name: string, then?: () => void): void {
       .then((m) => {
         // (the rig's weights blurred over the skin, so it bends instead of tearing; copies share this geometry)
         m.scene.traverse((o) => (o as THREE.SkinnedMesh).isSkinnedMesh && smoothSkin((o as THREE.SkinnedMesh).geometry, SKIN_PASSES));
+        m.scene.traverse((o) => (o as THREE.Mesh).isMesh && unbleed((o as THREE.Mesh).material));
         scans.set(name, m.scene);
       })
       .catch((e) => console.warn('scanned character failed to load', name, e));

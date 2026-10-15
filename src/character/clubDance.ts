@@ -6,7 +6,7 @@
  * moves on a smooth curve through the beat, and one move eases into the next.
  *
  * The men's moves: the fist pump, two hands up, the two-step, the nod with a
- * drink. The women's: the hip sway with a hand in the hair, arms up with the
+ * hand easy at the chest. The women's: the hip sway with one hand up, arms up with the
  * hips rolling, the shoulder shimmy, two hands up. Everyone claps through a
  * build and jumps on the drop.
  *
@@ -15,7 +15,7 @@
  * its x swings it forward (negative) or back; the forearm's x bends the elbow
  * (negative). Left-side turns about y and z mirror on the right.
  */
-import type * as THREE from 'three';
+import * as THREE from 'three';
 
 export type ClubMove = 'pump' | 'hands_up' | 'two_step' | 'nod' | 'sway' | 'roll' | 'shimmy';
 
@@ -65,12 +65,36 @@ function add(p: Pose, b: Bone, x: number, y = 0, z = 0): void {
   p.rot[i + 1] += y;
   p.rot[i + 2] += z;
 }
-/** an arm: lift out (z), swing forward (x, negative), turn (y: negative rolls it in, so a bent elbow brings the hand in front of the body), and the elbow's bend */
-function arm(p: Pose, s: 'l' | 'r', ux: number, uz: number, fx: number, uy = 0): void {
+/**
+ * An arm: lift out (z), swing forward (x, negative), turn (y: negative rolls it in, so a bent elbow
+ * brings the hand in front of the body), and the elbow's bend. `twist` turns the upper arm about its
+ * own length and `wrist` the hand about the forearm's (the forearm sharing it): the hand hangs palm
+ * back, so an arm raised overhead needs both to show the palm forward, as people's do.
+ */
+function arm(p: Pose, s: 'l' | 'r', ux: number, uz: number, fx: number, uy = 0, twist = 0, wrist = 0): void {
   const k = s === 'l' ? 1 : -1;
-  set(p, `upper_arm_${s}`, ux, uy * k, uz * k);
+  if (twist) {
+    _q.setFromEuler(_e.set(ux, uy * k, uz * k)).multiply(_t.setFromAxisAngle(UP, twist * k));
+    _e.setFromQuaternion(_q);
+    // (the turn as Euler angles nearest the untwisted arm's, so they move smoothly with it, never wrapping round)
+    const ref = [ux, uy * k, uz * k];
+    const near = (a: number, r: number) => a + Math.round((r - a) / (Math.PI * 2)) * Math.PI * 2;
+    const pick = (x: number, y: number, z: number) => [near(x, ref[0]), near(y, ref[1]), near(z, ref[2])];
+    const a = pick(_e.x, _e.y, _e.z);
+    const b = pick(_e.x + Math.PI, Math.PI - _e.y, _e.z + Math.PI);
+    const off = (v: number[]) => v.reduce((t, x, i) => t + Math.abs(x - ref[i]), 0);
+    const [x, y, z] = off(a) <= off(b) ? a : b;
+    set(p, `upper_arm_${s}`, x, y, z);
+  } else set(p, `upper_arm_${s}`, ux, uy * k, uz * k);
   set(p, `forearm_${s}`, fx);
+  add(p, `hand_${s}`, 0, wrist * k);
 }
+const _q = new THREE.Quaternion();
+const _t = new THREE.Quaternion();
+const _e = new THREE.Euler();
+const UP = new THREE.Vector3(0, 1, 0);
+/** an arm raised overhead turned palm forward (the upper arm and the wrist each taking a share) */
+const OVER = [1, 2] as const;
 
 /**
  * The legs under a bounce: the hips `drop` metres down, the knees bending so
@@ -126,10 +150,10 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       // both hands up and open, swaying slowly over two beats, chin up
       legs(p, 0.015 + 0.02 * push, legLen, lift);
       weight(p, side, 0.8);
-      arm(p, 'l', -0.35, 2.6 + 0.12 * side, -0.5 - 0.12 * push);
-      arm(p, 'r', -0.35, 2.6 - 0.12 * side, -0.5 - 0.12 * push);
-      set(p, 'hand_l', 0, 0, 0.15 * side);
-      set(p, 'hand_r', 0, 0, 0.15 * side);
+      arm(p, 'l', -0.35, 2.6 + 0.12 * side, -0.5 - 0.12 * push, 0, ...OVER);
+      arm(p, 'r', -0.35, 2.6 - 0.12 * side, -0.5 - 0.12 * push, 0, ...OVER);
+      add(p, 'hand_l', 0, 0, 0.15 * side);
+      add(p, 'hand_r', 0, 0, 0.15 * side);
       set(p, 'neck', -0.18 + 0.05 * push, 0, 0.06 * side);
       p.curl[0] = p.curl[1] = 0.25;
       break;
@@ -160,12 +184,12 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       break;
     }
     case 'sway': {
-      // the hips swinging from side to side, a hand running up into the hair, the other loose
+      // the hips swinging from side to side, one hand up swaying with them, the other loose
       legs(p, 0.012 + 0.012 * push, legLen, lift);
       weight(p, side, 1.8);
       add(p, 'hips', 0, 0.16 * slow);
       add(p, 'chest', 0, -0.08 * slow, 0.03 * side);
-      arm(p, hand, -2.6 + 0.1 * side, 0.6, -1.9, -0.5);
+      arm(p, hand, -0.4, 2.45 + 0.12 * side, -0.75 - 0.1 * push, 0, ...OVER);
       arm(p, other, 0.1 * side, 0.1, -0.55 - 0.15 * push, -0.35);
       set(p, 'neck', -0.04, 0.05 * slow, 0.12 * side);
       p.curl[hi] = 0.5;
@@ -180,8 +204,8 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       add(p, 'hips', -0.1 * roll, 0.12 * Math.cos(beat * Math.PI));
       add(p, 'spine', 0.06 * roll);
       add(p, 'chest', 0.07 * roll);
-      arm(p, 'l', -0.3, 2.35 + 0.1 * side, -1.3);
-      arm(p, 'r', -0.3, 2.35 - 0.1 * side, -1.3);
+      arm(p, 'l', -0.3, 2.35 + 0.1 * side, -1.3, 0, ...OVER);
+      arm(p, 'r', -0.3, 2.35 - 0.1 * side, -1.3, 0, ...OVER);
       set(p, 'neck', -0.1 - 0.06 * roll, 0, 0.1 * side);
       p.curl[0] = p.curl[1] = 0.3;
       break;
@@ -211,8 +235,8 @@ function clap(beat: number, legLen: number, p: Pose): void {
   legs(p, 0.02 + 0.02 * push, legLen);
   // hands apart between beats, meeting on the beat
   const open = 1 - push;
-  arm(p, 'l', -0.35, 2.3 - 0.35 * open, -0.45);
-  arm(p, 'r', -0.35, 2.3 - 0.35 * open, -0.45);
+  arm(p, 'l', -0.35, 2.3 - 0.35 * open, -0.45, 0, ...OVER);
+  arm(p, 'r', -0.35, 2.3 - 0.35 * open, -0.45, 0, ...OVER);
   set(p, 'neck', -0.12);
   p.curl[0] = p.curl[1] = 0.1;
 }
@@ -227,8 +251,8 @@ function jump(beat: number, legLen: number, p: Pose): void {
   const crouch = onBeat(ph);
   legs(p, 0.07 * crouch, legLen);
   p.hips[1] += 0.12 * air * air;
-  arm(p, 'l', -0.25, 2.55, -0.3);
-  arm(p, 'r', -0.25, 2.55, -0.3);
+  arm(p, 'l', -0.25, 2.55, -0.3, 0, ...OVER);
+  arm(p, 'r', -0.25, 2.55, -0.3, 0, ...OVER);
   set(p, 'neck', -0.15);
   p.curl[0] = p.curl[1] = 0.12;
 }
