@@ -4,11 +4,13 @@
  *   light.strobe / light.blinder / light.lasers / light.blackout  (hold)
  *   light.co2 / light.pyro / light.confetti (hit),
  *   light.auto / light.dropfx / light.autopyro / light.autoconfetti (toggle)
+ *   light.wall (the LED wall on drops: auto → box → tiles → off)
  *   fun.airhorn (the air horn pad, app/party.ts)
  */
 import type { ControlRegistry } from '../core/controls';
 import type { LightShow } from '../three/venues/show';
 import { skyCue } from '../three/venues/skyshow';
+import { WALL_MODES } from '../three/venues/wallshow';
 
 /** the sky show's pads: fireworks (a volley and 15 s more), the drone show (auto → on → off) */
 export function registerSkyControls(reg: ControlRegistry): void {
@@ -112,6 +114,17 @@ export function registerLightControls(reg: ControlRegistry, show: LightShow, cha
       changed();
     },
     lit: () => (c.auto ? '#3ddc97' : false),
+  });
+  reg.register({
+    id: 'light.wall',
+    label: 'Lights: LED wall on drops (auto, box, tiles, off)',
+    kind: 'button',
+    press: () => {
+      const i = WALL_MODES.findIndex((m) => m.id === c.wall);
+      c.wall = WALL_MODES[(i + 1) % WALL_MODES.length].id;
+      changed();
+    },
+    lit: () => (c.wall === 'off' ? false : c.wall === 'auto' ? '#1f6a80' : '#3dd6ff'),
   });
   reg.register({
     id: 'light.dropfx',

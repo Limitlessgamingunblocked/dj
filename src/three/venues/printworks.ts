@@ -14,6 +14,7 @@ import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUti
 import { Confetti } from './confetti';
 import { Pyro } from './pyro';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
+import { MAIN_WALLS } from './wallshow';
 import { barCounter, boothClutter, DustMotes, exitSign, pressLine } from './details';
 import { Dresser } from './dress';
 import { atBar } from './crew';
@@ -168,6 +169,8 @@ class Printworks extends VenueBase {
     const pwScreen = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(26, 14.6)), { size: [26, 14.6], pitch: 0.0059 });
     pwScreen.position.set(0, 9, FAR + 0.3);
     this.nameScreen(pwScreen, 26, 14.6, nameStyleFor('printworks').screen!);
+    // on the drops: a box opens behind the far wall and a chrome blob comes out over the hall (wallshow.ts)
+    this.mainWall(pwScreen, MAIN_WALLS.printworks);
 
     // the rig: truss grid with light bars, beam fixtures and strobes
     for (const z of RIG_ROWS) this.rig.add(truss(V(-8.6, 0, z), V(8.6, 0, z), 0.4));

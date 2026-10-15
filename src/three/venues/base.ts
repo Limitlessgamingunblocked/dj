@@ -11,6 +11,7 @@ import type { Features } from '../../visualizer/AudioFeatures';
 import type { Grade } from '../lens';
 import { updateAll, type Fixture } from './fixtures';
 import { ledScreen } from './led';
+import { WallShow, type WallSpec } from './wallshow';
 import { nameService, type NameStyle } from '../../name/NameService';
 import type { ShowState } from './show';
 import type { Avatar } from '../../character/Avatar';
@@ -215,6 +216,17 @@ export abstract class VenueBase implements VenueScene {
     this.visObjects.push(mesh);
     this.group.add(mesh);
     return mesh;
+  }
+
+  /**
+   * The venue's main LED wall gets the drop show (wallshow.ts): the box with
+   * the chrome blob, and the flying panels. Call it once the screen is placed
+   * and its name overlay is on.
+   */
+  protected mainWall(screen: THREE.Mesh, spec: WallSpec): WallShow {
+    const show = this.add(new WallShow(screen, spec));
+    this.visMaterials.push(show.tilesMat);
+    return show;
   }
 
   /** the DJ name as a sign on a wall: a w × h plane at `pos`, turned `rotY` (0 faces +Z) */

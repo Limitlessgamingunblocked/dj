@@ -8,6 +8,7 @@ import { keyForControl } from '../app/keyboard';
 import { onPrefs } from '../core/prefs';
 import type { Stage } from '../three/Stage';
 import { LASER_PATTERN_NAMES, LASER_PATTERNS, PALETTES, type ShowControls } from '../three/venues/show';
+import { WALL_MODES } from '../three/venues/wallshow';
 import { h, setClass, setText } from './dom';
 import { venueCards } from './VenuePicker';
 import { RoomPanel } from './RoomPanel';
@@ -27,6 +28,7 @@ export class LightsPanel {
   private calmBtn: HTMLElement;
   private palBtns = new Map<string, HTMLElement>();
   private laserBtns = new Map<string, HTMLElement>();
+  private wallBtns = new Map<string, HTMLElement>();
   private patBtns = new Map<string, HTMLElement>();
   private customInputs: HTMLInputElement[] = [];
   private status: HTMLElement;
@@ -104,6 +106,23 @@ export class LightsPanel {
       this.laserBtns.set(id, b);
       lasers.append(b);
     }
+    // what the main LED wall does on a drop (the venues with a big wall)
+    const wall = h('div', { class: 'seg', role: 'group', 'aria-label': 'LED wall on drops' });
+    const wallTips: Record<string, string> = {
+      auto: 'Each venue picks: its own wall effect on most drops, the other one now and then',
+      box: 'On every drop the wall opens into a deep box and a chrome blob pushes out over the crowd',
+      tiles: 'On every drop the wall blows apart into flying panels that fly back together',
+      off: 'The wall stays the visual player',
+    };
+    for (const m of WALL_MODES) {
+      const b = h('button', { class: 'btn', type: 'button', title: wallTips[m.id] }, m.name);
+      b.addEventListener('click', () => {
+        c.wall = m.id;
+        this.save();
+      });
+      this.wallBtns.set(m.id, b);
+      wall.append(b);
+    }
     const pats = h('div', { class: 'chip-grid', role: 'group', 'aria-label': 'Laser look' });
     for (const id of ['auto', ...LASER_PATTERNS] as (ShowControls['laserPattern'])[]) {
       const b = h('button', { class: 'btn chip', type: 'button' }, id === 'auto' ? 'Auto' : LASER_PATTERN_NAMES[id]);
@@ -163,6 +182,7 @@ export class LightsPanel {
         h('div', { class: 'field' }, 'Colours', pal, customRow),
         h('div', { class: 'field' }, 'Lasers', lasers),
         h('div', { class: 'field' }, 'Laser look', pats),
+        h('div', { class: 'field', title: 'At the venues with a big LED wall: the warehouse, the Warehouse Rave, Printworks, the festival and Alexandra Palace' }, 'LED wall on drops', wall),
         h('div', { class: 'toggle-row sliders' }, slider('light-int', 'Intensity', 0.2, 1.5, () => c.intensity, (v) => (c.intensity = v)), slider('light-smoke', 'Haze', 0, 1, () => c.smoke, (v) => (c.smoke = v))),
         h('div', { class: 'show-live' }, this.meter, this.status),
       ),
@@ -184,6 +204,7 @@ export class LightsPanel {
     });
     for (const [id, b] of this.laserBtns) setClass(b, 'active', id === c.lasers);
     for (const [id, b] of this.patBtns) setClass(b, 'active', id === c.laserPattern);
+    for (const [id, b] of this.wallBtns) setClass(b, 'active', id === c.wall);
     for (const w of this.widgets) w.update();
     this.room.update();
     this.crowd.update();
