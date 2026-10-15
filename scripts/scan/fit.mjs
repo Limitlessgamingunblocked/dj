@@ -31,4 +31,4 @@ await browser.close();
 fs.rmSync(tmpDir, { recursive: true, force: true });
 const file = path.join(root, 'assets/models', `${name}.glb`);
 fs.writeFileSync(file, Buffer.from(out.glb, 'base64'));
-console.log(JSON.stringify({ file, bytes: fs.statSync(file).size, vertices: out.vertices, triangles: out.triangles, height: out.height, turned: out.turned, scanBones: out.scanBones }, null, 1));
+console.log(JSON.stringify({ file, bytes: fs.statSync(file).size, vertices: out.vertices, triangles: out.triangles, height: out.height, turned: out.turned, hands: out.hands, scanBones: out.scanBones }, null, 1));

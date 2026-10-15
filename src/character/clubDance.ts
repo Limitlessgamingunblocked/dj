@@ -119,7 +119,7 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       add(p, 'chest', 0.04 * push, (hand === 'l' ? 0.12 : -0.12) * (0.6 + 0.4 * push));
       set(p, 'neck', 0.06 + 0.16 * push);
       p.curl[hi] = 1.5;
-      p.curl[1 - hi] = 0.7;
+      p.curl[1 - hi] = 0.45;
       break;
     }
     case 'hands_up': {
@@ -131,7 +131,7 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       set(p, 'hand_l', 0, 0, 0.15 * side);
       set(p, 'hand_r', 0, 0, 0.15 * side);
       set(p, 'neck', -0.18 + 0.05 * push, 0, 0.06 * side);
-      p.curl[0] = p.curl[1] = 0.12;
+      p.curl[0] = p.curl[1] = 0.25;
       break;
     }
     case 'two_step': {
@@ -145,18 +145,18 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       set(p, 'shoulder_l', 0, 0, 0.05 * push);
       set(p, 'shoulder_r', 0, 0, -0.05 * push);
       set(p, 'neck', 0.05 + 0.12 * push);
-      p.curl[0] = p.curl[1] = 0.95;
+      p.curl[0] = p.curl[1] = 0.45;
       break;
     }
     case 'nod': {
-      // a drink held at the chest, the free arm hanging easy, the head and shoulders doing the work
+      // one hand easy at the chest, the other hanging, the head and shoulders doing the work
       legs(p, 0.015 + 0.02 * push, legLen, lift);
       weight(p, side, 0.5);
       arm(p, hand, -0.45, 0.1, -1.9, -0.5);
       arm(p, other, 0.08 * side, 0.1, -0.35, -0.25);
       add(p, 'chest', 0.05 * push, 0.06 * slow);
       set(p, 'neck', 0.04 + 0.2 * push);
-      p.curl[hi] = 1.1;
+      p.curl[hi] = 0.55;
       break;
     }
     case 'sway': {
@@ -196,7 +196,7 @@ export function clubPose(move: ClubMove, beat: number, legLen: number, hand: 'l'
       arm(p, 'l', 0.15 * sh, 0.12, -1.35, -0.5);
       arm(p, 'r', -0.15 * sh, 0.12, -1.35, -0.5);
       set(p, 'neck', 0.02, -0.1 * sh, 0.08 * side);
-      p.curl[0] = p.curl[1] = 0.7;
+      p.curl[0] = p.curl[1] = 0.45;
       break;
     }
   }

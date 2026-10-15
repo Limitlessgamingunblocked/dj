@@ -5,6 +5,8 @@
  *   – turned to face +z, scaled to the body's height at the hips and stood on the floor
  *   – the body's skeleton posed into the character's A-pose (each limb turned
  *     along the character's own limb, from its rig's joints)
+ *   – its hands' fingers found in their shape and the body's finger joints stood
+ *     on them (see hands.ts): the rigs stop at the wrist
  *   – each vertex skinned by the character's own rig (or the posed body's
  *     nearest skin), then its limbs swung back to the body's rest pose, the
  *     skeleton's joints left where the character's are (its own proportions:
@@ -17,6 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { fitHand, type HandReport, type HandSkin } from './hands';
 
 export interface FitOptions {
   /** the body model's URL (the skeleton and skin weights to borrow) */
@@ -35,6 +38,8 @@ export interface FitReport {
   triangles: number;
   height: number;
   turned: boolean;
+  /** how each hand's fingers were found (or why they weren't) */
+  hands: HandReport[];
 }
 
 const loader = new GLTFLoader();
@@ -236,6 +241,27 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
       b.position.copy(b.parent.worldToLocal(joints.get(j)!.clone()));
       b.updateMatrixWorld(true);
     }
+  // fingers: the rig's hands are one piece each; find the fingers in their shape
+  const handSkin: HandSkin = new Map();
+  const hands: HandReport[] = [];
+  if (scanSkin) {
+    const skinOf = scanSkin;
+    for (const [s, Side] of [
+      ['l', 'Left'],
+      ['r', 'Right'],
+    ] as const) {
+      const w = findBone(scanBones, [`${Side}Hand`, `hand_${s}`]);
+      const e = findBone(scanBones, [`${Side}ForeArm`, `forearm_${s}`]);
+      if (!w || !e || !boneIndex.has(`hand_${s}`)) continue;
+      const skinOn = (i: number, name: string) => {
+        const b = boneIndex.get(name);
+        let x = 0;
+        for (let j = 0; j < 4; j++) if (skinOf.index[i * 4 + j] === b) x += skinOf.weight[i * 4 + j];
+        return x;
+      };
+      hands.push(fitHand(s, geo, skinOn, joints.get(w)!, joints.get(e)!, (n) => bones[boneIndex.get(n) ?? -1], boneIndex, handSkin));
+    }
+  }
   body.updateMatrixWorld(true);
   skeleton.update();
   // the rest it's written out in: each bone turned as the body's rest turns it (so a pose means the same
@@ -324,8 +350,9 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
   for (let i = 0; i < N; i++) {
     v.fromBufferAttribute(pos, i);
     const acc = new Map<number, number>();
-    // the rig's own skin where it has one (it keeps each part whole); else the nearest body skin's
-    for (let j = 0; scanSkin && j < 4; j++) {
+    // the fingers found in the hands; the rig's own skin where it has one (it keeps each part whole); else the nearest body skin's
+    for (const [b, w] of handSkin.get(i) ?? []) acc.set(b, w);
+    for (let j = 0; scanSkin && !acc.size && j < 4; j++) {
       const b = scanSkin.index[i * 4 + j];
       const w = scanSkin.weight[i * 4 + j];
       if (b >= 0 && w > 0) acc.set(b, (acc.get(b) ?? 0) + w);
@@ -414,5 +441,6 @@ export async function fitScan(o: FitOptions): Promise<FitReport> {
     triangles: (geo.index ? geo.index.count : N) / 3,
     height: new THREE.Box3().setFromBufferAttribute(geo.attributes.position as THREE.BufferAttribute).max.y,
     turned,
+    hands,
   };
 }
