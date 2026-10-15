@@ -5,7 +5,7 @@
  * flies past the camera and the camera walks you into the venue.
  *
  * Shown at launch (automated test browsers skip it; ?title forces it). At the
- * end of the launch cutscene the name slams in on the drop instead of fading.
+ * end of the launch cutscene it comes in on the drop with a white flash.
  */
 import * as THREE from 'three';
 import type { ControlRegistry } from '../core/controls';
@@ -38,8 +38,6 @@ export class TitleScreen {
   private raf = 0;
   private last = 0;
   private off: (() => void)[] = [];
-  /** the name slams in (the cutscene's drop) instead of fading up */
-  private slam = false;
 
   constructor(private host: TitleHost) {}
 
@@ -47,16 +45,16 @@ export class TitleScreen {
     return !!this.el;
   }
 
-  show(o: { slam?: boolean } = {}): void {
+  show(o: { flash?: boolean } = {}): void {
     if (this.el) return;
     const { stage, shell } = this.host;
-    this.slam = !!o.slam && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const flash = !!o.flash && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     shell.classList.add('titling');
     // the camera's last move is over: the glide takes it
     stage.rig.shot = null;
     this.el = h(
       'div',
-      { class: `title-screen${this.slam ? ' slam' : ''}`, role: 'dialog', 'aria-label': 'Deckhouse DJ' },
+      { class: `title-screen${flash ? ' flash' : ''}`, role: 'dialog', 'aria-label': 'Deckhouse DJ' },
       h('p', { class: 'title-tag' }, 'From the bedroom to the main stage'),
       h('p', { class: 'title-prompt' }, matchMedia('(pointer: coarse)').matches ? 'Tap to start' : 'Press any key to start'),
     );
@@ -122,12 +120,6 @@ export class TitleScreen {
     const t = this.t;
     let a = Math.min(1, t / 1.2);
     let s = (0.7 + 0.3 * (1 - (1 - a) ** 3)) * 0.35;
-    if (this.slam) {
-      // from right up against the lens to its place in a quarter of a second, with a little settle
-      const k = Math.min(1, t / 0.32);
-      a = Math.min(1, t / 0.06);
-      s = 0.35 * (1 + 1.6 * (1 - k) ** 3 - 0.035 * Math.sin(Math.min(1, t / 0.9) * Math.PI) * Math.exp(-t * 2));
-    }
     g.rotation.set(Math.sin(t * 0.3) * 0.04, Math.sin(t * 0.4) * 0.14, 0);
     g.position.y = LOGO_Y + Math.sin(t * 0.8) * 0.007;
     if (this.leaving >= 0) {

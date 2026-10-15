@@ -876,7 +876,7 @@ export class App implements AppContext {
           venue: { name: v.name, place: v.place },
           tap: (node) => node.connect(this.engine.visAnalyser),
           drop: () => (this.debugDrop = true),
-          title: () => this.title?.show({ slam: true }),
+          title: () => this.title?.show({ flash: true }),
         });
       } else this.title.show();
     } else afterTitle();

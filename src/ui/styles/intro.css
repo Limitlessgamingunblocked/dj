@@ -247,11 +247,11 @@
   }
 }
 
-/* the title's name slamming in on the cutscene's drop: a white flash off the lens */
-.title-screen.slam {
+/* the title coming in on the cutscene's drop: a white flash off the lens */
+.title-screen.flash {
   animation: none;
 }
-.title-screen.slam::before {
+.title-screen.flash::before {
   content: '';
   position: absolute;
   inset: 0;
