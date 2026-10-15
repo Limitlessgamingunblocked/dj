@@ -41,6 +41,7 @@ import { Crowd, TABLE_Y } from './venues/fixtures';
 import { Pyro } from './venues/pyro';
 import { LightShow } from './venues/show';
 import { HypeSquad } from './HypeSquad';
+import { Regulars } from './Regulars';
 
 export type StageView = 'booth' | 'split' | 'visual';
 export type Quality = 'low' | 'medium' | 'high';
@@ -138,6 +139,8 @@ export class Stage {
   readonly avatar: Avatar;
   /** the two dancers either side of the booth */
   readonly dancers = new HypeSquad();
+  /** the realistic regulars at the front of the floor */
+  readonly regulars = new Regulars();
   /**
    * A scene that stands you somewhere other than the decks (the dressing
    * room): where, which way you face, and what you're moving to. The booth
@@ -297,7 +300,7 @@ export class Stage {
     // you, as seen from the crowd and venue cameras
     this.avatar = new Avatar(defaultLook());
     this.scene.add(this.avatar.object);
-    this.scene.add(this.dancers.group);
+    this.scene.add(this.dancers.group, this.regulars.group);
     this.rig = new CameraRig(this.camera, this.canvas);
 
     this.composer = new EffectComposer(this.renderer, composerTarget(this.msaa));
@@ -459,6 +462,7 @@ export class Stage {
       for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) if ((m as THREE.MeshStandardMaterial).isMeshStandardMaterial) (m as THREE.MeshStandardMaterial).envMapIntensity *= 0.3;
     });
     this.scene.add(v.group);
+    this.regulars.setVenue(def.id, v);
     sharpenTextures(v.group, this.renderer.capabilities.getMaxAnisotropy());
     v.attachDJ?.(this.avatar, this.djLook);
     // the floor's reflection shows the bright things: the screens, beams, lasers, lamps and neon
@@ -1296,6 +1300,8 @@ export class Stage {
       this.placeAvatar(show, sdt);
       this.dancers.enabled = this.show.controls.dancers;
       this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, sdt);
+      this.regulars.enabled = this.show.controls.dancers;
+      this.regulars.update(show, !this.avatarSpot && !this.rig.focused, sdt);
     }
 
     // on the venue screens the visual player can run at half rate when the load is high

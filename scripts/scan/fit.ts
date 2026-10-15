@@ -42,7 +42,7 @@ const loader = new GLTFLoader();
  * names the generated rig may give the same two joints (Meshy's and Mixamo's
  * LeftArm / LeftForeArm…, or plain upper_arm_l…).
  */
-const LIMBS: [string, string, string[], string[]][] = [];
+export const LIMBS: [string, string, string[], string[]][] = [];
 for (const [s, Side] of [
   ['l', 'Left'],
   ['r', 'Right'],
@@ -61,7 +61,7 @@ for (const [s, Side] of [
  * the head and foot). `snap` joints are where the body's joint is stood while
  * fitting, so each part keeps its own shape and joins the body's skeleton at its joints.
  */
-const SCAN_TO_BODY: [string[], string, boolean][] = [
+export const SCAN_TO_BODY: [string[], string, boolean][] = [
   [['Hips', 'pelvis'], 'hips', true],
   [['Spine02', 'Spine'], 'spine', false],
   [['Spine01', 'Spine1'], 'spine', false],
@@ -95,7 +95,7 @@ function bodyBoneOf(scanName: string): string | undefined {
 }
 
 /** a scan joint by any of its usual names (with or without a "mixamorig:" prefix) */
-function findBone(names: string[], want: string[]): string | undefined {
+export function findBone(names: string[], want: string[]): string | undefined {
   const bare = (n: string) => n.replace(/^mixamorig[0-9]*:?/i, '').toLowerCase();
   return names.find((n) => want.some((w) => bare(n) === w.toLowerCase()));
 }
