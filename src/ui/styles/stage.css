@@ -420,6 +420,29 @@
   }
 }
 
+/* someone in the crowd asked for a track: their shout is the point of the card */
+.next-up.nu-request {
+  border-right-color: #ffb547;
+}
+
+.next-up.nu-request .nu-label {
+  color: #ffb547;
+  letter-spacing: 0.08em;
+}
+
+.next-up.nu-request .nu-acts {
+  flex-wrap: wrap;
+}
+
+.next-up.nu-request .nu-why {
+  flex-basis: 100%;
+  display: block;
+  font-size: var(--text-s);
+  font-style: italic;
+  color: #fff;
+  white-space: normal;
+}
+
 /* the crowd chanting the DJ's name at the peak */
 .name-chant {
   position: absolute;

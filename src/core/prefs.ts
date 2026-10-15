@@ -46,6 +46,8 @@ export interface Prefs {
   nowPlaying: boolean;
   /** the next-track coach's pick on the stage, in the Library and on an empty deck */
   nextUp: boolean;
+  /** people in the crowd shout for tracks from your library (in free play too; a gig always has requests) */
+  crowdRequests: boolean;
   /** lights and visuals: extra delay in ms on top of the audio device's measured latency (to line them up with Bluetooth speakers) */
   avOffset: number;
   /** lens look on the club camera: 'auto' gives each camera angle its own (fisheye, camcorder…) */
@@ -103,6 +105,7 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   autoMixBars: 16,
   nowPlaying: true,
   nextUp: true,
+  crowdRequests: true,
   avOffset: 0,
   nightMinutes: 20,
   uiSounds: 0.35,
@@ -152,6 +155,7 @@ export function sanitizePrefs(raw: unknown): Prefs {
     autoMixBars: oneOf(r.autoMixBars, [8, 16, 32], d.autoMixBars),
     nowPlaying: bool(r.nowPlaying, d.nowPlaying),
     nextUp: bool(r.nextUp, d.nextUp),
+    crowdRequests: bool(r.crowdRequests, d.crowdRequests),
     avOffset: Math.round(num(r.avOffset, -150, 400, d.avOffset) / 10) * 10,
     lens: oneOf(r.lens, ['auto', ...LENS_LOOKS.map((l) => l.id)] as (LensLook | 'auto')[], d.lens),
     nightMinutes: oneOf(r.nightMinutes, NIGHT_CHOICES, d.nightMinutes),

@@ -41,6 +41,9 @@ import { moments, setClock, tickFreeClock } from '../three/venues/moments';
 import { nextSection } from '../game/tracks';
 import type { Suggestion } from '../game/coach';
 import type { NextUp } from './nextup';
+import { SongRequester } from './songRequester';
+import type { SongAsk } from '../game/songRequests';
+import { prefs } from '../core/prefs';
 import { eventText, moodFor, SLOTS, TRANSITION_LABEL, VibeMeter, type VibeEvent } from '../game/vibe';
 import type { Career } from '../game/Career';
 import type { Library } from '../library/Library';
@@ -68,6 +71,12 @@ export interface DailyOut {
 export interface Callout {
   text: string;
   tone: 'good' | 'bad' | 'hype';
+}
+
+/** "Title – Artist" for a song request */
+export function songLabel(a: { title: string; artist: string }): string {
+  const artist = a.artist.trim();
+  return artist && !/^unknown/i.test(artist) ? `${a.title} – ${artist}` : a.title;
 }
 
 export interface GigHost {
@@ -145,6 +154,8 @@ export function promoterHello(tier: number, expectation: string): string {
 export class GigDirector {
   /** the studio's meter: the crowd still reacts when you're just playing */
   private free = new VibeMeter(SLOTS.peak);
+  /** the crowd's song requests (the AI's, or the crowd's own lines) */
+  readonly songs: SongRequester;
   private freeT = 0;
   gig: Gig | null = null;
   private snap: Snapshot;
@@ -197,6 +208,23 @@ export class GigDirector {
 
   constructor(private host: GigHost) {
     this.snap = new Snapshot(host.engine);
+    this.songs = new SongRequester({
+      library: host.library,
+      nextUp: host.nextUp,
+      context: () => {
+        const e = host.engine;
+        const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing && d.track);
+        const t = lead?.track;
+        const gig = this.gig;
+        return {
+          venue: host.venueName(gig?.config.venue ?? host.venue()),
+          slot: gig ? SLOTS[gig.config.slot].label : undefined,
+          vibe: gig ? gig.meter.vibe : this.free.vibe,
+          djName: host.djName(),
+          playing: lead && t ? { title: t.meta.title || t.fileName, artist: t.meta.artist || '', bpm: lead.bpm, genre: genreOf(t).genre || undefined } : null,
+        };
+      },
+    });
     moments.on((m) => {
       if (this.gig && m.label && m.venue === this.gig.config.venue) this.moment ??= m.label;
     });
@@ -395,6 +423,8 @@ export class GigDirector {
     }
     setClock.progress = 0;
     this.gig = new Gig(cfg);
+    this.songs.reset();
+    this.gig.requests.songs = () => this.songs.take();
     this.crew = { security: false, bar: false, barFor: 0, cleanSaid: -1e9, chantFor: 0, chantAt: -1e9, sigFor: 0 };
     this.keyMatched.clear();
     this.heard.clear();
@@ -407,6 +437,10 @@ export class GigDirector {
       saveMix: () => this.host.press('replay.save'),
       clip: () => this.host.press('replay.clip'),
       loadCoach: () => this.loadCoach(),
+      loadRequest: () => {
+        const id = this.gig?.requests.current?.song?.trackId;
+        if (id) this.host.nextUp.load(id);
+      },
     });
     this.host.stageEl.append(this.hud.el);
     // the HUD sits left of the camera buttons, whose width changes (the framing chip comes and goes),
@@ -850,6 +884,28 @@ export class GigDirector {
   /* every frame                                                    */
   /* -------------------------------------------------------------- */
 
+  /** free play: someone shouts for a track (the Up next card shows it), and cheers when it plays */
+  private freeRequest(what: 'ask' | 'met' | 'gone', ask: SongAsk): void {
+    if (what === 'ask') {
+      this.host.callout({ text: `${ask.who}: “${ask.shout}”`, tone: 'good' });
+      this.host.crowd('whoa');
+    } else if (what === 'met') {
+      this.host.callout({ text: `Played it for ${ask.who}!`, tone: 'hype' });
+      this.host.crowd('cheer');
+      crowdShow.wild = 1;
+    }
+  }
+
+  /** the crowd's request on the cardboard signs: the gig's, or free play's song request */
+  requestSign(): string | null {
+    const g = this.gig;
+    if (g) {
+      const r = g.requests.current;
+      return r ? (r.song?.sign ?? r.text) : null;
+    }
+    return this.songs.free?.sign ?? null;
+  }
+
   /** returns the vibe for the lights and the crowd */
   update(dt: number, f: Features): number {
     const e = this.host.engine;
@@ -895,7 +951,7 @@ export class GigDirector {
         redline: e.redline,
         score: Math.round(gig.meter.points * gig.multiplier),
         streak: { count: gig.streak.count, next: gig.streak.next },
-        request: req ? { text: req.text, left: Math.max(0, (req.until - gig.t) / Math.max(1, req.until - req.at)) } : null,
+        request: req ? { text: req.text, left: Math.max(0, (req.until - gig.t) / Math.max(1, req.until - req.at)), who: req.song?.who, track: req.song ? songLabel(req.song) : undefined, load: !!req.song && !this.host.nextUp.used(req.song.trackId) && this.host.nextUp.freeDeck() !== null } : null,
         coach: this.coach ? { title: this.coach.title, artist: this.coach.artist, why: this.coach.why } : null,
         ghost: this.ghostNow(gig),
       });
@@ -909,7 +965,11 @@ export class GigDirector {
     } else {
       this.freeT += dt;
       events = this.free.update({ t: this.freeT, dt, decks, level, redline: e.redline, progress: 0.5, dropHit: f.dropHit });
+      const audible = decks.filter((d) => d.playing && d.audible > 0.3 && d.trackId).map((d) => d.trackId as string);
+      for (const r of this.songs.freeUpdate(dt, decks.some((d) => d.playing), audible)) this.freeRequest(r.what, r.ask);
     }
+    // a song request kept ready while there's music (and someone to ask)
+    if (decks.some((d) => d.playing) && (gig || prefs.crowdRequests)) this.songs.update(dt);
     for (const ev of events) this.handle(ev);
     if (gig && gig.phase === 'over') this.complete();
     return this.meter.vibe;
@@ -923,9 +983,12 @@ export class GigDirector {
     if (ev.kind === 'request') {
       const r = ev.req;
       // the HUD's request card says it; the Bedroom's chat says it too
-      if (ev.what === 'ask') this.chat?.say(r.text);
-      else if (ev.what === 'met') {
-        this.host.callout({ text: `Request met +${r.points}`, tone: 'hype' });
+      if (ev.what === 'ask') {
+        this.chat?.say(r.song ? `${r.text} (${songLabel(r.song)})` : r.text);
+        // someone shouting over the music
+        if (r.song) this.host.crowd('whoa');
+      } else if (ev.what === 'met') {
+        this.host.callout({ text: r.song ? `Played it for ${r.song.who} +${r.points}` : `Request met +${r.points}`, tone: 'hype' });
         this.host.crowd('cheer');
         // the people with the sign go wild
         crowdShow.wild = 1;

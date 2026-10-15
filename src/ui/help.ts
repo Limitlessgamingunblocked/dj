@@ -43,6 +43,8 @@ const SECTIONS: [string, string[]][] = [
     [
       'Play a gig picks a booking or a free set.',
       'Clean mixes and the right energy raise the vibe; trainwrecks drop it.',
+      'The crowd shouts for tracks from your library: press Load on their card and play it for points.',
+      'Paste a FreeLLMAPI key in Settings → AI crowd and an AI writes who asks and what they shout.',
       'Home has your bookings, wardrobe, crates, sets and phone.',
     ],
   ],

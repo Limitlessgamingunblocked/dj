@@ -142,7 +142,8 @@ export class Gig {
     }
     // the crowd asks for things (not in the encore: that's their request already)
     const slot = SLOTS[this.config.slot];
-    for (const r of this.requests.update({ t: this.t, energy: this.meter.energy, target: slot.target(this.progress), remaining: this.remaining, live: this.phase === 'live' }, vibe)) {
+    const audible = decks.filter((d) => d.playing && d.audible > 0.3 && d.trackId).map((d) => d.trackId as string);
+    for (const r of this.requests.update({ t: this.t, energy: this.meter.energy, target: slot.target(this.progress), remaining: this.remaining, live: this.phase === 'live', audible }, vibe)) {
       if (r.what === 'met') {
         this.meter.points += r.req.points;
         this.meter.vibe = Math.min(1, this.meter.vibe + REQUEST_VIBE.met);

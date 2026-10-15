@@ -697,7 +697,7 @@ export class App implements AppContext {
         const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing);
         return lead?.track ?? null;
       },
-      request: () => this.gigs.gig?.requests.current?.text ?? null,
+      request: () => this.gigs.requestSign(),
       djName: () => nameService.text,
       moved: (m) => this.gigs.djMove(m),
     });
@@ -968,7 +968,7 @@ export class App implements AppContext {
       this.nowCard = { el, title, artist, meta, announced: '', timer: 0 };
     }
     // the coach's pick for the next track, in free play and Auto DJ (a gig's HUD shows its own)
-    this.nextCard = new NextUpCard(this.nextUp, { inGig: () => !!this.gigs.gig });
+    this.nextCard = new NextUpCard(this.nextUp, { inGig: () => !!this.gigs.gig, request: () => this.gigs.songs.free });
     this.stage.el.append(this.nextCard.el);
     this.broadcast = new Broadcast({
       shell: () => this.shell,

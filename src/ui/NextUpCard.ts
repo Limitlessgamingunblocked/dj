@@ -2,11 +2,14 @@
  * "Up next" on the stage: the coach's pick for the next track in free play
  * and Auto DJ (a gig's HUD shows its own). Load puts it on the free deck,
  * ↻ asks for another, × puts the card away until the pick changes. With
- * nothing loaded yet it suggests an opener.
+ * nothing loaded yet it suggests an opener. When someone in the crowd has
+ * shouted for a track (free play's song requests), the card is theirs: who
+ * asked, what they shouted, and Load puts their track on.
  */
 import { prefs } from '../core/prefs';
 import type { NextUp } from '../app/nextup';
-import { h, setText } from './dom';
+import type { SongAsk } from '../game/songRequests';
+import { h, setClass, setText } from './dom';
 import { icon } from './icons';
 
 export class NextUpCard {
@@ -17,23 +20,30 @@ export class NextUpCard {
   private why: HTMLElement;
   private loadBtn: HTMLButtonElement;
   private dismissed: string | null = null;
+  private dismissedAsk: SongAsk | null = null;
+  private another: HTMLElement;
   private on = false;
 
   constructor(
     private nu: NextUp,
-    private o: { inGig(): boolean },
+    private o: { inGig(): boolean; request?(): SongAsk | null },
   ) {
     this.label = h('span', { class: 'nu-label' });
     this.title = h('b', { class: 'nu-title' });
     this.artist = h('span', { class: 'nu-artist' });
     this.why = h('span', { class: 'nu-why mono' });
     this.loadBtn = h('button', { class: 'btn primary small', type: 'button' }) as HTMLButtonElement;
-    this.loadBtn.addEventListener('click', () => this.nu.load());
-    const another = h('button', { class: 'btn small icon', type: 'button', title: 'Suggest another', 'aria-label': 'Suggest another track' }, icon('refresh', 14));
+    this.loadBtn.addEventListener('click', () => {
+      const r = this.ask();
+      this.nu.load(r?.trackId);
+    });
+    const another = (this.another = h('button', { class: 'btn small icon', type: 'button', title: 'Suggest another', 'aria-label': 'Suggest another track' }, icon('refresh', 14)));
     another.addEventListener('click', () => this.nu.another());
     const close = h('button', { class: 'btn small icon nu-close', type: 'button', title: 'Hide until the next pick', 'aria-label': 'Hide the suggestion' }, '×');
     close.addEventListener('click', () => {
-      this.dismissed = this.nu.top()?.id ?? null;
+      const r = this.ask();
+      if (r) this.dismissedAsk = r;
+      else this.dismissed = this.nu.top()?.id ?? null;
       this.update();
     });
     this.el = h(
@@ -45,9 +55,31 @@ export class NextUpCard {
     );
   }
 
+  /** the crowd's song request, while it stands and its track isn't on yet */
+  private ask(): SongAsk | null {
+    const r = this.o.request?.() ?? null;
+    return r && r !== this.dismissedAsk && !this.nu.used(r.trackId) ? r : null;
+  }
+
   update(): void {
-    const pick = this.nu.top();
     const deck = this.nu.freeDeck();
+    const ask = this.o.inGig() ? null : this.ask();
+    setClass(this.el, 'nu-request', !!ask);
+    if (this.another.hidden !== !!ask) this.another.hidden = !!ask;
+    if (ask && deck !== null) {
+      if (!this.on) {
+        this.on = true;
+        this.el.hidden = false;
+      }
+      setText(this.label, `🎤 ${ask.who}`);
+      setText(this.title, ask.title);
+      setText(this.artist, ask.artist);
+      setText(this.why, `“${ask.shout}”`);
+      setText(this.loadBtn, `Load on ${deck}`);
+      this.loadBtn.title = `Load “${ask.title}” on deck ${deck}`;
+      return;
+    }
+    const pick = this.nu.top();
     const show = prefs.nextUp && !this.o.inGig() && !!pick && deck !== null && pick.id !== this.dismissed;
     if (show !== this.on) {
       this.on = show;

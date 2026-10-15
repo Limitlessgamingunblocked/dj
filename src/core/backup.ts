@@ -2,9 +2,14 @@
  * Settings backup: everything the app keeps in this browser's localStorage
  * (layout, preferences, keyboard shortcuts, MIDI mappings, saved camera views,
  * Set Builder options) as one JSON file to save, carry to another browser and
- * load again. The music library lives in IndexedDB and is not part of it.
+ * load again. The music library lives in IndexedDB and is not part of it, and
+ * neither is the AI key (a file gets passed around; the key stays here).
  */
+import { AI_SETTING } from './ai';
 import { PREFIX } from './settings';
+
+/** settings that never go in the file, and that loading one leaves alone */
+const PRIVATE = new Set([AI_SETTING]);
 
 export const BACKUP_KIND = 'deckhouse-settings';
 const KEY = /^[A-Za-z][\w:.-]{0,63}$/;
@@ -35,7 +40,7 @@ export function parseBackup(text: string): Record<string, unknown> {
   if (typeof b.version !== 'number' || b.version > 1) throw new Error('That settings file is from a newer version of Deckhouse.');
   if (!b.entries || typeof b.entries !== 'object' || Array.isArray(b.entries)) throw new Error('That settings file is empty or damaged.');
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(b.entries)) if (KEY.test(k) && v !== undefined) out[k] = v;
+  for (const [k, v] of Object.entries(b.entries)) if (KEY.test(k) && v !== undefined && !PRIVATE.has(k)) out[k] = v;
   return out;
 }
 
@@ -54,7 +59,7 @@ export function readAllSettings(): Record<string, unknown> {
   if (!s) return out;
   for (let i = 0; i < s.length; i++) {
     const k = s.key(i);
-    if (!k?.startsWith(PREFIX)) continue;
+    if (!k?.startsWith(PREFIX) || PRIVATE.has(k.slice(PREFIX.length))) continue;
     try {
       out[k.slice(PREFIX.length)] = JSON.parse(s.getItem(k) ?? 'null');
     } catch {
@@ -64,14 +69,14 @@ export function readAllSettings(): Record<string, unknown> {
   return out;
 }
 
-/** Remove every saved setting (the library is untouched). */
-export function clearAllSettings(): void {
+/** Remove every saved setting (the library is untouched); `keepPrivate` leaves the AI key */
+export function clearAllSettings(keepPrivate = false): void {
   const s = storage();
   if (!s) return;
   const keys: string[] = [];
   for (let i = 0; i < s.length; i++) {
     const k = s.key(i);
-    if (k?.startsWith(PREFIX)) keys.push(k);
+    if (k?.startsWith(PREFIX) && !(keepPrivate && PRIVATE.has(k.slice(PREFIX.length)))) keys.push(k);
   }
   for (const k of keys) s.removeItem(k);
 }
@@ -80,9 +85,9 @@ export function clearAllSettings(): void {
 export function restoreSettings(entries: Record<string, unknown>): boolean {
   const s = storage();
   if (!s) return false;
-  clearAllSettings();
+  clearAllSettings(true);
   try {
-    for (const [k, v] of Object.entries(entries)) s.setItem(PREFIX + k, JSON.stringify(v));
+    for (const [k, v] of Object.entries(entries)) if (!PRIVATE.has(k)) s.setItem(PREFIX + k, JSON.stringify(v));
     return true;
   } catch {
     return false;
