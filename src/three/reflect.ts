@@ -145,6 +145,9 @@ export class ReflectPass extends Pass {
   private tmp = new THREE.Vector3();
   private q = new THREE.Quaternion();
   private prevClear = new THREE.Color();
+  /** the scene's lights and their intensities, while the reflection is drawn */
+  private lights: THREE.Light[] = [];
+  private lightLevels: number[] = [];
 
   constructor(
     private scene: THREE.Scene,
@@ -269,11 +272,28 @@ export class ReflectPass extends Pass {
       renderer.shadowMap.autoUpdate = false;
       renderer.autoClear = true;
       renderer.setClearColor(0x000000, 1);
+      // the reflection shows the bright things unlit. Leaving the lights out of it changed the scene's
+      // light setup twice a frame, and three then worked out the shader again for every lit material
+      // in the room, both times. The same lights at zero give the same picture and keep the setup.
+      const lights = this.lights;
+      const levels = this.lightLevels;
+      lights.length = 0;
+      levels.length = 0;
+      this.scene.traverseVisible((o) => {
+        const l = o as THREE.Light;
+        if (!l.isLight) return;
+        l.layers.enable(REFLECT_LAYER);
+        lights.push(l);
+        levels.push(l.intensity);
+        l.intensity = 0;
+      });
       this.planes.forEach((p, i) => {
         if (!live[i]) return;
         this.renderPlane(renderer, p, this.views[i]);
         strength.setComponent(i, p.strength);
       });
+      for (let i = 0; i < lights.length; i++) lights[i].intensity = levels[i];
+      lights.length = 0;
       renderer.clippingPlanes = prevClip;
       this.scene.background = prevBg;
       renderer.shadowMap.autoUpdate = prevShadow;

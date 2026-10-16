@@ -261,7 +261,10 @@ export class Stage {
       this.lensText = { el, tl, tr, bl, br, shown: '', at: 0, since: 0 };
     }
 
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    // the club is drawn (and multisampled) in the composer's own buffers; all that reaches the canvas is
+    // full-screen quads (the lens pass, the visual player), so the canvas needs no multisampling or depth:
+    // at a Retina size those were a second 4× buffer the size of the screen, resolved every frame for nothing
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
@@ -1069,6 +1072,9 @@ export class Stage {
     this.composer.setPixelRatio(dpr);
     this.composer.setSize(w, h);
     this.lens.uniforms.uRes.value.set(w * dpr, h * dpr);
+    // the lens flare at the page's resolution: on a Retina screen, half the frame's in each direction
+    const css = Math.max(1, window.devicePixelRatio || 1);
+    this.lens.flareAt((w * dpr) / css, (h * dpr) / css);
     // pyro sparks are sized in pixels
     Pyro.pixelScale = h * dpr * 1.25;
     this.fisheyeUniforms();

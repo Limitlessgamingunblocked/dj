@@ -12,6 +12,8 @@ import type { Capture } from '../audio/capture/Capture';
 import { PcmRing } from '../audio/capture/pcm';
 import { Compositor, DEFAULT_OVERLAYS } from './Compositor';
 import { planVideo, type VideoPlan } from './MediaWriter';
+import StillWorker from './still.worker?worker&inline';
+import type { StillDone, StillJob } from './still.worker';
 
 export interface VChunk {
   /** audio clock, seconds */
@@ -46,6 +48,8 @@ export interface ReplaySnap {
 export const BUFFER_VIDEO = { w: 1280, h: 720, fps: 30, bitrate: 2_000_000 } as const;
 const STILL_EVERY = 2;
 const STILL_KEEP = 60 * 60;
+const STILL_W = 192;
+const STILL_H = 108;
 
 /** memory the buffer uses once it's full */
 export function replayBytes(minutes: number, video: boolean, rate = 48000): number {
@@ -76,6 +80,14 @@ export class Replay {
   private stills: Still[] = [];
   private stillCanvas: HTMLCanvasElement;
   private lastStill = -1e9;
+  /** a still on its way through the worker */
+  private stillPending = false;
+  private stillId = 0;
+  /** picture time of each still in the worker, by job */
+  private stillAt = new Map<number, number>();
+  private stillFails = 0;
+  /** undefined: not made yet */
+  private worker: Worker | null | undefined = undefined;
   private lastFrame = -1e9;
   private lastKey = -1e9;
   private hook = (c: HTMLCanvasElement) => this.onFrame(c);
@@ -88,8 +100,8 @@ export class Replay {
     private pictureTime: () => number,
   ) {
     this.stillCanvas = document.createElement('canvas');
-    this.stillCanvas.width = 192;
-    this.stillCanvas.height = 108;
+    this.stillCanvas.width = STILL_W;
+    this.stillCanvas.height = STILL_H;
     frameHooks.add(this.hook);
   }
 
@@ -171,27 +183,74 @@ export class Replay {
   /** stills are wanted while a recording runs, even with the buffer off */
   wantStills = false;
 
+  private addStill(t: number, blob: Blob): void {
+    this.stills.push({ t, blob });
+    while (this.stills.length && this.stills[0].t < t - STILL_KEEP) this.stills.shift();
+  }
+
+  /** the stills' worker (null where there's no OffscreenCanvas, or it failed) */
+  private stillWorker(): Worker | null {
+    if (this.worker !== undefined) return this.worker;
+    this.worker = null;
+    if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined' || typeof createImageBitmap === 'undefined') return null;
+    try {
+      const w = new StillWorker();
+      w.onmessage = (e: MessageEvent<StillDone>) => this.stillDone(e.data);
+      w.onerror = () => this.dropWorker();
+      this.worker = w;
+    } catch {
+      this.worker = null;
+    }
+    return this.worker;
+  }
+
+  /** back to the main thread for the rest of the session */
+  private dropWorker(): void {
+    this.worker?.terminate();
+    this.worker = null;
+    this.stillAt.clear();
+    this.stillPending = false;
+  }
+
+  private stillDone({ id, blob }: StillDone): void {
+    const t = this.stillAt.get(id);
+    this.stillAt.delete(id);
+    this.stillPending = false;
+    this.stillFails = blob ? 0 : this.stillFails + 1;
+    if (blob && t !== undefined) this.addStill(t, blob);
+    // a browser whose worker can't make them: the main thread can
+    if (this.stillFails >= 3) this.dropWorker();
+  }
+
   private onFrame(canvas: HTMLCanvasElement): void {
     if (!this.on && !this.wantStills) return;
     const pt = this.pictureTime();
-    if (pt - this.lastStill >= STILL_EVERY) {
+    if (pt - this.lastStill >= STILL_EVERY && !this.stillPending) {
       this.lastStill = pt;
-      const c = this.stillCanvas;
-      const g = c.getContext('2d')!;
       const sw = canvas.width;
       const sh = canvas.height;
       const cw = Math.min(sw, (sh * 16) / 9);
       const ch = Math.min(sh, (sw * 9) / 16);
-      g.drawImage(canvas, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, c.width, c.height);
-      c.toBlob(
-        (b) => {
-          if (!b) return;
-          this.stills.push({ t: pt, blob: b });
-          while (this.stills.length && this.stills[0].t < pt - STILL_KEEP) this.stills.shift();
-        },
-        'image/jpeg',
-        0.72,
-      );
+      const crop = { sx: (sw - cw) / 2, sy: (sh - ch) / 2, sw: cw, sh: ch };
+      const w = this.stillWorker();
+      if (w) {
+        // a copy of the frame (on the GPU, no waiting), shrunk and made a JPEG in the worker
+        this.stillPending = true;
+        const id = ++this.stillId;
+        this.stillAt.set(id, pt);
+        createImageBitmap(canvas).then(
+          (bitmap) => {
+            const job: StillJob = { id, bitmap, ...crop, w: STILL_W, h: STILL_H };
+            w.postMessage(job, [bitmap]);
+          },
+          () => this.stillDone({ id, blob: null }),
+        );
+      } else {
+        // no worker here: shrink it on the main thread (the read back waits for the GPU)
+        const c = this.stillCanvas;
+        c.getContext('2d')!.drawImage(canvas, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, c.width, c.height);
+        c.toBlob((b) => b && this.addStill(pt, b), 'image/jpeg', 0.72);
+      }
     }
     const enc = this.enc;
     if (!this.on || !enc || enc.state !== 'configured' || !this.comp) return;
@@ -257,6 +316,8 @@ export class Replay {
 
   dispose(): void {
     this.frameHooks.delete(this.hook);
+    this.worker?.terminate();
+    this.worker = null;
     this.stopVideo();
   }
 }
