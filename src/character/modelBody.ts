@@ -36,6 +36,7 @@ import { ROBOT_HANDS, ROBOT_HEADS } from './catalog';
 import { slider } from './look';
 import { slimSkin } from './slim';
 import { smoothSkin } from './skinSmooth';
+import { freeTorso } from './limbSkin';
 
 /** a scan's light copy of its body (scripts/scan/lod.mjs): the same points, fewer triangles */
 const LOD = 'scan_lod';
@@ -594,6 +595,8 @@ export function preloadScan(name: string, then?: () => void): void {
           const sm = o as THREE.SkinnedMesh;
           if (!sm.isSkinnedMesh || sm.name === LOD) return;
           // (the shoulders most: an arm going up pulls the shirt from the chest)
+          // (the sides of the shirt are the body's, not the arm's: raised arms don't drag them up into wings)
+          freeTorso(sm);
           const shoulders = sm.skeleton.bones.flatMap((b, i) => (/^(shoulder|upper_arm)_[lr]$/.test(b.name) ? [i] : []));
           smoothSkin(sm.geometry, SKIN_PASSES, 0.5, { bones: shoulders, passes: SHOULDER_PASSES });
           slimSkin(sm);
