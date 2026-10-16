@@ -308,3 +308,31 @@ The Show tab lists every look. Auto, the Y key and MIDI learn work as before.
 - **Fill.** One extra full-screen-ish pass was added: the 128×256 light map, plus two tiny reads for the wall colour. Haze slices are full-screen additive quads: 7 on Medium, 12 on High.
 - **Not measured.** Real-GPU fill rate couldn't be measured here (software rendering only).
 
+
+## Running faster (October 2026, second pass)
+
+A pass aimed at the Mac desktop app, where the window is drawn at twice its size (Retina) on High. Nothing on screen changes.
+
+**How it was measured.** The same container as above (no GPU; Chrome with SwiftShader on 4 cores). A 1 px read-back after each step forces the software GPU to finish, so the time between two of them is that step's rendering work: not real-GPU milliseconds, but the right proportions for what each step costs. High quality, adaptive quality off, deck 1 playing, a 1440×900 window at 2× (a 1676×910 canvas). Shader bookkeeping is counted by wrapping `customProgramCacheKey`, which three.js calls each time it re-derives a material's program.
+
+**Where a frame goes** (Warehouse, wide view, at 2×, before):
+
+| Step | Share |
+|---|---:|
+| The 3D scene (crowd about a third of the whole frame, then the room's lit surfaces, lights and haze) | 70 % |
+| Lens output pass (streaks, ghosts, stars, grade) | 13 % |
+| Floor reflection, contact shadow, bloom | 13 % |
+| Visual player, show reflections, shadow map | 5 % |
+
+**What changed and what it saved:**
+
+| Change | Before → after |
+|---|---|
+| Lens flare at the page resolution on Retina (`lens.ts`) | lens pass 1,049 → 404 ms per software frame (−61 %, about 8 % of the whole frame) |
+| Reflection keeps the lights, at zero (`reflect.ts`) | materials re-derived per frame: Warehouse wide 282 → 66, Warehouse board view 217 → 48, Festival wide 298 → 88 (Beach, no reflective floor: 14 → 14) |
+| Replay stills in a worker (`Replay.ts`, `still.worker.ts`) | the game's frame blocked on the still for up to 2.1 s here (one frame's GPU work, every two seconds) → 0.3 ms |
+| No multisampling or depth on the canvas (`Stage.ts`) | removes a 4× colour and depth buffer the size of the screen (about 165 MB at 2880×1800) and its resolve every frame; not measurable in software |
+
+The flare was checked side by side on a frozen festival frame at 2×, inline and in its own pass: the streaks and stars look the same at 1:1. The board, split and visual-player views were checked after the canvas change.
+
+**Not done here, and the biggest cost left: the crowd.** Every dancer's pose is worked out again for each of their ~2,400 vertices in the vertex shader. At the warehouse the crowd is 2.2M triangles in the board view and about a third of the frame at Retina size, half at 1×. The fix is to work each person's bones out once per frame into a small texture the vertex shader reads, which should cut the crowd's vertex work several times over with the same picture. The realistic-crowd change in review rewrites the same shader, so this waits for it to land.
