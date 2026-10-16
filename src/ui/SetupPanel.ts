@@ -3,7 +3,7 @@
  * Appearance, decks, audio, board & camera, show, performance, keyboard and
  * your settings file (export / import / reset). MIDI follows in its own pane.
  */
-import { AI_LOCAL_URLS, aiSettings, FREELLMAPI_KEY, problemText, setAi, testAi, AiError } from '../core/ai';
+import { aiSettings, keyServer, OMNIROUTE_URLS, problemText, serverAt, setAi, testAi, AiError } from '../core/ai';
 import { saveFile } from '../core/download';
 import type { Career } from '../game/Career';
 import { cleanName, cleanTagline, NAME_MAX, TAGLINE_MAX } from '../core/models';
@@ -435,7 +435,7 @@ export class SetupPanel {
     );
   }
 
-  /** the crowd's song requests, and the AI that writes them (FreeLLMAPI on this computer) */
+  /** the crowd's song requests, and the AI that writes them (OmniRoute or FreeLLMAPI on this computer) */
   private aiCrowd(): HTMLElement {
     const text = (type: string, placeholder: string, get: () => string, set: (v: string) => void): HTMLInputElement => {
       const inp = h('input', { type, placeholder, spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
@@ -449,19 +449,20 @@ export class SetupPanel {
       });
       return inp;
     };
-    const key = text('password', 'freellmapi-…', () => aiSettings().key, (v) => setAi({ key: v }));
-    const url = text('url', `Finds it on this computer (${AI_LOCAL_URLS[0].replace(/^https?:\/\//, '')})`, () => aiSettings().url, (v) => setAi({ url: v }));
+    const key = text('password', 'sk-… or freellmapi-…', () => aiSettings().key, (v) => setAi({ key: v }));
+    const url = text('url', `Finds it on this computer (${OMNIROUTE_URLS[0].replace(/^https?:\/\//, '')} and FreeLLMAPI’s ports)`, () => aiSettings().url, (v) => setAi({ url: v }));
     const model = text('text', 'auto', () => (aiSettings().model === 'auto' ? '' : aiSettings().model), (v) => setAi({ model: v || 'auto' }));
     const state = h('p', { class: 'note set-row ai-state', role: 'status', 'aria-live': 'polite' });
     const status = (msg?: string) => {
       const s = aiSettings();
+      const from = keyServer(s.key);
       state.textContent =
         msg ??
         (!s.key
           ? 'No key: the crowd uses its own lines. Paste a key to let the AI write them.'
-          : FREELLMAPI_KEY.test(s.key)
-            ? 'Key saved on this computer. The crowd’s requests come from the AI.'
-            : 'Key saved. It doesn’t look like a FreeLLMAPI key (freellmapi- and 48 letters and numbers), but another OpenAI-style server’s key works too.');
+          : from
+            ? `${from} key saved on this computer. The crowd’s requests come from the AI.`
+            : 'Key saved. It doesn’t look like an OmniRoute key (sk-…) or a FreeLLMAPI key (freellmapi-…), but another OpenAI-style server’s key works too.');
     };
     status();
     const test = h('button', { class: 'btn small', type: 'button' }, 'Test') as HTMLButtonElement;
@@ -470,7 +471,8 @@ export class SetupPanel {
       status('Asking the AI…');
       try {
         const at = await testAi();
-        status(`It works: the AI answered from ${at}.`);
+        const name = serverAt(at);
+        status(`It works: ${name ? `${name} answered` : 'the AI answered'} from ${at}.`);
       } catch (e) {
         status(e instanceof AiError ? problemText(e.problem) : problemText('server'));
       } finally {
@@ -488,17 +490,18 @@ export class SetupPanel {
     const trusted = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\]):5173$/.test(origin);
     return this.card(
       'AI crowd',
-      'ai llm freellmapi key api crowd requests song shout request chatgpt model',
+      'ai llm omniroute freellmapi key api crowd requests song shout request chatgpt model',
       this.prefCheck('crowdRequests', 'People in the crowd shout song requests in free play', 'request song shout crowd ask', 'They ask for tracks from your library. In a gig they always do, and a played request scores.'),
-      this.row('FreeLLMAPI key', key, 'api key token unified secret', 'From FreeLLMAPI → Keys → Unified API key. It stays in this browser and is never in your settings file.'),
+      this.row('AI key', key, 'api key token unified secret omniroute freellmapi', 'From OmniRoute → API Keys, or FreeLLMAPI → Keys → Unified API key. It stays in this browser and is never in your settings file.'),
       h('div', { class: 'set-row toggle-row', 'data-k': 'test forget key ai' }, test, forget),
       state,
-      this.row('Server address', url, 'url host port endpoint base openai', 'Leave empty to find FreeLLMAPI on this computer. Any OpenAI-style server works: its address ends in /v1.'),
-      this.row('Model', model, 'model llm router', 'Empty is “auto”: FreeLLMAPI picks a free model.'),
+      this.row('Server address', url, 'url host port endpoint base openai', 'Leave empty to find OmniRoute or FreeLLMAPI on this computer. Any OpenAI-style server works: its address ends in /v1.'),
+      this.row('Model', model, 'model llm router combo', 'Empty is “auto”: the server picks a free model. OmniRoute also knows auto/fast, auto/cheap and your own combos.'),
       h(
         'p',
-        { class: 'note set-row', 'data-k': 'freellmapi cors origins dashboard_origins setup install' },
-        'FreeLLMAPI is free and runs on your computer: get it from github.com/tashfeenahmed/freellmapi, add your free provider keys there, and copy its unified key here. ',
+        { class: 'note set-row', 'data-k': 'omniroute freellmapi cors origins dashboard_origins setup install' },
+        'Both are free and run on your computer. OmniRoute (github.com/diegosouzapw/OmniRoute): start it, connect a free provider under Providers, make a key under API Keys and paste it here; it lets the game in by itself. ',
+        'FreeLLMAPI (github.com/tashfeenahmed/freellmapi): add your free provider keys there and copy its unified key here. ',
         trusted ? 'It already trusts this page.' : `It only answers pages it trusts, so start it with DASHBOARD_ORIGINS=${origin || 'null'} (in its .env file, or before npm start).`,
         ' Without a key, or when the AI is busy, the crowd still asks with its own lines.',
       ),
