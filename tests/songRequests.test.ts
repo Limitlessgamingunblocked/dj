@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AI_LOCAL_URLS, AiError, chat, cleanAi, setAi } from '../src/core/ai';
+import { AI_LOCAL_URLS, AiError, chat, cleanAi, FREELLMAPI_URLS, keyServer, OMNIROUTE_URLS, setAi } from '../src/core/ai';
 import { BACKUP_KIND, parseBackup } from '../src/core/backup';
 import { Requests, type RequestInput } from '../src/game/requests';
 import { builtInAsk, parseRequest, requestPrompt, shortlist, shoutTitle, SIGN_MAX, SHOUT_MAX, type AskContext, type SongAsk, type SongCandidate } from '../src/game/songRequests';
@@ -142,16 +142,64 @@ describe('the AI connection', () => {
     const calls: [string, RequestInit][] = [];
     vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
       calls.push([url, init]);
-      if (url.startsWith(AI_LOCAL_URLS[0])) throw new TypeError('Failed to fetch');
+      if (url.startsWith(FREELLMAPI_URLS[0])) throw new TypeError('Failed to fetch');
       return ok('ready');
     });
     expect(await chat([{ role: 'user', content: 'hi' }])).toBe('ready');
-    expect(calls.map((c) => c[0])).toEqual([`${AI_LOCAL_URLS[0]}/chat/completions`, `${AI_LOCAL_URLS[1]}/chat/completions`]);
+    // a FreeLLMAPI key looks on FreeLLMAPI's ports first
+    expect(calls.map((c) => c[0])).toEqual([`${FREELLMAPI_URLS[0]}/chat/completions`, `${FREELLMAPI_URLS[1]}/chat/completions`]);
     expect((calls[1][1].headers as Record<string, string>).Authorization).toBe(`Bearer freellmapi-${'a'.repeat(48)}`);
     expect(JSON.parse(calls[1][1].body as string)).toMatchObject({ model: 'auto' });
     // the port that answered is the one used from then on
     await chat([{ role: 'user', content: 'again' }]);
-    expect(calls[2][0]).toBe(`${AI_LOCAL_URLS[1]}/chat/completions`);
+    expect(calls[2][0]).toBe(`${FREELLMAPI_URLS[1]}/chat/completions`);
+  });
+
+  const omniKey = 'sk-0123456789abcdef-a1b2c3-0badf00d';
+
+  it('tells OmniRoute keys from FreeLLMAPI keys, and not an OpenAI key', () => {
+    expect(keyServer(omniKey)).toBe('OmniRoute');
+    expect(keyServer('sk-ab12cd34')).toBe('OmniRoute');
+    expect(keyServer('freellmapi-' + 'a'.repeat(48))).toBe('FreeLLMAPI');
+    expect(keyServer('sk-proj-' + 'x'.repeat(40))).toBeNull();
+    expect(AI_LOCAL_URLS).toEqual([...OMNIROUTE_URLS, ...FREELLMAPI_URLS]);
+  });
+
+  it('finds OmniRoute on its port with an OmniRoute key', async () => {
+    setAi({ key: omniKey });
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push(url);
+      return url.startsWith(OMNIROUTE_URLS[0]) ? ok('ready') : new Response('{}', { status: 401 });
+    });
+    expect(await chat([{ role: 'user', content: 'hi' }])).toBe('ready');
+    expect(calls).toEqual([`${OMNIROUTE_URLS[0]}/chat/completions`]);
+  });
+
+  it('keeps looking when a server turns the key down, since it may be the other server’s key', async () => {
+    setAi({ key: 'some-other-key' });
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', async (url: string) => {
+      calls.push(url);
+      if (url.startsWith(OMNIROUTE_URLS[0])) return new Response('{}', { status: 401 });
+      if (url.startsWith(FREELLMAPI_URLS[0])) throw new TypeError('Failed to fetch');
+      return ok('ready');
+    });
+    expect(await chat([{ role: 'user', content: 'hi' }])).toBe('ready');
+    expect(calls).toHaveLength(3);
+    // and when nobody takes it, the player hears about the key, not a missing server
+    vi.stubGlobal('fetch', async (url: string) => {
+      if (url.startsWith(OMNIROUTE_URLS[0])) return new Response('{}', { status: 401 });
+      throw new TypeError('Failed to fetch');
+    });
+    setAi({ key: 'some-other-key' });
+    await expect(chat([{ role: 'user', content: 'hi' }])).rejects.toMatchObject({ problem: 'key' });
+  });
+
+  it('says when OmniRoute has no AI models connected yet', async () => {
+    setAi({ key: omniKey, url: 'http://localhost:20128/v1' });
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: { message: 'No active credentials for provider: openai' } }), { status: 401 }));
+    await expect(chat([{ role: 'user', content: 'hi' }])).rejects.toMatchObject({ problem: 'no-models' });
   });
 
   it('says what went wrong', async () => {
