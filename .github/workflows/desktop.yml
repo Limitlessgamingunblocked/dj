@@ -112,7 +112,7 @@ jobs:
   preview:
     name: Publish the preview
     needs: build
-    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'claude/mac-build-all-updates'
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'claude/mac-build-full'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -127,5 +127,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           ls -la out
-          gh release delete desktop-preview-all-updates --cleanup-tag --yes || true
-          gh release create desktop-preview-all-updates out/*-mac-*.zip out/*.dmg out/*.exe out/*.AppImage --target "$GITHUB_SHA" --prerelease --latest=false --title "Deckhouse DJ preview: every update but the new characters (build ${{ github.run_number }})" --notes "Built from ${GITHUB_SHA::7} on claude/mac-build-all-updates. This build doesn't update itself."
+          gh release delete desktop-preview-full --cleanup-tag --yes || true
+          gh release create desktop-preview-full out/*-mac-*.zip out/*.dmg out/*.exe out/*.AppImage --target "$GITHUB_SHA" --prerelease --latest=false --title "Deckhouse DJ preview: every update, the realistic people included (build ${{ github.run_number }})" --notes "Built from ${GITHUB_SHA::7} on claude/mac-build-full. This build doesn't update itself."
