@@ -287,11 +287,16 @@ export class ReflectPass extends Pass {
         levels.push(l.intensity);
         l.intensity = 0;
       });
+      // the main pass has just worked out every object's place this frame: don't go through all of them again for
+      // each surface (thousands of objects in a big room, twice a frame)
+      const prevWorld = this.scene.matrixWorldAutoUpdate;
+      this.scene.matrixWorldAutoUpdate = false;
       this.planes.forEach((p, i) => {
         if (!live[i]) return;
         this.renderPlane(renderer, p, this.views[i]);
         strength.setComponent(i, p.strength);
       });
+      this.scene.matrixWorldAutoUpdate = prevWorld;
       for (let i = 0; i < lights.length; i++) lights[i].intensity = levels[i];
       lights.length = 0;
       renderer.clippingPlanes = prevClip;
