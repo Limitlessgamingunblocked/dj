@@ -39,7 +39,7 @@ describe('the lens flare at the page resolution', () => {
   });
 });
 
-describe('the floor reflection keeps the light setup', () => {
+describe('the floor reflection keeps the light setup and the matrices', () => {
   it('draws with the same lights at zero, then puts them back', () => {
     const scene = new THREE.Scene();
     const key = new THREE.SpotLight(0xffffff, 15);
@@ -56,6 +56,7 @@ describe('the floor reflection keeps the light setup', () => {
     pass.floor = { y: 0, strength: 0.5 };
     // a renderer that only records what the reflection was drawn with
     const seen: number[][] = [];
+    const worldAuto: boolean[] = [];
     const renderer = {
       clippingPlanes: [] as THREE.Plane[],
       autoClear: true,
@@ -66,7 +67,10 @@ describe('the floor reflection keeps the light setup', () => {
       setRenderTarget: () => {},
       clear: () => {},
       render: (s: THREE.Object3D) => {
-        if (s === scene) seen.push([key.intensity, fill.intensity, off.intensity]);
+        if (s === scene) {
+          seen.push([key.intensity, fill.intensity, off.intensity]);
+          worldAuto.push(scene.matrixWorldAutoUpdate);
+        }
       },
     } as unknown as THREE.WebGLRenderer;
     pass.render(renderer, target(4, 4), target(4, 4));
@@ -78,5 +82,8 @@ describe('the floor reflection keeps the light setup', () => {
     expect(key.layers.test(layer) && fill.layers.test(layer)).toBe(true);
     // and the main camera still does
     expect(key.layers.test(cam.layers)).toBe(true);
+    // the main pass has placed everything this frame: the reflection doesn't go through every object's matrix again
+    expect(worldAuto).toEqual([false]);
+    expect(scene.matrixWorldAutoUpdate).toBe(true);
   });
 });
