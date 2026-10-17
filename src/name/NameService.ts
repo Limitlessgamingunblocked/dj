@@ -292,7 +292,8 @@ export class NameService {
     u.uGlitch.value = fx.glitch;
     u.uFlash.value = fx.flash;
     u.uBreath.value = fx.breath;
-    u.uScreen.value = fx.screen;
+    // (the LED walls only put up a name you've chosen: unnamed, the house name would sit over the visuals like a giant logo)
+    u.uScreen.value = this.named ? fx.screen : 0;
     u.uTime.value += dt;
   }
 }

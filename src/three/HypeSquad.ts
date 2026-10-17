@@ -1,18 +1,21 @@
 /*
  * The side dancers: two dancers on lit podiums either side of the DJ.
- * They dance on the beat with smooth, blended moves (hip sway, hands up,
- * shimmy, body roll, pointing at you), clap through the build and jump on
- * the drop. Built on the same procedural avatar as you (Avatar's 'hype'
- * mode, not the scanned characters); their looks are club outfits (crop,
- * mesh or sequin tops with cargos, flares, jeans or skirts, trainers,
- * platforms or boots) with skin, hair and colours varied by seed, so each
- * venue has its own pair. Off in the bedroom, the naming scene and anywhere
- * you've been put somewhere else.
+ * They're the realistic women from the dance floor (scanned people, like
+ * the DJ and the regulars), dancing the floor's women's moves on the beat
+ * (the hip sway, the body roll, the shimmy, hands up, pointing at you),
+ * clapping through the build and jumping on the drop; each venue has its
+ * own pair, never the same woman twice. Off in the bedroom, the naming
+ * scene and anywhere you've been put somewhere else.
+ *
+ * (hypeLook is the code-built go-go look they used to wear: it's still
+ * what a dancer falls back to where the scans aren't in the build.)
  */
 import * as THREE from 'three';
 import { Avatar, type AvatarInput } from '../character/Avatar';
-import { NATURAL_HAIR, SKIN_TONES, WILD_HAIR } from '../character/catalog';
-import { defaultLook } from '../character/look';
+import { NATURAL_HAIR, OUTFIT_SETS, SKIN_TONES, WILD_HAIR } from '../character/catalog';
+import { ClubDancer } from '../character/clubDance';
+import { defaultLook, wearSet } from '../character/look';
+import { regularMoves } from './Regulars';
 import type { Look } from '../core/models';
 
 /** where the pair stand, per venue (x of the right-hand podium; the left mirrors it) */
@@ -126,12 +129,29 @@ export function hypeLook(seed: number): Look {
   };
   l.tattoos = [];
   l.piercings = r() < 0.5 ? ['ear_lobe_l', 'ear_lobe_r'] : [];
+  // (code-built from head to toe: not the DJ's scanned body the default look wears)
+  delete l.options.scan;
   return l;
+}
+
+/** the realistic women who dance on the podiums (not the disco one: her scan's hands are crumpled, and up there they're in your face) */
+export const SIDE_DANCERS = ['sunrise_set', 'basement_dweller', 'afterhours'];
+/** how tall they stand (the scans come a little short) */
+const TALL = 1.68;
+
+/** a side dancer's look: one of the realistic women (the pair in a venue are always two different ones) */
+export function sideDancerLook(seed: number, k: 0 | 1): Look {
+  const set = OUTFIT_SETS.find((s) => s.id === SIDE_DANCERS[(seed + k) % SIDE_DANCERS.length]);
+  const l = defaultLook(`side_${seed}_${k}`, 'Side dancer');
+  if (!set?.options?.scan) return hypeLook(seed + k);
+  return wearSet(l, set);
 }
 
 export class HypeSquad {
   readonly group = new THREE.Group();
   private dancers: Avatar[] = [];
+  /** each dancer stood at her height once her scan's in */
+  private stood: boolean[] = [];
   private podiums = new THREE.Group();
   private ringMats: THREE.MeshBasicMaterial[] = [];
   private venue = '';
@@ -152,15 +172,21 @@ export class HypeSquad {
     if (!this.spot) return;
     const seed = [...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) & 0xffff;
     for (const side of [-1, 1]) {
-      const av = new Avatar(hypeLook(seed + (side > 0 ? 1 : 0)));
+      const k = side > 0 ? 1 : 0;
+      const look = sideDancerLook(seed, k);
+      const av = new Avatar(look);
       av.mode = 'hype';
       av.side = side;
       av.seed = side > 0 ? 3 : 0;
+      // the floor's moves, her own order, changing at a different bar to the other one, the hand nearer the DJ leading
+      const own = seed + k * 5;
+      av.club = new ClubDancer(regularMoves(true, own), side > 0 ? 'l' : 'r', k * 4, 0.3 + 0.4 * k);
       av.object.position.set(side * this.spot.x, this.spot.podium, this.spot.z);
       // facing the room, turned a little towards the middle
       av.object.rotation.y = Math.PI - side * 0.35;
       this.group.add(av.object);
       this.dancers.push(av);
+      this.stood.push(!look.options.scan);
       if (this.spot.podium > 0) this.podium(side * this.spot.x, this.spot.z, this.spot.podium);
     }
   }
@@ -187,6 +213,7 @@ export class HypeSquad {
       d.dispose();
     }
     this.dancers = [];
+    this.stood = [];
     this.podiums.traverse((o) => {
       const m = o as THREE.Mesh;
       if (m.isMesh) {
@@ -202,11 +229,28 @@ export class HypeSquad {
   update(s: AvatarInput, color: THREE.Color, show: boolean, dt: number): void {
     this.group.visible = this.enabled && show && this.dancers.length > 0;
     if (!this.group.visible) return;
-    for (const d of this.dancers) d.update(s, dt);
+    this.dancers.forEach((d, i) => {
+      d.update(s, dt);
+      if (!this.stood[i]) this.stood[i] = standTall(d, TALL);
+    });
     for (const m of this.ringMats) m.color.copy(color).multiplyScalar(0.8 + s.kick * 1.4 + s.peak * 0.5);
   }
 
   dispose(): void {
     this.clear();
   }
+}
+
+/** a scanned dancer stood at `tall` metres, once her scan's in; false until then */
+function standTall(av: Avatar, tall: number): boolean {
+  let body: THREE.Mesh | null = null;
+  av.object.traverse((o) => {
+    if (o.name === 'scan_body') body = o as THREE.Mesh;
+  });
+  const geo = (body as THREE.Mesh | null)?.geometry;
+  if (!geo) return false;
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  const h = geo.boundingBox!.max.y;
+  av.object.scale.setScalar(h > 1 ? tall / h : 1);
+  return true;
 }

@@ -36,6 +36,8 @@ import { ROBOT_HANDS, ROBOT_HEADS } from './catalog';
 import { slider } from './look';
 import { slimSkin } from './slim';
 import { smoothSkin } from './skinSmooth';
+import { bendJoints, freeTorso, ironJoints } from './limbSkin';
+import { healSeams } from './scanNormals';
 
 /** a scan's light copy of its body (scripts/scan/lod.mjs): the same points, fewer triangles */
 const LOD = 'scan_lod';
@@ -581,6 +583,23 @@ function mipmapped(material: THREE.Material | THREE.Material[]): void {
   }
 }
 
+/**
+ * A scan without its surface-detail map (the normal map). Its colours already carry the folds and
+ * the shading; what the map added on top, once the texture was re-laid in pieces, was blotches and
+ * flat panels on faces (dark patches down a cheek, a line through the lips) and nothing you could
+ * see on the clothes at the distances they're seen from. (And one texture less on the graphics card
+ * per person.)
+ */
+function plainSkin(material: THREE.Material | THREE.Material[]): void {
+  for (const m of Array.isArray(material) ? material : [material]) {
+    const s = m as THREE.MeshStandardMaterial;
+    if (!s.normalMap) continue;
+    s.normalMap.dispose();
+    s.normalMap = null;
+    s.needsUpdate = true;
+  }
+}
+
 /** start loading a scanned character (once); `then` runs when it's ready */
 export function preloadScan(name: string, then?: () => void): void {
   if (!hasModel(name) || scans.has(name)) return;
@@ -594,11 +613,23 @@ export function preloadScan(name: string, then?: () => void): void {
           const sm = o as THREE.SkinnedMesh;
           if (!sm.isSkinnedMesh || sm.name === LOD) return;
           // (the shoulders most: an arm going up pulls the shirt from the chest)
+          // (the sides of the shirt are the body's, not the arm's: raised arms don't drag them up into wings)
+          freeTorso(sm);
+          // (and the elbows and knees bend in a curve, not a ragged fold)
+          bendJoints(sm);
+          ironJoints(sm);
           const shoulders = sm.skeleton.bones.flatMap((b, i) => (/^(shoulder|upper_arm)_[lr]$/.test(b.name) ? [i] : []));
           smoothSkin(sm.geometry, SKIN_PASSES, 0.5, { bones: shoulders, passes: SHOULDER_PASSES });
           slimSkin(sm);
+          // (lit as one smooth surface, not in panels along the texture's cuts)
+          healSeams(sm.geometry);
         });
-        m.scene.traverse((o) => (o as THREE.Mesh).isMesh && mipmapped((o as THREE.Mesh).material));
+        m.scene.traverse((o) => {
+          if (!(o as THREE.Mesh).isMesh) return;
+          const mat = (o as THREE.Mesh).material;
+          plainSkin(mat);
+          mipmapped(mat);
+        });
         scans.set(name, m.scene);
       })
       .catch((e) => console.warn('scanned character failed to load', name, e));
