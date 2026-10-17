@@ -3,14 +3,35 @@ import * as THREE from 'three';
 
 const cache = new Map<string, THREE.CanvasTexture>();
 
+/*
+ * Textures with words on them (posters, signs, flyers), drawn again when the
+ * web fonts arrive. The first room is built before they have, and until then
+ * the words come out in a much wider fallback font that runs off the poster.
+ */
+const worded: (() => void)[] = [];
+if (typeof document !== 'undefined' && document.fonts) {
+  const again = () => worded.forEach((f) => f());
+  document.fonts.addEventListener?.('loadingdone', again);
+  void document.fonts.ready.then(again);
+}
+
 export function canvasTexture(key: string, w: number, h: number, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void, o: { srgb?: boolean; repeat?: boolean } = {}): THREE.CanvasTexture {
   const hit = cache.get(key);
   if (hit) return hit;
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  draw(c.getContext('2d')!, w, h);
+  const g = c.getContext('2d')!;
+  const plain = g.font;
+  draw(g, w, h);
   const t = new THREE.CanvasTexture(c);
+  if (g.font !== plain)
+    worded.push(() => {
+      // setting the size clears the canvas and its state
+      c.width = w;
+      draw(c.getContext('2d')!, w, h);
+      t.needsUpdate = true;
+    });
   if (o.srgb !== false) t.colorSpace = THREE.SRGBColorSpace;
   if (o.repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = 8;

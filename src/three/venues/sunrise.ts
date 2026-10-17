@@ -19,6 +19,7 @@ import type { VenueDef, VenueViews } from './base';
 import { boothClutter } from './details';
 import { Dresser } from './dress';
 import { FarCrowd, scatter } from './farcrowd';
+import { leafClump } from './foliage';
 import { Balloons, Birds } from './landmarks';
 import { crewArc, security, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, Globes, HazeLayer, MovingHeads, speaker, TABLE_Y } from './fixtures';
@@ -65,7 +66,8 @@ class Sunrise extends OpenAir {
         { label: 'Down the hill', from: { pos: V(8, groundY(8, -15) + 2, -15), target: V(0, 2, 6) }, to: { pos: V(5, groundY(5, -12) + 2.4, -12), target: V(0, 2, 6) }, fov: 38 },
       ],
     },
-    crowd: { pos: V(1.4, 0.9, -6.2), target: V(0, 1.7, 6) },
+    // a head taller than the people round it: the hill has already risen here, and at 0.9 the camera was inside someone
+    crowd: { pos: V(1.4, groundY(1.4, -6.2) + 1.9, -6.2), target: V(0, 1.2, 6) },
     drone: [V(0, 5, 10), V(12, 4, 2), V(18, 6, -16), V(10, 9, -40), V(0, 12, -50), V(-10, 9, -40), V(-18, 6, -16), V(-12, 4, 2), V(0, 3, 24)],
     extra: { cctv: { pos: V(14, 4, 5), target: V(0, 0, -10) }, crane: { radius: 6, low: 1.4, high: 6 } },
   };
@@ -276,7 +278,7 @@ class Sunrise extends OpenAir {
     }
     // the frame dressed: greenery along the front beam, vines hanging, drapes tied at the front posts
     for (let x = -5.6; x <= 5.6; x += 0.32) {
-      d.put('foliage', new THREE.IcosahedronGeometry(0.16 + d.r() * 0.14, 0).translate(x, 4.62 + (d.r() - 0.5) * 0.12, -1.2 + (d.r() - 0.5) * 0.2));
+      d.put('foliage', leafClump(0.16 + d.r() * 0.14, d.r).translate(x, 4.62 + (d.r() - 0.5) * 0.12, -1.2 + (d.r() - 0.5) * 0.2));
       if (d.r() < 0.45) {
         const len = 0.5 + d.r() * 1.1;
         d.put('leaf', new THREE.PlaneGeometry(0.1, len, 1, 2).translate(x + (d.r() - 0.5) * 0.2, 4.55 - len / 2, -1.25));

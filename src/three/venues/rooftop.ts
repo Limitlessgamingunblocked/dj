@@ -14,11 +14,13 @@
  */
 import * as THREE from 'three';
 import type { FloorReflect } from '../reflect';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { nameStyleFor } from '../../name/venueStyles';
 import type { Features } from '../../visualizer/AudioFeatures';
 import type { VenueDef, VenueViews } from './base';
 import { barCounter, boothClutter } from './details';
 import { Dresser } from './dress';
+import { leafClump, leafTexture } from './foliage';
 import { atBar, crewArc, vipCrew } from './crew';
 import { booth, Crowd, crowdArea, HazeLayer, LedStrings, MovingHeads, speaker, TABLE_Y } from './fixtures';
 import { moments, setClock } from './moments';
@@ -78,13 +80,10 @@ function planter(seed: number, w: number): THREE.Group {
   const box = new THREE.Mesh(new THREE.BoxGeometry(w, 0.6, 0.6), new THREE.MeshStandardMaterial({ color: 0x2a2c30, roughness: 0.7 }));
   box.position.y = 0.3;
   g.add(box);
-  const leaf = new THREE.MeshStandardMaterial({ color: 0x2f5a2a, roughness: 0.85, flatShading: true });
-  for (let i = 0; i < Math.round(w * 4); i++) {
-    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22 + r() * 0.18, 0), leaf);
-    b.position.set((r() - 0.5) * (w - 0.3), 0.7 + r() * 0.35, (r() - 0.5) * 0.3);
-    b.rotation.set(r() * 3, r() * 3, 0);
-    g.add(b);
-  }
+  const leaf = new THREE.MeshStandardMaterial({ color: 0x4f8a46, map: leafTexture(), roughness: 0.85 });
+  const clumps: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < Math.round(w * 4); i++) clumps.push(leafClump(0.22 + r() * 0.18, r).translate((r() - 0.5) * (w - 0.3), 0.7 + r() * 0.35, (r() - 0.5) * 0.3));
+  g.add(new THREE.Mesh(mergeGeometries(clumps)!, leaf));
   return g;
 }
 
@@ -98,12 +97,10 @@ function olive(seed: number): THREE.Group {
   trunk.position.y = 1.4;
   trunk.rotation.z = (r() - 0.5) * 0.2;
   g.add(pot, trunk);
-  const leaf = new THREE.MeshStandardMaterial({ color: 0x6f7f52, roughness: 0.9, flatShading: true });
-  for (let i = 0; i < 7; i++) {
-    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32 + r() * 0.2, 0), leaf);
-    b.position.set((r() - 0.5) * 0.8, 2.1 + r() * 0.5, (r() - 0.5) * 0.8);
-    g.add(b);
-  }
+  const leaf = new THREE.MeshStandardMaterial({ color: 0x9aae78, map: leafTexture(), roughness: 0.9 });
+  const clumps: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 7; i++) clumps.push(leafClump(0.32 + r() * 0.2, r).translate((r() - 0.5) * 0.8, 2.1 + r() * 0.5, (r() - 0.5) * 0.8));
+  g.add(new THREE.Mesh(mergeGeometries(clumps)!, leaf));
   return g;
 }
 

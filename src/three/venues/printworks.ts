@@ -18,10 +18,10 @@ import { MAIN_WALLS } from './wallshow';
 import { barCounter, boothClutter, DustMotes, exitSign, pressLine } from './details';
 import { Dresser } from './dress';
 import { atBar } from './crew';
-import { Blinders, block, booth, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
+import { Blinders, block, booth, boxUV, Co2Jets, Crowd, crowdArea, HazeLayer, LedStrings, lineArray, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import type { ShowState } from './show';
-import { concreteTexture, floorTexture, withSurface } from './tex';
+import { canvasTexture, concreteTexture, floorTexture, withSurface } from './tex';
 import { laserLines, silhouettes } from './warehouse';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -33,6 +33,24 @@ const BARS = 14;
 /** the hall runs from the stage wall (z = 4) to the far wall */
 const FAR = -108;
 
+/** steel grating seen from above: a tight mesh of flat bars, dark between, a bearing bar every few cross bars */
+function gratingTexture(): THREE.CanvasTexture {
+  return canvasTexture(
+    'pw-grating',
+    128,
+    128,
+    (g, w, h) => {
+      g.fillStyle = '#0b0c0e';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#c9ccd2';
+      for (let x = 0; x < w; x += 8) g.fillRect(x, 0, 2, h);
+      g.fillStyle = '#9a9ea6';
+      for (let y = 0; y < h; y += 32) g.fillRect(0, y, w, 3);
+    },
+    { repeat: true },
+  );
+}
+
 class Printworks extends VenueBase {
   // the press hall's concrete, worn smooth in places
   readonly reflect: FloorReflect[] = [
@@ -40,7 +58,8 @@ class Printworks extends VenueBase {
     { y: 0, strength: 0.35, rough: 0.45 },
   ];
   readonly views: VenueViews = {
-    wide: { pos: V(-10.3, 10.4, -4.6), target: V(1.5, 3.5, -30) },
+    // leaning out over the rail, so the walkway underfoot stays out of the frame
+    wide: { pos: V(-9.7, 10.5, -4.6), target: V(2.5, 3.5, -30) },
     wideLabel: 'Gantry',
     director: {
       style: 'festival',
@@ -90,9 +109,11 @@ class Printworks extends VenueBase {
     const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.05, 1.05, 0.05), steel, 6 * nPosts);
     let pi = 0;
     const gantryLeds = new LedStrings({ size: 0.06, spacing: 0.5 });
+    // the walkways are open steel grating, not plate
+    const grate = new THREE.MeshStandardMaterial({ color: 0x5a5c62, map: gratingTexture(), metalness: 0.75, roughness: 0.5 });
     for (const y of [4.5, 8.5, 12.5]) {
       for (const s of [-1, 1]) {
-        const slab = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.25, gLen), steel);
+        const slab = new THREE.Mesh(boxUV(new THREE.BoxGeometry(5.6, 0.25, gLen), 5.6, 0.25, gLen, 0.8), [steel, steel, grate, grate, steel, steel]);
         slab.position.set(s * 12.9, y, gMid);
         const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, gLen), steel);
         rail.position.set(s * 10.1, y + 1.1, gMid);

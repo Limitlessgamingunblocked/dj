@@ -50,7 +50,9 @@ function poster(seed: number): THREE.CanvasTexture {
     const bgs = ['#1f2c44', '#ff2e88', '#e9e2cf', '#7a3cff', '#0e0e10', '#ffb547'];
     g.fillStyle = bgs[seed % bgs.length];
     g.fillRect(0, 0, w, h);
-    g.fillStyle = seed % 2 ? '#0e0e10' : '#e9e6df';
+    // dark ink on the light papers, light ink on the dark ones
+    const ink = ['#e9e6df', '#0e0e10', '#0e0e10', '#e9e6df', '#e9e6df', '#0e0e10'][seed % bgs.length];
+    g.fillStyle = ink;
     g.globalAlpha = 0.85;
     if (seed % 3 === 0) {
       // a big smiley
@@ -72,12 +74,12 @@ function poster(seed: number): THREE.CanvasTexture {
       for (let i = 0; i < 6; i++) g.fillRect(0, h * 0.12 + i * 18, w * (0.4 + r() * 0.6), 8);
     }
     g.globalAlpha = 1;
-    g.fillStyle = seed % 2 ? '#0e0e10' : '#ffffff';
+    g.fillStyle = ink;
     g.font = '800 26px "Barlow Condensed", sans-serif';
     g.textAlign = 'center';
-    g.fillText(['WAREHOUSE 92', 'ACID SUMMER', 'ALL NIGHT', 'SUNDAY SERVICE', 'BASS CULTURE', 'NORTHERN SOUL'][seed % 6], w / 2, h * 0.8);
+    g.fillText(['WAREHOUSE 92', 'ACID SUMMER', 'ALL NIGHT', 'SUNDAY SERVICE', 'BASS CULTURE', 'NORTHERN SOUL'][seed % 6], w / 2, h * 0.8, w * 0.9);
     g.font = '600 12px "Barlow Condensed", sans-serif';
-    g.fillText('HOUSE · GARAGE · DISCO', w / 2, h * 0.88);
+    g.fillText('HOUSE · GARAGE · DISCO', w / 2, h * 0.88, w * 0.9);
   });
 }
 
@@ -415,9 +417,11 @@ class Bedroom extends VenueBase {
     d.rod('blackMetal', V(x1 - 0.07, 2.05, 0.45), V(x1 - 0.07, 2.05, 2.35), 0.012, 6);
     // a laptop left open on the bed, a throw at the foot
     const screen = d.glow('#9fc2ff', 'steady', 0.9);
-    d.box('alu', 0.32, 0.015, 0.22, -0.55, 0.555, 1.75, 0.3);
-    d.put(screen, new THREE.PlaneGeometry(0.3, 0.19).rotateX(-0.25).rotateY(Math.PI + 0.3).translate(-0.55 + Math.sin(0.3) * 0.1, 0.66, 1.75 + Math.cos(0.3) * 0.1));
-    d.box('yellow', 1.48, 0.04, 0.4, -0.75, 0.59, 1.15);
+    d.box('alu', 0.32, 0.015, 0.22, -0.55, 0.578, 1.75, 0.3);
+    d.put(screen, new THREE.PlaneGeometry(0.3, 0.19).rotateX(-0.25).rotateY(Math.PI + 0.3).translate(-0.55 + Math.sin(0.3) * 0.1, 0.68, 1.75 + Math.cos(0.3) * 0.1));
+    // the throw lies across the duvet and falls over both sides
+    d.box('yellow', 1.54, 0.03, 0.42, -0.75, 0.585, 1.36);
+    for (const s of [-1, 1]) d.box('yellow', 0.03, 0.24, 0.42, -0.75 + s * 0.77, 0.47, 1.36);
     // the door at the back of the left wall, a hoodie on its hook
     d.box('cream', 0.05, 2.02, 0.84, x0 + 0.03, 1.01, 2.6);
     d.box('white', 0.07, 2.1, 0.06, x0 + 0.035, 1.05, 2.15);

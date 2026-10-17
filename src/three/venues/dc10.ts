@@ -33,7 +33,8 @@ class DC10 extends VenueBase {
     { y: 0, strength: 0.25, rough: 0.6 },
   ];
   readonly views: VenueViews = {
-    wide: { pos: V(-1.45, 2.3, 1.75), target: V(0.9, 1.3, -5.5) },
+    // under the hanging booth monitors: level with them, their backs filled the top of the frame
+    wide: { pos: V(-1.45, 1.8, 1.75), target: V(0.9, 1.15, -5.5) },
     wideLabel: 'Over the shoulder',
     director: {
       style: 'stream',
