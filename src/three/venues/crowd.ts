@@ -47,6 +47,7 @@ import { rng } from './tex';
 import { CrowdSteam, sweatStep } from './airlife';
 import { crowdShow } from './crowdShow';
 import { FRONT_COMMON, FRONT_LIGHT, FRONT_VIS, frontFrag, frontGeometry, LOOK_CODE, type CrowdLook } from './frontrow';
+import { optimizeVertexCache } from '../vertexcache';
 import { attach, bodyGeometry, fixMorphTypes, hairGeometry, JOINTS, JOINTS_FEMALE, LANDMARKS, MORPH_GLSL, SHOE, shoeShape, WAIST_Y, welded, type BodyMats } from './crowdbody';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender' | 'conga' | 'card';
@@ -144,7 +145,8 @@ export function personGeometry(detail: 0 | 1 = 0): THREE.BufferGeometry {
   if (lo) for (const sd of [-1, 1]) parts.push(part(new THREE.SphereGeometry(LANDMARKS.eyeR, 6, 4).translate(sd * LANDMARKS.eye[0], LANDMARKS.eye[1], LANDMARKS.eye[2]), B.head, M.eye));
   for (const sd of [-1, 1]) parts.push(part(welded(shoeShape(sd, lo ? 8 : 14, lo ? 5 : 8)), sd < 0 ? B.shinL : B.shinR, M.shoes));
   parts.push(...headKit(lo), ...props(lo));
-  const geo = fixMorphTypes(mergeGeometries(parts.map(plain))!);
+  // the triangles in an order the GPU's vertex cache can reuse (vertexcache.ts): half the vertex work, the same picture
+  const geo = optimizeVertexCache(fixMorphTypes(mergeGeometries(parts.map(plain))!));
   personGeo[detail] = geo;
   return geo;
 }
