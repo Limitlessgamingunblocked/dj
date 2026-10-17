@@ -2341,7 +2341,8 @@ export class Avatar {
         applyPose(p, b, this.d.hipY);
         this.curlHand('l', p.curl[0], dt);
         this.curlHand('r', p.curl[1], dt);
-      } else this.dance(s, beat, ph, knee, dt);
+      } else if (this.club) this.wait();
+      else this.dance(s, beat, ph, knee, dt);
       this.express(s, dt, beat, hit, 0);
       this.settle(dt);
       this.model?.sync();
@@ -2779,6 +2780,39 @@ export class Avatar {
    * crossfades into the next over a beat and a half, and the whole upper body
    * then eases towards that pose, so the arms never jump.
    */
+  /**
+   * A clubber with no music on: stood at ease, waiting for the next track. The weight shifts from
+   * foot to foot, the arms hang loose, the head looks round the room; each at their own pace.
+   * (Not the go-go routine below: its arm angles are the code-built body's, and on a scanned
+   * person they held the arms straight out.)
+   */
+  private wait(): void {
+    const b = this.bones;
+    const t = this.t + this.seed * 2.3;
+    const shift = Math.sin(t * 0.55);
+    b.hips.position.x = 0.025 * shift;
+    b.hips.rotation.z = -0.05 * shift;
+    b.hips.rotation.y = 0.06 * Math.sin(t * 0.23);
+    // breathing
+    b.chest.rotation.x = 0.015 * Math.sin(t * 1.7);
+    // the leg taking the weight straight, the other a little bent
+    for (const leg of ['l', 'r'] as const) {
+      const rest = Math.max(0, shift * (leg === 'l' ? -1 : 1)) * 0.12;
+      b[`thigh_${leg}`].rotation.x = -rest;
+      b[`shin_${leg}`].rotation.x = rest * 2;
+      b[`foot_${leg}`].rotation.x = -rest;
+    }
+    plantFeet(b, this.d.hipY);
+    // looking round: a slow wander, now and then further
+    b.neck.rotation.y = 0.35 * Math.sin(t * 0.31) * Math.sin(t * 0.13);
+    b.neck.rotation.x = 0.04 + 0.04 * Math.sin(t * 0.19);
+    for (const side of ['l', 'r'] as const) {
+      const k = side === 'l' ? 1 : -1;
+      b[`upper_arm_${side}`].rotation.set(0.04 * Math.sin(t * 0.7 + k), 0, 0.12 * k);
+      b[`forearm_${side}`].rotation.set(-0.22, 0, 0);
+    }
+  }
+
   private dance(s: AvatarInput, beat: number, ph: number, knee: number, dt: number): void {
     const b = this.bones;
     const amp = s.playing ? 1 : 0.4;
