@@ -10,9 +10,9 @@
  */
 import * as THREE from 'three';
 import type { Dresser } from './dress';
-import type { Fixture } from './fixtures';
+import { boxUV, type Fixture } from './fixtures';
 import type { ShowState } from './show';
-import { rng, softDotTexture } from './tex';
+import { canvasTexture, rng, softDotTexture } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
@@ -556,6 +556,40 @@ export function headland(path: THREE.Vector2[], width: number, height: (t: numbe
  * floor. Dark buildings go into `d`; the lights are one Points object that
  * comes up with `night()`.
  */
+/** a seaside hotel's face, one tile three floors high and three windows wide: render, balconies, glass */
+function hotelTexture(): THREE.CanvasTexture {
+  return canvasTexture(
+    'hotel-facade',
+    256,
+    256,
+    (g, w, h) => {
+      g.fillStyle = '#ffffff';
+      g.fillRect(0, 0, w, h);
+      const fh = h / 3;
+      const bw = w / 3;
+      for (let f = 0; f < 3; f++) {
+        const y = f * fh;
+        for (let c = 0; c < 3; c++) {
+          // the glass, a little lighter at the top where it takes the sky
+          const grad = g.createLinearGradient(0, y + fh * 0.12, 0, y + fh * 0.72);
+          grad.addColorStop(0, '#5d7486');
+          grad.addColorStop(1, '#25313c');
+          g.fillStyle = grad;
+          g.fillRect(c * bw + bw * 0.14, y + fh * 0.12, bw * 0.72, fh * 0.6);
+        }
+        // the balcony slab and its rail along the floor
+        g.fillStyle = '#c9c4ba';
+        g.fillRect(0, y + fh * 0.72, w, fh * 0.05);
+        g.fillStyle = '#f9f8f5';
+        g.fillRect(0, y + fh * 0.77, w, fh * 0.1);
+        g.fillStyle = 'rgba(0,0,0,0.18)';
+        g.fillRect(0, y + fh * 0.87, w, fh * 0.03);
+      }
+    },
+    { repeat: true },
+  );
+}
+
 export class TownLights implements Fixture {
   readonly object: THREE.Points;
   private mat: THREE.PointsMaterial;
@@ -571,7 +605,8 @@ export class TownLights implements Fixture {
       pos.push(x, y, z);
       col.push(c.r * k * 1.5, c.g * k * 1.5, c.b * k * 1.5);
     };
-    // hotels on the front: a block, lit windows up its face
+    // hotels on the front: a block of balconies and glass in white, cream or sand, lit windows up its face
+    const facades = ['#f4f1ea', '#eadfca', '#e3c9a8'].map((c) => new THREE.MeshStandardMaterial({ map: hotelTexture(), color: c, roughness: 0.85 }));
     const len = curve.getLength();
     for (let s = 20; s < len - 20; s += 28 + r() * 40) {
       const t = s / len;
@@ -585,7 +620,7 @@ export class TownLights implements Fixture {
       const nz = tan.x;
       const cx = p.x + nx * back;
       const cz = p.y + nz * back;
-      o.d.box('grey', w, h, 10, cx, o.y0 + h / 2, cz, yaw);
+      o.d.put(facades[Math.floor(r() * facades.length)], boxUV(new THREE.BoxGeometry(w, h, 10), w, h, 10, 9.6).rotateY(yaw).translate(cx, o.y0 + h / 2, cz));
       // windows on the face towards the water (the side the path's normal points away from)
       const floors = Math.floor(h / 3.2);
       const cols = Math.floor(w / 3.4);

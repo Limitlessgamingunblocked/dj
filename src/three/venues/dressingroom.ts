@@ -83,10 +83,10 @@ function flyer(seed: number, uv: boolean): THREE.CanvasTexture {
     g.fillStyle = ink;
     g.textAlign = 'center';
     g.font = `800 ${46}px ${FONT}`;
-    g.fillText(words[Math.floor(r() * words.length)], w / 2, h * 0.78);
+    g.fillText(words[Math.floor(r() * words.length)], w / 2, h * 0.78, w * 0.9);
     g.font = `600 ${20}px ${FONT}`;
-    g.fillText(`FRI ${1 + Math.floor(r() * 28)} · 11PM–6AM`, w / 2, h * 0.86);
-    g.fillText('HOUSE · TECHNO · DISCO', w / 2, h * 0.92);
+    g.fillText(`FRI ${1 + Math.floor(r() * 28)} · 11PM–6AM`, w / 2, h * 0.86, w * 0.9);
+    g.fillText('HOUSE · TECHNO · DISCO', w / 2, h * 0.92, w * 0.9);
     // worn: tape and a fold
     g.fillStyle = 'rgba(255,255,255,0.08)';
     g.fillRect(0, h * 0.5, w, 2);

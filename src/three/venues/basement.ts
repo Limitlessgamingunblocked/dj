@@ -70,9 +70,9 @@ function poster(seed: number): THREE.CanvasTexture {
     g.fillStyle = seed % 4 === 3 ? '#ff1a2e' : '#0e0e10';
     g.font = '800 30px "Barlow Condensed", sans-serif';
     g.textAlign = 'center';
-    g.fillText(['LOW END', 'SUB CLUB', 'NO PHONES', 'RED ROOM'][seed % 4], w / 2, h * 0.42);
+    g.fillText(['LOW END', 'SUB CLUB', 'NO PHONES', 'RED ROOM'][seed % 4], w / 2, h * 0.42, w * 0.9);
     g.font = '600 13px "Barlow Condensed", sans-serif';
-    g.fillText('EVERY FRIDAY · 11–5', w / 2, h * 0.58);
+    g.fillText('EVERY FRIDAY · 11–5', w / 2, h * 0.58, w * 0.9);
     g.globalAlpha = 0.3;
     for (let i = 0; i < 40; i++) g.fillRect(r() * w, r() * h, 2, 2);
   });
@@ -170,8 +170,8 @@ class Basement extends VenueBase {
   // a painted concrete floor
   readonly reflect: FloorReflect = { y: 0, strength: 0.35, rough: 0.55 };
   readonly views: VenueViews = {
-    // the back corner, looking over heads at the booth
-    wide: { pos: V(-4.1, 2.2, -8.6), target: V(0.4, 1.2, 0.2) },
+    // from the end of the bar, looking over heads at the booth (clear of the duct, which filled the top of the frame from the corner)
+    wide: { pos: V(-1.4, 2.05, -8.75), target: V(0.3, 1.15, 0.2) },
     wideLabel: 'Back of the room',
     director: {
       style: 'stream',

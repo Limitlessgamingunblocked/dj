@@ -28,6 +28,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { bevelBox } from '../bevel';
 import { exitSign } from './details';
+import { leafClump } from './foliage';
 import type { Fixture } from './fixtures';
 import type { ShowState } from './show';
 import { canvasTexture, grilleTexture, rng } from './tex';
@@ -216,11 +217,11 @@ function posterAtlas(): THREE.CanvasTexture {
       g.fillStyle = fg;
       g.textAlign = 'center';
       g.font = '800 40px "Barlow Condensed", "Arial Narrow", sans-serif';
-      g.fillText(NIGHTS[(i * 3) % NIGHTS.length], x + cw / 2, y + ch * 0.72);
+      g.fillText(NIGHTS[(i * 3) % NIGHTS.length], x + cw / 2, y + ch * 0.72, cw * 0.9);
       g.font = '600 17px "Barlow Condensed", "Arial Narrow", sans-serif';
-      g.fillText(['FRIDAYS · 11–6', 'ALL NIGHT LONG', 'SAT · LATE', 'EVERY THURSDAY'][i % 4], x + cw / 2, y + ch * 0.82);
+      g.fillText(['FRIDAYS · 11–6', 'ALL NIGHT LONG', 'SAT · LATE', 'EVERY THURSDAY'][i % 4], x + cw / 2, y + ch * 0.82, cw * 0.9);
       g.font = '500 12px "Barlow", sans-serif';
-      g.fillText('LIMITED CAPACITY · OVER 18s', x + cw / 2, y + ch * 0.9);
+      g.fillText('LIMITED CAPACITY · OVER 18s', x + cw / 2, y + ch * 0.9, cw * 0.9);
       // wear: specks and a fold
       g.globalAlpha = 0.25;
       for (let k = 0; k < 90; k++) g.fillRect(x + r() * cw, y + r() * ch, 2, 2);
@@ -518,7 +519,7 @@ function menuTexture(seed: number): THREE.CanvasTexture {
     g.fillStyle = ['#ffd23f', '#ff7a3c', '#7ef3ff'][seed % 3];
     g.font = '800 30px "Barlow Condensed", sans-serif';
     g.textAlign = 'center';
-    g.fillText(['STREET FOOD', 'WOOD FIRED', 'TACOS & MORE'][seed % 3], w / 2, 34);
+    g.fillText(['STREET FOOD', 'WOOD FIRED', 'TACOS & MORE'][seed % 3], w / 2, 34, w - 24);
     g.font = '600 15px "Barlow", sans-serif';
     g.textAlign = 'left';
     g.fillStyle = '#f2f2ee';
@@ -1713,7 +1714,7 @@ export class Dresser implements Fixture {
   planter(pos: THREE.Vector3, w = 1.2): void {
     this.box('stone', w, 0.55, w, pos.x, pos.y + 0.275, pos.z);
     this.box('trunk', w - 0.12, 0.02, w - 0.12, pos.x, pos.y + 0.55, pos.z);
-    for (let i = 0; i < 4; i++) this.put('foliage', new THREE.IcosahedronGeometry(0.3 + this.r() * 0.15, 0).translate(pos.x + (this.r() - 0.5) * w * 0.5, pos.y + 0.75 + this.r() * 0.25, pos.z + (this.r() - 0.5) * w * 0.5));
+    for (let i = 0; i < 4; i++) this.put('foliage', leafClump(0.3 + this.r() * 0.15, this.r).translate(pos.x + (this.r() - 0.5) * w * 0.5, pos.y + 0.75 + this.r() * 0.25, pos.z + (this.r() - 0.5) * w * 0.5));
   }
 
   /** sandbags weighing down a foot (a truss tower, a stand) */

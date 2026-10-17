@@ -107,9 +107,12 @@ const COMPOSITE_FRAG = /* glsl */ `
     if (d >= 0.99999) { gl_FragColor = c; return; }
     vec4 v = uProjInv * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
     vec3 w = (uCamWorld * vec4(v.xyz / v.w, 1.0)).xyz;
-    // each surface: the pixels at its height (a few cm either way, for the worn relief)
-    float m0 = uStrength.x > 0.0 ? 1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.x)) : 0.0;
-    float m1 = uStrength.y > 0.0 ? 1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.y)) : 0.0;
+    // each surface: the pixels at its height (a few cm either way, for the worn relief) that face up;
+    // without the facing test, everyone's heads at the stage deck's height got a stripe of reflection
+    vec3 n = cross(dFdx(w), dFdy(w));
+    float facing = smoothstep(0.75, 0.92, abs(n.y) / max(length(n), 1e-6));
+    float m0 = uStrength.x > 0.0 ? (1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.x))) * facing : 0.0;
+    float m1 = uStrength.y > 0.0 ? (1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.y))) * facing : 0.0;
     if (uDebug > 0.5) { gl_FragColor = vec4(m0, m1, 0.0, 1.0); return; }
     if (m0 + m1 <= 0.0) { gl_FragColor = c; return; }
     // Fresnel: a floor mirrors most at a grazing look, little straight down
