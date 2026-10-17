@@ -335,4 +335,22 @@ A pass aimed at the Mac desktop app, where the window is drawn at twice its size
 
 The flare was checked side by side on a frozen festival frame at 2×, inline and in its own pass: the streaks and stars look the same at 1:1. The board, split and visual-player views were checked after the canvas change.
 
-**Not done here, and the biggest cost left: the crowd.** Every dancer's pose is worked out again for each of their ~2,400 vertices in the vertex shader. At the warehouse the crowd is 2.2M triangles in the board view and about a third of the frame at Retina size, half at 1×. The fix is to work each person's bones out once per frame into a small texture the vertex shader reads, which should cut the crowd's vertex work several times over with the same picture. The realistic-crowd change in review rewrites the same shader, so this waits for it to land.
+**The crowd** is the biggest cost left: at the warehouse it's 2.0M of the frame's 2.3M triangles. See the third pass below for what was tried.
+
+## Running faster (October 2026, third pass)
+
+Same container and method as the second pass, on the build the player runs (every open change merged). Two more measurements:
+
+- **The game's own JavaScript per frame**: a CPU profile with the GPU's draw calls switched off (they become no-ops), so frames come quickly and only the CPU side is counted. This part runs the same on any machine, only faster.
+- **The crowd's vertex work alone**: every crowd triangle thrown away right after its vertices are shaded (a line added at the end of the vertex shader), timed with the software GPU at 320×200 so pixels cost next to nothing.
+
+**What changed and what it saved:**
+
+| Change | Before → after |
+|---|---|
+| The floor reflection doesn't update every object's matrix again (`reflect.ts`) | three.js went through the warehouse's 7,547 objects three times a frame (the main view, then each reflecting surface): 12.3 ms of JavaScript per frame here. The reflection's own CPU time: warehouse 12.0 → 3.6 ms, festival 9.5 → 4.8 ms. The whole frame's JavaScript at the warehouse: 50.2 → 38.6 ms (−23 %; −17 % in a second pair of runs). At the festival, 58.2 → 56.5 ms. |
+| The crowd's triangles in vertex-cache order (the realistic-crowd change, `vertexcache.ts`) | vertices shaded per triangle with a 32-entry cache: 1.08 → 0.67 for a dancer, 1.07 → 0.73 low detail, 1.06 → 0.69 front row. The software GPU's crowd got 6.5 % faster (2,077 → 1,942 ms per frame at 320×200); a real GPU's vertex work goes with the vertices it shades. |
+
+Both were checked to change nothing on screen. Re-running the matrix update in the reflection over six frames each at the warehouse, the festival and Ally Pally changed none of about 45,000 matrices. The reordered crowd matched the old order pixel for pixel on a frozen warehouse frame.
+
+**Tried and left out: the crowd's pose worked out once a person.** The obvious fix for the crowd was to work each dancer's pose out once a frame into a float texture the vertex shader reads, instead of again at every vertex. It drew the same picture pixel for pixel, but it bought nothing here. With the crowd's triangles thrown away after vertex shading, the vertex work cost the same with the pose read back as with it worked out in place (1,239 against 1,247 ms per software frame). The software GPU's cost is in shading and assembling 7M vertex runs, not in the maths of each. It might help on a real GPU, but it isn't worth its complexity without a measurement there.
