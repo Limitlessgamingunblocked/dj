@@ -24,6 +24,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { optimizeVertexCache } from '../vertexcache';
 import { BODY_MATS, headKit, PALM, part, PERSON_BONES as B, PERSON_HEAD, PERSON_MATS as M, props } from './crowd';
 import { BODY_REGION, bodyGeometry, browGeometry, fixMorphTypes, hairGeometry, JOINTS, LANDMARKS, shellGeometry, shoeShape, WAIST_Y, welded } from './crowdbody';
 
@@ -130,7 +131,7 @@ export function frontGeometry(): THREE.BufferGeometry {
   const P = PALM;
   parts.push(part(new THREE.CylinderGeometry(0.0065, 0.0065, 0.19, 6, 1).rotateX(Math.PI / 2 - 0.35).translate(-P.x, P.y - 0.03, P.z + 0.03), B.foreL, F.glow));
   parts.push(part(twoSided(new THREE.CircleGeometry(0.17, 12, Math.PI * 1.08, Math.PI * 0.84).rotateY(Math.PI / 2).translate(-P.x, P.y - 0.04, P.z + 0.02)), B.foreL, F.fan));
-  frontGeo = fixMorphTypes(mergeGeometries(parts.map((g) => (g.index ? g : mergeVertices(g, 1e-9))))!);
+  frontGeo = optimizeVertexCache(fixMorphTypes(mergeGeometries(parts.map((g) => (g.index ? g : mergeVertices(g, 1e-9))))!));
   return frontGeo;
 }
 
