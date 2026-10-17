@@ -40,7 +40,7 @@ const CAST: { set: string | null; woman: boolean }[] = [
   { set: 'terrace_king', woman: false },
   { set: 'disco_revival', woman: true },
   { set: 'warehouse_ghost', woman: false },
-  { set: 'basement_dweller', woman: false },
+  { set: 'basement_dweller', woman: true },
   { set: 'chrome_boy', woman: false },
   { set: 'bedroom_legend', woman: false },
   { set: 'boat_captain', woman: false },

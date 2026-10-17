@@ -26,6 +26,8 @@ describe('the side dancers', () => {
       expect(l.options.scan).not.toBe(r.options.scan);
     }
     expect(SIDE_DANCERS.length).toBeGreaterThanOrEqual(2);
+    // (not the disco one: her scan's hands are crumpled)
+    expect(SIDE_DANCERS).not.toContain('disco_revival');
   });
 
   it('stay home from the bedroom and the menus, and dance everywhere else', () => {

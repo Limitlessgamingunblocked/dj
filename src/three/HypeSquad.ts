@@ -134,8 +134,8 @@ export function hypeLook(seed: number): Look {
   return l;
 }
 
-/** the realistic women who dance on the podiums */
-export const SIDE_DANCERS = ['sunrise_set', 'disco_revival', 'afterhours'];
+/** the realistic women who dance on the podiums (not the disco one: her scan's hands are crumpled, and up there they're in your face) */
+export const SIDE_DANCERS = ['sunrise_set', 'basement_dweller', 'afterhours'];
 /** how tall they stand (the scans come a little short) */
 const TALL = 1.68;
 
