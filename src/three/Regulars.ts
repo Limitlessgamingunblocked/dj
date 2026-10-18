@@ -26,6 +26,7 @@ import { defaultLook, wearSet } from '../character/look';
 import type { Look } from '../core/models';
 import { Crowd, type CrowdSpot } from './venues/crowd';
 import type { VenueScene } from './venues/base';
+import { discoPhones } from './venues/silentDisco';
 
 /** the regular made for the floor */
 export const REGULAR_SCAN = 'character_scan_regular_01';
@@ -294,6 +295,7 @@ export class Regulars {
       d.av.update(s, Math.min(d.owed, 0.25));
       d.owed = 0;
       this.find(d);
+      discoPhones(d, i, d.full);
       // (a little further for whoever's already in full, so nobody flickers between the two at the edge)
       const near = !d.lod || (far < FULL_AT + (d.full?.visible ? 0.8 : 0) && full < FULL);
       if (near) full++;
