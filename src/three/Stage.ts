@@ -154,6 +154,8 @@ export class Stage {
    * hides while it's set.
    */
   avatarSpot: { pos: THREE.Vector3; face: number; input: () => AvatarInput } | null = null;
+  /** friends dancing on the floor (Join the crowd): moved with the show each frame */
+  guests: { update(show: AvatarInput, dt: number): void } | null = null;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
   /** ambient occlusion (public for the debug menu's view of it) */
@@ -1419,6 +1421,7 @@ export class Stage {
       this.scene.environmentIntensity = 0.45 * amb;
       this.fill.intensity = 0.3 * amb;
       this.placeAvatar(show, sdt);
+      this.guests?.update(show, sdt);
       this.dancers.enabled = this.show.controls.dancers;
       this.dancers.update(show, show.colors[0], !this.avatarSpot && !this.rig.focused, sdt);
       this.regulars.enabled = this.show.controls.dancers;
