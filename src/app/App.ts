@@ -95,6 +95,8 @@ import { HypeMan } from './hypeman/HypeMan';
 import { mcFromUrl } from './hypeman/link';
 import { openMcJoin } from '../ui/McJoin';
 import { PassAuxMode } from './passAux';
+import { SilentDiscoMode } from './silentDisco';
+import { openSilentDisco } from '../ui/SilentDiscoPanel';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
@@ -202,6 +204,8 @@ export class App implements AppContext {
   /** hype man on the mic: a friend (or you) as the MC, the crowd shouting back */
   hypeMan!: HypeMan;
   aux!: PassAuxMode;
+  /** the silent disco showdown: you and a friend on two headphone channels */
+  disco!: SilentDiscoMode;
   /** the crowd's dance style, moments, your DJ moves and their signs */
   crowdDir!: CrowdDirector;
   /** VJ mode: someone else on the visuals and lights */
@@ -600,6 +604,13 @@ export class App implements AppContext {
       vibe: () => this.gigs?.meter.vibe ?? 0,
       venue: () => venueById(this.settings.venue).name,
       changed: (n) => this.callout({ text: n ? 'A VJ is on the visuals' : 'The VJ left', tone: 'good' }),
+    });
+    this.disco = new SilentDiscoMode({
+      engine: this.engine,
+      stageEl: this.stage.el,
+      callout: (c) => this.callout(c),
+      djName: () => nameService.text || 'DJ',
+      crowd: (what) => this.engine.crowd.play(what, this.gigs?.meter.vibe ?? 0.6, this.clock.bpm || 124),
     });
     this.party = new Party({
       engine: this.engine,
@@ -1271,6 +1282,7 @@ export class App implements AppContext {
       { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
       { label: 'Your label…', action: () => openLabel(this.mashupHooks()) },
+      { label: 'Silent disco showdown…', action: () => openSilentDisco(this.disco) },
       'sep',
       { label: 'Help and shortcuts', hint: '?', action: () => this.help() },
     ]);
@@ -2055,6 +2067,7 @@ export class App implements AppContext {
       this.friendsHud?.(this.friends);
       this.stage.hype = this.gigs.update(dt, f);
       this.aux.update(dt);
+      this.disco.update(dt, f);
       if (this.intro?.hype != null) this.stage.hype = this.intro.hype;
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);

@@ -4,6 +4,7 @@ import { AOPass, DepthTap } from '../src/three/ao';
 import { QUALITY_STEPS } from '../src/three/quality';
 import { REFLECT_LAYER, ReflectPass, isBright, tagBright } from '../src/three/reflect';
 import { PERSON_BONES, PERSON_MATS, personGeometry } from '../src/three/venues/crowd';
+import { DISCO_MATS } from '../src/three/venues/silentDisco';
 import { JOINTS } from '../src/three/venues/crowdbody';
 import { boneMatrix, posedPerson, type HeldPose } from '../src/three/venues/crowdpose';
 import { FAR_POSES, atlasColor, padEdges } from '../src/three/venues/farcrowd';
@@ -103,7 +104,12 @@ describe('the crowd model', () => {
       expect(mats(hi).has(m)).toBe(true);
       expect(mats(lo).has(m)).toBe(true);
     }
-    expect(Math.max(...mats(hi))).toBe(PERSON_MATS.pony);
+    // the silent disco's headphones sit past the body's materials, at both levels of detail
+    for (const m of Object.values(DISCO_MATS)) {
+      expect(mats(hi).has(m)).toBe(true);
+      expect(mats(lo).has(m)).toBe(true);
+    }
+    expect(Math.max(...[...mats(hi)].filter((m) => m < DISCO_MATS.shell))).toBe(PERSON_MATS.pony);
   });
 
   it('stays inside its vertex budget at both levels of detail', () => {

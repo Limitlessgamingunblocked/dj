@@ -48,6 +48,7 @@ import { CrowdSteam, sweatStep } from './airlife';
 import { crowdShow } from './crowdShow';
 import { FRONT_COMMON, FRONT_LIGHT, FRONT_VIS, frontFrag, frontGeometry, LOOK_CODE, type CrowdLook } from './frontrow';
 import { optimizeVertexCache } from '../vertexcache';
+import { DISCO_FRAG, DISCO_FRAG_HEAD, DISCO_VERT_HEAD, DISCO_VIS, discoUniforms, headphoneShapes } from './silentDisco';
 import { attach, bodyGeometry, fixMorphTypes, hairGeometry, JOINTS, JOINTS_FEMALE, LANDMARKS, MORPH_GLSL, SHOE, shoeShape, WAIST_Y, welded, type BodyMats } from './crowdbody';
 
 export type CrowdRole = 'dancer' | 'sign' | 'vip' | 'dj' | 'marathon' | 'filmer' | 'towel' | 'barlean' | 'rider' | 'security' | 'bartender' | 'conga' | 'card';
@@ -209,6 +210,8 @@ export function headKit(lo: boolean): THREE.BufferGeometry[] {
   // a cap, peak forward
   out.push(part(onHead(new THREE.SphereGeometry(1.2, R(14, 8), R(5, 3), 0, Math.PI * 2, 0, Math.PI * 0.46).scale(1, 0.92, 1.02).translate(0, 0.06, -0.03)), B.head, M.cap));
   out.push(part(onHead(new THREE.CylinderGeometry(0.95, 0.95, 0.08, R(12, 6), 1, false, -Math.PI / 2, Math.PI).scale(1, 1, 0.95).translate(0, 0.3, 0.75)), B.head, M.cap));
+  // silent disco headphones (only while a showdown runs: silentDisco.ts)
+  for (const [g, mat] of headphoneShapes(lo)) out.push(part(onHead(g), B.head, mat));
   return out;
 }
 
@@ -489,7 +492,7 @@ const NEAR_CAMERA = /* glsl */ `
   }
 `;
 
-export const VERT_HEAD = /* glsl */ `
+export const VERT_HEAD = /* glsl */ `${DISCO_VERT_HEAD}
   attribute vec4 aRig;
   #define aBone aRig.x
   #define aMat aRig.y
@@ -825,7 +828,7 @@ export const VERT_HEAD = /* glsl */ `
     #ifdef CROWD_FRONT
     /*FRONT_VIS*/
     #endif
-    if (rider > 0.5 && up < 0.5) vis = 0.0;
+${DISCO_VIS}    if (rider > 0.5 && up < 0.5) vis = 0.0;
     // the dance circle: the ring turns to face the soloist and steps back; the conga pushes through
     vec2 push = vec2(0.0);
     if (ring > 0.001 && rC > 0.0001) push += toC / rC * max(0.0, uCircle.z - rC) * ring;
@@ -910,7 +913,7 @@ const HAIR_VOLUME = /* glsl */ `
   }
 `;
 
-const FRAG_HEAD = /* glsl */ `
+const FRAG_HEAD = /* glsl */ `${DISCO_FRAG_HEAD}
   uniform sampler2D uSigns, uCards;
   uniform float uSignGlow, uTime, uPhotos, uShorts, uSweat, uUV, uLights, uHype, uCheer;
   varying float vCard;
@@ -1284,7 +1287,7 @@ const FRAG_COLOR = /* glsl */ `
   #ifdef CROWD_FRONT
   /*FRONT_FRAG*/
   #endif
-  // blacklight: white cloth glows blue-violet, bright colours fluoresce; skin and dark cloth stay dark
+${DISCO_FRAG}  // blacklight: white cloth glows blue-violet, bright colours fluoresce; skin and dark cloth stay dark
   if (uUV > 0.001) {
     float cloth = (m < 1.5 || (m > 3.5 && m < 6.5) || (m > 12.5 && m < 13.5) || (m > 15.5 && m < 16.5)) ? 1.0 : 0.0;
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
@@ -1330,6 +1333,7 @@ export class Crowd implements Fixture {
   private chunks: Chunk[] = [];
   private shadows: THREE.InstancedMesh[] = [];
   private u = {
+    ...discoUniforms,
     uBeat: { value: 0 },
     uBob: { value: 0 },
     uHands: { value: 0 },
