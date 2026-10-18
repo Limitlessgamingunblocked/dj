@@ -16,7 +16,7 @@ import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { setUiAudio, wireUiSounds } from '../audio/uisound';
 import { Broadcast } from './broadcast';
-import { AirDjMode } from './airdj/AirDjMode';
+import { MocapMode } from './mocap/MocapMode';
 import { registerRoomControls } from './roomControls';
 import { CrowdDirector } from './crowdDirector';
 import { openRoomEditor } from '../ui/RoomEditor';
@@ -213,8 +213,8 @@ export class App implements AppContext {
   private directorLooks = new LookDirector();
   /** the stage alone for streaming, and the idle screensaver (broadcast.ts) */
   private broadcast!: Broadcast;
-  /** play with your hands in front of the webcam (airdj/) */
-  private airdj!: AirDjMode;
+  /** your DJ copies your body and face in front of the webcam (mocap/) */
+  private mocap!: MocapMode;
   private desk!: RecordingDesk;
   private mySets!: MySetsPanel;
   /** when the drop punch-in fires (performance.now), 0 for none */
@@ -891,7 +891,7 @@ export class App implements AppContext {
       'board-full': () => this.boardFull(!this.boardMode),
       autodj: () => this.setAutoDJ(!this.autodj.on),
       broadcast: () => this.broadcast.set(!this.broadcast.on),
-      airdj: () => this.airdj.set(!this.airdj.on),
+      mocap: () => this.mocap.set(!this.mocap.on),
       karaoke: () => this.toggleKaraoke(),
       help: () => this.help(),
       search: () => {
@@ -1025,7 +1025,7 @@ export class App implements AppContext {
       // not over a dialog, the title or the naming scene
       playing: () => this.engine.decks.some((d) => d.playing) && !document.body.classList.contains('modal-open') && !this.shell.classList.contains('titling') && !this.namingBusy,
     });
-    this.airdj = new AirDjMode(this.reg, this.stage.el);
+    this.mocap = new MocapMode(this.reg, this.stage.el, undefined, () => this.stage.avatar.hasFace);
     const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
     setTimeout(() => (hint.style.opacity = '0'), 10000);
@@ -1198,7 +1198,7 @@ export class App implements AppContext {
       { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
       'sep',
       { header: 'Play' },
-      { label: 'Air DJ (webcam hands)', checked: this.airdj.on, hint: '⇧H', action: () => this.airdj.set(!this.airdj.on) },
+      { label: 'Body tracking (webcam)', checked: this.mocap.on, hint: '⇧H', action: () => this.mocap.set(!this.mocap.on) },
       { label: 'Harmonic wheel…', action: () => this.openHarmonic() },
       { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
@@ -1978,8 +1978,10 @@ export class App implements AppContext {
       this.broadcast.update(dt);
       if (roomShow.current) this.feedRoom(dt);
       this.crowdDir.update(dt, f.dropHit);
-      // crowd control (Air DJ): your character's arms go up and sway with yours too
+      // crowd control (body tracking): your character's arms go up and sway with yours too
       this.stage.avatar.armSway = crowdShow.swayK > 0 ? { k: crowdShow.swayK, lean: crowdShow.swayNow } : null;
+      // body tracking: your character moves like you
+      this.stage.avatar.mocap = this.mocap.update(dt);
       this.vj.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
       if (this.intro?.hype != null) this.stage.hype = this.intro.hype;

@@ -52,7 +52,7 @@ export interface EncoderControl extends Base {
 
 export type Control = ContinuousControl | ButtonControl | JogControl | EncoderControl;
 
-/** where a move came from ('air': Air DJ, your hands in front of the webcam) */
+/** where a move came from ('air': body tracking, your moves in front of the webcam) */
 export type ControlSource = 'ui' | '3d' | 'midi' | 'key' | 'air';
 
 interface RegistryEvents extends Record<string, unknown> {
@@ -66,7 +66,7 @@ export class ControlRegistry extends Emitter<RegistryEvents> {
   shift = false;
   /** performance.now() of the last activity per resolved id */
   readonly lastActivity = new Map<string, number>();
-  /** last activity that came from hardware (MIDI), the keyboard or Air DJ, for flash feedback */
+  /** last activity that came from hardware (MIDI), the keyboard or body tracking, for flash feedback */
   readonly lastExternal = new Map<string, number>();
 
   register(c: Control): void {
