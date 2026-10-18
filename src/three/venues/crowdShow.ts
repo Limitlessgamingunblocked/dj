@@ -8,8 +8,8 @@
  *     lights) up for the closing track. They come by themselves when the
  *     room's right for them, or from the Show tab;
  *   - fans copying your DJ moves (and your signature move on a big drop);
- *   - crowd control: hands in the air on Air DJ's camera, and the room's
- *     arms go up and sway left and right with yours;
+ *   - crowd control: hands in the air on body tracking's camera, and the
+ *     room's arms go up and sway left and right with yours;
  *   - the hand-made cardboard signs: requests, messages and the regulars'.
  * The app feeds it (genre, moves, requests); the crowds read it each frame.
  */
@@ -107,7 +107,7 @@ export const crowdShow = {
   /** the DJ move the crowd's copying, and how long it's had */
   copy: null as { move: string; t: number; len: number; all: boolean } | null,
   /**
-   * Crowd control (Air DJ, hands up): `lean` is where your arms are, -1 to
+   * Crowd control (body tracking, hands up): `lean` is where your arms are, -1 to
    * your left, +1 to your right, or null when they're down. `swayK` eases the
    * crowd in and out; `swayNow` and `swayLate` are the lean the front rows
    * and the back follow (the back a beat behind, so it rolls through the room).

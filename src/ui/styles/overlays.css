@@ -464,15 +464,15 @@ textarea.json {
   margin-top: 8px;
 }
 
-/* the Air DJ guide (⋯ menu → Air DJ the first time, the ? on its window, Help) */
-.air-guide {
+/* the body tracking guide (⋯ menu → Body tracking the first time, the ? on its window, Help) */
+.mocap-guide {
   display: grid;
   gap: 10px;
   font-size: var(--text-sm);
   color: var(--muted);
 }
 
-.air-guide h3 {
+.mocap-guide h3 {
   margin: 8px 0 0;
   font-family: var(--font-label);
   font-size: var(--text-sm);
@@ -481,27 +481,27 @@ textarea.json {
   color: var(--text);
 }
 
-.air-guide .airg-lead {
+.mocap-guide .mocapg-lead {
   margin: 0;
   font-size: var(--text-m);
   color: var(--text);
 }
 
-.air-guide ol,
-.air-guide ul {
+.mocap-guide ol,
+.mocap-guide ul {
   margin: 0;
   padding-left: 18px;
   display: grid;
   gap: 4px;
 }
 
-.air-guide .airg-moves {
+.mocap-guide .mocapg-moves {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 8px;
 }
 
-.air-guide .airg-move {
+.mocap-guide .mocapg-move {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
   gap: 10px;
@@ -510,21 +510,21 @@ textarea.json {
   background: var(--panel-2);
 }
 
-.air-guide .airg-move b {
+.mocap-guide .mocapg-move b {
   color: var(--text);
 }
 
-.air-guide .airg-move p {
+.mocap-guide .mocapg-move p {
   margin: 3px 0 0;
 }
 
-.air-guide .airg-icon {
+.mocap-guide .mocapg-icon {
   font-size: 28px;
   line-height: 1;
   text-align: center;
 }
 
-.air-guide .airg-actions {
+.mocap-guide .mocapg-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;

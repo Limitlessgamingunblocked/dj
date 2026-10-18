@@ -2,7 +2,7 @@
 import { h } from './dom';
 import { openModal } from './modal';
 import { shortcutsTable } from './keysTable';
-import { openAirDjGuide } from './AirDjIntro';
+import { openMocapGuide } from './MocapIntro';
 
 const SECTIONS: [string, string[]][] = [
   [
@@ -57,11 +57,11 @@ const SECTIONS: [string, string[]][] = [
     ],
   ],
   [
-    'Air DJ',
+    'Body tracking',
     [
-      'Play with your hands in front of the webcam: ⋯ menu → Air DJ, or Shift+H.',
-      'Pinch to scratch, open palm for the filter, peace sign for beat FX, point for the crossfader.',
-      'Both palms up high and the crowd copies you. A fist rests.',
+      'Your DJ copies your body, hands, head and face in front of the webcam: ⋯ menu → Body tracking, or Shift+H.',
+      'Both hands up above your head and the crowd copies you. Keep them up and sway: the whole room sways with you.',
+      'Body, Face and Fingers on the camera window switch each part; Recenter takes your resting pose again.',
     ],
   ],
   [
@@ -92,7 +92,7 @@ export function openHelp(guides: { aiLyrics?: () => void } = {}): void {
         'div',
         { class: 'help-grid' },
         ...SECTIONS.map(([t, lines]) =>
-          h('section', {}, h('h3', {}, t), h('ul', {}, ...lines.map((l) => h('li', {}, l))), t === 'Air DJ' && h('button', { type: 'button', class: 'btn small help-more', onclick: () => openAirDjGuide() }, 'The Air DJ guide'), t === 'Lyrics & karaoke' && guides.aiLyrics && h('button', { type: 'button', class: 'btn small help-more', onclick: guides.aiLyrics }, 'The AI lyrics guide')),
+          h('section', {}, h('h3', {}, t), h('ul', {}, ...lines.map((l) => h('li', {}, l))), t === 'Body tracking' && h('button', { type: 'button', class: 'btn small help-more', onclick: () => openMocapGuide() }, 'The body tracking guide'), t === 'Lyrics & karaoke' && guides.aiLyrics && h('button', { type: 'button', class: 'btn small help-more', onclick: guides.aiLyrics }, 'The AI lyrics guide')),
         ),
       ),
       h('h3', { class: 'help-keys label' }, 'Keyboard'),

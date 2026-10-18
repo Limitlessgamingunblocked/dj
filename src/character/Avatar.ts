@@ -31,6 +31,10 @@
  *            the build, mouthing along to a vocal, a grin when the room peaks,
  *            a frown of focus on a control, a brow flash for a clean blend
  *            and a wince at a mistake (brows, lids, cheeks, lip corners, jaw)
+ *   mocap    body tracking: the player's arms, hands and fingers, chest, legs,
+ *            head and face from the webcam laid over all of the above, each
+ *            part on its own weight, so whatever's out of the picture keeps
+ *            the moves above (see mocapFrame.ts)
  *   robot    the robot DJ: a helmet or cartoon robot head in place of the
  *            face and hair (its LEDs, eyes and mouth follow the expressions,
  *            see robot.ts), segmented chrome or gold hands, a glossy black
@@ -51,6 +55,7 @@ import { applyPose, plantFeet, type ClubDancer } from './clubDance';
 import { bodyReady, cutCovers, ModelBody, modelRegions, modelTuck, preloadBody, preloadScan, scanFrame, scanReady, type BodyRegion, type ScanFrame, type ClothCut, type Cover } from './modelBody';
 import { hasModel } from '../three/assets';
 import { buildRobotHead, buildRobotNeck, metalMat, pearlMat, robotFace, rubberMat, type RobotHead, type RobotKit } from './robot';
+import type { MocapFrame, MocapLimb } from './mocapFrame';
 
 export type BoneName = 'hips' | 'spine' | 'chest' | 'neck' | 'head' | 'shoulder_l' | 'upper_arm_l' | 'forearm_l' | 'hand_l' | 'shoulder_r' | 'upper_arm_r' | 'forearm_r' | 'hand_r' | 'thigh_l' | 'shin_l' | 'foot_l' | 'thigh_r' | 'shin_r' | 'foot_r';
 
@@ -262,6 +267,29 @@ export function twoBoneIK(t: THREE.Vector3, a: number, b: number, pole: THREE.Ve
   return { q: outQ, bend: Math.PI - inner };
 }
 
+/**
+ * A two-part limb's joints from the way its parts point, in the space the
+ * upper bone hangs in: the upper bone's turn (its −Y down the upper part,
+ * +Z the way the joint bends) and the bend. `back`: the joint bends
+ * backwards (a knee, the lower bone turning +X), not forwards (an elbow,
+ * −X). A straight limb keeps its bend forward, so its twist stays put.
+ * `u` and `f` are used up.
+ */
+export function limbTurn(u: THREE.Vector3, f: THREE.Vector3, back: boolean, out: THREE.Quaternion): number {
+  u.normalize();
+  f.normalize();
+  const bend = u.angleTo(f);
+  const Y = u.negate();
+  const Z = f.addScaledVector(Y, -f.dot(Y)).multiplyScalar(back ? -1 : 1);
+  // (nearly straight, the bend plane is noise: lean it towards forward)
+  const len = Z.length();
+  if (len < 0.1) Z.add(tmpC.set(0, 0, 0.1 - len).addScaledVector(Y, -(0.1 - len) * Y.z));
+  Z.addScaledVector(Y, -Z.dot(Y)).normalize();
+  const X = tmpC.crossVectors(Y, Z);
+  out.setFromRotationMatrix(tmpM.makeBasis(X, Y, Z));
+  return bend;
+}
+
 /** a hand on its way to a control, or holding it */
 interface Reach {
   get: () => THREE.Vector3 | null;
@@ -404,6 +432,9 @@ const noFace = (): FaceRig => ({ brows: [], upper: null, lower: null, upperY: 0,
 
 const tmpQ = new THREE.Quaternion();
 const tmpQ2 = new THREE.Quaternion();
+const tmpQ3 = new THREE.Quaternion();
+const tmpQ4 = new THREE.Quaternion();
+const IDQ = new THREE.Quaternion();
 const tmpM = new THREE.Matrix4();
 const tmpA = new THREE.Vector3();
 const tmpB = new THREE.Vector3();
@@ -577,10 +608,26 @@ export class Avatar {
   }
 
   /**
-   * Crowd control (Air DJ): both arms up and leaning with the player's, `k`
+   * Crowd control (body tracking): both arms up and leaning with the player's, `k`
    * 0..1 eased in and out, `lean` -1 (their left) to +1 (their right).
    */
   armSway: { k: number; lean: number } | null = null;
+
+  /**
+   * Body tracking: the player's pose and face from the webcam, laid over the
+   * character's own moves part by part (null, or every weight 0: the
+   * character's own moves). At the decks and in the dressing room only.
+   */
+  mocap: MocapFrame | null = null;
+  /** the chest's turn before body tracking moved it this frame (the head is measured from it) */
+  private mocapChest = new THREE.Quaternion();
+  /** a scanned character: its face is part of the scan, so only its head turns */
+  private scanned = false;
+
+  /** whether this character can pull faces (body tracking says when it can't) */
+  get hasFace(): boolean {
+    return !this.scanned;
+  }
 
   setLook(look: Look, djName = this.djName): void {
     this.look = look;
@@ -618,6 +665,7 @@ export class Avatar {
     this.hands = { l: null, r: null };
     this.model?.dispose();
     this.model = null;
+    this.scanned = false;
     this.faceRig = noFace();
     this.robot = null;
     this.headphones = null;
@@ -704,6 +752,7 @@ export class Avatar {
       if (scanReady(scan)) {
         for (const [s, k] of [['l', 1], ['r', -1]] as const) this.buildHand(s, k, false);
         this.model = new ModelBody(this.body, b, restOf(), this.hands, new Set(), this.skin('body'), l, modelTuck(l, null, null), null, [], scan);
+        this.scanned = true;
         return;
       }
       // (built as a modelled look until it arrives)
@@ -2573,9 +2622,121 @@ export class Avatar {
 
     // the face, and the eyes: on the decks, up to the room now and then
     const lookUp = dropping || s.peak > 0.5 || (bar % 4 === 3 && ph < 0.75);
+    const mc = this.mocap;
+    if (mc) this.mocapBody(mc);
     this.express(s, dt, beat, hit, dj ? (lookUp ? -0.06 : 0.3) : 0);
+    if (mc) this.mocapHead(mc, dj ? 0.32 : 0.05);
     this.settle(dt);
     this.model?.sync();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* body tracking                                                     */
+  /* ---------------------------------------------------------------- */
+
+  /** a bone's orientation in the avatar's own space */
+  private worldQ(o: THREE.Object3D, out: THREE.Quaternion): THREE.Quaternion {
+    out.identity();
+    for (let p: THREE.Object3D | null = o; p && p !== this.object; p = p.parent) out.premultiply(p.quaternion);
+    return out;
+  }
+
+  /** turn a bone by `q`, a turn in the avatar's own space */
+  private turnBy(o: THREE.Object3D, q: THREE.Quaternion): void {
+    const P = this.worldQ(o.parent!, tmpQ3);
+    const local = tmpQ4.copy(P).invert().multiply(q).multiply(P);
+    o.quaternion.premultiply(local);
+  }
+
+  /** a two-part limb's joints from the way its parts point (`m`, in the avatar's space; see limbTurn) */
+  private limbFrom(upper: THREE.Object3D, m: MocapLimb, back: boolean, out: THREE.Quaternion): number {
+    const inv = this.worldQ(upper.parent!, tmpQ3).invert();
+    return limbTurn(tmpA.copy(m.upper).applyQuaternion(inv), tmpB.copy(m.lower).applyQuaternion(inv), back, out);
+  }
+
+  /**
+   * The player's body from the webcam over the pose: the legs and hips
+   * (standing back from the camera), the chest's turn, the arms, the turn
+   * of the hands and the fingers, each by how sure the tracking is of it.
+   */
+  private mocapBody(m: MocapFrame): void {
+    const b = this.bones;
+    const w = m.w;
+    this.worldQ(b.chest, this.mocapChest);
+    const q = this.ikQ;
+    if (w.legs > 1e-3) {
+      b.hips.quaternion.slerp(m.hips, w.legs);
+      for (const side of ['l', 'r'] as const) {
+        const thigh = b[`thigh_${side}`];
+        const shin = b[`shin_${side}`];
+        const bend = this.limbFrom(thigh, m.leg[side], true, q);
+        thigh.quaternion.slerp(q, w.legs);
+        shin.quaternion.slerp(tmpQ.setFromAxisAngle(tmpA.set(1, 0, 0), bend), w.legs);
+        // the foot level with the hips
+        const foot = b[`foot_${side}`];
+        const legQ = this.worldQ(shin, tmpQ2).invert().multiply(b.hips.quaternion);
+        foot.quaternion.slerp(legQ, w.legs);
+      }
+      // down onto the lower foot, so crouching takes the body down with it
+      this.object.updateMatrixWorld(true);
+      const restY = this.d.hipY + b.thigh_l.position.y + b.shin_l.position.y + b.foot_l.position.y;
+      const low = Math.min(this.body.worldToLocal(b.foot_l.getWorldPosition(tmpA)).y, this.body.worldToLocal(b.foot_r.getWorldPosition(tmpB)).y);
+      b.hips.position.y -= (low - restY) * w.legs;
+    }
+    if (w.torso > 1e-3) {
+      // where the chest should be: the player's turn on top of the groove, half of it in the spine and half the chest
+      const want = tmpQ.copy(m.torso).multiply(this.mocapChest);
+      want.copy(tmpQ2.copy(this.mocapChest).slerp(want, w.torso));
+      const now = this.worldQ(b.chest, tmpQ2);
+      const half = new THREE.Quaternion().slerpQuaternions(IDQ, want.multiply(now.invert()), 0.5);
+      this.turnBy(b.spine, half);
+      this.turnBy(b.chest, half);
+    }
+    for (const side of ['l', 'r'] as const) {
+      const wa = w[side === 'l' ? 'armL' : 'armR'];
+      if (wa > 1e-3) {
+        const bend = this.limbFrom(b[`upper_arm_${side}`], m.arm[side], false, q);
+        b[`upper_arm_${side}`].quaternion.slerp(q, wa);
+        const fa = b[`forearm_${side}`];
+        fa.quaternion.slerp(tmpQ.setFromAxisAngle(tmpA.set(1, 0, 0), -bend), wa);
+      }
+      const wh = w[side === 'l' ? 'handL' : 'handR'];
+      const mh = m.hand[side];
+      if (wh > 1e-3) {
+        const f = mh.fingers;
+        const p = mh.palm;
+        this.orientHand(side, handFrame(f.x, f.y, f.z, p.x, p.y, p.z, this.handQ), wh);
+        const h = this.hands[side];
+        if (h) {
+          for (let i = 0; i < 4; i++) {
+            const fg = h.fingers[i];
+            fg.knuckle.rotation.x += (mh.knuckle[i] - fg.knuckle.rotation.x) * wh;
+            fg.mid.rotation.x += (mh.mid[i] - fg.mid.rotation.x) * wh;
+            fg.knuckle.rotation.z *= 1 - wh;
+          }
+          h.thumb.rotation.x += (h.thumbRest.x + mh.thumb - h.thumb.rotation.x) * wh;
+        }
+      }
+    }
+  }
+
+  /**
+   * The player's head turn from the webcam: measured from the head's
+   * resting place on the chest before the chest was turned (`rest`: its tip
+   * down at rest), then shared between the neck and the head. The beat's
+   * nod gives way to it.
+   */
+  private mocapHead(m: MocapFrame, rest: number): void {
+    const wh = m.w.head;
+    if (wh < 1e-3) return;
+    const b = this.bones;
+    const base = tmpQ.copy(this.mocapChest).multiply(tmpQ2.setFromAxisAngle(tmpA.set(1, 0, 0), rest));
+    const want = tmpQ2.copy(m.head).multiply(base);
+    const now = this.worldQ(b.head, new THREE.Quaternion());
+    want.copy(now.clone().slerp(want, wh));
+    const half = new THREE.Quaternion().slerpQuaternions(IDQ, want.multiply(now.invert()), 0.5);
+    this.turnBy(b.neck, half);
+    this.turnBy(b.head, half);
   }
 
   /**
@@ -2666,6 +2827,27 @@ export class Avatar {
       F[CH.brow] += sing * 0.25;
     }
 
+    // body tracking: the player's own face over all of that (and the head's turn is theirs too)
+    const mf = this.mocap && this.mocap.w.face > 1e-3 ? this.mocap : null;
+    const wf = mf ? mf.w.face : 0;
+    if (mf) {
+      const p = mf.face;
+      const to = (c: FaceCh, v: number) => (F[CH[c]] += (v - F[CH[c]]) * wf);
+      to('brow', p.brow);
+      to('frown', p.frown);
+      to('squint', p.squint);
+      to('jaw', p.jaw);
+      to('smile', p.smile);
+      to('wide', p.wide);
+      to('sneer', p.sneer);
+      to('pucker', p.pucker);
+      to('lids', -p.eyesWide * 0.5);
+      to('gaze', 0);
+      const wh = mf.w.head;
+      F[CH.pitch] *= 1 - wh;
+      F[CH.roll] *= 1 - wh;
+    }
+
     // and move the parts
     const fr = this.faceRig;
     const b = this.bones;
@@ -2717,8 +2899,13 @@ export class Avatar {
     b.head.rotation.x += cl(F[CH.pitch], -0.8, 0.5);
     b.head.rotation.z += cl(F[CH.roll], -0.3, 0.3) * this.sneerSide;
     // the eyes: down at the board when a hand's on something
-    const look = gaze + cl(F[CH.gaze], 0, 1) * 0.2;
-    for (const e of fr.eyes) e.rotation.x += (look - e.rotation.x) * Math.min(1, dt * 6);
+    let look = gaze + cl(F[CH.gaze], 0, 1) * 0.2;
+    // (or where the player's looking; the eyes are built right then left)
+    if (mf) look += (-mf.face.gazeY * 0.3 - look) * wf;
+    fr.eyes.forEach((e, i) => {
+      e.rotation.x += (look - e.rotation.x) * Math.min(1, dt * 6);
+      if (mf) e.rotation.y = (i ? 0.05 : -0.05) + mf.face.gazeX * 0.35 * wf;
+    });
     // a robot head shows the same face its own way (drawn in settle, once the blink is known)
     if (this.robot) {
       const ri = this.robotIn;
@@ -2952,10 +3139,14 @@ export class Avatar {
     const blink = this.blinkAt < 0 ? 1 : 0;
     if (this.blinkAt < -0.12) this.blinkAt = 2.5 + Math.random() * 3.5;
     // the lids where the face has them (shut in the breakdown, wide at the top of a build), a blink over that
-    const c = this.lidClose;
-    for (const lid of this.lids) lid.rotation.x = blink ? 0.6 : c >= 0 ? -0.35 + c * 0.95 : -0.35 + c * 0.4;
+    // (body tracking: the player's own blinks and winks instead; the lids are built right then left)
+    const mf = this.mocap && this.mocap.w.face > 0.5 ? this.mocap.face : null;
+    this.lids.forEach((lid, i) => {
+      const c = mf ? Math.max(this.lidClose, i ? mf.blinkL : mf.blinkR) : blink ? 1 : this.lidClose;
+      lid.rotation.x = c >= 0 ? -0.35 + c * 0.95 : -0.35 + c * 0.4;
+    });
     if (this.robot) {
-      this.robotIn.blink = !!blink;
+      this.robotIn.blink = mf ? mf.blinkL + mf.blinkR > 1 : !!blink;
       this.robot.update(this.robotIn, dt);
     }
 

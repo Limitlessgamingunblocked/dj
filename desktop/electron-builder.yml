@@ -29,7 +29,7 @@ mac:
   identity: null
   hardenedRuntime: false
   extendInfo:
-    NSCameraUsageDescription: Air DJ uses the camera to follow your hands.
+    NSCameraUsageDescription: Body tracking uses the camera so your DJ can copy your moves and face.
     NSMicrophoneUsageDescription: Deckhouse listens to your DJ controller's sound card inputs.
 dmg:
   title: Deckhouse DJ
