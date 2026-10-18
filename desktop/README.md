@@ -3,7 +3,7 @@
 The game as a desktop app for Mac, Windows and Linux: the same build the
 website serves, in its own window, working offline. It's an Electron shell
 (`main.cjs`) around `../dist`, so it runs on Chromium everywhere and DJ
-controllers (Web MIDI), Air DJ's camera and the sound card picker all work.
+controllers (Web MIDI), body tracking's camera and the sound card picker all work.
 
 ## Get it
 

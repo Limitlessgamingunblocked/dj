@@ -657,7 +657,7 @@ export const VERT_HEAD = /* glsl */ `
     aR = mix(aR, vec3(0.12, 1.95, 0.6), wFilm);
     float wDrink = iInfo.w * (1.0 - wClap) * (1.0 - wUp) * (1.0 - wCheer);
     aL = mix(aL, vec3(0.12, 0.45 + 0.08 * hit, 1.75), wDrink);
-    // crowd control: your hands in the air (Air DJ), and the room's go up and
+    // crowd control: your hands in the air (body tracking), and the room's go up and
     // sway with them, mirrored the way people facing you copy you (your arms
     // to your right, theirs to their left). The back follows a beat behind.
     vec2 toBooth = uBooth - here;

@@ -5,7 +5,7 @@
  * The files load from app://deckhouse/ rather than file://, so the page
  * gets a real origin: its library, career and settings persist between
  * launches, and the audio worklets, Web MIDI (DJ controllers), the camera
- * (Air DJ) and the sound card picker all work as they do in Chrome.
+ * (body tracking) and the sound card picker all work as they do in Chrome.
  *
  * updater.cjs keeps the game files up to date from the latest release.
  */
