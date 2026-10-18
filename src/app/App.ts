@@ -89,6 +89,9 @@ import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
 import { registerLightControls, registerPartyControls, registerSkyControls } from './lightControls';
 import { Party } from './party';
+import { HypeMan } from './hypeman/HypeMan';
+import { mcFromUrl } from './hypeman/link';
+import { openMcJoin } from '../ui/McJoin';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
@@ -193,6 +196,8 @@ export class App implements AppContext {
   gigs!: GigDirector;
   /** the air horn */
   party!: Party;
+  /** hype man on the mic: a friend (or you) as the MC, the crowd shouting back */
+  hypeMan!: HypeMan;
   /** the crowd's dance style, moments, your DJ moves and their signs */
   crowdDir!: CrowdDirector;
   /** VJ mode: someone else on the visuals and lights */
@@ -595,6 +600,18 @@ export class App implements AppContext {
       bpm: () => this.clock.bpm || 124,
     });
     registerPartyControls(this.reg, this.party);
+    this.hypeMan = new HypeMan({
+      engine: this.engine,
+      reg: this.reg,
+      stage: this.stage.el,
+      meter: () => this.gigs.meter,
+      clock: () => this.clock,
+      lyric: () => this.stage.lyric,
+      djName: () => this.career.profile.name || 'DJ',
+      callout: (c) => this.callout(c),
+      crowdMove: (move, secs) => crowdShow.copyMove(move, secs, true),
+      mark: (label) => this.desk?.mark('chant', label),
+    });
     registerCameraControls(this.reg, this.stage.rig, {
       next: () => this.nextAngle(),
       reset: () => this.resetAngle(),
@@ -851,11 +868,14 @@ export class App implements AppContext {
         if (this.stage.venueDef?.id !== this.settings.venue) this.stage.setVenue(venueById(this.settings.venue), { arrive: true });
         else this.stage.arrive();
       }
+      // a friend's link to join their set as the MC
+      const mc = mcFromUrl();
+      if (mc) return openMcJoin(mc);
       if (askName) this.naming?.show({ first: !this.career.profile.name });
       else if (/[?&]dressing\b/.test(location.search)) this.creator?.show();
     };
     // the title screen first (automated test browsers and the deep links skip it; ?title forces it)
-    const title = !!intro || /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle)\b/.test(location.search));
+    const title = !!intro || /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle|mc)\b/.test(location.search));
     if (title) {
       // a club at night behind the name (a new player's bedroom is their venue; the title shows them where it goes);
       // the cutscene's always shot in the same club
@@ -892,6 +912,7 @@ export class App implements AppContext {
       autodj: () => this.setAutoDJ(!this.autodj.on),
       broadcast: () => this.broadcast.set(!this.broadcast.on),
       mocap: () => this.mocap.set(!this.mocap.on),
+      hypeman: () => void this.hypeMan.set(!this.hypeMan.on),
       karaoke: () => this.toggleKaraoke(),
       help: () => this.help(),
       search: () => {
@@ -1199,6 +1220,9 @@ export class App implements AppContext {
       'sep',
       { header: 'Play' },
       { label: 'Body tracking (webcam)', checked: this.mocap.on, hint: '⇧H', action: () => this.mocap.set(!this.mocap.on) },
+      { label: 'Hype man on the mic', checked: this.hypeMan.on, hint: '⇧M', action: () => void this.hypeMan.set(!this.hypeMan.on) },
+      { label: 'Invite a friend as your MC…', action: () => void this.hypeMan.invite() },
+      { label: 'Join a friend as their MC…', action: () => openMcJoin() },
       { label: 'Harmonic wheel…', action: () => this.openHarmonic() },
       { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
@@ -1993,6 +2017,7 @@ export class App implements AppContext {
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       const lyricFrames = this.lyrics.frames();
       this.stage.lyric = lyricFrames[0] ?? null;
+      this.hypeMan.update(dt);
       // karaoke every frame: the sweep through each word has to be smooth
       const vs = this.stage.visualizer.settings;
       this.karaoke.update(lyricFrames, vs.lyrics && vs.lyricHud && this.stage.view !== 'visual');

@@ -172,6 +172,11 @@ All in the bookings calendar (Play a gig).
 
 ### Playing: scratch challenges, stems, mashups, the harmonic wheel and your label
 In the ⋯ menu under **Play**.
+- **Hype man on the mic** (⋯ menu, or Shift+M): a mic goes into the mix and the music ducks under it while you talk. A friend can be your MC from anywhere: **Invite a friend as your MC…** gives a room code and a link; they open **Join a friend as their MC…** (or the link), hear your mix in their headphones, and their voice comes into your set.
+  - **the MC's card** shows the words being sung (talk over a verse and the room notices), a nudge for the section ("Build coming: hype them up!"), the beat, and **Echo** and **Radio** voice effects
+  - **call and response:** arm a call on the card (Say HO!, Hands up, Make some noise, Clap, your DJ's name) and shout it; the crowd shouts back on the next beat and copies it (hands up, clapping, jumping). On the beat, in a breakdown or a build, with the room into it, it scores more; the same call over and over gets a tired answer
+  - **mic moments score on the vibe meter:** good calls and hyping a build lift it; talking over the vocal, or never letting the music breathe, costs vibe
+  - the call pads are controls (`mc.call.*`), so they go on pads, keys and MIDI; the mic settings set how far the music ducks, the mic's sensitivity and its level
 - **Body tracking** (⋯ menu → Body tracking, or Shift+H): your DJ in the booth moves like you in front of the webcam.
   - **your body:** arms, shoulders and the lean of your chest; step back so your knees and feet are in the picture and the legs copy you too, crouching included
   - **your hands:** each hand's turn and every finger, opening, closing and pointing like yours

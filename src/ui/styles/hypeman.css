@@ -1,0 +1,262 @@
+/* hype man on the mic: the MC's card (top left of the stage; full width on the MC's own screen) */
+.mc-card {
+  position: absolute;
+  left: 12px;
+  top: 48px;
+  width: min(270px, calc(50% - 24px));
+  max-height: calc(100% - 60px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 6px 8px 8px;
+  border-top: 3px solid var(--live);
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: rgba(5, 7, 10, 0.88);
+  backdrop-filter: blur(6px);
+  z-index: 4;
+  font-size: var(--text-xs);
+}
+
+.mc-card.mc-page {
+  position: static;
+  width: auto;
+  max-height: none;
+  font-size: var(--text-sm);
+}
+
+.mc-card .mc-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mc-card .mc-label {
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--live);
+}
+
+.mc-card .mc-who {
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-card .mc-score {
+  color: var(--warn);
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-card .mc-head .btn {
+  min-height: 0;
+  padding: 0 6px;
+  line-height: 18px;
+}
+
+.mc-card .mc-level {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mc-card .mc-meter {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--led-off);
+  overflow: hidden;
+}
+
+.mc-card .mc-meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--ok), var(--warn) 75%, var(--live));
+}
+
+.mc-card .mc-air {
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  padding: 1px 4px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--line-2);
+  color: var(--dim);
+}
+
+.mc-card .mc-air.on {
+  color: #fff;
+  background: var(--live);
+  border-color: var(--live);
+}
+
+.mc-card .mc-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.mc-card .mc-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--led-off);
+}
+
+.mc-card .mc-dots i.on {
+  background: var(--warn);
+}
+
+.mc-card .mc-status {
+  color: var(--warn);
+}
+
+.mc-card .mc-status[hidden] {
+  display: none;
+}
+
+.mc-card .mc-words {
+  min-height: 2.6em;
+}
+
+.mc-card .mc-line {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mc-card.mc-page .mc-line {
+  font-size: var(--text-xl, 20px);
+}
+
+.mc-card .mc-next {
+  color: var(--dim);
+}
+
+.mc-card .mc-hint {
+  color: var(--deck1);
+}
+
+.mc-card .mc-pads {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 4px;
+}
+
+.mc-card .mc-pad {
+  position: relative;
+  overflow: hidden;
+  min-height: 34px;
+  padding: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-s);
+  background: var(--panel-3);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mc-card .mc-pad:hover {
+  border-color: var(--live);
+}
+
+.mc-card .mc-pad.armed {
+  border-color: var(--live);
+  background: color-mix(in srgb, var(--live) 30%, var(--panel-3));
+}
+
+/* the armed call's time running out, as a bar along the bottom */
+.mc-card .mc-pad.armed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: calc(var(--left, 0) * 100%);
+  background: var(--live);
+}
+
+.mc-card .mc-fxrow {
+  display: flex;
+  gap: 4px;
+}
+
+.mc-card .mc-fx[aria-pressed='true'] {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.mc-card .mc-last {
+  min-height: 1.2em;
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.mc-card .mc-booth summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.mc-card .mc-slider {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 1fr) 3.6em;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.mc-card .mc-slider input {
+  min-width: 0;
+  width: 100%;
+}
+
+.mc-card .mc-slider output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc-card .mc-tip {
+  margin: 4px 0 0;
+  color: var(--dim);
+}
+
+.mc-card .mc-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-s);
+}
+
+.mc-card .mc-invite[hidden] {
+  display: none;
+}
+
+.mc-card .mc-code {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-lg, 16px);
+  letter-spacing: 0.2em;
+  color: var(--text);
+}
+
+/* the MC's own screen (a friend online): the card fills the dialog */
+.mc-join {
+  display: grid;
+  gap: 10px;
+}
+
+.mc-join label {
+  display: grid;
+  gap: 4px;
+}
