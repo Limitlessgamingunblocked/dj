@@ -35,8 +35,8 @@ export interface HudState {
   request: { text: string; left: number; who?: string; track?: string; load?: boolean } | null;
   /** the coach's pick for the next track (Chill and Club) */
   coach: { title: string; artist: string; why: string } | null;
-  /** the daily's ghost: your best run's vibe now, and how far ahead (+) or behind you are on points */
-  ghost?: { vibe: number; diff: number } | null;
+  /** the daily's ghost: your best run's vibe now, and how far ahead (+) or behind you are on points; in a ghost duel, the friend's run and their name */
+  ghost?: { vibe: number; diff: number; name?: string } | null;
 }
 
 export interface HudHooks {
@@ -90,6 +90,7 @@ export class GigHud {
   private coachWhy: HTMLElement;
   private ghostEl: HTMLElement;
   private ghostDiff: HTMLElement;
+  private ghostName: string | null = null;
 
   constructor(private hooks: HudHooks) {
     this.bar = h('div', { class: 'gh-fill' });
@@ -243,7 +244,13 @@ export class GigHud {
     }
     if (g) {
       setVar(this.ghostEl, '--g', g.vibe.toFixed(3));
-      setText(this.ghostDiff, `${g.diff >= 0 ? '+' : '−'}${Math.abs(g.diff).toLocaleString()} vs best`);
+      setText(this.ghostDiff, `${g.diff >= 0 ? '+' : '−'}${Math.abs(g.diff).toLocaleString()} vs ${g.name ?? 'best'}`);
+      if (this.ghostName !== (g.name ?? null)) {
+        this.ghostName = g.name ?? null;
+        this.ghostEl.title = g.name ? `${g.name}’s ghost` : 'Your best run of today’s daily';
+        this.ghostDiff.title = g.name ? `Points against ${g.name}’s run` : 'Points against your best run today';
+        setClass(this.ghostEl, 'duel', !!g.name);
+      }
       setClass(this.ghostDiff, 'behind', g.diff < 0);
     }
     const c = s.coach;

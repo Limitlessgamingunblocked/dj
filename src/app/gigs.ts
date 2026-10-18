@@ -13,7 +13,7 @@ import { addPosts, postsForSet } from '../game/social';
 import { ASSISTS, Gig, isVibeEvent, type Assist, type GigConfig, type GigEvent } from '../game/Gig';
 import { nextGoal } from '../game/progression';
 import { announceEarned } from '../ui/AchievementsPanel';
-import { cleanDaily, dailyFor, dailyMet, liveStreak, recordDaily, shareText, vibeSquares, type DailyRecord, type DailySave, type DailySpec } from '../game/daily';
+import { cleanDaily, dailyFor, dailyMet, dayKey, liveStreak, recordDaily, shareText, vibeSquares, type DailyRecord, type DailySave, type DailySpec } from '../game/daily';
 import { loadSetting, saveSetting } from '../core/settings';
 import { CHEMISTRY_UNLOCK, INTROS, RIVALS, rivalOf, type RivalId } from '../game/rivals';
 import type { ControlRegistry } from '../core/controls';
@@ -27,12 +27,20 @@ import { afterSet, attending, loadLoyalty, saveLoyalty, type Regular } from '../
 import { genreOf } from '../library/genres';
 import type { DjMove } from '../character/Avatar';
 import { ghostAt, keepIfBest, loadGhost, type Ghost, type GhostPoint } from '../game/ghost';
+import { duelGhost, duelOutcome, duelShareText, type Duel } from '../game/duel';
+import { openSendDuel, type DuelOut } from '../ui/GhostDuel';
 import { openHighlight } from '../ui/HighlightCard';
 import { skyCue } from '../three/venues/skyshow';
 import { CircuitGig, type CircuitNote } from './circuitGig';
 import { CITIES, circuitSpecial, nextTourCity, relAfter, relStatus, residencyAfter, tourCity, tourReward, travelFor } from '../game/circuit';
 import { openTourMap } from '../ui/TourMap';
 import { labelName, loadLabel, playedBy, playPost, rivalNights, saveLabel } from '../game/label';
+
+/** a day key (YYYY-MM-DD) as midday on that local date */
+const dateOf = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d, 12);
+};
 
 /** the venues with a fireworks finale */
 const FINALE_VENUES = ['festival', 'beach', 'boat'];
@@ -194,7 +202,9 @@ export class GigDirector {
   private fanCheered = new Set<string>();
   private moveAt = -1e9;
   private dropAt = -1e9;
-  /** the daily's ghost (your best run today) and this run's samples */
+  /** a ghost duel: the friend's run you're playing against */
+  private duel: Duel | null = null;
+  /** the ghost on the meter (your best run of the daily, or the duel's friend) and this run's samples */
   private ghost: Ghost | null = null;
   private ghostRun: GhostPoint[] = [];
   private ghostT = -1e9;
@@ -321,6 +331,61 @@ export class GigDirector {
     });
   }
 
+  /**
+   * A ghost duel's pre-gig screen: the friend's night (a daily's, or their
+   * venue, slot and length), fixed, with their score to beat. The tracks of
+   * theirs you have go in a crate for it.
+   */
+  openDuel(duel: Duel, trackIds: string[] = []): void {
+    if (!this.hasMusic()) return;
+    const c = this.host.career;
+    const spec = duel.daily ? dailyFor(dateOf(duel.daily)) : null;
+    const today = !!spec && spec.key === dayKey(new Date());
+    const name = duel.dj || 'Your friend';
+    const crate = trackIds.length >= 2 ? this.duelCrate(name, trackIds) : this.host.currentCrate();
+    const venue = spec?.venue ?? duel.venue;
+    openGigSetup({
+      venues: this.host.gigVenues(),
+      looks: c.looks.items.length ? c.looks.items : [c.look],
+      currentLook: c.look.id,
+      crates: this.host.library.crates,
+      currentCrate: crate,
+      progress: c.progress,
+      assist: this.lastCfg?.assist ?? 'club',
+      booking: {
+        venue,
+        venueName: this.host.venueName(venue),
+        slot: spec?.slot ?? duel.slot,
+        minutes: spec?.minutes ?? duel.minutes,
+        pay: 0,
+        promoter: '',
+        expectation: '',
+        objective: '',
+        duel: {
+          name,
+          score: duel.score,
+          grade: duel.grade,
+          kicker: spec ? `Ghost duel · Daily #${spec.number}` : 'Ghost duel',
+          twist: spec?.twist.label,
+          goals: spec?.goals.map((g) => g.text),
+          note: `${name}’s ghost runs on your vibe meter, with the points between you, live. Play it with your own music, on any stage, locked or not.${spec ? (today ? ' It’s today’s daily: your first finish today counts as your daily too.' : ' It’s an earlier daily, so it doesn’t touch your streak.') : ''}`,
+        },
+      },
+      start: (cfg, o) => this.walkOutThen(cfg, o.look, null, () => this.start(cfg, o.look, o.crate, null, spec, duel)),
+      dressingRoom: () => this.host.openCreator(),
+    });
+  }
+
+  /** the friend's tracks you have, in their order, in one crate per friend (refilled each duel) */
+  private duelCrate(name: string, ids: string[]): string {
+    const lib = this.host.library;
+    const label = `${name}’s duel`;
+    const crate = lib.crates.find((x) => x.kind === 'crate' && x.name === label) ?? lib.createCrate(label, 'crate', null);
+    lib.removeFromCrate(crate.id, crate.trackIds.slice());
+    lib.addToCrate(crate.id, ids);
+    return crate.id;
+  }
+
   /** a set needs music to mix: at least two of your tracks */
   private hasMusic(): boolean {
     if (this.host.library.list().filter((t) => t.status !== 'error').length >= 2) return true;
@@ -376,7 +441,7 @@ export class GigDirector {
     return c;
   }
 
-  start(cfg: GigConfig, look?: string, crate?: string | null, booking: Booking | null = null, daily: DailySpec | null = null): void {
+  start(cfg: GigConfig, look?: string, crate?: string | null, booking: Booking | null = null, daily: DailySpec | null = null, duel: Duel | null = null): void {
     if (this.gig) this.teardown();
     const e = this.host.engine;
     this.host.autoDJOff();
@@ -388,6 +453,7 @@ export class GigDirector {
     this.lastCfg = cfg;
     this.booking = booking;
     this.daily = daily;
+    this.duel = duel;
     this.moment = null;
     this.b2b?.stop();
     this.b2b = null;
@@ -406,7 +472,7 @@ export class GigDirector {
     this.endBattle();
     this.roomMoments = 0;
     this.fans = attending(loadLoyalty());
-    this.ghost = daily ? loadGhost(daily.key) : null;
+    this.ghost = duel ? duelGhost(duel) : daily ? loadGhost(daily.key) : null;
     this.ghostRun = [];
     this.ghostT = -1e9;
     this.played = [];
@@ -483,7 +549,7 @@ export class GigDirector {
       this.gig,
       booking,
       this.host.career.circuit,
-      { events: !daily && !this.b2b && !this.battle },
+      { events: !daily && !duel && !this.b2b && !this.battle },
     );
     this.circuit.start();
     const slot = SLOTS[cfg.slot];
@@ -496,6 +562,10 @@ export class GigDirector {
       const name = this.battle.game.rivalName;
       this.hud.say('Room Battle:', `You and ${name} take turns on the room, 16 bars each. You go first, on the bright pads.`);
       setTimeout(() => this.battle && this.hud?.say(`${name}:`, 'Let’s see what you do with the room.'), 4200);
+    } else if (duel) {
+      const who = duel.dj || 'Your friend';
+      this.hud.say(`${who}’s ghost:`, `${slot.label}, ${cfg.minutes} minutes. Their run scored ${duel.score.toLocaleString()}${duel.grade ? ` (${duel.grade})` : ''}. Beat it.`);
+      if (daily) setTimeout(() => this.gig && this.duel === duel && this.hud?.say(`Daily #${daily.number}:`, `${daily.twist.label}. ${daily.goals.map((g) => g.text).join(' · ')}`), 3200);
     } else if (daily) {
       this.hud.say(`Daily #${daily.number}:`, `${slot.label}, ${cfg.minutes} minutes. ${daily.twist.label}.`);
       setTimeout(() => this.gig && this.daily === daily && this.hud?.say('Objectives:', daily.goals.map((g) => g.text).join(' · ')), 3200);
@@ -613,13 +683,44 @@ export class GigDirector {
     const regulars = fanOut.changes.slice(0, 3).map((c) => ({ name: c.fan.name, style: c.fan.style, delta: c.delta }));
     // the daily's ghost: keep this run if it's today's best
     let ghostOut: { pts: GhostPoint[]; score: number; beat: boolean; first: boolean } | null = null;
-    if (this.daily && this.ghostRun.length > 3) {
+    const todaysDaily = !!this.daily && this.daily.key === dayKey(new Date());
+    if (this.daily && todaysDaily && !this.duel && this.ghostRun.length > 3) {
       const before = this.ghost;
       const beat = keepIfBest({ key: this.daily.key, score: r.score, grade: r.grade, pts: this.ghostRun });
       ghostOut = { pts: before?.pts ?? this.ghostRun, score: before?.score ?? r.score, beat: beat && !!before, first: !before };
     }
+    // a ghost duel: who won; and this run, to send as a duel (or back, after one)
+    const duel = this.duel;
+    const run = this.ghostRun.slice();
+    const yourName = this.host.djName() || 'DJ';
+    let duelOut: DuelOut | null = null;
+    if (duel) {
+      const outcome = duelOutcome({ score: r.score, pts: run }, duel);
+      const them = duel.dj || 'Your friend';
+      duelOut = { name: them, score: duel.score, yours: r.score, pts: duel.pts, outcome, share: duelShareText({ you: yourName, them, venueName: this.host.venueName(gig.config.venue), yourScore: r.score, theirScore: duel.score, outcome }) };
+    }
     const shot = this.peakShot;
     const trackOrder = this.played.slice();
+    const lib = this.host.library;
+    const myDuel: Duel | null =
+      run.length > 3
+        ? {
+            v: 1,
+            dj: yourName,
+            daily: this.daily?.key ?? null,
+            venue: gig.config.venue,
+            slot: gig.config.slot,
+            minutes: gig.config.minutes,
+            score: r.score,
+            grade: r.grade,
+            pts: run,
+            tracks: trackOrder
+              .map((id) => lib.get(id))
+              .filter((t): t is NonNullable<typeof t> => !!t)
+              .map((t) => ({ title: t.meta.title || t.fileName, artist: t.meta.artist, bpm: t.analysis?.bpm ? Math.round(t.analysis.bpm * 10) / 10 : 0 })),
+            ...(duel ? { answers: duel.score } : {}),
+          }
+        : null;
     const battle = this.battle ? { name: this.battle.game.rivalName, you: this.battle.game.you, rival: this.battle.game.rival } : null;
     const roomMoments = this.roomMoments;
     // the circuit: the promoter remembers, the residency grows or shrinks, the tour moves on
@@ -641,7 +742,8 @@ export class GigDirector {
     // the daily challenge: the first finish of the day is the result; the streak moves on
     const daily = this.daily;
     let dailyOut: DailyOut | null = null;
-    if (daily) {
+    // an earlier daily (from a duel) is played for the duel, not the streak
+    if (daily && todaysDaily) {
       const met = dailyMet(daily, r.summary);
       const res = { grade: r.grade, score: r.score, met, squares: vibeSquares(r.timeline, gig.config.minutes * 60) };
       const rec = recordDaily(cleanDaily(loadSetting<unknown>('daily', null)), daily, res);
@@ -658,6 +760,7 @@ export class GigDirector {
     this.gig = null;
     this.booking = null;
     this.daily = null;
+    this.duel = null;
     this.free.vibe = gig.meter.vibe;
     this.host.finished(r.grade);
     const rp = this.host.replay();
@@ -674,13 +777,15 @@ export class GigDirector {
       highlight: () => void openHighlight({ dj, grade: r.grade, venue: this.host.venueName(gig.config.venue), slot: SLOTS[gig.config.slot].label, score: r.score, peak: r.peak.vibe, peakAt: r.peak.t, best: r.best ? TRANSITION_LABEL[r.best.name] : null, date: new Date() }, shot ?? (rp ? (rp.stills(Math.max(0, gig.t - r.peak.t))[0] ?? null) : null)),
       shareCode: trackOrder.length && this.host.shareSet ? () => this.host.shareSet!(trackOrder) : undefined,
       daily: dailyOut,
+      duel: duelOut,
+      sendDuel: myDuel ? () => void openSendDuel(myDuel, { venueName: this.host.venueName(myDuel.venue), dailyNumber: daily?.number }) : undefined,
       saveHighlights: rp ? () => rp.save() : undefined,
       replay: rp ? (label) => rp.moment(label) : undefined,
       // the set clock runs from the first track to the end, so the peak was this long ago
       peakStills: rp && r.peak.vibe > 0 ? rp.stills(Math.max(0, gig.t - r.peak.t)) : [],
       closed: () => rp?.clear(),
       // after a booking, "play again" goes back to the calendar for the next one
-      again: () => (daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
+      again: () => (duel ? this.openDuel(duel) : daily ? this.openDaily() : b ? this.openSetup() : this.lastCfg && this.start(this.lastCfg)),
       studio: () => undefined,
     });
   }
@@ -743,18 +848,19 @@ export class GigDirector {
     this.host.crowd('whoa');
   }
 
-  /** the daily's ghost against you now */
-  private ghostNow(gig: Gig): { vibe: number; diff: number } | null {
+  /** the ghost against you now: your best run of the daily, or the duel's friend */
+  private ghostNow(gig: Gig): { vibe: number; diff: number; name?: string } | null {
     if (!this.ghost || gig.phase === 'waiting') return null;
     const g = ghostAt(this.ghost, gig.t);
     if (!g) return null;
-    return { vibe: g.vibe, diff: Math.round(gig.meter.points * gig.multiplier) - g.score };
+    return { vibe: g.vibe, diff: Math.round(gig.meter.points * gig.multiplier) - g.score, ...(this.duel ? { name: this.duel.dj || 'friend' } : {}) };
   }
 
-  /** the daily's run, sampled for its ghost; a picture of the crowd at each new peak (for the highlight card) */
+  /** the run, sampled for its ghost (the daily's best, or a duel to send); a picture of the crowd at each new peak (for the highlight card) */
   private sharingWatch(gig: Gig): void {
     if (gig.phase === 'waiting') return;
-    if (this.daily && gig.t - this.ghostT >= 2) {
+    // every set is sampled: any finished set can be sent as a ghost duel
+    if (gig.t - this.ghostT >= 2) {
       this.ghostT = gig.t;
       this.ghostRun.push([Math.round(gig.t * 10) / 10, Math.round(gig.meter.vibe * 1000) / 1000, Math.round(gig.meter.points * gig.multiplier)]);
     }

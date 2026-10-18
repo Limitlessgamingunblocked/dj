@@ -27,6 +27,9 @@ import { crowdHud, openJoinCrowdPanel } from '../ui/JoinCrowdPanel';
 import { openVjPanel } from '../ui/VjPanel';
 import { openVisualEditor } from '../ui/VisualEditor';
 import { openSetCode, openShareCode, type SetCodeHooks } from '../ui/SetCodes';
+import { openDuelCode } from '../ui/GhostDuel';
+import { findDuelCode } from '../game/duel';
+import { dailyNumber } from '../game/daily';
 import { loadScenes } from '../three/venues/rooms/kit';
 import { customVenueId, loadCustomRooms } from '../three/venues/rooms/custom';
 import { loadLoyalty, REGULARS } from '../game/regulars';
@@ -925,7 +928,10 @@ export class App implements AppContext {
       if (mc) return openMcJoin(mc);
       if (askName) this.naming?.show({ first: !this.career.profile.name });
       else if (/[?&]dressing\b/.test(location.search)) this.creator?.show();
+      // a ghost duel's link (…#duel=DG1.…): open it once you're in
+      this.duelFromLink();
     };
+    window.addEventListener('hashchange', () => this.duelFromLink());
     // the title screen first (automated test browsers and the deep links skip it; ?title forces it)
     const title = !!intro || /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle|mc)\b/.test(location.search));
     if (title) {
@@ -1270,6 +1276,7 @@ export class App implements AppContext {
       { label: 'Visual editor…', action: () => openVisualEditor({ show: (id) => this.stage.visualizer.setMode(id) }) },
       { label: 'Share this set…', action: () => void openShareCode(this.setCodeHooks()) },
       { label: 'Open a set code…', action: () => openSetCode(this.setCodeHooks()) },
+      { label: 'Open a ghost duel…', action: () => this.openDuel() },
       { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
       'sep',
       { header: 'Play' },
@@ -1340,6 +1347,25 @@ export class App implements AppContext {
     const fx = e.fx;
     if (fx.on && (fx.type === 'echo' || fx.type === 'pingpong')) g = Math.max(g, 0.35 + fx.depth * 0.5);
     roomShow.glitch += (g - roomShow.glitch) * Math.min(1, dt * (g > roomShow.glitch ? 12 : 3));
+  }
+
+  /** open a ghost duel: paste a code, or the one a link brought in */
+  private openDuel(initial?: string): void {
+    openDuelCode({
+      initial,
+      venueName: (id) => ([...GIG_VENUES, ...loadCustomRooms().map(customVenueId)].includes(id) ? venueById(id).name : null),
+      dailyNumber,
+      library: () => this.library.list().map((t) => ({ id: t.id, title: t.meta.title || t.fileName, artist: t.meta.artist })),
+      play: (duel, ids) => this.gigs.openDuel(duel, ids),
+    });
+  }
+
+  /** a duel link opened the game: take the code off the address and open it */
+  private duelFromLink(): void {
+    const code = /^#duel=/.test(location.hash) ? findDuelCode(location.hash) : null;
+    if (!code) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    this.openDuel(code);
   }
 
   /** a code from the ⋯ menu's box (game/codes.ts): change the career, and say what changed */

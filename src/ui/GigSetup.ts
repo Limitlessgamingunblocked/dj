@@ -32,7 +32,7 @@ export interface SetupHooks {
   progress: Progress;
   assist: Assist;
   /** playing a booking: its terms are fixed */
-  booking?: { venue: string; venueName: string; slot: SlotId; minutes: number; pay: number; promoter: string; expectation: string; objective: string; extra?: string; daily?: { number: number; twist: string; goals: string[]; note: string } } | null;
+  booking?: { venue: string; venueName: string; slot: SlotId; minutes: number; pay: number; promoter: string; expectation: string; objective: string; extra?: string; daily?: { number: number; twist: string; goals: string[]; note: string }; duel?: { name: string; score: number; grade: string; kicker: string; twist?: string; goals?: string[]; note: string } } | null;
   start(cfg: GigConfig, o: { look: string; crate: string | null }): void;
   dressingRoom(): void;
 }
@@ -125,7 +125,19 @@ export function openGigSetup(o: SetupHooks): void {
           'section',
           { class: 'gs-booking' },
           c,
-          bk.daily
+          bk.duel
+            ? h(
+                'div',
+                {},
+                h('span', { class: 'gs-note' }, `👻 ${bk.duel.kicker}`),
+                h('h3', {}, bk.venueName),
+                h('p', {}, h('b', {}, `${SLOTS[bk.slot].label} · ${bk.minutes} min`)),
+                h('p', { class: 'gs-brief duel-target' }, h('b', {}, `${bk.duel.name}’s score to beat: `), h('b', {}, bk.duel.score.toLocaleString()), bk.duel.grade ? ` (grade ${bk.duel.grade})` : ''),
+                bk.duel.twist ? h('p', { class: 'gs-brief' }, h('b', {}, 'Tonight: '), bk.duel.twist) : null,
+                bk.duel.goals?.length ? h('ul', { class: 'gs-daily-goals' }, ...bk.duel.goals.map((g) => h('li', {}, g))) : null,
+                h('p', { class: 'gs-note' }, bk.duel.note),
+              )
+            : bk.daily
             ? h(
                 'div',
                 {},
@@ -164,7 +176,7 @@ export function openGigSetup(o: SetupHooks): void {
     h('div', { class: 'gs-actions' }, go),
   );
   updateBrief();
-  const m = openModal(bk?.daily ? 'Daily challenge' : bk ? 'Play the booking' : 'Free set', content, { wide: true });
+  const m = openModal(bk?.duel ? 'Ghost duel' : bk?.daily ? 'Daily challenge' : bk ? 'Play the booking' : 'Free set', content, { wide: true });
   go.addEventListener('click', () => {
     m.close();
     o.start({ ...cfg, battle: !!cfg.battle && roomy(cfg.venue) }, { look, crate });

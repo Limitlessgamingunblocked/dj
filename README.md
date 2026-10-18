@@ -202,6 +202,7 @@ In the ⋯ menu under **Play**.
 
 ### Sharing
 - **Ghost replays:** your best run of today's daily is kept, and when you play it again its ghost runs alongside: a faint marker on the vibe meter, how far ahead or behind you are on points, and a faint line on the results graph.
+- **Ghost duels:** after any set, **Duel a friend** makes a code (and a link, when the game runs from a web address) with your run. Your friend opens it with ⋯ → Open a ghost duel (or the link) and plays the same night with their own music: the same daily (its twist and objectives) or the same venue, slot and length. Your ghost runs on their vibe meter in cyan, with the points between you live, and the tracks of yours they have go in a crate. Their results show both vibe lines, who won and by how much, a line to paste back, and **Send your run back** for a rematch. Nobody has to be online at the same time.
 - **Set codes:** "Share this set…" turns the tracklist (title, artist, BPM), the venue and, in a crazy room, its look and scenes into a short code to paste anywhere. "Open a set code…" goes to the venue, sets the room up and makes a crate of the tracks you have, in order, listing the ones you don't.
 - **Highlight card:** a picture card of your set (the crowd at its peak, your grade, score and best transition) to save or copy from the results.
 
