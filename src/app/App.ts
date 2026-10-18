@@ -22,6 +22,8 @@ import { CrowdDirector } from './crowdDirector';
 import { openRoomEditor } from '../ui/RoomEditor';
 import { loadMyVisuals } from '../visualizer/myvisual';
 import { VjHost } from './vjhost';
+import { JoinTheCrowd } from './jointhecrowd';
+import { crowdHud, openJoinCrowdPanel } from '../ui/JoinCrowdPanel';
 import { openVjPanel } from '../ui/VjPanel';
 import { openVisualEditor } from '../ui/VisualEditor';
 import { openSetCode, openShareCode, type SetCodeHooks } from '../ui/SetCodes';
@@ -197,6 +199,9 @@ export class App implements AppContext {
   crowdDir!: CrowdDirector;
   /** VJ mode: someone else on the visuals and lights */
   vj!: VjHost;
+  /** Join the crowd: friends dancing on your floor, online */
+  friends!: JoinTheCrowd;
+  private friendsHud: ((host: JoinTheCrowd) => void) | null = null;
   private callouts!: HTMLElement;
   private lyrics!: LyricsEngine;
   /** karaoke over the stage */
@@ -595,6 +600,32 @@ export class App implements AppContext {
       bpm: () => this.clock.bpm || 124,
     });
     registerPartyControls(this.reg, this.party);
+    this.friends = new JoinTheCrowd({
+      engine: this.engine,
+      stage: this.stage,
+      dj: () => nameService.text,
+      venue: () => venueById(this.settings.venue).name,
+      track: () => {
+        const e = this.engine;
+        const t = (e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing))?.track;
+        return t ? (t.meta.artist ? `${t.meta.artist} – ${t.meta.title || t.fileName}` : t.meta.title || t.fileName) : '';
+      },
+      bpm: () => this.clock.bpm || 0,
+      vibe: () => this.gigs?.meter.vibe ?? 0,
+      lift: (dv) => {
+        const m = this.gigs?.meter;
+        if (m) m.vibe = Math.min(1, m.vibe + dv);
+      },
+      airhorn: () => this.party.airhorn(),
+      cheer: () => this.engine.crowd.play('whoa', Math.max(0.6, this.stage.hype), this.clock.bpm || 124),
+      tracks: () => this.library.list(),
+      callout: (text, tone) => this.callout({ text, tone }),
+      changed: () => {
+        this.stage.guests = this.friends.open ? this.friends.dancers : null;
+        this.friendsHud?.(this.friends);
+      },
+    });
+    this.friendsHud = crowdHud(this.stage.el);
     registerCameraControls(this.reg, this.stage.rig, {
       next: () => this.nextAngle(),
       reset: () => this.resetAngle(),
@@ -1192,6 +1223,8 @@ export class App implements AppContext {
       { label: 'MIDI controllers', action: () => this.showTab('settings') },
       { label: 'Enter a code…', action: () => openCodeEntry({ redeem: (code) => this.redeemCode(code) }) },
       { label: 'VJ mode…', action: () => openVjPanel({ connected: () => this.vj.connected, attach: (l) => this.vj.attach(l) }) },
+      { label: 'Join the crowd: friends on your floor…', action: () => openJoinCrowdPanel(this.friends) },
+      { label: 'Join a friend’s floor…', action: () => window.open(`${location.href.split('#')[0].split('?')[0]}#crowd`, 'deckhouse-crowd', 'width=520,height=900') },
       { label: 'Visual editor…', action: () => openVisualEditor({ show: (id) => this.stage.visualizer.setMode(id) }) },
       { label: 'Share this set…', action: () => void openShareCode(this.setCodeHooks()) },
       { label: 'Open a set code…', action: () => openSetCode(this.setCodeHooks()) },
@@ -1983,6 +2016,8 @@ export class App implements AppContext {
       // body tracking: your character moves like you
       this.stage.avatar.mocap = this.mocap.update(dt);
       this.vj.update(dt);
+      this.friends.update(dt, f);
+      this.friendsHud?.(this.friends);
       this.stage.hype = this.gigs.update(dt, f);
       if (this.intro?.hype != null) this.stage.hype = this.intro.hype;
       this.nextCard?.update();

@@ -1,6 +1,7 @@
 import './ui/styles.css';
 import { App } from './app/App';
 import { mountVjSurface } from './ui/VjSurface';
+import { mountCrowdGuest } from './ui/CrowdGuest';
 import { setupInstall } from './pwa/install';
 
 setupInstall();
@@ -8,6 +9,8 @@ setupInstall();
 const root = document.getElementById('app')!;
 // VJ mode's controls: their own light page, without the decks or the stage
 if (location.hash === '#vj') mountVjSurface(root);
+// Join the crowd: a friend on your dancefloor, from the link you sent them
+else if (location.hash === '#crowd') mountCrowdGuest(root);
 else {
   const app = new App(root);
   (window as unknown as { deckhouse: App }).deckhouse = app;
