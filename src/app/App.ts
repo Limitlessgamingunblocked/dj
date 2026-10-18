@@ -89,6 +89,7 @@ import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
 import { registerLightControls, registerPartyControls, registerSkyControls } from './lightControls';
 import { Party } from './party';
+import { PassAuxMode } from './passAux';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
@@ -193,6 +194,7 @@ export class App implements AppContext {
   gigs!: GigDirector;
   /** the air horn */
   party!: Party;
+  aux!: PassAuxMode;
   /** the crowd's dance style, moments, your DJ moves and their signs */
   crowdDir!: CrowdDirector;
   /** VJ mode: someone else on the visuals and lights */
@@ -700,6 +702,14 @@ export class App implements AppContext {
       snapshot: () => this.stage.snapshot(),
       shareSet: (ids) => void openShareCode({ ...this.setCodeHooks(), played: () => this.tracksOf(ids) }),
     });
+    this.aux = new PassAuxMode({
+      engine: this.engine,
+      stageEl: this.stage.el,
+      track: (id) => this.library.get(id) ?? null,
+      inGig: () => !!this.gigs.gig,
+      crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
+    });
+    this.gigs.vibeTaps.add((ev) => this.aux.vibe(ev));
     this.crowdDir = new CrowdDirector({
       reg: this.reg,
       perform: (m) => this.stage.avatar.perform(m),
@@ -1200,6 +1210,7 @@ export class App implements AppContext {
       { header: 'Play' },
       { label: 'Body tracking (webcam)', checked: this.mocap.on, hint: '⇧H', action: () => this.mocap.set(!this.mocap.on) },
       { label: 'Harmonic wheel…', action: () => this.openHarmonic() },
+      { label: 'Pass the aux (party game)…', action: () => this.aux.open() },
       { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
       { label: 'Your label…', action: () => openLabel(this.mashupHooks()) },
@@ -1984,6 +1995,7 @@ export class App implements AppContext {
       this.stage.avatar.mocap = this.mocap.update(dt);
       this.vj.update(dt);
       this.stage.hype = this.gigs.update(dt, f);
+      this.aux.update(dt);
       if (this.intro?.hype != null) this.stage.hype = this.intro.hype;
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);

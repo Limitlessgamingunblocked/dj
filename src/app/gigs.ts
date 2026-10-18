@@ -152,6 +152,8 @@ export function promoterHello(tier: number, expectation: string): string {
 }
 
 export class GigDirector {
+  /** other modes hearing the meter's calls (Pass the aux scores each player's mix with them) */
+  readonly vibeTaps = new Set<(ev: VibeEvent) => void>();
   /** the studio's meter: the crowd still reacts when you're just playing */
   private free = new VibeMeter(SLOTS.peak);
   /** the crowd's song requests (the AI's, or the crowd's own lines) */
@@ -995,7 +997,10 @@ export class GigDirector {
       }
       return;
     }
-    if (isVibeEvent(ev)) this.b2b?.onEvent(ev);
+    if (isVibeEvent(ev)) {
+      this.b2b?.onEvent(ev);
+      for (const fn of this.vibeTaps) fn(ev);
+    }
     if (ev.kind === 'gig') {
       if (ev.what === 'last_minute') this.hud?.say('Promoter:', 'One minute left. Make it count.');
       if (ev.what === 'encore') {

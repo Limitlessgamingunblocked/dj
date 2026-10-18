@@ -1,6 +1,7 @@
 import './ui/styles.css';
 import { App } from './app/App';
 import { mountVjSurface } from './ui/VjSurface';
+import { mountAuxGuest } from './ui/AuxGuest';
 import { setupInstall } from './pwa/install';
 
 setupInstall();
@@ -8,6 +9,8 @@ setupInstall();
 const root = document.getElementById('app')!;
 // VJ mode's controls: their own light page, without the decks or the stage
 if (location.hash === '#vj') mountVjSurface(root);
+// Pass the aux on a player's phone: the night's clock, your turn, your vote
+else if (location.hash === '#aux') mountAuxGuest(root);
 else {
   const app = new App(root);
   (window as unknown as { deckhouse: App }).deckhouse = app;
