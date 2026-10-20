@@ -44,26 +44,7 @@ export const FINITE_GLSL = /* glsl */ `
   }
 `;
 
-const FRAG = /* glsl */ `
-  precision highp float;
-  uniform sampler2D tDiffuse;
-  uniform sampler2D tGlow;
-  uniform sampler2D tDirt;
-  uniform float uDirt, uStar, uStarThr, uStarDirs;
-  uniform vec2 uRes;
-  uniform float uTime, uStreak, uTaps, uGhost, uDistort, uBlur, uCA, uGrain, uVignette, uThreshold, uSharpen;
-  uniform vec3 uTint;
-  uniform float uContrast, uSaturation, uLift;
-  // lens looks
-  uniform float uFade;
-  uniform float uFish, uFocal, uFishF, uMono, uMonoGain, uScan, uVhs, uTilt, uBars, uSplit, uThermal, uSatBoost;
-  uniform vec2 uCenter;
-  uniform vec3 uMonoTint;
-  varying vec2 vUv;
-
-  #include <tonemapping_pars_fragment>
-  #include <colorspace_pars_fragment>
-
+const FLARE_GLSL = /* glsl */ `
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   ${FINITE_GLSL}
   vec3 bright(vec2 uv) {
@@ -80,6 +61,86 @@ const FRAG = /* glsl */ `
     vec3 c = finite3(texture2D(tDiffuse, clamp(uv, 0.0, 1.0)).rgb);
     return max(c - uStarThr, 0.0);
   }
+  // anamorphic streaks, ghosts and the starburst: what the bright points of the frame throw across it
+  vec3 flare(vec2 uv, float n, float aspect) {
+    vec3 f = vec3(0.0);
+    // anamorphic streaks: exponentially spaced taps, jittered per pixel
+    if (uStreak > 0.001 && uTaps > 0.5) {
+      vec3 st = vec3(0.0);
+      float wsum = 0.0;
+      for (int i = 1; i <= 12; i++) {
+        if (float(i) > uTaps) break;
+        float o = (0.0035 * pow(1.55, float(i)) + n * 0.004) / aspect;
+        float w = 1.0 / (1.0 + float(i) * 0.6);
+        st += (bright(uv + vec2(o, 0.0)) + bright(uv - vec2(o, 0.0))) * w;
+        wsum += w;
+      }
+      st /= wsum;
+      float l = dot(st, vec3(0.3, 0.5, 0.2));
+      f += mix(st, vec3(0.35, 0.6, 1.0) * l, 0.6) * uStreak;
+    }
+    // ghosts mirrored through the centre
+    if (uGhost > 0.001) {
+      vec2 g = 0.5 - (uv - 0.5);
+      vec3 gh = ghostSrc(0.5 + (g - 0.5) * 0.55) * vec3(0.9, 0.6, 1.0) + ghostSrc(0.5 + (g - 0.5) * 1.35) * vec3(0.5, 1.0, 0.8) * 0.6;
+      f += gh * uGhost * smoothstep(0.9, 0.1, length(g - 0.5));
+    }
+    // starburst: the aperture blades turn the brightest points into stars (6 points on high, 4 on medium)
+    if (uStar > 0.001 && uStarDirs > 0.5) {
+      vec3 sb = vec3(0.0);
+      for (int k = 0; k < 3; k++) {
+        if (float(k) >= uStarDirs) break;
+        float ang = uStarDirs > 2.5 ? 1.5708 + float(k) * 1.0472 : 0.7854 + float(k) * 1.5708;
+        vec2 sdir = vec2(cos(ang) / aspect, sin(ang));
+        for (int i = 0; i < 5; i++) {
+          float x = (float(i) + n) / 5.0;
+          float o = 0.003 + x * 0.05;
+          float w = (1.0 - x) * (1.0 - x);
+          sb += (starSrc(uv + sdir * o) + starSrc(uv - sdir * o)) * w;
+        }
+      }
+      f += sb * uStar;
+    }
+    return f;
+  }
+`;
+
+/** the flare alone, into a buffer at the screen's own resolution: on a Retina screen the frame is drawn at twice that,
+ *  and the 50-odd taps a pixel of streaks and stars cost four times as much there for a soft glow nobody can tell apart */
+const FLARE_FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D tDiffuse;
+  uniform vec2 uRes;
+  uniform float uTime, uStreak, uTaps, uGhost, uThreshold, uStar, uStarThr, uStarDirs;
+  varying vec2 vUv;
+  ${FLARE_GLSL}
+  void main() {
+    float n = hash(vUv * uRes + fract(uTime) * 91.0);
+    gl_FragColor = vec4(flare(vUv, n, uRes.x / uRes.y), 1.0);
+  }`;
+
+const FRAG = /* glsl */ `
+  precision highp float;
+  uniform sampler2D tDiffuse;
+  uniform sampler2D tGlow;
+  uniform sampler2D tDirt;
+  uniform sampler2D tFlare;
+  uniform float uDirt, uStar, uStarThr, uStarDirs;
+  uniform vec2 uRes;
+  uniform float uTime, uStreak, uTaps, uGhost, uDistort, uBlur, uCA, uGrain, uVignette, uThreshold, uSharpen;
+  uniform vec3 uTint;
+  uniform float uContrast, uSaturation, uLift;
+  // lens looks
+  uniform float uFade;
+  uniform float uFish, uFocal, uFishF, uMono, uMonoGain, uScan, uVhs, uTilt, uBars, uSplit, uThermal, uSatBoost;
+  uniform vec2 uCenter;
+  uniform vec3 uMonoTint;
+  varying vec2 vUv;
+
+  #include <tonemapping_pars_fragment>
+  #include <colorspace_pars_fragment>
+
+  ${FLARE_GLSL}
   // equidistant fisheye: the angle off the axis grows with the radius, read from the
   // (wide) perspective render at tan(angle); outside it there is nothing: black
   vec2 fisheyeUv(vec2 uv, out float inside) {
@@ -182,49 +243,18 @@ const FRAG = /* glsl */ `
       c.r = mix(c.r, texture2D(tDiffuse, uv + sh).r, uVhs);
       c.b = mix(c.b, texture2D(tDiffuse, uv - sh * 1.4).b, uVhs);
     }
-    // anamorphic streaks: exponentially spaced taps, jittered per pixel
-    if (uStreak > 0.001 && uTaps > 0.5) {
-      vec3 st = vec3(0.0);
-      float wsum = 0.0;
-      for (int i = 1; i <= 12; i++) {
-        if (float(i) > uTaps) break;
-        float o = (0.0035 * pow(1.55, float(i)) + n * 0.004) / aspect;
-        float w = 1.0 / (1.0 + float(i) * 0.6);
-        st += (bright(uv + vec2(o, 0.0)) + bright(uv - vec2(o, 0.0))) * w;
-        wsum += w;
-      }
-      st /= wsum;
-      float l = dot(st, vec3(0.3, 0.5, 0.2));
-      c += mix(st, vec3(0.35, 0.6, 1.0) * l, 0.6) * uStreak;
-    }
-    // ghosts mirrored through the centre
-    if (uGhost > 0.001) {
-      vec2 g = 0.5 - (uv - 0.5);
-      vec3 gh = ghostSrc(0.5 + (g - 0.5) * 0.55) * vec3(0.9, 0.6, 1.0) + ghostSrc(0.5 + (g - 0.5) * 1.35) * vec3(0.5, 1.0, 0.8) * 0.6;
-      c += gh * uGhost * smoothstep(0.9, 0.1, length(g - 0.5));
-    }
+    #ifdef FLARE_TEX
+    // streaks, ghosts and stars, worked out at the screen's own resolution (flarePass)
+    c += texture2D(tFlare, uv).rgb;
+    #else
+    c += flare(uv, n, aspect);
+    #endif
     // dirt on the front element, lit by the wide glow of whatever is bright in frame, and a
     // faint veil of the same glow over everything
     if (uDirt > 0.001) {
       vec3 gw = finite3(texture2D(tGlow, uv).rgb);
       float dirt = texture2D(tDirt, uv).r;
       c += gw * (0.05 + dirt * 1.5) * uDirt;
-    }
-    // starburst: the aperture blades turn the brightest points into stars (6 points on high, 4 on medium)
-    if (uStar > 0.001 && uStarDirs > 0.5) {
-      vec3 sb = vec3(0.0);
-      for (int k = 0; k < 3; k++) {
-        if (float(k) >= uStarDirs) break;
-        float ang = uStarDirs > 2.5 ? 1.5708 + float(k) * 1.0472 : 0.7854 + float(k) * 1.5708;
-        vec2 sdir = vec2(cos(ang) / aspect, sin(ang));
-        for (int i = 0; i < 5; i++) {
-          float x = (float(i) + n) / 5.0;
-          float o = 0.003 + x * 0.05;
-          float w = (1.0 - x) * (1.0 - x);
-          sb += (starSrc(uv + sdir * o) + starSrc(uv - sdir * o)) * w;
-        }
-      }
-      c += sb * uStar;
     }
     c *= mix(1.0, smoothstep(1.35, 0.2, r2), uVignette);
     // a NaN or infinite pixel from any scene shader shows as black, alone, instead of
@@ -384,6 +414,7 @@ export class LensOutputPass extends Pass {
     tDiffuse: { value: null as THREE.Texture | null },
     tGlow: { value: null as THREE.Texture | null },
     tDirt: { value: null as THREE.Texture | null },
+    tFlare: { value: null as THREE.Texture | null },
     uDirt: { value: 0 },
     uStar: { value: 0 },
     uStarThr: { value: 4 },
@@ -423,15 +454,47 @@ export class LensOutputPass extends Pass {
   };
   private material: THREE.RawShaderMaterial;
   private quad: FullScreenQuad;
+  /** the flare at the screen's own resolution, when the frame is drawn finer than that (flareAt) */
+  private flareMat: THREE.RawShaderMaterial;
+  private flareRT: THREE.WebGLRenderTarget | null = null;
+  private flareSize = new THREE.Vector2(0, 0);
   private outputColorSpace: string | null = null;
   private toneMapping: THREE.ToneMapping | null = null;
   private base: Grade = NEUTRAL_GRADE;
+  /** the output shader reads the flare from flareRT (FLARE_TEX) */
+  private flareTex = false;
 
   constructor() {
     super();
     this.uniforms.tDirt.value = lensDirt();
     this.material = new THREE.RawShaderMaterial({ name: 'LensOutput', uniforms: this.uniforms, vertexShader: VERT, fragmentShader: FRAG });
     this.quad = new FullScreenQuad(this.material);
+    const u = this.uniforms;
+    this.flareMat = new THREE.RawShaderMaterial({
+      name: 'LensFlare',
+      uniforms: { tDiffuse: u.tDiffuse, uRes: { value: new THREE.Vector2() }, uTime: u.uTime, uStreak: u.uStreak, uTaps: u.uTaps, uGhost: u.uGhost, uThreshold: u.uThreshold, uStar: u.uStar, uStarThr: u.uStarThr, uStarDirs: u.uStarDirs },
+      vertexShader: VERT,
+      fragmentShader: FLARE_FRAG,
+      depthTest: false,
+      depthWrite: false,
+    });
+  }
+
+  /**
+   * The size of the screen in its own (CSS) pixels. When the frame is drawn at well over that (a Retina
+   * screen), the streaks, ghosts and stars are worked out at this size in a pass of their own: the same
+   * glow, for about a quarter of the cost of the frame's most expensive full-screen pass.
+   */
+  flareAt(width: number, height: number): void {
+    this.flareSize.set(Math.max(1, Math.round(width)), Math.max(1, Math.round(height)));
+  }
+
+  /** draw the flare into its own buffer this frame? (any of it on, and the frame much finer than the screen) */
+  private flareSeparately(read: THREE.WebGLRenderTarget): boolean {
+    const u = this.uniforms;
+    const on = (u.uStreak.value > 0.001 && u.uTaps.value > 0.5) || u.uGhost.value > 0.001 || (u.uStar.value > 0.001 && u.uStarDirs.value > 0.5);
+    const fs = this.flareSize;
+    return on && fs.x * fs.y * 1.5 < read.width * read.height;
   }
 
   setGrade(g: Grade): void {
@@ -477,8 +540,27 @@ export class LensOutputPass extends Pass {
       };
       const key = tm[this.toneMapping];
       if (key) defines[key] = '';
+      if (this.flareTex) defines.FLARE_TEX = '';
       this.material.defines = defines;
       this.material.needsUpdate = true;
+    }
+    const sep = this.flareSeparately(readBuffer);
+    if (sep !== this.flareTex) {
+      this.flareTex = sep;
+      if (sep) this.material.defines.FLARE_TEX = '';
+      else delete this.material.defines.FLARE_TEX;
+      this.material.needsUpdate = true;
+    }
+    if (sep) {
+      const fs = this.flareSize;
+      if (!this.flareRT) this.flareRT = new THREE.WebGLRenderTarget(fs.x, fs.y, { type: THREE.HalfFloatType, depthBuffer: false });
+      else if (this.flareRT.width !== fs.x || this.flareRT.height !== fs.y) this.flareRT.setSize(fs.x, fs.y);
+      (this.flareMat.uniforms.uRes.value as THREE.Vector2).copy(fs);
+      this.quad.material = this.flareMat;
+      renderer.setRenderTarget(this.flareRT);
+      this.quad.render(renderer);
+      this.quad.material = this.material;
+      this.uniforms.tFlare.value = this.flareRT.texture;
     }
     if (this.renderToScreen) renderer.setRenderTarget(null);
     else {
@@ -490,6 +572,8 @@ export class LensOutputPass extends Pass {
 
   dispose(): void {
     this.material.dispose();
+    this.flareMat.dispose();
+    this.flareRT?.dispose();
     this.quad.dispose();
   }
 }

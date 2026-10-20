@@ -142,6 +142,8 @@ The plumes were flat white discs. Now:
 ### LED walls
 The LED look (pixels up close fading out before they can moiré, tile seams, dimmer off-axis) moved from Alexandra Palace into `led.ts`. The warehouse and Printworks screens use it too.
 
+The five main walls also have a drop show (`wallshow.ts`): a real box behind the wall with a chrome blob that comes out over the room, or the wall cut into flying panels with the same LED look. The box shows through the wall by draw order, not a stencil: the box draws first, then the wall's plane writes only depth over its window, so nothing behind the wall draws over it. The blob is fitted to each room (`fitBlob`, tested).
+
 ## Phase 5: the camera
 
 - **Lens dirt.** Smudges, dust, wiped arcs and a few bokeh hexagons sit on the front element: a procedural texture, made once. It's lit by the bloom's widest blur, so it shows only when a wall of light hits the lens. A faint veil of the same glow lies over everything.

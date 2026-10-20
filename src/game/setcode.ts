@@ -27,20 +27,20 @@ export interface SetCode {
 
 const MAX_TRACKS = 40;
 
-function b64url(bytes: Uint8Array): string {
+export function b64url(bytes: Uint8Array): string {
   let s = '';
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function unb64url(s: string): Uint8Array {
+export function unb64url(s: string): Uint8Array {
   const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
   const out = new Uint8Array(b.length);
   for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
   return out;
 }
 
-async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+export async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
   const out = new Response(new Blob([bytes as BlobPart]).stream().pipeThrough(stream));
   return new Uint8Array(await out.arrayBuffer());
 }

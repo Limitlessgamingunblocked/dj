@@ -171,7 +171,7 @@ export class HubView {
         station('shirt', 'Wardrobe', 'Change your look', leave(() => this.host.wardrobe())),
         station('record', 'Crates', 'Your records', leave(() => this.host.crates())),
         station('film', 'My Sets', 'Recordings and clips', leave(() => this.host.mySets())),
-        station('bag', 'Shop', `$${p.cash.toLocaleString()} to spend`, () => openShop({ career: c, bought: () => this.refresh() })),
+        station('bag', 'Shop', `$${p.cash.toLocaleString()} to spend`, () => openShop({ career: c, bought: () => this.refresh(), wore: (l) => this.host.stage.setLook(l, nameService.text) })),
         (() => {
           const sc = achievementScore(p);
           return station('trophy', 'Achievements', `${sc.got} of ${sc.of} levels`, () => {

@@ -3,6 +3,7 @@
  * Appearance, decks, audio, board & camera, show, performance, keyboard and
  * your settings file (export / import / reset). MIDI follows in its own pane.
  */
+import { aiSettings, keyServer, OMNIROUTE_URLS, problemText, serverAt, setAi, testAi, AiError } from '../core/ai';
 import { saveFile } from '../core/download';
 import type { Career } from '../game/Career';
 import { cleanName, cleanTagline, NAME_MAX, TAGLINE_MAX } from '../core/models';
@@ -12,7 +13,7 @@ import type { FaderCurve } from '../audio/Channel';
 import { formatKey, makeKey } from '../analysis/keys';
 import { clearAllSettings, makeBackup, parseBackup, readAllSettings, restoreSettings } from '../core/backup';
 import { uiSound } from '../audio/uisound';
-import { BEAT_CHOICES, DEFAULT_DECK_COLORS, KEY_NOTATIONS, NIGHT_CHOICES, onPrefs, SCREENSAVER_CHOICES, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
+import { BEAT_CHOICES, DEFAULT_DECK_COLORS, GRID_STYLES, KEY_NOTATIONS, NIGHT_CHOICES, onPrefs, SCREENSAVER_CHOICES, prefs, setPrefs, TEMPO_RANGE_CHOICES, WAVE_SCHEMES, type Prefs } from '../core/prefs';
 import { beatLabel } from '../audio/Deck';
 import { LENS_LOOKS } from '../three/looks';
 import type { Quality, Stage } from '../three/Stage';
@@ -77,7 +78,7 @@ export class SetupPanel {
       }
     });
 
-    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.performance(), this.install(), this.data(), this.keyboard());
+    const grid = h('div', { class: 'cards settings-cards' }, this.profile(), this.appearance(), this.decks(), this.audio(), this.boardCamera(), this.show(), this.aiCrowd(), this.performance(), this.install(), this.data(), this.keyboard());
     this.el = h('div', { class: 'pane settings-pane' }, h('div', { class: 'settings-search' }, this.search), grid);
     onPrefs(() => this.syncs.forEach((f) => f()));
     this.renderAnchors();
@@ -127,7 +128,24 @@ export class SetupPanel {
     return this.select(options, () => prefs[key] as Prefs[K] & (string | number), (v) => setPrefs({ [key]: v } as Partial<Prefs>));
   }
 
-  private prefCheck<K extends keyof Prefs>(key: K, label: string, k = '', hint = ''): HTMLElement {
+  /** the intro's choice, and a button to watch it again (the game reopens with it) */
+  private introControl(): HTMLElement {
+    const pick = this.prefSelect('intro', [
+      ['auto', 'The full one the first time, then short'],
+      ['full', 'The full one every time'],
+      ['short', 'Short every time'],
+      ['off', 'Off'],
+    ]);
+    const watch = h('button', { class: 'btn small', type: 'button', title: 'Reopens the game with the full intro' }, 'Watch it');
+    watch.addEventListener('click', () => {
+      const u = new URL(location.href);
+      u.searchParams.set('intro', 'full');
+      location.href = u.toString();
+    });
+    return h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, pick, watch);
+  }
+
+    private prefCheck<K extends keyof Prefs>(key: K, label: string, k = '', hint = ''): HTMLElement {
     return this.check(label, () => prefs[key] as boolean, (v) => setPrefs({ [key]: v } as Partial<Prefs>), k, hint);
   }
 
@@ -228,6 +246,10 @@ export class SetupPanel {
       'waveScheme',
       WAVE_SCHEMES.map((w) => [w.id, w.name]),
     );
+    const grid = this.prefSelect(
+      'beatGrid',
+      GRID_STYLES.map((g) => [g.id, g.name]),
+    );
     return this.card(
       'Appearance',
       'look theme colours color size zoom scale text',
@@ -237,6 +259,8 @@ export class SetupPanel {
       h('div', { class: 'set-row field', 'data-k': 'deck colours colors' }, h('span', {}, 'Deck colours'), deckCols),
       this.row('Key notation', notation, 'camelot open key musical harmonic', 'Library, decks, Set Builder and the board screens.'),
       this.row('Waveform colours', wave, 'waveform rgb 3-band blue colour color'),
+      this.prefCheck('sectionColors', 'Colour song sections on the waveforms (intro, breakdown, build, drop, outro)', 'sections drop breakdown intro outro build colour color waveform'),
+      this.row('Beat grid', grid, 'beat grid lines bars waveform visible', 'On the scrolling waveforms and the board screens. To line a grid up with the music, use Grid edit in the deck tools.'),
       this.row(
         'Interface sounds',
         this.slider(
@@ -385,7 +409,7 @@ export class SetupPanel {
       ),
       this.prefCheck('cameraMotion', 'Camera moves with the music (idle sway, beat shake)', 'motion sway shake', 'Always off when your system asks for reduced motion.'),
       this.prefCheck('walkOut', 'Walk out from backstage before a gig', 'walk out backstage corridor intro cutscene gig', 'Click or press a key to skip it. Off with reduced motion.'),
-      this.row('Lens effect', this.prefSelect('lens', [['auto', 'Auto — each angle brings its own'], ...LENS_LOOKS.map((l): [Prefs['lens'], string] => [l.id, l.name])]), 'lens fisheye vhs camcorder security cctv tilt-shift miniature cinematic thermal night vision effect filter', 'The fisheye, camcorder and security-camera angles bring their own look on Auto.'),
+      this.row('Lens effect', this.prefSelect('lens', [['auto', 'Auto — each angle brings its own'], ...LENS_LOOKS.map((l): [Prefs['lens'], string] => [l.id, l.name])]), 'lens fisheye vhs camcorder security cctv tilt-shift miniature cinematic thermal night vision lidar scan point cloud scanline video synth rutt-etra ascii text long exposure light trails effect filter', 'The fisheye, camcorder and security-camera angles bring their own look on Auto, and the auto director now and then cuts a drop to LiDAR or ASCII, or holds a slow wide shot as a long exposure.'),
       h('div', { class: 'set-row field', 'data-k': 'saved camera views anchors' }, h('span', {}, 'Saved camera views'), h('div', { class: 'toggle-row' }, anchorName, saveAnchor), this.anchorsEl),
       h('p', { class: 'note set-row', 'data-k': 'orbit pan zoom drag' }, 'Drag to orbit, right-drag to pan, scroll to zoom.'),
     );
@@ -425,12 +449,91 @@ export class SetupPanel {
         'The stage fills the window and the camera cuts with the music. Any touch brings everything back. Broadcast mode is also in the ⋯ menu (⇧O).',
       ),
       this.row(
+        'Intro when the game opens',
+        this.introControl(),
+        'intro cutscene opening loading launch start title skip cinematic',
+        'The night out that plays while the game loads. Esc skips it.',
+      ),
+      this.row(
         'Lights and visuals delay',
         this.slider(() => prefs.avOffset, (v) => setPrefs({ avOffset: v }), { min: -150, max: 400, step: 10, fmt: (v) => (v === 0 ? 'Auto' : `${v > 0 ? '+' : ''}${v} ms`) }),
         'sync latency delay bluetooth speakers headphones lights early late audio video offset',
         'If the lights land before the beat you hear (common with Bluetooth speakers), add delay here.',
       ),
       h('p', { class: 'note set-row', 'data-k': 'palette colours lights' }, 'Light colours, lasers and haze are on the Show tab.'),
+    );
+  }
+
+  /** the crowd's song requests, and the AI that writes them (OmniRoute or FreeLLMAPI on this computer) */
+  private aiCrowd(): HTMLElement {
+    const text = (type: string, placeholder: string, get: () => string, set: (v: string) => void): HTMLInputElement => {
+      const inp = h('input', { type, placeholder, spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+      inp.value = get();
+      // typing here isn't playing the decks
+      inp.addEventListener('keydown', (e) => e.stopPropagation());
+      inp.addEventListener('change', () => {
+        set(inp.value);
+        inp.value = get();
+        status();
+      });
+      return inp;
+    };
+    const key = text('password', 'sk-… or freellmapi-…', () => aiSettings().key, (v) => setAi({ key: v }));
+    const url = text('url', `Finds it on this computer (${OMNIROUTE_URLS[0].replace(/^https?:\/\//, '')} and FreeLLMAPI’s ports)`, () => aiSettings().url, (v) => setAi({ url: v }));
+    const model = text('text', 'auto', () => (aiSettings().model === 'auto' ? '' : aiSettings().model), (v) => setAi({ model: v || 'auto' }));
+    const state = h('p', { class: 'note set-row ai-state', role: 'status', 'aria-live': 'polite' });
+    const status = (msg?: string) => {
+      const s = aiSettings();
+      const from = keyServer(s.key);
+      state.textContent =
+        msg ??
+        (!s.key
+          ? 'No key: the crowd uses its own lines. Paste a key to let the AI write them.'
+          : from
+            ? `${from} key saved on this computer. The crowd’s requests come from the AI.`
+            : 'Key saved. It doesn’t look like an OmniRoute key (sk-…) or a FreeLLMAPI key (freellmapi-…), but another OpenAI-style server’s key works too.');
+    };
+    status();
+    const test = h('button', { class: 'btn small', type: 'button' }, 'Test') as HTMLButtonElement;
+    test.addEventListener('click', async () => {
+      test.disabled = true;
+      status('Asking the AI…');
+      try {
+        const at = await testAi();
+        const name = serverAt(at);
+        status(`It works: ${name ? `${name} answered` : 'the AI answered'} from ${at}.`);
+      } catch (e) {
+        status(e instanceof AiError ? problemText(e.problem) : problemText('server'));
+      } finally {
+        test.disabled = false;
+      }
+    });
+    const forget = h('button', { class: 'btn small ghost', type: 'button' }, 'Forget key');
+    forget.addEventListener('click', () => {
+      setAi({ key: '' });
+      key.value = '';
+      status();
+    });
+    // the page's own address, the one FreeLLMAPI has to be told to trust ("null" for the downloaded file)
+    const origin = typeof location === 'undefined' ? '' : location.origin;
+    const trusted = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\]):5173$/.test(origin);
+    return this.card(
+      'AI crowd',
+      'ai llm omniroute freellmapi key api crowd requests song shout request chatgpt model',
+      this.prefCheck('crowdRequests', 'People in the crowd shout song requests in free play', 'request song shout crowd ask', 'They ask for tracks from your library. In a gig they always do, and a played request scores.'),
+      this.row('AI key', key, 'api key token unified secret omniroute freellmapi', 'From OmniRoute → API Keys, or FreeLLMAPI → Keys → Unified API key. It stays in this browser and is never in your settings file.'),
+      h('div', { class: 'set-row toggle-row', 'data-k': 'test forget key ai' }, test, forget),
+      state,
+      this.row('Server address', url, 'url host port endpoint base openai', 'Leave empty to find OmniRoute or FreeLLMAPI on this computer. Any OpenAI-style server works: its address ends in /v1.'),
+      this.row('Model', model, 'model llm router combo', 'Empty is “auto”: the server picks a free model. OmniRoute also knows auto/fast, auto/cheap and your own combos.'),
+      h(
+        'p',
+        { class: 'note set-row', 'data-k': 'omniroute freellmapi cors origins dashboard_origins setup install' },
+        'Both are free and run on your computer. OmniRoute (github.com/diegosouzapw/OmniRoute): start it, connect a free provider under Providers, make a key under API Keys and paste it here; it lets the game in by itself. ',
+        'FreeLLMAPI (github.com/tashfeenahmed/freellmapi): add your free provider keys there and copy its unified key here. ',
+        trusted ? 'It already trusts this page.' : `It only answers pages it trusts, so start it with DASHBOARD_ORIGINS=${origin || 'null'} (in its .env file, or before npm start).`,
+        ' Without a key, or when the AI is busy, the crowd still asks with its own lines.',
+      ),
     );
   }
 

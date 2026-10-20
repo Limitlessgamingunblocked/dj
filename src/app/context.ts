@@ -4,6 +4,7 @@ import type { Emitter } from '../core/emitter';
 import type { LibraryTrack } from '../core/types';
 import type { Library } from '../library/Library';
 import type { LyricsAI } from '../lyrics/LyricsAI';
+import type { GridEditor } from './gridEdit';
 import type { NextUp } from './nextup';
 
 export interface AppEvents extends Record<string, unknown> {
@@ -40,4 +41,6 @@ export interface AppContext {
   nextUp: NextUp;
   /** AI lyrics: listens to a track for its words */
   lyricsAi: LyricsAI;
+  /** grid edit: sliding a track's beat grid onto the music */
+  grid: GridEditor;
 }

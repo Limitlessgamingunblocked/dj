@@ -51,8 +51,12 @@ const AO_FRAG = /* glsl */ `
     vec3 n = normalize(cross(dx, dy));
     float dist = -P.z;
     // the radius scales with the view: a hand's span across a club, a few centimetres on the board
-    // (a fixed half-metre radius at the decks darkened the whole desk round every object)
-    float rad = uRadius * clamp(dist / 6.0, 0.1, 1.0);
+    // (a fixed half-metre radius at the decks darkened the whole desk round every object), and
+    // shrinking steeply closer in: a person a few metres off is all folds and gaps (an arm by
+    // the side, a loose shirt), and a radius of a hand's span reads each one as a corner and
+    // paints it near black
+    float k = clamp(dist / 6.0, 0.0, 1.0);
+    float rad = uRadius * max(0.1, k * k * k);
     // the radius in screen space, shrinking with distance
     float rs = rad * uProjScale / max(0.1, dist);
     // a 4x4 interleaved pattern of rotations: structured noise the blur removes cleanly
@@ -245,7 +249,8 @@ export class AOPass extends Pass {
         uProjScale: { value: 1 },
         // metres: about a hand's span, so people and props pick up contact shadow without a halo round the room
         uRadius: { value: 0.55 },
-        uBias: { value: 0.002 },
+        // (enough that a gently curved surface, a chest or a shoulder, doesn't shade itself in blotches)
+        uBias: { value: 0.007 },
         uIntensity: { value: 1 },
         uFadeNear: { value: 18 },
         uFadeFar: { value: 45 },

@@ -1,0 +1,506 @@
+/* Pass the aux: the setup, the bar and cards over the stage, and the phone page (ui/PassAux.ts, ui/AuxGuest.ts) */
+
+.aux-setup {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+}
+
+.aux-setup h3 {
+  margin: 0 0 6px;
+}
+
+.aux-names {
+  display: grid;
+  gap: 6px;
+}
+
+.aux-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aux-name-row input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: var(--text-m);
+}
+
+.aux-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.aux-rm {
+  width: 30px;
+  padding: 0;
+}
+
+.aux-room {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+}
+
+.aux-room h4 {
+  margin: 4px 0 0;
+}
+
+.aux-code {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.aux-code b {
+  font-size: 30px;
+  letter-spacing: 0.18em;
+  color: #ff2e88;
+}
+
+.aux-link-row {
+  display: flex;
+  gap: 6px;
+}
+
+.aux-link {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.aux-err,
+.auxg-err {
+  color: var(--live);
+}
+
+.aux-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.aux-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* ---------------- over the stage ---------------- */
+
+.aux {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  padding: 10px;
+}
+
+.aux > * {
+  pointer-events: auto;
+}
+
+.aux-bar {
+  /* top left, clear of the camera buttons on the right */
+  justify-self: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  max-width: min(760px, calc(100% - 250px));
+  padding: 6px 12px;
+  border-radius: var(--radius-l);
+  background: rgb(8 8 10 / 78%);
+  border: 1px solid rgb(255 46 136 / 45%);
+  backdrop-filter: blur(6px);
+  font-size: var(--text-sm);
+}
+
+.aux-title {
+  font-family: var(--font-label);
+  letter-spacing: 0.12em;
+  color: #ff2e88;
+}
+
+.aux-round,
+.aux-into {
+  color: var(--muted);
+}
+
+.aux-into {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aux-clock {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  min-width: 3.2em;
+  text-align: center;
+}
+
+.aux-clock.low {
+  color: var(--live);
+  animation: aux-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.aux-clock.in {
+  color: var(--ok);
+}
+
+@keyframes aux-pulse {
+  to {
+    opacity: 0.45;
+  }
+}
+
+.aux-roomchip {
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.aux-btns {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.aux-pname {
+  font-weight: 700;
+}
+
+.aux-card {
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(460px, 100%);
+  max-height: calc(100% - 20px);
+  overflow: auto;
+  padding: 18px 22px;
+  border-radius: 14px;
+  background: rgb(8 8 10 / 88%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  box-shadow: 0 12px 48px rgb(0 0 0 / 55%);
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+.aux-card.awards {
+  width: min(620px, 100%);
+}
+
+.aux-card > small,
+.auxg-main > small {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+}
+
+.aux-card h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.aux-from {
+  margin: 0;
+}
+
+.aux-tags {
+  display: block;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-s);
+}
+
+.aux-ready {
+  min-width: 180px;
+  min-height: 44px;
+  font-size: var(--text-l);
+}
+
+.aux-auto,
+.aux-next {
+  color: var(--muted);
+}
+
+.aux-score {
+  font-family: var(--font-mono);
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffd23f;
+}
+
+.aux-notes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.aux-notes span {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--panel-3);
+  font-size: var(--text-s);
+}
+
+.aux-ballot {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.aux-pick {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.aux-pick:hover,
+.aux-pick:focus-visible {
+  border-color: #ff2e88;
+}
+
+.aux-pick span {
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.aux-awards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.aux-award {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: var(--radius-l);
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  text-align: left;
+}
+
+.aux-award small {
+  color: #ffd23f;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: var(--text-xs);
+}
+
+.aux-award.trainwreck small {
+  color: var(--live);
+}
+
+.aux-award span {
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.aux-table {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: aux;
+}
+
+.aux-table li {
+  counter-increment: aux;
+  display: grid;
+  grid-template-columns: 1.6em 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 4%);
+  text-align: left;
+}
+
+.aux-table li::before {
+  content: counter(aux);
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.aux-table li span {
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.aux-table li.me {
+  outline: 1px solid #ff2e88;
+}
+
+.aux-table.big li {
+  padding: 6px 10px;
+  font-size: var(--text-l);
+}
+
+/* ---------------- the phone page ---------------- */
+
+body.aux-page {
+  overflow: auto;
+}
+
+.auxg {
+  display: grid;
+  gap: 16px;
+  max-width: 480px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 16px;
+  align-content: start;
+}
+
+.auxg-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.auxg-head b {
+  font-family: var(--font-label);
+  font-size: var(--text-xl);
+  letter-spacing: 0.14em;
+  color: #ff2e88;
+}
+
+.auxg-head span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.auxg-join {
+  display: grid;
+  gap: 12px;
+}
+
+.auxg-join label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.auxg-join input {
+  height: 48px;
+  padding: 0 12px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 20px;
+}
+
+.auxg-code {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.auxg-big {
+  min-height: 56px;
+  font-size: 20px;
+}
+
+.auxg-main {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-height: 46dvh;
+  align-content: center;
+  padding: 20px 16px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.auxg-main h2 {
+  margin: 0;
+  font-size: 34px;
+}
+
+.auxg-main .auxg-big {
+  width: 100%;
+}
+
+.auxg-yours {
+  color: #ffd23f;
+}
+
+.auxg-clock {
+  font-family: var(--font-mono);
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.auxg-clock.low {
+  color: var(--live);
+  animation: aux-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.auxg-into small {
+  display: block;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.auxg-note {
+  color: var(--muted);
+  font-size: var(--text-s);
+}
+
+.auxg-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.auxg-foot p {
+  flex-basis: 100%;
+  margin: 0;
+}

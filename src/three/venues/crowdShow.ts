@@ -8,6 +8,8 @@
  *     lights) up for the closing track. They come by themselves when the
  *     room's right for them, or from the Show tab;
  *   - fans copying your DJ moves (and your signature move on a big drop);
+ *   - crowd control: hands in the air on body tracking's camera, and the
+ *     room's arms go up and sway left and right with yours;
  *   - the hand-made cardboard signs: requests, messages and the regulars'.
  * The app feeds it (genre, moves, requests); the crowds read it each frame.
  */
@@ -104,6 +106,16 @@ export const crowdShow = {
   since: 999,
   /** the DJ move the crowd's copying, and how long it's had */
   copy: null as { move: string; t: number; len: number; all: boolean } | null,
+  /**
+   * Crowd control (body tracking, hands up): `lean` is where your arms are, -1 to
+   * your left, +1 to your right, or null when they're down. `swayK` eases the
+   * crowd in and out; `swayNow` and `swayLate` are the lean the front rows
+   * and the back follow (the back a beat behind, so it rolls through the room).
+   */
+  lean: null as number | null,
+  swayK: 0,
+  swayNow: 0,
+  swayLate: 0,
   /** the cardboard signs' messages (the first is the current request when there is one) */
   cards: ['PLAY SOMETHING!', 'BEST NIGHT EVER', 'WE ♥ YOU', 'BIRTHDAY GIRL', 'FIRST RAVE!', 'ONE MORE!'] as string[],
   cardsVersion: 0,
@@ -134,6 +146,10 @@ export const crowdShow = {
   copyMove(move: string, seconds: number, all = false): void {
     this.copy = { move, t: 0, len: seconds, all };
   },
+  /** your arms' lean (-1 left to +1 right) while they're up, null when they come down */
+  setSway(lean: number | null): void {
+    this.lean = lean === null ? null : Math.max(-1, Math.min(1, lean));
+  },
   setCards(rows: string[]): void {
     const next = rows.slice(0, 8);
     if (next.join('|') === this.cards.join('|')) return;
@@ -157,6 +173,16 @@ export const crowdShow = {
       if (this.copy.t > this.copy.len) this.copy = null;
     }
     this.wild = Math.max(0, this.wild - dt * 0.25);
+    this.updateSway(dt);
+  },
+  /** ease the crowd's arms in and out, and after yours: the front quickly, the back slower */
+  updateSway(dt: number): void {
+    const on = this.lean !== null;
+    this.swayK += ((on ? 1 : 0) - this.swayK) * Math.min(1, dt * (on ? 4 : 2.5));
+    if (this.swayK < 0.002) this.swayK = 0;
+    const target = this.lean ?? 0;
+    this.swayNow += (target - this.swayNow) * Math.min(1, dt * 9);
+    this.swayLate += (this.swayNow - this.swayLate) * Math.min(1, dt * 3.5);
   },
   /** 0..1 eased in and out over a moment of this kind */
   momentK(id: CrowdMomentId): number {

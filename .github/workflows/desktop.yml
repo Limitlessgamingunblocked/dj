@@ -107,3 +107,25 @@ jobs:
           **First launch on Windows:** if SmartScreen says it protected your PC, click **More info → Run anyway**.
           NOTES
           gh release create desktop-latest out/* --target "$GITHUB_SHA" --title "Deckhouse DJ desktop (build ${{ github.run_number }})" --notes-file notes.md --latest
+
+  # a one-off preview of this branch, as a pre-release (never "latest", so installed apps don't update to it)
+  preview:
+    name: Publish the preview
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == 'claude/mac-build-everything'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Replace the preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la out
+          gh release delete desktop-preview-everything --cleanup-tag --yes || true
+          gh release create desktop-preview-everything out/*-mac-*.zip out/*.dmg out/*.exe out/*.AppImage --target "$GITHUB_SHA" --prerelease --latest=false --title "Deckhouse DJ preview: the full game with every update (build ${{ github.run_number }})" --notes "Built from ${GITHUB_SHA::7} on claude/mac-build-everything. This build doesn't update itself."

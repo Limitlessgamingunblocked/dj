@@ -2,15 +2,18 @@
  * Crowd requests: every couple of minutes the floor asks for something, and
  * you have a while to give it to them. When the room is off the slot's curve
  * they ask to get back on it (more energy, or take it down); otherwise for a
- * moment: a drop, a long blend, a filter fade, something new. A request met
- * pays points and lifts the vibe; one that runs out costs a little.
+ * moment: a drop, a long blend, a filter fade, something new, or a song:
+ * someone shouts for a track from your library (game/songRequests.ts, with
+ * the AI's words when there's a key). A request met pays points and lifts the
+ * vibe; one that runs out costs a little.
  *
  * Pure: the gig feeds it the room's energy, the slot's target and the vibe
  * meter's events.
  */
+import type { SongAsk } from './songRequests';
 import type { SlotId, VibeEvent } from './vibe';
 
-export type RequestKind = 'lift' | 'calm' | 'drop' | 'blend' | 'filter' | 'fresh';
+export type RequestKind = 'lift' | 'calm' | 'drop' | 'blend' | 'filter' | 'fresh' | 'song';
 
 export interface CrowdRequest {
   kind: RequestKind;
@@ -22,6 +25,8 @@ export interface CrowdRequest {
   points: number;
   /** the room's energy when it was asked */
   from: number;
+  /** a song request: the track, who asked and what they shouted */
+  song?: SongAsk;
 }
 
 export type RequestEvent = { kind: 'request'; what: 'ask' | 'met' | 'missed'; req: CrowdRequest; t: number };
@@ -33,6 +38,7 @@ const TEXT: Record<RequestKind, string> = {
   blend: 'Give us a long blend',
   filter: 'Filter the next one in',
   fresh: 'Something new!',
+  song: 'Play my song!',
 };
 
 /** seconds to answer, and what it pays */
@@ -43,7 +49,12 @@ const TERMS: Record<RequestKind, [number, number]> = {
   blend: [150, 160],
   filter: [150, 140],
   fresh: [120, 100],
+  // time to find it, load it and mix it in
+  song: [180, 200],
 };
+
+/** of the requests that aren't about the energy, how many are songs (when there's a song to ask for) */
+export const SONG_SHARE = 0.6;
 
 /** what met requests and missed ones do to the vibe */
 export const REQUEST_VIBE = { met: 0.05, missed: -0.02 };
@@ -55,6 +66,8 @@ export interface RequestInput {
   /** seconds left in the set */
   remaining: number;
   live: boolean;
+  /** the tracks the room can hear right now (a song request is met when its track is one) */
+  audible?: string[];
 }
 
 export class Requests {
@@ -62,6 +75,8 @@ export class Requests {
   met = 0;
   asked = 0;
   private nextAt = 75;
+  /** a song someone wants, when there is one (the app keeps one ready) */
+  songs: (() => SongAsk | null) | null = null;
 
   constructor(
     private slot: SlotId,
@@ -96,9 +111,15 @@ export class Requests {
     }
     // ask: not in the last 45 seconds, and only while the set runs
     if (i.live && i.t >= this.nextAt && i.remaining > 45) {
-      const kind = this.choose(i);
+      let kind = this.choose(i);
+      let song: SongAsk | null = null;
+      if (kind !== 'lift' && kind !== 'calm' && this.songs && this.rnd() < SONG_SHARE) {
+        song = this.songs();
+        if (song) kind = 'song';
+      }
       const [secs, points] = TERMS[kind];
-      const req: CrowdRequest = { kind, text: TEXT[kind], at: i.t, until: i.t + Math.min(secs, i.remaining - 5), points, from: i.energy };
+      const req: CrowdRequest = { kind, text: song ? song.shout : TEXT[kind], at: i.t, until: i.t + Math.min(secs, i.remaining - 5), points, from: i.energy };
+      if (song) req.song = song;
       this.current = req;
       this.asked++;
       out.push({ kind: 'request', what: 'ask', req, t: i.t });
@@ -118,6 +139,8 @@ export class Requests {
         return events.some((e) => e.kind === 'transition' && (e.name === 'long_blend' || e.name === 'bass_swap'));
       case 'filter':
         return events.some((e) => e.kind === 'transition' && e.name === 'filter_fade');
+      case 'song':
+        return !!r.song && !!i.audible?.includes(r.song.trackId);
       case 'fresh':
         return events.some((e) => e.kind === 'transition');
     }

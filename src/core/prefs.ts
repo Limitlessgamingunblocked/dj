@@ -13,10 +13,15 @@ import { loadSetting, saveSetting } from './settings';
 export type { KeyNotation } from '../analysis/keys';
 export type WaveScheme = 'rgb' | 'threeband' | 'blue' | 'mono';
 export type JogMode = 'vinyl' | 'cdj';
+export type GridStyle = 'bold' | 'subtle' | 'off';
 
 export interface Prefs {
   keyNotation: KeyNotation;
   waveScheme: WaveScheme;
+  /** beat grid on the scrolling waveforms: bold lines, the old faint ones, or none */
+  beatGrid: GridStyle;
+  /** colour the song's sections (intro, breakdown, drop…) on the waveforms */
+  sectionColors: boolean;
   /** interface accent colour; '' follows the venue */
   accent: string;
   deckColors: [string, string, string, string];
@@ -46,6 +51,8 @@ export interface Prefs {
   nowPlaying: boolean;
   /** the next-track coach's pick on the stage, in the Library and on an empty deck */
   nextUp: boolean;
+  /** people in the crowd shout for tracks from your library (in free play too; a gig always has requests) */
+  crowdRequests: boolean;
   /** lights and visuals: extra delay in ms on top of the audio device's measured latency (to line them up with Bluetooth speakers) */
   avOffset: number;
   /** lens look on the club camera: 'auto' gives each camera angle its own (fisheye, camcorder…) */
@@ -58,6 +65,8 @@ export interface Prefs {
   beatPulse: boolean;
   /** minutes without a touch before the stage goes to broadcast mode while music plays; 0 = never */
   screensaver: number;
+  /** the cutscene at launch: the full cut the first time then the short one, always the full one, always short, or off */
+  intro: IntroPref;
   /** keyboard: default key → assigned key ('' = no key). Only changed keys are stored. */
   keys: Record<string, string>;
 }
@@ -76,15 +85,25 @@ export const WAVE_SCHEMES: { id: WaveScheme; name: string }[] = [
   { id: 'mono', name: 'Single colour' },
 ];
 
+export const GRID_STYLES: { id: GridStyle; name: string }[] = [
+  { id: 'bold', name: 'Bold (every beat, bars and phrases stand out)' },
+  { id: 'subtle', name: 'Subtle' },
+  { id: 'off', name: 'Off' },
+];
+
 export const TEMPO_RANGE_CHOICES = [0.06, 0.08, 0.1, 0.16, 0.25, 0.5, 1];
 export const NIGHT_CHOICES = [10, 20, 45, 90];
 export const SCREENSAVER_CHOICES = [0, 2, 5, 10];
+export type IntroPref = 'auto' | 'full' | 'short' | 'off';
+export const INTRO_CHOICES: IntroPref[] = ['auto', 'full', 'short', 'off'];
 export const BEAT_CHOICES = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
 export const DEFAULT_DECK_COLORS: [string, string, string, string] = ['#4cc9f0', '#ff9f1c', '#3ddc97', '#c77dff'];
 
 export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   keyNotation: 'camelot',
   waveScheme: 'threeband',
+  beatGrid: 'bold',
+  sectionColors: true,
   accent: '',
   deckColors: DEFAULT_DECK_COLORS,
   uiScale: 1,
@@ -103,11 +122,13 @@ export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({
   autoMixBars: 16,
   nowPlaying: true,
   nextUp: true,
+  crowdRequests: true,
   avOffset: 0,
   nightMinutes: 20,
   uiSounds: 0.35,
   beatPulse: true,
   screensaver: 0,
+  intro: 'auto',
   keys: {},
 });
 
@@ -135,6 +156,8 @@ export function sanitizePrefs(raw: unknown): Prefs {
   return {
     keyNotation: oneOf(r.keyNotation, KEY_NOTATIONS.map((n) => n.id), d.keyNotation),
     waveScheme: oneOf(r.waveScheme, WAVE_SCHEMES.map((s) => s.id), d.waveScheme),
+    beatGrid: oneOf(r.beatGrid, GRID_STYLES.map((s) => s.id), d.beatGrid),
+    sectionColors: bool(r.sectionColors, d.sectionColors),
     accent: r.accent === '' ? '' : colour(r.accent, d.accent),
     deckColors: [0, 1, 2, 3].map((i) => colour(dc[i], d.deckColors[i])) as Prefs['deckColors'],
     uiScale: Math.round(num(r.uiScale, 0.8, 1.3, d.uiScale) * 20) / 20,
@@ -152,12 +175,14 @@ export function sanitizePrefs(raw: unknown): Prefs {
     autoMixBars: oneOf(r.autoMixBars, [8, 16, 32], d.autoMixBars),
     nowPlaying: bool(r.nowPlaying, d.nowPlaying),
     nextUp: bool(r.nextUp, d.nextUp),
+    crowdRequests: bool(r.crowdRequests, d.crowdRequests),
     avOffset: Math.round(num(r.avOffset, -150, 400, d.avOffset) / 10) * 10,
     lens: oneOf(r.lens, ['auto', ...LENS_LOOKS.map((l) => l.id)] as (LensLook | 'auto')[], d.lens),
     nightMinutes: oneOf(r.nightMinutes, NIGHT_CHOICES, d.nightMinutes),
     uiSounds: Math.round(num(r.uiSounds, 0, 1, d.uiSounds) * 20) / 20,
     beatPulse: bool(r.beatPulse, d.beatPulse),
     screensaver: oneOf(r.screensaver, SCREENSAVER_CHOICES, d.screensaver),
+    intro: oneOf(r.intro, INTRO_CHOICES, d.intro),
     keys,
   };
 }

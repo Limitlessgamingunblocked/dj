@@ -1,0 +1,42 @@
+/* ghost duels: the results block, the graph's key, the duel's preview */
+.l-duel {
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed rgb(94 234 255 / 80%);
+}
+
+.res-duel {
+  border-color: rgb(94 234 255 / 45%);
+  background: rgb(94 234 255 / 6%);
+}
+
+.res-duel.won {
+  border-color: rgb(182 255 59 / 55%);
+  background: rgb(182 255 59 / 8%);
+}
+
+.res-duel.lost {
+  border-color: rgb(255 138 138 / 45%);
+  background: rgb(255 138 138 / 6%);
+}
+
+.res-duel-score {
+  display: flex;
+  gap: 18px;
+  margin: 0;
+  font-size: var(--text-l);
+}
+
+.res-duel small {
+  color: var(--muted);
+}
+
+.duel-target b {
+  color: #5eeaff;
+}
+
+/* the friend's ghost on the vibe meter: their colour, not your best run's white */
+.gh-ghost.duel {
+  background: rgb(94 234 255 / 75%);
+  box-shadow: 0 0 10px rgb(94 234 255 / 70%);
+}

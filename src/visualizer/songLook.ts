@@ -6,7 +6,8 @@
  *     keys sit close; minor keys go deeper), the genre sets how bright and
  *     how saturated, the song itself picks the colour scheme
  *   - modes: eight that suit the genre (techno gets hard geometry and op art,
- *     house gets warm liquid looks, trance gets flight and lasers…), always
+ *     house gets warm liquid looks, trance gets flight and lasers, the
+ *     16mm film and the set sculpture suit the deeper, longer ones…), always
  *     with calm, groove and peak ones so the auto VJ can follow the track
  *   - layers: a drum style, a melody style and a vocal style, and how strong
  *     each is (an ambient track barely shows its drums)
@@ -76,12 +77,12 @@ const FAMILY: Record<string, Family> = {
 
 /** the modes that suit each family, best first */
 const FITS: Record<Family, string[]> = {
-  techno: ['strobe', 'moire', 'circuit', 'sonar', 'warp', 'lasers', 'crt', 'echo', 'mosh', 'rain', 'cells', 'hexfloor', 'matrix'],
-  house: ['ink', 'caustics', 'kaleido', 'plasma', 'cells', 'city', 'orb', 'chrome', 'aurora', 'grid', 'nameboard', 'morph'],
-  trance: ['hyper', 'fractal', 'lasers', 'warp', 'galaxy', 'aurora', 'kaleido', 'mandel', 'orb', 'echo', 'sonar'],
+  techno: ['strobe', 'moire', 'circuit', 'sonar', 'warp', 'lasers', 'crt', 'echo', 'mosh', 'rain', 'cells', 'hexfloor', 'matrix', 'film', 'sculpture'],
+  house: ['ink', 'caustics', 'kaleido', 'plasma', 'cells', 'city', 'orb', 'chrome', 'aurora', 'grid', 'nameboard', 'morph', 'film', 'sculpture'],
+  trance: ['hyper', 'fractal', 'lasers', 'warp', 'galaxy', 'aurora', 'kaleido', 'mandel', 'orb', 'echo', 'sonar', 'sculpture'],
   bass: ['mosh', 'galaxy', 'strobe', 'hexfloor', 'hyper', 'orb', 'fractal', 'lasers', 'city', 'rain', 'echo', 'morph'],
   urban: ['city', 'crt', 'ink', 'chrome', 'grid', 'nameboard', 'morph', 'plasma', 'rain', 'kaleido', 'orb', 'caustics'],
-  chill: ['aurora', 'caustics', 'ink', 'chrome', 'grid', 'mandel', 'plasma', 'moire', 'morph', 'sonar'],
+  chill: ['aurora', 'caustics', 'ink', 'chrome', 'grid', 'mandel', 'plasma', 'moire', 'morph', 'sonar', 'film'],
   any: [],
 };
 

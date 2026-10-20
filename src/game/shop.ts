@@ -9,9 +9,9 @@
  * ownership check (`ownedThing` in look.ts) reads it. Plain data in, plain
  * data out: `buy()` returns the progress patch for the caller to save.
  */
-import { HAIR, IRIS_STYLES, ITEMS, OUTFIT_SETS, SLOT_LABEL, type Unlock } from '../character/catalog';
-import { boughtKey, ownedThing, unlockText, unlockTier, type WearKind } from '../character/look';
-import type { Progress } from '../core/models';
+import { HAIR, IRIS_STYLES, ITEM_BY_ID, ITEMS, OUTFIT_SETS, SLOT_LABEL, type Slot, type Unlock } from '../character/catalog';
+import { boughtKey, cloneLook, option, ownedThing, unlockText, unlockTier, wearSet, type WearKind } from '../character/look';
+import type { Look, Progress } from '../core/models';
 import { HOME_NAMES, HOME_TIERS, homeOf } from './home';
 
 export type ShopKind = WearKind | 'home';
@@ -98,4 +98,69 @@ export function buy(p: Progress, e: ShopEntry): { ok: true; patch: Partial<Progr
       stats: { ...p.stats, shop_spent: (p.stats.shop_spent ?? 0) + e.price, shop_buys: (p.stats.shop_buys ?? 0) + 1 },
     },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* trying it on                                                         */
+/* ------------------------------------------------------------------ */
+
+/** the look with this on (a set's pieces, a piece in its slot, a haircut, an iris); a home has none */
+export function tryOn(l: Look, e: ShopEntry): Look | null {
+  if (e.kind === 'home') return null;
+  if (e.kind === 'set') {
+    const set = OUTFIT_SETS.find((s) => s.id === e.id);
+    return set ? wearSet(l, set) : cloneLook(l);
+  }
+  const out = cloneLook(l);
+  if (e.kind === 'hair') out.items.hair = e.id;
+  else if (e.kind === 'iris') out.options.iris_style = e.id;
+  else {
+    const it = ITEM_BY_ID.get(e.id);
+    if (!it) return out;
+    out.items[it.slot] = it.id;
+    // with its own colours, cloth and print, the way the wardrobe puts a piece on
+    for (let z = 1; z <= 3; z++) delete out.colors[`${it.slot}_${z}`];
+    delete out.options[`${it.slot}_material`];
+    delete out.options[`${it.slot}_pattern`];
+  }
+  return out;
+}
+
+/** is the look wearing it already (a set: every one of its pieces) */
+export function wearing(l: Look, e: ShopEntry): boolean {
+  if (e.kind === 'home') return false;
+  if (e.kind === 'set') return !!e.pieces?.length && e.pieces.every((id) => l.items[ITEM_BY_ID.get(id)?.slot ?? ''] === id);
+  if (e.kind === 'hair') return l.items.hair === e.id;
+  if (e.kind === 'iris') return option(l, 'iris_style') === e.id;
+  const it = ITEM_BY_ID.get(e.id);
+  return !!it && l.items[it.slot] === e.id;
+}
+
+/** where on you to look at it: the whole outfit, the head, the eyes, the top half, the legs, the feet */
+export type ShopFocus = 'home' | 'full' | 'head' | 'eyes' | 'torso' | 'legs' | 'feet';
+
+const SLOT_FOCUS: Record<Slot, ShopFocus> = { head: 'head', eyewear: 'head', headphones: 'head', neck: 'torso', top: 'torso', outer: 'torso', wrists: 'torso', bottom: 'legs', socks: 'feet', shoes: 'feet', bag: 'torso' };
+
+export function focusOf(e: ShopEntry): ShopFocus {
+  if (e.kind === 'home') return 'home';
+  if (e.kind === 'set') return 'full';
+  if (e.kind === 'hair') return 'head';
+  if (e.kind === 'iris') return 'eyes';
+  const it = ITEM_BY_ID.get(e.id);
+  return it ? SLOT_FOCUS[it.slot] : 'full';
+}
+
+/**
+ * The shop's one button, for the picked entry: buy it (the first press arms
+ * it, "Confirm $300" spends), wear it once it's yours, or why it can't be had.
+ */
+export function shopAction(e: ShopEntry, p: Owns & Pick<Progress, 'cash'>, l: Look, armed: boolean): { label: string; act: 'buy' | 'confirm' | 'wear' | null } {
+  if (isOwned(e, p)) {
+    if (e.kind === 'home') return { label: 'Owned', act: null };
+    return wearing(l, e) ? { label: 'Wearing', act: null } : { label: 'Wear', act: 'wear' };
+  }
+  const why = cantBuy(e, p);
+  if (why) return { label: why, act: null };
+  const price = `$${e.price.toLocaleString()}`;
+  return armed ? { label: `Confirm ${price}`, act: 'confirm' } : { label: `Buy ${price}`, act: 'buy' };
 }

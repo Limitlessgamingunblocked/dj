@@ -726,6 +726,8 @@ export class CharacterCreator {
     const values = [...(required ? [] : ['none']), ...items.map((i) => i.id)];
     const chips = this.chips(SLOT_LABEL[slot], values, cur, (v) => this.edit((l) => {
       l.items[slot] = v === 'none' ? null : v;
+      // (a piece of your own takes off a scanned character: its clothes are part of it)
+      delete l.options.scan;
       for (let z = 1; z <= 3; z++) delete l.colors[`${slot}_${z}`];
       delete l.options[`${slot}_material`];
       delete l.options[`${slot}_pattern`];
@@ -850,6 +852,7 @@ export class CharacterCreator {
       this.edit((l) => {
         const required = i.slot === 'top' || i.slot === 'bottom' || i.slot === 'shoes';
         l.items[i.slot] = wearing && !required ? null : i.id;
+        delete l.options.scan;
         for (let z = 1; z <= 3; z++) delete l.colors[`${i.slot}_${z}`];
         delete l.options[`${i.slot}_material`];
         delete l.options[`${i.slot}_pattern`];

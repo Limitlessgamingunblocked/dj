@@ -3,6 +3,7 @@ import { HAIR, ITEMS, OUTFIT_SETS, SKIN_TONES, SLIDERS, TATTOOS, ITEM_BY_ID, BRO
 import { defaultLook, dressCodeBonus, LookHistory, option, owned, randomize, resetCategory, unlockText, wearSet, zoneColors } from '../src/character/look';
 import { LOOKS, checkLook } from '../src/core/models';
 import { memoryStore, SAVE_PREFIX, SaveSystem } from '../src/core/SaveSystem';
+import { hasModel } from '../src/three/assets';
 
 const rng = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 const fresh = { tier: 1, unlocked: [] as string[], sandbox: false, setsPlayed: 0 };
@@ -13,7 +14,8 @@ describe('character catalogue', () => {
     expect(HAIR.filter((h) => h.id !== 'bald').length).toBeGreaterThanOrEqual(40);
     expect(BROWS.length).toBeGreaterThanOrEqual(15);
     expect(TATTOOS.length).toBeGreaterThanOrEqual(50);
-    expect(OUTFIT_SETS).toHaveLength(12);
+    // the realistic DJ, the four robot DJs and the 12 from the brief
+    expect(OUTFIT_SETS).toHaveLength(17);
     expect(ITEMS.filter((i) => i.slot === 'headphones').length).toBeGreaterThanOrEqual(10);
     // every set's pieces exist and sit in their slot
     for (const s of OUTFIT_SETS) for (const [slot, id] of Object.entries(s.pieces)) expect(ITEM_BY_ID.get(id)?.slot).toBe(slot);
@@ -26,10 +28,17 @@ describe('character catalogue', () => {
 });
 
 describe('looks', () => {
-  it('starts as Afterhours Classic and wears any set', () => {
+  it('starts as the realistic DJ and wears any set', () => {
     const l = defaultLook();
-    expect(l.items.top).toBe('tee_vintage');
-    expect(l.items.eyewear).toBe('shades_oval');
+    expect(l.options.scan).toBe('character_scan_minimal_01');
+    expect(l.items.head).toBe('cap');
+    const robot = wearSet(l, OUTFIT_SETS.find((s) => s.id === 'chrome_android')!);
+    expect(robot.items.head).toBe('helmet_chrome');
+    expect(robot.items.outer).toBe('jacket_robot');
+    expect(robot.items.wrists).toBe('gloves_chrome');
+    // (each set brings its own scanned character)
+    expect(robot.options.scan).toBe('character_scan_chrome_android_01');
+    for (const set of OUTFIT_SETS) expect(hasModel(set.options!.scan as string), set.id).toBe(true);
     const tk = wearSet(l, OUTFIT_SETS.find((s) => s.id === 'terrace_king')!);
     expect(tk.items.top).toBe('shirt_linen');
     expect(tk.items.hair).toBe('crop');
@@ -108,7 +117,7 @@ describe('the career keeps your looks', () => {
     const c = new Career(new SaveSystem(kv));
     // nothing saved yet: you wear the starter look
     expect(c.looks.items).toHaveLength(0);
-    expect(c.look.items.top).toBe('tee_vintage');
+    expect(c.look.options.scan).toBe('character_scan_minimal_01');
     const seen: string[] = [];
     c.changed.on('look', (l) => seen.push(l.id));
     const a = { ...defaultLook('look_1', 'Basement'), items: { ...defaultLook().items, hair: 'locs' } };

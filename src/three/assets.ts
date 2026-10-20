@@ -36,7 +36,12 @@ export function parseAssetName(name: string): AssetName | null {
 
 /** every exported model, by name (empty until the first export) */
 const URLS: Record<string, string> = Object.fromEntries(
-  Object.entries(import.meta.glob('/assets/models/*.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>).map(([path, url]) => [path.replace(/^.*\/|\.glb$/g, ''), url]),
+  Object.entries({
+    ...(import.meta.glob(['/assets/models/*.glb', '!**/character_scan_*.glb'], { query: '?url', import: 'default', eager: true }) as Record<string, string>),
+    ...(import.meta.glob('/assets/models/character_scan_minimal_01.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>),
+    // the other scanned characters are too big to carry inline, so the single-file build goes without them (they fall back to their modelled looks)
+    ...(import.meta.env.MODE === 'single' ? {} : (import.meta.glob('/assets/models/character_scan_*.glb', { query: '?url', import: 'default', eager: true }) as Record<string, string>)),
+  }).map(([path, url]) => [path.replace(/^.*\/|\.glb$/g, ''), url]),
 );
 
 export function modelNames(): string[] {

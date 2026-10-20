@@ -23,6 +23,11 @@ export function detectSections(a: TrackAnalysis): Section[] | null {
   return s;
 }
 
+/** drop the cached sections of an analysis whose beat grid was just edited */
+export function forgetSections(a: TrackAnalysis): void {
+  cache.delete(a);
+}
+
 /** per-bar low-band and full-band level, 0..1, from the first downbeat */
 export function barLevels(a: TrackAnalysis): { low: number[]; full: number[]; bar: number } {
   const bar = (60 / a.bpm) * 4;

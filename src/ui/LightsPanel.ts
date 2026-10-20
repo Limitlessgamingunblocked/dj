@@ -8,6 +8,7 @@ import { keyForControl } from '../app/keyboard';
 import { onPrefs } from '../core/prefs';
 import type { Stage } from '../three/Stage';
 import { LASER_PATTERN_NAMES, LASER_PATTERNS, PALETTES, type ShowControls } from '../three/venues/show';
+import { WALL_MODES } from '../three/venues/wallshow';
 import { h, setClass, setText } from './dom';
 import { venueCards } from './VenuePicker';
 import { RoomPanel } from './RoomPanel';
@@ -25,8 +26,10 @@ export class LightsPanel {
   private pyroBtn: HTMLElement;
   private confettiBtn: HTMLElement;
   private calmBtn: HTMLElement;
+  private dancersBtn: HTMLElement;
   private palBtns = new Map<string, HTMLElement>();
   private laserBtns = new Map<string, HTMLElement>();
+  private wallBtns = new Map<string, HTMLElement>();
   private patBtns = new Map<string, HTMLElement>();
   private customInputs: HTMLInputElement[] = [];
   private status: HTMLElement;
@@ -65,6 +68,7 @@ export class LightsPanel {
     this.calmBtn = toggle('Reduce flashing', 'Strobes and blinders stay under 3 flashes a second, with no blackout before the drop. On by default if your system asks for reduced motion', () => c.reduceFlash, (v) => (c.reduceFlash = v));
     this.pyroBtn = toggle('Pyro on drops', 'Flame jets (or cold-spark fountains indoors) go off on drops, then chase the next downbeats', () => c.pyro, (v) => (c.pyro = v));
     this.confettiBtn = toggle('Confetti on drops', 'The confetti cannons go off on a big drop, at most every 90 seconds so it stays special', () => c.confetti, (v) => (c.confetti = v));
+    this.dancersBtn = toggle('Side dancers', 'Two dancers on podiums either side of the booth (not in the Bedroom)', () => c.dancers, (v) => (c.dancers = v));
 
     const pal = h('div', { class: 'seg', role: 'group', 'aria-label': 'Colours' });
     for (const p of PALETTES) {
@@ -103,6 +107,23 @@ export class LightsPanel {
       });
       this.laserBtns.set(id, b);
       lasers.append(b);
+    }
+    // what the main LED wall does on a drop (the venues with a big wall)
+    const wall = h('div', { class: 'seg', role: 'group', 'aria-label': 'LED wall on drops' });
+    const wallTips: Record<string, string> = {
+      auto: 'Each venue picks: its own wall effect on most drops, the other one now and then',
+      box: 'On every drop the wall opens into a deep box and a chrome blob pushes out over the crowd',
+      tiles: 'On every drop the wall blows apart into flying panels that fly back together',
+      off: 'The wall stays the visual player',
+    };
+    for (const m of WALL_MODES) {
+      const b = h('button', { class: 'btn', type: 'button', title: wallTips[m.id] }, m.name);
+      b.addEventListener('click', () => {
+        c.wall = m.id;
+        this.save();
+      });
+      this.wallBtns.set(m.id, b);
+      wall.append(b);
     }
     const pats = h('div', { class: 'chip-grid', role: 'group', 'aria-label': 'Laser look' });
     for (const id of ['auto', ...LASER_PATTERNS] as (ShowControls['laserPattern'])[]) {
@@ -158,11 +179,12 @@ export class LightsPanel {
         h('p', { class: 'note' }, 'Hold a pad or its key to fire it. The rest follows the music by itself.'),
         h('div', { class: 'toggle-row' }, this.autoBtn, this.dropBtn, this.pyroBtn, this.confettiBtn, this.calmBtn),
         h('h3', {}, 'Party'),
-        h('div', { class: 'toggle-row party-row' }, pad('fun.airhorn', 'Air horn', 'airhorn'), pad('sky.fireworks', 'Fireworks', 'confetti'), pad('sky.drones', 'Drone show', 'co2')),
+        h('div', { class: 'toggle-row party-row' }, pad('fun.airhorn', 'Air horn', 'airhorn'), pad('sky.fireworks', 'Fireworks', 'confetti'), pad('sky.drones', 'Drone show', 'co2'), this.dancersBtn),
         h('p', { class: 'note' }, 'Fireworks and the drone show fly at the open-air venues. The drones come out by themselves at the peak after dark, and the fireworks for the last track at the festival, the beach and the boat.'),
         h('div', { class: 'field' }, 'Colours', pal, customRow),
         h('div', { class: 'field' }, 'Lasers', lasers),
         h('div', { class: 'field' }, 'Laser look', pats),
+        h('div', { class: 'field', title: 'At the venues with a big LED wall: the warehouse, the Warehouse Rave, Printworks, the festival and Alexandra Palace' }, 'LED wall on drops', wall),
         h('div', { class: 'toggle-row sliders' }, slider('light-int', 'Intensity', 0.2, 1.5, () => c.intensity, (v) => (c.intensity = v)), slider('light-smoke', 'Haze', 0, 1, () => c.smoke, (v) => (c.smoke = v))),
         h('div', { class: 'show-live' }, this.meter, this.status),
       ),
@@ -178,12 +200,14 @@ export class LightsPanel {
     setClass(this.pyroBtn, 'active', c.pyro);
     setClass(this.confettiBtn, 'active', c.confetti);
     setClass(this.calmBtn, 'active', c.reduceFlash);
+    setClass(this.dancersBtn, 'active', c.dancers);
     for (const [id, b] of this.palBtns) setClass(b, 'active', id === c.palette);
     this.customInputs.forEach((inp, i) => {
       if (document.activeElement !== inp && inp.value !== c.custom[i]) inp.value = c.custom[i];
     });
     for (const [id, b] of this.laserBtns) setClass(b, 'active', id === c.lasers);
     for (const [id, b] of this.patBtns) setClass(b, 'active', id === c.laserPattern);
+    for (const [id, b] of this.wallBtns) setClass(b, 'active', id === c.wall);
     for (const w of this.widgets) w.update();
     this.room.update();
     this.crowd.update();

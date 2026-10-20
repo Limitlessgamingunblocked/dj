@@ -8,9 +8,13 @@
  *   drop   low end returning hard after a breakdown
  *   parts  the drums, bass, melody and vocal pulled apart (parts.ts): hits,
  *          the melody's note and height, whether someone's singing
+ *   decks  each deck as the room hears it: its track while it plays, its
+ *          fader and crossfader gain, its level (the set sculpture records them)
  */
 import type { AudioEngine } from '../audio/AudioEngine';
+import { faderToGain } from '../audio/Channel';
 import { PartTracker, type Parts } from './parts';
+import type { DeckFeed } from './setHistory';
 
 export interface Features {
   spectrum: Float32Array; // 256 log-spaced bins, 0..1
@@ -47,6 +51,8 @@ export interface Features {
   safe?: number;
   /** the drums, melody and vocal, pulled apart */
   parts?: Parts;
+  /** each deck as the room hears it (live, not delayed with the rest) */
+  decks?: DeckFeed[];
 }
 
 interface Band {
@@ -77,6 +83,8 @@ export class AudioFeatures {
   private parts: PartTracker;
   private side: Float32Array<ArrayBuffer> | null = null;
   intensity = 1;
+  /** music playing outside the decks (the launch cutscene's), with its own beat: counts as playing */
+  external: { bpm: number; position: number } | null = null;
 
   constructor(
     private analyser: AnalyserNode,
@@ -163,6 +171,21 @@ export class AudioFeatures {
     return false;
   }
 
+  /** which track each deck plays, how far its fader and the crossfader let it through, how loud it is before them */
+  private readDecks(): void {
+    const e = this.engine;
+    const out = (this.f.decks ??= []);
+    for (let i = 0; i < e.decks.length; i++) {
+      const d = e.decks[i];
+      const ch = e.channels[i];
+      const slot = (out[i] ??= { track: null, gain: 0, peak: 0 });
+      slot.track = d.playing && d.track ? d.track.id : null;
+      slot.gain = ch ? faderToGain(ch.state.fader, ch.faderCurve) * ch.xfGain : 0;
+      slot.peak = ch ? ch.peak : 0;
+    }
+    out.length = e.decks.length;
+  }
+
   update(dt: number): Features {
     const f = this.f;
     const now = (f.time += dt);
@@ -207,6 +230,7 @@ export class AudioFeatures {
     if (this.side) this.engine.visSide.getFloatFrequencyData(this.side);
     f.parts = this.parts.update(this.freq, this.side, dt, now);
     f.vocal = f.parts.vocal;
+    this.readDecks();
     const silent = rms < 0.003;
     f.kickHit = !silent && this.onset(B.kick, kf, now, 0.22, 1.4);
     f.snareHit = !silent && this.onset(B.snareHi, (s1 + s2) / 2, now, 0.15, 1.6);
@@ -219,10 +243,12 @@ export class AudioFeatures {
 
     // beat phase: from the sync master's grid when something is playing
     const m = this.engine.masterDeck;
-    f.playing = this.engine.decks.some((d) => d.playing);
-    if (m && m.playing && m.analysis) {
-      f.bpm = m.bpm;
-      const bp = m.beatPosition(m.displayPosition());
+    const ext = this.external;
+    f.playing = this.engine.decks.some((d) => d.playing) || !!ext;
+    const deckGrid = !!(m && m.playing && m.analysis);
+    if (deckGrid || ext) {
+      f.bpm = deckGrid ? m!.bpm : ext!.bpm;
+      const bp = deckGrid ? m!.beatPosition(m!.displayPosition()) : ext!.position;
       f.beatPhase = ((bp % 1) + 1) % 1;
       const idx = Math.floor(bp);
       f.beatInBar = ((idx % 4) + 4) % 4;

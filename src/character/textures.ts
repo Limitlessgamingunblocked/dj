@@ -813,3 +813,167 @@ export function drawTattoo(g: CanvasRenderingContext2D, id: string, x: number, y
   }
   g.restore();
 }
+
+/**
+ * Leather, as maps to lay over a plain colour: a normal map of the pebbled
+ * grain (little rounded cells, worn crevices between them) with a few long
+ * shallow creases running through it, and a roughness map (the crevices
+ * duller than the polished tops). Tiles; made once and shared.
+ */
+let leather: { normal: HTMLCanvasElement; rough: HTMLCanvasElement } | null = null;
+export function leatherCanvases(): { normal: HTMLCanvasElement; rough: HTMLCanvasElement } {
+  if (leather) return leather;
+  const S = 512;
+  const cell = 9;
+  const n = Math.round(S / cell);
+  // a jittered point per cell (Worley noise), wrapping round the tile
+  const rnd = (i: number) => {
+    const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const px = new Float32Array(n * n);
+  const py = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    px[j * n + i] = (i + 0.15 + 0.7 * rnd(j * n + i)) * (S / n);
+    py[j * n + i] = (j + 0.15 + 0.7 * rnd(j * n + i + 9999)) * (S / n);
+  }
+  const h = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const ci = Math.floor((x / S) * n);
+    const cj = Math.floor((y / S) * n);
+    let f1 = 1e9;
+    let f2 = 1e9;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ii = (ci + di + n) % n;
+      const jj = (cj + dj + n) % n;
+      let dx = px[jj * n + ii] - x;
+      let dy = py[jj * n + ii] - y;
+      if (dx > S / 2) dx -= S;
+      if (dx < -S / 2) dx += S;
+      if (dy > S / 2) dy -= S;
+      if (dy < -S / 2) dy += S;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < f1) {
+        f2 = f1;
+        f1 = d;
+      } else if (d < f2) f2 = d;
+    }
+    // pebbles: high in the middle of a cell, down into the crevice at its edge
+    let v = Math.min(1, (f2 - f1) / 3.2);
+    v = Math.sqrt(v);
+    // long shallow creases, the way leather folds and stays folded
+    const u = (x / S) * Math.PI * 2;
+    const w = (y / S) * Math.PI * 2;
+    for (let k = 0; k < 4; k++) {
+      const a = Math.sin(u * (k + 1) + w * (3 - k) + k * 1.7 + Math.sin(w * 2 + k) * 0.8);
+      v -= 0.35 * Math.exp(-(a * a) / 0.004);
+    }
+    h[y * S + x] = v;
+  }
+  const [nc, ng] = canvas(S, S);
+  const [rc, rg] = canvas(S, S);
+  const ni = ng.createImageData(S, S);
+  const ri = rg.createImageData(S, S);
+  const at = (x: number, y: number) => h[((y + S) % S) * S + ((x + S) % S)];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (at(x + 1, y) - at(x - 1, y)) * 1.6;
+    const dy = (at(x, y + 1) - at(x, y - 1)) * 1.6;
+    const l = Math.sqrt(dx * dx + dy * dy + 1);
+    const o = (y * S + x) * 4;
+    ni.data[o] = Math.round((0.5 - dx / l / 2) * 255);
+    ni.data[o + 1] = Math.round((0.5 + dy / l / 2) * 255);
+    ni.data[o + 2] = Math.round((0.5 + 0.5 / l) * 255);
+    ni.data[o + 3] = 255;
+    // roughness in green: the polished tops of the grain shinier than the crevices
+    const r = Math.round((0.3 + 0.35 * (1 - Math.max(0, Math.min(1, h[y * S + x])))) * 255);
+    ri.data[o] = ri.data[o + 1] = ri.data[o + 2] = r;
+    ri.data[o + 3] = 255;
+  }
+  ng.putImageData(ni, 0, 0);
+  rg.putImageData(ri, 0, 0);
+  leather = { normal: nc, rough: rc };
+  return leather;
+}
+
+/** a tiling height field turned into a normal map and a roughness map (in all three channels) */
+function heightMaps(h: Float32Array, S: number, strength: number, rough: (v: number) => number): { normal: HTMLCanvasElement; rough: HTMLCanvasElement } {
+  const [nc, ng] = canvas(S, S);
+  const [rc, rg] = canvas(S, S);
+  const ni = ng.createImageData(S, S);
+  const ri = rg.createImageData(S, S);
+  const at = (x: number, y: number) => h[((y + S) % S) * S + ((x + S) % S)];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
+    const dy = (at(x, y + 1) - at(x, y - 1)) * strength;
+    const l = Math.sqrt(dx * dx + dy * dy + 1);
+    const o = (y * S + x) * 4;
+    ni.data[o] = Math.round((0.5 - dx / l / 2) * 255);
+    ni.data[o + 1] = Math.round((0.5 + dy / l / 2) * 255);
+    ni.data[o + 2] = Math.round((0.5 + 0.5 / l) * 255);
+    ni.data[o + 3] = 255;
+    ri.data[o] = ri.data[o + 1] = ri.data[o + 2] = Math.round(Math.max(0, Math.min(1, rough(h[y * S + x]))) * 255);
+    ri.data[o + 3] = 255;
+  }
+  ng.putImageData(ni, 0, 0);
+  rg.putImageData(ri, 0, 0);
+  return { normal: nc, rough: rc };
+}
+
+const weaves = new Map<string, { normal: HTMLCanvasElement; rough: HTMLCanvasElement }>();
+
+/**
+ * A fabric's weave as a tile (one tile is ~9 cm of cloth, as cut clothes'
+ * second UVs count it): the knit of a tee or hoodie (columns of little
+ * V-shaped loops), denim's diagonal twill with its uneven slubby threads, or
+ * satin's fine sheen lines. Each as a normal map and a roughness map.
+ */
+export function weaveCanvases(kind: 'knit' | 'twill' | 'satin'): { normal: HTMLCanvasElement; rough: HTMLCanvasElement } {
+  const done = weaves.get(kind);
+  if (done) return done;
+  const S = 512;
+  const h = new Float32Array(S * S);
+  const rnd = (i: number) => {
+    const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  // slow unevenness: some threads a touch thicker, the cloth a little lumpy (all wrapping round the tile)
+  const lump = (x: number, y: number) => {
+    const u = (x / S) * Math.PI * 2;
+    const w = (y / S) * Math.PI * 2;
+    return 0.5 * Math.sin(u * 3 + Math.sin(w * 2) * 1.5) * Math.sin(w * 4 + 1.3) + 0.5 * Math.sin(u * 7 + w * 5);
+  };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let v = 0;
+    if (kind === 'knit') {
+      // 64 columns of stitches round the tile, each a pair of loops leaning in to make a V
+      const cols = 64;
+      const fx = (x / S) * cols;
+      const col = Math.floor(fx);
+      const lx = fx - col;
+      const lean = lx < 0.5 ? lx : 1 - lx;
+      const row = (y / S) * 80 + lean * 1.1;
+      const loop = 0.5 + 0.5 * Math.cos(row * Math.PI * 2);
+      const edge = 1 - Math.pow(Math.abs(lx * 2 - 1), 6);
+      v = loop * 0.6 * edge + 0.4 * edge + 0.06 * (rnd(col * 131 + Math.floor(row)) - 0.5) + 0.05 * lump(x, y);
+    } else if (kind === 'twill') {
+      // the diagonal rib (right-hand twill), the warp's slubs running down it
+      const diag = ((x + y) / S) * 96;
+      const rib = 0.5 + 0.5 * Math.sin(diag * Math.PI * 2);
+      const warp = Math.floor((x / S) * 128);
+      const slub = 0.5 + 0.5 * Math.sin((y / S) * Math.PI * 2 * (3 + (warp % 5)) + rnd(warp) * 6.28);
+      v = rib * 0.75 + 0.15 * slub * (rnd(warp * 7) > 0.6 ? 1 : 0.3) + 0.08 * lump(x, y);
+    } else {
+      // satin: long floats, fine lines across the tile
+      v = 0.5 + 0.15 * Math.sin((y / S) * Math.PI * 2 * 160 + Math.sin((x / S) * Math.PI * 2 * 3) * 2) + 0.1 * lump(x, y);
+    }
+    h[y * S + x] = v;
+  }
+  const out =
+    kind === 'knit'
+      ? heightMaps(h, S, 1.4, (v) => 0.85 + 0.15 * (1 - v))
+      : kind === 'twill'
+        ? heightMaps(h, S, 1.6, (v) => 0.8 + 0.2 * (1 - v))
+        : heightMaps(h, S, 0.8, (v) => 0.75 + 0.25 * v);
+  weaves.set(kind, out);
+  return out;
+}

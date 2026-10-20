@@ -13,6 +13,7 @@ import { openModal } from './modal';
 import { toast } from './toast';
 import { uiSound } from '../audio/uisound';
 import type { DailyOut } from '../app/gigs';
+import { duelBlock, type DuelOut } from './GhostDuel';
 
 export interface ResultsHooks {
   /** the headline: your name, as the room knew it tonight */
@@ -49,6 +50,10 @@ export interface ResultsHooks {
   daily?: DailyOut | null;
   /** the replay buffer's pictures around the crowd's peak, played behind the headline */
   peakStills?: Blob[];
+  /** a ghost duel: the friend's run (a second line on the graph) and who won */
+  duel?: DuelOut | null;
+  /** send this run as a ghost duel (or back, after one) */
+  sendDuel?(): void;
 }
 
 /** when the grade lands (ms after the screen opens): the stamp's sound and the numbers start here */
@@ -78,7 +83,7 @@ function promoterLine(r: GigResults): string {
 }
 
 /** the vibe across the set, with the band the slot wanted behind it */
-function graph(r: GigResults, ghost?: [number, number, number][] | null): HTMLCanvasElement {
+function graph(r: GigResults, ghost?: [number, number, number][] | null, duel?: { name: string; pts: [number, number, number][] } | null): HTMLCanvasElement {
   // drawn near the size it's shown at in the wide dialog, so the axis text stays small
   const W = 1120;
   const H = 190;
@@ -86,7 +91,7 @@ function graph(r: GigResults, ghost?: [number, number, number][] | null): HTMLCa
   const g = c.getContext('2d')!;
   g.scale(2, 2);
   const pts = r.timeline;
-  const tMax = Math.max(60, pts.length ? pts[pts.length - 1].t : 60);
+  const tMax = Math.max(60, pts.length ? pts[pts.length - 1].t : 60, duel?.pts.length ? duel.pts[duel.pts.length - 1][0] : 0);
   const x = (t: number) => 34 + (t / tMax) * (W - 44);
   const y = (v: number) => 10 + (1 - v) * (H - 34);
   // grid
@@ -135,6 +140,16 @@ function graph(r: GigResults, ghost?: [number, number, number][] | null): HTMLCa
     g.strokeStyle = 'rgba(255,255,255,0.35)';
     g.lineWidth = 2;
     g.setLineDash([6, 5]);
+    g.stroke();
+    g.setLineDash([]);
+  }
+  // a ghost duel: the friend's run, in its own colour
+  if (duel?.pts.length) {
+    g.beginPath();
+    duel.pts.forEach((p, i) => (i ? g.lineTo(x(p[0]), y(p[1])) : g.moveTo(x(p[0]), y(p[1]))));
+    g.strokeStyle = 'rgba(94,234,255,0.8)';
+    g.lineWidth = 2;
+    g.setLineDash([6, 4]);
     g.stroke();
     g.setLineDash([]);
   }
@@ -238,14 +253,19 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
   const share = h('button', { class: 'btn', type: 'button', title: 'A code with your tracklist and venue, for a friend to play' }, 'Share set code');
   share.addEventListener('click', () => hooks.shareCode?.());
   share.hidden = !hooks.shareCode;
+  // after a duel, sending your run back sits in the duel's own block
+  const duelBtn = h('button', { class: 'btn', type: 'button', title: 'Send this run as a code: a friend plays the same night against your ghost' }, 'Duel a friend');
+  duelBtn.addEventListener('click', () => hooks.sendDuel?.());
+  duelBtn.hidden = !hooks.sendDuel || !!hooks.duel;
   const again = h('button', { class: 'btn', type: 'button' }, 'Play again');
   const studio = h('button', { class: 'btn primary', type: 'button' }, 'Back to the decks');
   const content = h(
     'div',
     { class: 'results' },
     top,
-    graph(r, hooks.ghost?.first ? null : hooks.ghost?.pts),
-    h('div', { class: 'res-legend' }, h('i', { class: 'l-vibe' }), 'Vibe', h('i', { class: 'l-energy' }), 'Your energy', h('i', { class: 'l-target' }), `What a ${SLOTS[r.config.slot].label.toLowerCase()} wants`, hooks.ghost && !hooks.ghost.first ? h('i', { class: 'l-ghost' }) : null, hooks.ghost && !hooks.ghost.first ? 'Your best run today' : null),
+    graph(r, hooks.ghost?.first ? null : hooks.ghost?.pts, hooks.duel),
+    h('div', { class: 'res-legend' }, h('i', { class: 'l-vibe' }), 'Vibe', h('i', { class: 'l-energy' }), 'Your energy', h('i', { class: 'l-target' }), `What a ${SLOTS[r.config.slot].label.toLowerCase()} wants`, hooks.ghost && !hooks.ghost.first ? h('i', { class: 'l-ghost' }) : null, hooks.ghost && !hooks.ghost.first ? 'Your best run today' : null, hooks.duel ? h('i', { class: 'l-duel' }) : null, hooks.duel ? `${hooks.duel.name}’s ghost` : null),
+    hooks.duel ? duelBlock(hooks.duel, hooks.sendDuel) : null,
     hooks.ghost ? h('div', { class: `res-objective ${hooks.ghost.beat ? 'met' : ''}` }, h('b', {}, hooks.ghost.first ? 'Ghost saved: ' : hooks.ghost.beat ? 'New best run! ' : 'Your ghost won: '), hooks.ghost.first ? 'play today’s daily again to race this run.' : hooks.ghost.beat ? 'this run is your ghost now.' : `best today is ${hooks.ghost.score.toLocaleString()} points.`) : null,
     h(
       'div',
@@ -264,7 +284,7 @@ export function showResults(r: GigResults, venueName: string, hooks: ResultsHook
     r.milestones.length ? h('div', { class: 'res-miles' }, ...r.milestones.map((m) => h('span', { class: 'res-mile' }, '★ ', MILESTONE_LABEL[m] ?? m))) : null,
     news.length ? h('div', { class: 'res-news' }, h('span', { class: 'res-news-h' }, 'New'), ...news.map((n) => h('span', { class: `res-new k-${n.kind}` }, NEW_KIND[n.kind] ? h('small', {}, NEW_KIND[n.kind]) : null, n.label.replace(/\{name\}/g, hooks.dj)))) : null,
     hooks.next ? h('p', { class: 'res-next' }, 'Next: ', hooks.next) : null,
-    h('div', { class: 'res-actions' }, save, card, share, again, studio),
+    h('div', { class: 'res-actions' }, save, card, share, duelBtn, again, studio),
   );
   const modal = openModal('Set complete', content, { wide: true });
   const stopReel = hooks.peakStills?.length ? peakReel(top, hooks.peakStills, `Crowd peak · ${mmss(r.peak.t)}`) : null;

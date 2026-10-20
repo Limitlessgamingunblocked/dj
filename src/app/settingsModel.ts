@@ -100,6 +100,7 @@ export function cleanSettings(raw: unknown): Settings {
   out.lastTracks = Object.fromEntries(Object.entries(out.lastTracks).filter(([k, v]) => /^[1-4]$/.test(k) && typeof v === 'string' && v.length < 200));
   if (r.boardHome === 'top' || r.boardHome === 'perf') out.boardHome = r.boardHome;
   if (!['auto', 'festival', 'stream', 'cinematic'].includes(out.directorStyle)) out.directorStyle = DEFAULTS.directorStyle;
+  if (out.lights.wall !== undefined && !['auto', 'box', 'tiles', 'off'].includes(out.lights.wall)) delete out.lights.wall;
   const custom = out.lights.custom as unknown;
   if (custom !== undefined && !(Array.isArray(custom) && custom.length === 3 && custom.every((c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)))) delete out.lights.custom;
   return out;

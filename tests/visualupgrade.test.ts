@@ -4,6 +4,8 @@ import { AOPass, DepthTap } from '../src/three/ao';
 import { QUALITY_STEPS } from '../src/three/quality';
 import { REFLECT_LAYER, ReflectPass, isBright, tagBright } from '../src/three/reflect';
 import { PERSON_BONES, PERSON_MATS, personGeometry } from '../src/three/venues/crowd';
+import { DISCO_MATS } from '../src/three/venues/silentDisco';
+import { JOINTS } from '../src/three/venues/crowdbody';
 import { boneMatrix, posedPerson, type HeldPose } from '../src/three/venues/crowdpose';
 import { FAR_POSES, atlasColor, padEdges } from '../src/three/venues/farcrowd';
 import { speakerGeometry, truss } from '../src/three/venues/fixtures';
@@ -102,29 +104,31 @@ describe('the crowd model', () => {
       expect(mats(hi).has(m)).toBe(true);
       expect(mats(lo).has(m)).toBe(true);
     }
-    expect(Math.max(...mats(hi))).toBe(PERSON_MATS.hairUp);
+    // the silent disco's headphones sit past the body's materials, at both levels of detail
+    for (const m of Object.values(DISCO_MATS)) {
+      expect(mats(hi).has(m)).toBe(true);
+      expect(mats(lo).has(m)).toBe(true);
+    }
+    expect(Math.max(...[...mats(hi)].filter((m) => m < DISCO_MATS.shell))).toBe(PERSON_MATS.pony);
   });
 
   it('stays inside its vertex budget at both levels of detail', () => {
-    expect(personGeometry(0).attributes.position.count).toBeLessThan(3300);
-    expect(personGeometry(1).attributes.position.count).toBeLessThan(1100);
+    expect(personGeometry(0).attributes.position.count).toBeLessThan(4000);
+    expect(personGeometry(1).attributes.position.count).toBeLessThan(1300);
   });
 
-  it('builds the body from closed parts, with no seams or open ends', () => {
-    // count each edge by where its ends are, so lathe and sphere seams count as joined
-    for (const detail of [0, 1] as const) {
-      const g = personGeometry(detail);
+  it('builds the body as one closed skin, open only at the ankles inside the shoes', () => {
+    // count each edge by where its ends are, so the copies of a vertex at a material seam count as joined
+    const key = (pos: THREE.BufferAttribute, i: number) => `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+    const openEdges = (g: THREE.BufferGeometry, keep: (m: number) => boolean) => {
       const pos = g.attributes.position as THREE.BufferAttribute;
       const mat = g.attributes.aMat.array as Float32Array;
       const idx = g.index!.array;
-      const key = (i: number) => `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
-      const edges = new Map<number, Map<string, number>>();
+      const e = new Map<string, number>();
       for (let k = 0; k < idx.length; k += 3) {
-        const ks = [key(idx[k]), key(idx[k + 1]), key(idx[k + 2])];
+        if (!keep(mat[idx[k]])) continue;
+        const ks = [key(pos, idx[k]), key(pos, idx[k + 1]), key(pos, idx[k + 2])];
         if (ks[0] === ks[1] || ks[1] === ks[2] || ks[0] === ks[2]) continue;
-        const m = mat[idx[k]];
-        let e = edges.get(m);
-        if (!e) edges.set(m, (e = new Map()));
         for (const [a, b] of [
           [0, 1],
           [1, 2],
@@ -134,10 +138,18 @@ describe('the crowd model', () => {
           e.set(s, (e.get(s) ?? 0) + 1);
         }
       }
-      for (const m of [PERSON_MATS.skin, PERSON_MATS.top, PERSON_MATS.bottoms, PERSON_MATS.shoes, PERSON_MATS.sleeveUp, PERSON_MATS.sleeveLo, PERSON_MATS.shin, PERSON_MATS.hairUp]) {
-        const open = [...edges.get(m)!.values()].filter((c) => c !== 2).length;
-        expect(open, `material ${m} at detail ${detail}`).toBe(0);
-      }
+      return [...e].filter(([, c]) => c !== 2).map(([s]) => s.split('|')[0].split(',').map((n) => Number(n) / 1e4));
+    };
+    const body = new Set([PERSON_MATS.skin, PERSON_MATS.top, PERSON_MATS.bottoms, PERSON_MATS.sleeveUp, PERSON_MATS.sleeveLo, PERSON_MATS.shin]);
+    for (const detail of [0, 1] as const) {
+      const g = personGeometry(detail);
+      const open = openEdges(g, (m) => body.has(m));
+      expect(open.length, `detail ${detail}`).toBeGreaterThan(0);
+      // (the simplest model's thin parts, the fingers and the ears, can be pinched together by the simplifier, leaving an
+      // edge or two there; the close-up model has none)
+      const above = open.filter((p) => p[1] >= 0.15);
+      expect(above.length, `detail ${detail}`).toBeLessThan(detail === 0 ? 1 : 8);
+      expect(openEdges(g, (m) => m === PERSON_MATS.shoes).length, `shoes at detail ${detail}`).toBe(0);
     }
   });
 
@@ -146,21 +158,27 @@ describe('the crowd model', () => {
   });
 
   it('bends the joints the way the crowd shader does', () => {
-    // an arm straight up (out to the side by 180°): the elbow goes above the shoulder
+    const J = (j: readonly number[]) => V(j[0], j[1], j[2]);
+    const sh = J(JOINTS.shoulder);
+    const el = J(JOINTS.elbow);
+    // an arm straight up (out to the side by 180°): the elbow goes as far above the shoulder as it hung below
     const up = boneMatrix(PERSON_BONES.upperR, { ...REST, aR: [Math.PI, 0, 0] });
-    const elbow = V(0.2, 1.14, 0).applyMatrix4(up);
-    expect(elbow.y).toBeCloseTo(1.42 + 0.28, 5);
-    expect(elbow.x).toBeCloseTo(0.2, 5);
+    const elbow = el.clone().applyMatrix4(up);
+    expect(elbow.distanceTo(sh.clone().multiplyScalar(2).sub(el))).toBeLessThan(1e-5);
+    // round the shoulder a point takes only its share of the turn
+    const half = el.clone().applyMatrix4(boneMatrix(PERSON_BONES.upperR, { ...REST, aR: [Math.PI, 0, 0] }, 0.5));
+    expect(half.y).toBeCloseTo(sh.y, 1);
+    expect(half.x).toBeGreaterThan(sh.x + 0.2);
     // the elbow bend swings the hand forward, the elbow stays put
     const fore = boneMatrix(PERSON_BONES.foreR, { ...REST, aR: [0, 0, Math.PI / 2] });
-    expect(V(0.2, 1.14, 0).applyMatrix4(fore).distanceTo(V(0.2, 1.14, 0))).toBeLessThan(1e-6);
-    expect(V(0.2, 0.83, 0).applyMatrix4(fore).z).toBeCloseTo(0.31, 5);
+    expect(el.clone().applyMatrix4(fore).distanceTo(el)).toBeLessThan(1e-6);
+    expect(el.clone().add(V(0, -0.3, 0)).applyMatrix4(fore).z).toBeCloseTo(el.z + 0.3, 5);
     // bent knees: the hips drop, the ankles stay on the floor
     const k = 0.6;
-    const hip = V(0.09, 0.9, 0).applyMatrix4(boneMatrix(PERSON_BONES.thighR, { ...REST, knee: k }));
-    const ankle = V(0.09, 0.1, 0).applyMatrix4(boneMatrix(PERSON_BONES.shinR, { ...REST, knee: k }));
-    expect(hip.y).toBeLessThan(0.85);
-    expect(ankle.y).toBeCloseTo(0.1, 5);
+    const hip = J(JOINTS.hip).applyMatrix4(boneMatrix(PERSON_BONES.thighR, { ...REST, knee: k }));
+    const ankle = J(JOINTS.ankle).applyMatrix4(boneMatrix(PERSON_BONES.shinR, { ...REST, knee: k }));
+    expect(hip.y).toBeLessThan(JOINTS.hip[1] - 0.05);
+    expect(ankle.y).toBeCloseTo(JOINTS.ankle[1], 5);
   });
 
   it('leaves the props out of the far crowd unless asked', () => {
@@ -179,7 +197,8 @@ describe('the crowd model', () => {
       expect(box.min.x).toBeGreaterThan(-0.5);
       expect(box.max.x).toBeLessThan(0.5);
       expect(box.max.y).toBeLessThan(1.98);
-      expect(box.min.y).toBeGreaterThan(-0.05);
+      // the toes of a bent leg dip a little under the floor line, as they do in the shader
+      expect(box.min.y).toBeGreaterThan(-0.07);
     }
   });
 

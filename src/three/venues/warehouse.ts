@@ -18,6 +18,7 @@ import { atBar } from './crew';
 import { Blinders, booth, Co2Jets, Crowd, crowdArea, floor, HazeLayer, mirrorBall, MovingHeads, speaker, Strobes, TABLE_Y, truss } from './fixtures';
 import { Lasers, laserStands } from './lasers';
 import { KineticRig } from './showfx';
+import { MAIN_WALLS } from './wallshow';
 import { concreteTexture, floorTexture, withSurface } from './tex';
 
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -94,6 +95,8 @@ class Warehouse extends VenueBase {
     const main = this.screen(new THREE.Mesh(new THREE.PlaneGeometry(11.2, 6.3)), { size: [11.2, 6.3], pitch: 0.0039 });
     main.position.set(0, 3.3, -8);
     this.nameScreen(main, 11.2, 6.3, nameStyleFor('deckhouse').screen!);
+    // on the drops: the wall flies apart in panels, or opens into a box (wallshow.ts)
+    this.mainWall(main, MAIN_WALLS.deckhouse);
     const frame = new THREE.Mesh(new THREE.BoxGeometry(11.6, 6.7, 0.25), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 0.8 }));
     frame.position.set(0, 3.3, -8.14);
     this.group.add(frame);
@@ -151,7 +154,7 @@ class Warehouse extends VenueBase {
     // (it turns with its spots)
     this.add(new MirrorBallSpots([{ mesh: ball, spots: 240 }], { floorY: -STAGE, x0: -9.5, x1: 9.5, z0: -9.5, z1: 4.5, ceilY: 6.4 }));
 
-    this.add(new Crowd(crowdArea(-6.8, 6.8, -2.3, -7.4, 2.3, 21, { y: -STAGE }), { seed: 5, phones: 0.08, signs: 3 }));
+    this.add(new Crowd(crowdArea(-6.8, 6.8, -2.3, -7.4, 2.3, 21, { y: -STAGE }), { seed: 5, phones: 0.08 }));
     // guests on the riser beside the booth
     this.add(new Crowd([{ x: -2.5, z: 0.9, face: Math.PI - 0.5 }, { x: -3.1, z: 1.5, face: Math.PI / 2 + 0.3 }, { x: -2.4, z: 1.95, face: Math.PI - 1.2 }, { x: 3.9, z: 1.0, face: Math.PI + 0.6 }, { x: 4.4, z: 1.6, face: -Math.PI / 2 - 0.2 }].map((p) => ({ ...p, role: 'vip' as const })), { seed: 6, clothes: ['#d9d6cf', '#1b1d22', '#5a1e22', '#23262d'] }));
     this.add(new HazeLayer(new THREE.Box3(V(-9, 2, -9), V(9, 5.5, 0.5)), 5));

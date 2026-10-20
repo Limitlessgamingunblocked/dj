@@ -68,6 +68,8 @@ export function wearSet(l: Look, set: OutfitSet): Look {
     delete out.options[`${slot}_material`];
     delete out.options[`${slot}_pattern`];
   }
+  // (a scanned character belongs to its own set: another set takes it off)
+  delete out.options.scan;
   Object.assign(out.options, set.options ?? {});
   return out;
 }
@@ -205,6 +207,8 @@ export function randomize(l: Look, cat: Category, r: Rand, p: Pick<Progress, 'ti
       if (r() < 0.35 || !base.items[slot]) base.items[slot] = keepEmpty && r() < 0.55 ? null : choices.length ? pick(r, choices).id : null;
     }
     out.items = base.items;
+    // (the pieces it just swapped wouldn't show on a scanned character)
+    delete out.options.scan;
     out.colors = { ...out.colors, ...Object.fromEntries(Object.entries(base.colors).filter(([k]) => !k.includes('_'))) };
     for (const slot of SLOTS) for (let z = 1; z <= 3; z++) delete out.colors[`${slot}_${z}`];
     if (r() < 0.3) out.colors.top_1 = hex(r);

@@ -8,6 +8,7 @@ const IDS: [string, ModeInfo['energy']][] = [
   ['strobe', 'peak'], ['chrome', 'calm'], ['fractal', 'peak'], ['plasma', 'calm'], ['cells', 'mid'], ['sonar', 'mid'], ['hyper', 'peak'],
   ['aurora', 'calm'], ['circuit', 'mid'], ['hexfloor', 'peak'], ['mandel', 'mid'], ['caustics', 'calm'], ['rain', 'mid'], ['moire', 'calm'],
   ['echo', 'mid'], ['mosh', 'peak'], ['ink', 'calm'], ['orb', 'peak'], ['city', 'mid'], ['morph', 'mid'], ['nameboard', 'mid'],
+  ['film', 'calm'], ['sculpture', 'mid'],
 ];
 const MODES: ModeInfo[] = IDS.map(([id, energy]) => ({ id, name: id, blurb: '', energy }));
 const energy = (id: string) => MODES.find((m) => m.id === id)!.energy;

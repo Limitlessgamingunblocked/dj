@@ -23,6 +23,8 @@ export interface VisMode {
   warm?: THREE.Scene[];
   /** the mode is off screen: let go of big buffers until it comes back */
   sleep?(): void;
+  /** black and white: no coloured music layers or colour fringes over it */
+  mono?: boolean;
   resize(w: number, h: number): void;
   dispose(): void;
 }

@@ -21,6 +21,7 @@
 import * as THREE from 'three';
 import type { Features } from '../../visualizer/AudioFeatures';
 import { autoLook, type LaserPattern } from './laserlooks';
+import type { WallMode } from './wallshow';
 
 export type PaletteId = 'venue' | 'song' | 'rainbow' | 'red' | 'amber' | 'ice' | 'uv' | 'white' | 'custom';
 export const PALETTES: { id: PaletteId; name: string; colors: [string, string, string] | null }[] = [
@@ -53,6 +54,8 @@ export interface ShowControls {
   pyro: boolean;
   /** confetti cannons go off on a drop (at most every 90 s, so it stays special) */
   confetti: boolean;
+  /** what the main LED wall does on a drop: the venue's own pick, the box, the tiles, or nothing (wallshow.ts) */
+  wall: WallMode;
   /** base haze level 0..1 */
   smoke: number;
   strobeHold: boolean;
@@ -61,6 +64,8 @@ export interface ShowControls {
   reduceFlash: boolean;
   blackoutHold: boolean;
   laserHold: boolean;
+  /** the hype dancers on podiums either side of the booth */
+  dancers: boolean;
 }
 
 export interface ShowState {
@@ -121,6 +126,8 @@ export interface ShowState {
   intensity: number;
   /** flashing is capped at 3 a second: fixtures that blink should slow down too */
   reduceFlash: boolean;
+  /** the main LED wall's drop effect, from the desk */
+  wall: WallMode;
 }
 
 /** the warm the rig shifts to in a breakdown (Amber Warmth, Section 2.2) */
@@ -145,12 +152,14 @@ export class LightShow {
     dropFx: true,
     pyro: true,
     confetti: true,
+    wall: 'auto',
     smoke: 0.5,
     strobeHold: false,
     blinderHold: false,
     reduceFlash: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
     blackoutHold: false,
     laserHold: false,
+    dancers: true,
   };
   readonly state: ShowState;
   private venuePalette: THREE.Color[] = [new THREE.Color('#2ec4f1'), new THREE.Color('#ff5fcf'), new THREE.Color('#7b5cff')];
@@ -212,6 +221,7 @@ export class LightShow {
       accent: 0,
       intensity: 1,
       reduceFlash: false,
+      wall: 'auto',
     };
   }
 
@@ -361,6 +371,7 @@ export class LightShow {
     const strobe = level > 0 && on ? (c.reduceFlash ? Math.min(level, 0.55) : level) : 0;
     s.strobe = strobe * Math.min(1.2, c.intensity);
     s.reduceFlash = c.reduceFlash;
+    s.wall = c.wall;
 
     // blinders: hold, drop hit, downbeats at the peak
     if (c.blinderHold) this.blinderLevel = 1;

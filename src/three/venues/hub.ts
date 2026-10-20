@@ -15,6 +15,7 @@ import { bevelBox } from '../bevel';
 import { drawFlyer, type FlyerInfo } from '../../ui/flyer';
 import { VenueBase, type VenueDef, type VenueViews } from './base';
 import { LedStrings, speaker } from './fixtures';
+import { leafClump } from './foliage';
 import { skyline } from './outdoor';
 import { HOME_NAMES, homeLevel } from '../../game/home';
 import { canvasTexture, concreteTexture, rng, windowsTexture } from './tex';
@@ -400,7 +401,7 @@ class Hub extends VenueBase {
         ]) {
           const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.5, 14), black);
           pot.position.set(x, 0.25, z);
-          const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55, 0), new THREE.MeshStandardMaterial({ color: 0x2f5a2a, flatShading: true, roughness: 0.85 }));
+          const leaf = new THREE.Mesh(leafClump(0.55, rng(Math.round(x * 31 + z * 17))), new THREE.MeshStandardMaterial({ color: 0x2f5a2a, flatShading: true, roughness: 0.85 }));
           leaf.position.set(x, 1.0, z);
           leaf.scale.set(1, 1.4, 1);
           this.group.add(pot, leaf);

@@ -380,3 +380,69 @@ export const STYLE_LABELS: Record<DirectorPick, string> = {
   stream: 'Club stream',
   cinematic: 'Cinematic',
 };
+
+/*
+ * The director's special looks: the whole-picture camera looks (picture.ts),
+ * saved for moments so they stay special. Only with the lens on Auto (App
+ * checks). Some drops (never two in a row, never within a few minutes of the
+ * last special look) cut to LiDAR or ASCII for a few bars, over the drop's
+ * shot and its montage. Now and then a slow, wide shot in a groove runs as a
+ * long exposure, until the next cut.
+ */
+
+export type DirectorLook = 'lidar' | 'ascii' | 'longexposure';
+
+/** how often: seconds between special looks at least, the chance a drop gets one, its bars, the chance for a long exposure */
+export const SPECIAL = { gap: 150, dropChance: 0.45, dropBars: 4, longChance: 0.3 } as const;
+
+/** the slow, wide takes a long exposure suits */
+export const LONG_TAKES: CamId[] = ['wide', 'aerial', 'landmark', 'crane', 'jib', 'orbit'];
+
+export class LookDirector {
+  /** the special look on now (null: the angle's own) */
+  look: DirectorLook | null = null;
+  /** the bar a drop's look ends on */
+  private until = -1;
+  /** when the last special look started, seconds */
+  private lastAt = -1e9;
+  /** the last drop had a look (the next one doesn't) */
+  private lastDrop = false;
+  private lastPick: DirectorLook = 'ascii';
+
+  constructor(private rand: () => number = Math.random) {}
+
+  reset(): void {
+    this.look = null;
+    this.until = -1;
+    this.lastDrop = false;
+  }
+
+  /** the director just cut to `take` for `moment` (at show time t, on `bar`) */
+  onTake(take: Take, moment: Moment, t: number, bar: number): void {
+    // a long exposure is for its shot only; a drop's look runs on through the montage's cuts
+    if (this.look === 'longexposure' || (this.look && moment !== 'burst' && moment !== 'peak')) this.look = null;
+    const free = t - this.lastAt >= SPECIAL.gap;
+    if (moment === 'drop') {
+      const go = free && !this.lastDrop && this.rand() < SPECIAL.dropChance;
+      this.lastDrop = go;
+      if (!go) return;
+      // mostly the other one from last time
+      this.lastPick = this.rand() < 0.75 ? (this.lastPick === 'lidar' ? 'ascii' : 'lidar') : this.lastPick;
+      this.look = this.lastPick;
+      this.until = bar + SPECIAL.dropBars;
+      this.lastAt = t;
+      return;
+    }
+    if (moment === 'groove' && !this.look && free && LONG_TAKES.includes(take.id) && this.rand() < SPECIAL.longChance) {
+      this.look = 'longexposure';
+      this.lastAt = t;
+    }
+  }
+
+  /** this frame's special look */
+  update(playing: boolean, bar: number): DirectorLook | null {
+    if (!playing) this.look = null;
+    else if (this.look && this.look !== 'longexposure' && bar >= this.until) this.look = null;
+    return this.look;
+  }
+}

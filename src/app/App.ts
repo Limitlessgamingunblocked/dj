@@ -16,15 +16,20 @@ import { Emitter } from '../core/emitter';
 import { onPrefs, prefs, setPrefs, type Prefs } from '../core/prefs';
 import { setUiAudio, wireUiSounds } from '../audio/uisound';
 import { Broadcast } from './broadcast';
-import { AirDjMode } from './airdj/AirDjMode';
+import { MocapMode } from './mocap/MocapMode';
 import { registerRoomControls } from './roomControls';
 import { CrowdDirector } from './crowdDirector';
 import { openRoomEditor } from '../ui/RoomEditor';
 import { loadMyVisuals } from '../visualizer/myvisual';
 import { VjHost } from './vjhost';
+import { JoinTheCrowd } from './jointhecrowd';
+import { crowdHud, openJoinCrowdPanel } from '../ui/JoinCrowdPanel';
 import { openVjPanel } from '../ui/VjPanel';
 import { openVisualEditor } from '../ui/VisualEditor';
 import { openSetCode, openShareCode, type SetCodeHooks } from '../ui/SetCodes';
+import { openDuelCode } from '../ui/GhostDuel';
+import { findDuelCode } from '../game/duel';
+import { dailyNumber } from '../game/daily';
 import { loadScenes } from '../three/venues/rooms/kit';
 import { customVenueId, loadCustomRooms } from '../three/venues/rooms/custom';
 import { loadLoyalty, REGULARS } from '../game/regulars';
@@ -40,7 +45,8 @@ import { LENS_LOOKS } from '../three/looks';
 import { loadSetting, saveSetting } from '../core/settings';
 import { formatKey, setKeyNotation } from '../analysis/keys';
 import { setCrowdScale } from '../three/venues/crowd';
-import { setWaveScheme } from '../ui/waveform';
+import { setGridStyle, setPhraseSource, setSectionColors, setWaveScheme } from '../ui/waveform';
+import { deckPhrase } from '../game/mixtools';
 import { DECK_COLORS, type DeckId, type KeyInfo, type LibraryTrack, type PcmData } from '../core/types';
 import { clamp, formatBpm, formatTime } from '../core/util';
 import { isAudioFile, Library } from '../library/Library';
@@ -64,10 +70,13 @@ import { CharacterCreator } from '../ui/CharacterCreator';
 import { NameChant } from '../ui/NameChant';
 import { NamingScene } from '../ui/NamingScene';
 import { TitleScreen } from '../ui/TitleScreen';
+import { Intro, introCut } from '../intro/Intro';
 import { PhotoMode } from '../ui/PhotoMode';
 
 /** the club the title screen glides through when your own venue is a small room */
 const TITLE_VENUE = 'deckhouse';
+/** let a frame paint (the cutscene's loading line) between long steps */
+const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
 import type { ShowControls } from '../three/venues/show';
 import { LightsPanel } from '../ui/LightsPanel';
 import { openVenuePicker } from '../ui/VenuePicker';
@@ -77,7 +86,7 @@ import { NextUp } from './nextup';
 import { NextUpCard } from '../ui/NextUpCard';
 import { roomFor } from '../audio/room';
 import { venueLock } from '../game/progression';
-import { Director, sectionOf, styleFor, STYLE_LABELS, type DirectorMenu, type DirectorPick } from '../three/director';
+import { Director, LookDirector, sectionOf, styleFor, STYLE_LABELS, type DirectorMenu, type DirectorPick } from '../three/director';
 import { SHOTS as SHOT_TABLE, type ShotId } from '../three/shots';
 import { RecordingDesk } from './recording';
 import { MySetsPanel } from '../ui/MySetsPanel';
@@ -85,6 +94,12 @@ import { AutoDJ } from './autodj';
 import { registerCameraControls } from './cameraControls';
 import { registerLightControls, registerPartyControls, registerSkyControls } from './lightControls';
 import { Party } from './party';
+import { HypeMan } from './hypeman/HypeMan';
+import { mcFromUrl } from './hypeman/link';
+import { openMcJoin } from '../ui/McJoin';
+import { PassAuxMode } from './passAux';
+import { SilentDiscoMode } from './silentDisco';
+import { openSilentDisco } from '../ui/SilentDiscoPanel';
 import { VIEW_LABELS, type ViewId } from '../three/CameraRig';
 import { Stage, type StageView } from '../three/Stage';
 import { AudioFeatures } from '../visualizer/AudioFeatures';
@@ -112,6 +127,7 @@ import { WaveStrip } from '../ui/WaveStrip';
 import { hwButton, type Widget } from '../ui/widgets';
 import type { AppContext, AppEvents } from './context';
 import { registerControls } from './controlDefs';
+import { GridEditor, registerGridControls } from './gridEdit';
 import { bindKeyboard } from './keyboard';
 import { moments, setClock } from '../three/venues/moments';
 import { addPosts, clipPost } from '../game/social';
@@ -122,13 +138,13 @@ import { seeded } from '../game/bookings';
 import { getCrewTier, setCrewTier } from '../three/venues/crew';
 import { cleanSettings, type Settings } from './settingsModel';
 
-const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'smoke', 'reduceFlash'] as const;
+const LIGHT_KEYS = ['auto', 'intensity', 'palette', 'custom', 'lasers', 'laserPattern', 'dropFx', 'pyro', 'confetti', 'wall', 'smoke', 'reduceFlash', 'dancers'] as const;
 /** the venues a gig can be booked into (Stage 3: the bedroom and the basement; Stage 6 adds the rest) */
 const GIG_VENUES = ['bedroom', 'basement', 'rooftop', 'warehouse', 'beach', 'boat', 'festival', 'sunrise', ...CRAZY_ROOM_IDS];
 /** how loud each room's crowd sounds (the bedroom's crowd is the stream chat) */
 /** what each venue sounds like round the music */
 const AMBIENCE: Record<string, Ambience> = { rooftop: 'glasses', beach: 'waves', boat: 'water', festival: 'field', sunrise: 'dawn', burningman: 'playa' };
-const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, rooftop: 0.7, boat: 0.8, festival: 1.3, sunrise: 1.1, burningman: 1.2, dressing: 0, naming: 0 };
+const CROWD_SIZE: Record<string, number> = { bedroom: 0, basement: 0.6, rooftop: 0.7, boat: 0.8, festival: 1.3, sunrise: 1.1, burningman: 1.2, dome: 1.2, dressing: 0, naming: 0 };
 
 type TabId = 'library' | 'sets' | 'mysets' | 'mixer' | 'show' | 'settings';
 /** tabs merged in the 2026 overhaul: old saved tab ids map onto the new ones */
@@ -156,6 +172,8 @@ export class App implements AppContext {
   private chant: NameChant | null = null;
   private naming: NamingScene | null = null;
   private title: TitleScreen | null = null;
+  /** the launch cutscene, while it runs (and the groove under the title) */
+  private intro: Intro | null = null;
   private photo: PhotoMode | null = null;
   private namingBusy = false;
   private creator: CharacterCreator | null = null;
@@ -176,6 +194,8 @@ export class App implements AppContext {
   private libPanel!: LibraryPanel;
   /** the next-track coach, in every mode */
   nextUp!: NextUp;
+  /** grid edit: sliding a track's beat grid onto the music */
+  grid!: GridEditor;
   private nextCard: NextUpCard | null = null;
   private setupPanel!: SetupPanel;
   private meters = { ch: [[0, 0], [0, 0], [0, 0], [0, 0]] as [number, number][], master: [0, 0] as [number, number] };
@@ -184,10 +204,18 @@ export class App implements AppContext {
   gigs!: GigDirector;
   /** the air horn */
   party!: Party;
+  /** hype man on the mic: a friend (or you) as the MC, the crowd shouting back */
+  hypeMan!: HypeMan;
+  aux!: PassAuxMode;
+  /** the silent disco showdown: you and a friend on two headphone channels */
+  disco!: SilentDiscoMode;
   /** the crowd's dance style, moments, your DJ moves and their signs */
   crowdDir!: CrowdDirector;
   /** VJ mode: someone else on the visuals and lights */
   vj!: VjHost;
+  /** Join the crowd: friends dancing on your floor, online */
+  friends!: JoinTheCrowd;
+  private friendsHud: ((host: JoinTheCrowd) => void) | null = null;
   private callouts!: HTMLElement;
   private lyrics!: LyricsEngine;
   /** karaoke over the stage */
@@ -200,10 +228,12 @@ export class App implements AppContext {
   private last = 0;
   private frame = 0;
   private director = new Director();
+  /** the director's special looks (LiDAR or ASCII on some drops, a long exposure on a slow wide shot) */
+  private directorLooks = new LookDirector();
   /** the stage alone for streaming, and the idle screensaver (broadcast.ts) */
   private broadcast!: Broadcast;
-  /** play with your hands in front of the webcam (airdj/) */
-  private airdj!: AirDjMode;
+  /** your DJ copies your body and face in front of the webcam (mocap/) */
+  private mocap!: MocapMode;
   private desk!: RecordingDesk;
   private mySets!: MySetsPanel;
   /** when the drop punch-in fires (performance.now), 0 for none */
@@ -444,10 +474,15 @@ export class App implements AppContext {
 
   async start(): Promise<void> {
     this.root.innerHTML = '';
-    const loading = h('div', { class: 'loading-overlay', style: { position: 'fixed' } }, 'Setting up the booth…');
+    // the launch cutscene covers the loading (a plain card when it's off)
+    const cut = introCut();
+    const intro = cut ? new Intro(document.body, cut) : null;
+    this.intro = intro;
+    const loading = h('div', { class: 'loading-overlay', style: { position: 'fixed' }, hidden: !!intro }, 'Setting up the booth…');
     this.root.append(loading);
 
-    this.engine = await AudioEngine.create();
+    this.engine = await AudioEngine.create(intro?.ctx);
+    intro?.progress(0.25, 'Opening your record bag');
     this.engine.isShift = () => this.reg.shift;
     // interface clicks and chimes, straight to the output (never into the mix)
     setUiAudio(this.engine.ctx);
@@ -490,6 +525,7 @@ export class App implements AppContext {
       });
     }
     await this.library.init();
+    intro?.progress(0.45, 'Building the room');
     this.autodj = new AutoDJ(this.engine, this.reg, {
       loadTrack: (d, id) => this.loadTrack(d, id),
       nextFromSet: () => this.setsPanel?.takeNext() ?? null,
@@ -572,12 +608,57 @@ export class App implements AppContext {
       venue: () => venueById(this.settings.venue).name,
       changed: (n) => this.callout({ text: n ? 'A VJ is on the visuals' : 'The VJ left', tone: 'good' }),
     });
+    this.disco = new SilentDiscoMode({
+      engine: this.engine,
+      stageEl: this.stage.el,
+      callout: (c) => this.callout(c),
+      djName: () => nameService.text || 'DJ',
+      crowd: (what) => this.engine.crowd.play(what, this.gigs?.meter.vibe ?? 0.6, this.clock.bpm || 124),
+    });
     this.party = new Party({
       engine: this.engine,
       vibe: () => this.gigs?.meter.vibe ?? 0.6,
       bpm: () => this.clock.bpm || 124,
     });
     registerPartyControls(this.reg, this.party);
+    this.friends = new JoinTheCrowd({
+      engine: this.engine,
+      stage: this.stage,
+      dj: () => nameService.text,
+      venue: () => venueById(this.settings.venue).name,
+      track: () => {
+        const e = this.engine;
+        const t = (e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing))?.track;
+        return t ? (t.meta.artist ? `${t.meta.artist} – ${t.meta.title || t.fileName}` : t.meta.title || t.fileName) : '';
+      },
+      bpm: () => this.clock.bpm || 0,
+      vibe: () => this.gigs?.meter.vibe ?? 0,
+      lift: (dv) => {
+        const m = this.gigs?.meter;
+        if (m) m.vibe = Math.min(1, m.vibe + dv);
+      },
+      airhorn: () => this.party.airhorn(),
+      cheer: () => this.engine.crowd.play('whoa', Math.max(0.6, this.stage.hype), this.clock.bpm || 124),
+      tracks: () => this.library.list(),
+      callout: (text, tone) => this.callout({ text, tone }),
+      changed: () => {
+        this.stage.guests = this.friends.open ? this.friends.dancers : null;
+        this.friendsHud?.(this.friends);
+      },
+    });
+    this.friendsHud = crowdHud(this.stage.el);
+    this.hypeMan = new HypeMan({
+      engine: this.engine,
+      reg: this.reg,
+      stage: this.stage.el,
+      meter: () => this.gigs.meter,
+      clock: () => this.clock,
+      lyric: () => this.stage.lyric,
+      djName: () => this.career.profile.name || 'DJ',
+      callout: (c) => this.callout(c),
+      crowdMove: (move, secs) => crowdShow.copyMove(move, secs, true),
+      mark: (label) => this.desk?.mark('chant', label),
+    });
     registerCameraControls(this.reg, this.stage.rig, {
       next: () => this.nextAngle(),
       reset: () => this.resetAngle(),
@@ -683,6 +764,14 @@ export class App implements AppContext {
       snapshot: () => this.stage.snapshot(),
       shareSet: (ids) => void openShareCode({ ...this.setCodeHooks(), played: () => this.tracksOf(ids) }),
     });
+    this.aux = new PassAuxMode({
+      engine: this.engine,
+      stageEl: this.stage.el,
+      track: (id) => this.library.get(id) ?? null,
+      inGig: () => !!this.gigs.gig,
+      crowd: (what) => this.engine.crowd.play(what, this.gigs.meter.vibe, this.clock.bpm || 124),
+    });
+    this.gigs.vibeTaps.add((ev) => this.aux.vibe(ev));
     this.crowdDir = new CrowdDirector({
       reg: this.reg,
       perform: (m) => this.stage.avatar.perform(m),
@@ -697,7 +786,7 @@ export class App implements AppContext {
         const lead = e.masterDeck?.playing ? e.masterDeck : e.decks.find((d) => d.playing);
         return lead?.track ?? null;
       },
-      request: () => this.gigs.gig?.requests.current?.text ?? null,
+      request: () => this.gigs.requestSign(),
       djName: () => nameService.text,
       moved: (m) => this.gigs.djMove(m),
     });
@@ -815,6 +904,10 @@ export class App implements AppContext {
     // career saves land before the tab goes away
     addEventListener('pagehide', () => this.career.saves.flush());
     loading.remove();
+    if (intro) {
+      intro.progress(0.7, 'Hanging the lights');
+      await breathe();
+    }
     this.setVenue(this.settings.venue, true);
     this.stage.adaptive.enabled = this.settings.autoQuality;
     this.stage.setQuality(this.settings.quality);
@@ -830,17 +923,40 @@ export class App implements AppContext {
         if (this.stage.venueDef?.id !== this.settings.venue) this.stage.setVenue(venueById(this.settings.venue), { arrive: true });
         else this.stage.arrive();
       }
+      // a friend's link to join their set as the MC
+      const mc = mcFromUrl();
+      if (mc) return openMcJoin(mc);
       if (askName) this.naming?.show({ first: !this.career.profile.name });
       else if (/[?&]dressing\b/.test(location.search)) this.creator?.show();
+      // a ghost duel's link (…#duel=DG1.…): open it once you're in
+      this.duelFromLink();
     };
+    window.addEventListener('hashchange', () => this.duelFromLink());
     // the title screen first (automated test browsers and the deep links skip it; ?title forces it)
-    const title = /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle)\b/.test(location.search));
+    const title = !!intro || /[?&]title\b/.test(location.search) || (!navigator.webdriver && !/[?&](naming|dressing|notitle|mc)\b/.test(location.search));
     if (title) {
-      // a club at night behind the name (a new player's bedroom is their venue; the title shows them where it goes)
-      const small = ['bedroom', 'basement', 'hub'].includes(this.settings.venue);
+      // a club at night behind the name (a new player's bedroom is their venue; the title shows them where it goes);
+      // the cutscene's always shot in the same club
+      const small = !!intro || ['bedroom', 'basement', 'hub'].includes(this.settings.venue);
       if (small) this.stage.setVenue(venueById(TITLE_VENUE));
-      this.title = new TitleScreen({ stage: this.stage, shell: this.shell, reg: this.reg, accent: () => venueById(small ? TITLE_VENUE : this.settings.venue).ui, start: () => afterTitle(true) });
-      this.title.show();
+      const start = () => {
+        // the cutscene's groove fades out as you walk in
+        this.intro?.release();
+        afterTitle(true);
+      };
+      this.title = new TitleScreen({ stage: this.stage, shell: this.shell, reg: this.reg, accent: () => venueById(small ? TITLE_VENUE : this.settings.venue).ui, start });
+      if (intro) {
+        // the cutscene opens the door onto this room, and ends on the title
+        const v = venueById(small ? TITLE_VENUE : this.settings.venue);
+        intro.ready({
+          stage: this.stage,
+          shell: this.shell,
+          venue: { name: v.name, place: v.place },
+          tap: (node) => node.connect(this.engine.visAnalyser),
+          drop: () => (this.debugDrop = true),
+          title: () => this.title?.show({ flash: true }),
+        });
+      } else this.title.show();
     } else afterTitle();
 
     bindKeyboard(this.reg, {
@@ -853,7 +969,8 @@ export class App implements AppContext {
       'board-full': () => this.boardFull(!this.boardMode),
       autodj: () => this.setAutoDJ(!this.autodj.on),
       broadcast: () => this.broadcast.set(!this.broadcast.on),
-      airdj: () => this.airdj.set(!this.airdj.on),
+      mocap: () => this.mocap.set(!this.mocap.on),
+      hypeman: () => void this.hypeMan.set(!this.hypeMan.on),
       karaoke: () => this.toggleKaraoke(),
       help: () => this.help(),
       search: () => {
@@ -951,6 +1068,9 @@ export class App implements AppContext {
       midiConnected: () => !!this.midi.access && this.midi.devices().length > 0,
       recording: () => this.desk.recording,
     });
+    this.grid = new GridEditor(this.engine.decks, (t, g) => this.library.updateGrid(t, g));
+    registerGridControls(this.reg, this.engine.decks, this.grid, (msg) => toast(msg));
+    setPhraseSource((d) => deckPhrase(d, this.engine.masterDeck));
     this.markDaily();
     this.wave = new WaveStrip(this);
     this.decksUi = [new DeckPanel(this, 'L'), new DeckPanel(this, 'R')];
@@ -968,7 +1088,7 @@ export class App implements AppContext {
       this.nowCard = { el, title, artist, meta, announced: '', timer: 0 };
     }
     // the coach's pick for the next track, in free play and Auto DJ (a gig's HUD shows its own)
-    this.nextCard = new NextUpCard(this.nextUp, { inGig: () => !!this.gigs.gig });
+    this.nextCard = new NextUpCard(this.nextUp, { inGig: () => !!this.gigs.gig, request: () => this.gigs.songs.free });
     this.stage.el.append(this.nextCard.el);
     this.broadcast = new Broadcast({
       shell: () => this.shell,
@@ -984,7 +1104,7 @@ export class App implements AppContext {
       // not over a dialog, the title or the naming scene
       playing: () => this.engine.decks.some((d) => d.playing) && !document.body.classList.contains('modal-open') && !this.shell.classList.contains('titling') && !this.namingBusy,
     });
-    this.airdj = new AirDjMode(this.reg, this.stage.el);
+    this.mocap = new MocapMode(this.reg, this.stage.el, undefined, () => this.stage.avatar.hasFace);
     const hint = h('div', { class: 'stage-hint' }, 'Hover over part of the board to zoom in · drag knobs, faders and jogs · drag empty space to turn the view');
     this.stage.el.append(hint);
     setTimeout(() => (hint.style.opacity = '0'), 10000);
@@ -1151,17 +1271,25 @@ export class App implements AppContext {
       { label: 'MIDI controllers', action: () => this.showTab('settings') },
       { label: 'Enter a code…', action: () => openCodeEntry({ redeem: (code) => this.redeemCode(code) }) },
       { label: 'VJ mode…', action: () => openVjPanel({ connected: () => this.vj.connected, attach: (l) => this.vj.attach(l) }) },
+      { label: 'Join the crowd: friends on your floor…', action: () => openJoinCrowdPanel(this.friends) },
+      { label: 'Join a friend’s floor…', action: () => window.open(`${location.href.split('#')[0].split('?')[0]}#crowd`, 'deckhouse-crowd', 'width=520,height=900') },
       { label: 'Visual editor…', action: () => openVisualEditor({ show: (id) => this.stage.visualizer.setMode(id) }) },
       { label: 'Share this set…', action: () => void openShareCode(this.setCodeHooks()) },
       { label: 'Open a set code…', action: () => openSetCode(this.setCodeHooks()) },
+      { label: 'Open a ghost duel…', action: () => this.openDuel() },
       { label: 'Build a room…', action: () => openRoomEditor({ venueId: () => this.settings.venue, setVenue: (id) => this.setVenue(id), changed: () => this.events.emit('venue', this.settings.venue) }) },
       'sep',
       { header: 'Play' },
-      { label: 'Air DJ (webcam hands)', checked: this.airdj.on, hint: '⇧H', action: () => this.airdj.set(!this.airdj.on) },
+      { label: 'Body tracking (webcam)', checked: this.mocap.on, hint: '⇧H', action: () => this.mocap.set(!this.mocap.on) },
+      { label: 'Hype man on the mic', checked: this.hypeMan.on, hint: '⇧M', action: () => void this.hypeMan.set(!this.hypeMan.on) },
+      { label: 'Invite a friend as your MC…', action: () => void this.hypeMan.invite() },
+      { label: 'Join a friend as their MC…', action: () => openMcJoin() },
       { label: 'Harmonic wheel…', action: () => this.openHarmonic() },
+      { label: 'Pass the aux (party game)…', action: () => this.aux.open() },
       { label: 'Scratch challenges…', action: () => openScratchChallenges({ engine: this.engine }) },
       { label: 'Mashups and edits…', action: () => openMashupBuilder(this.mashupHooks()) },
       { label: 'Your label…', action: () => openLabel(this.mashupHooks()) },
+      { label: 'Silent disco showdown…', action: () => openSilentDisco(this.disco) },
       'sep',
       { label: 'Help and shortcuts', hint: '?', action: () => this.help() },
     ]);
@@ -1219,6 +1347,25 @@ export class App implements AppContext {
     const fx = e.fx;
     if (fx.on && (fx.type === 'echo' || fx.type === 'pingpong')) g = Math.max(g, 0.35 + fx.depth * 0.5);
     roomShow.glitch += (g - roomShow.glitch) * Math.min(1, dt * (g > roomShow.glitch ? 12 : 3));
+  }
+
+  /** open a ghost duel: paste a code, or the one a link brought in */
+  private openDuel(initial?: string): void {
+    openDuelCode({
+      initial,
+      venueName: (id) => ([...GIG_VENUES, ...loadCustomRooms().map(customVenueId)].includes(id) ? venueById(id).name : null),
+      dailyNumber,
+      library: () => this.library.list().map((t) => ({ id: t.id, title: t.meta.title || t.fileName, artist: t.meta.artist })),
+      play: (duel, ids) => this.gigs.openDuel(duel, ids),
+    });
+  }
+
+  /** a duel link opened the game: take the code off the address and open it */
+  private duelFromLink(): void {
+    const code = /^#duel=/.test(location.hash) ? findDuelCode(location.hash) : null;
+    if (!code) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    this.openDuel(code);
   }
 
   /** a code from the ⋯ menu's box (game/codes.ts): change the career, and say what changed */
@@ -1346,6 +1493,8 @@ export class App implements AppContext {
     if (on === this.settings.director) return;
     this.settings.director = on;
     this.stage.directing = on;
+    this.directorLooks.reset();
+    this.stage.directorLook = null;
     if (on) this.director.reset();
     else this.stage.rig.orbit = 0;
     if (!quiet) toast(on ? 'Auto director on: the camera cuts with the music. Move the camera to take over.' : 'Auto director off');
@@ -1656,6 +1805,8 @@ export class App implements AppContext {
     const root = document.documentElement.style;
     if (has('keyNotation')) setKeyNotation(prefs.keyNotation);
     if (has('waveScheme')) setWaveScheme(prefs.waveScheme);
+    if (has('beatGrid')) setGridStyle(prefs.beatGrid);
+    if (has('sectionColors')) setSectionColors(prefs.sectionColors);
     if (has('uiScale')) {
       root.setProperty('--ui-zoom', String(prefs.uiScale));
       if (changed) requestAnimationFrame(() => this.stage.resize());
@@ -1820,6 +1971,9 @@ export class App implements AppContext {
     this.stage.shotLook = menu.style === 'cinematic' ? 'cinema' : 'none';
     const take = this.director.update({ t: s.t, playing: this.clock.playing, bar: this.clock.bar, build: s.build, peak: s.peak, dropHit: drop, mixing: up >= 2, track: this.engine.masterDeck?.track?.id ?? null }, menu);
     this.clockDrop = false;
+    if (take) this.directorLooks.onTake(take, this.director.state, s.t, this.clock.bar);
+    // the special looks only when the lens is on Auto: a look picked by hand stays put
+    this.stage.directorLook = prefs.lens === 'auto' ? this.directorLooks.update(this.clock.playing, this.clock.bar) : null;
     if (take) {
       const id = take.id;
       if (id === 'landmark' || id in SHOT_TABLE) {
@@ -1911,6 +2065,8 @@ export class App implements AppContext {
       for (let i = 0; i < 4; i++) this.meters.ch[i] = i < n ? this.engine.channels[i].levels() : [0, 0];
       this.meters.master = this.engine.mixer.masterLevels();
       // the visuals read the audio as the speakers play it, not as it leaves the mixer
+      // the cutscene's music drives the room like a deck would
+      this.features.external = this.intro?.beat ?? null;
       const f = this.avSync.push(t / 1000, this.features.update(dt), avDelay(this.engine.ctx, prefs.avOffset));
       if (this.debugDrop) {
         // the debug menu's drop: the whole game sees it, as if the track dropped
@@ -1928,8 +2084,17 @@ export class App implements AppContext {
       this.broadcast.update(dt);
       if (roomShow.current) this.feedRoom(dt);
       this.crowdDir.update(dt, f.dropHit);
+      // crowd control (body tracking): your character's arms go up and sway with yours too
+      this.stage.avatar.armSway = crowdShow.swayK > 0 ? { k: crowdShow.swayK, lean: crowdShow.swayNow } : null;
+      // body tracking: your character moves like you
+      this.stage.avatar.mocap = this.mocap.update(dt);
       this.vj.update(dt);
+      this.friends.update(dt, f);
+      this.friendsHud?.(this.friends);
       this.stage.hype = this.gigs.update(dt, f);
+      this.aux.update(dt);
+      this.disco.update(dt, f);
+      if (this.intro?.hype != null) this.stage.hype = this.intro.hype;
       this.nextCard?.update();
       this.desk.update(dt, this.stage.hype);
       this.engine.crowd.dawn = this.settings.venue === 'sunrise' ? Math.max(0, (setClock.progress - 0.55) / 0.45) : 0;
@@ -1938,6 +2103,7 @@ export class App implements AppContext {
       this.viewers += (900 + this.stage.hype * this.stage.hype * 38000 - this.viewers) * Math.min(1, dt * 0.08);
       const lyricFrames = this.lyrics.frames();
       this.stage.lyric = lyricFrames[0] ?? null;
+      this.hypeMan.update(dt);
       // karaoke every frame: the sweep through each word has to be smooth
       const vs = this.stage.visualizer.settings;
       this.karaoke.update(lyricFrames, vs.lyrics && vs.lyricHud && this.stage.view !== 'visual');
@@ -1948,7 +2114,7 @@ export class App implements AppContext {
       if (!covered || this.frame % 3 === 0) {
         this.stage.render(this.stageDt, f, this.stage.visualizer.settings, covered);
         this.stageDt = 0;
-        if (this.settings.director && this.stage.view !== 'visual' && !this.namingBusy) this.direct();
+        if (this.settings.director && this.stage.view !== 'visual' && !this.namingBusy && !this.intro?.busy) this.direct();
         // a drop the director didn't take (it's off, or the view is the visual player) doesn't wait for later
         this.clockDrop = false;
       }

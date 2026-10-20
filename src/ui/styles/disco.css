@@ -1,0 +1,211 @@
+/* The silent disco showdown (SilentDiscoHud.ts): the room split blue and red, over the top of the stage */
+.sd-hud {
+  --sd-blue: #2f8bff;
+  --sd-red: #ff3b4a;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  width: min(520px, calc(100% - 24px));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-l);
+  background: rgb(8 8 10 / 78%);
+  border: 1px solid rgb(255 255 255 / 9%);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: var(--text-s);
+}
+
+.sd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.sd-title {
+  font-family: var(--font-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sd-final .sd-title {
+  color: var(--warn);
+}
+
+.sd-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.sd-side {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 2px 6px;
+  border-radius: var(--radius-s);
+  border: 1px solid transparent;
+}
+
+.sd-red {
+  text-align: right;
+}
+
+.sd-side.sd-mine {
+  border-color: rgb(255 255 255 / 18%);
+  background: rgb(255 255 255 / 5%);
+}
+
+.sd-who {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-family: var(--font-label);
+  letter-spacing: 0.06em;
+}
+
+.sd-red .sd-who {
+  flex-direction: row-reverse;
+}
+
+.sd-blue .sd-name {
+  color: var(--sd-blue);
+}
+
+.sd-red .sd-name {
+  color: var(--sd-red);
+}
+
+.sd-name,
+.sd-now {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sd-share {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.sd-now {
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* the split: blue fills from the left, red is what's left */
+.sd-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--sd-red);
+  overflow: hidden;
+  box-shadow: 0 0 12px rgb(255 59 74 / 35%);
+}
+
+.sd-fill {
+  height: 100%;
+  width: 50%;
+  background: var(--sd-blue);
+  box-shadow: 0 0 12px rgb(47 139 255 / 60%);
+  transition: width 0.25s linear;
+  border-right: 2px solid #fff;
+}
+
+.sd-lobby,
+.sd-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sd-lobby > span:first-child,
+.sd-you {
+  flex: 1;
+  min-width: 140px;
+}
+
+.sd-codebox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sd-code {
+  font-size: var(--text-sm);
+  letter-spacing: 0.18em;
+}
+
+.sd-flip.active.sd-flip-blue {
+  background: var(--sd-blue);
+  border-color: var(--sd-blue);
+  color: #fff;
+}
+
+.sd-flip.active.sd-flip-red {
+  background: var(--sd-red);
+  border-color: var(--sd-red);
+  color: #fff;
+}
+
+.sd-row .btn[aria-pressed='true'] {
+  border-color: #fff;
+}
+
+/* the result */
+.sd-result {
+  display: grid;
+  gap: var(--space-3);
+  min-width: min(420px, 100%);
+}
+
+.sd-result h3 {
+  margin: 0;
+  font-size: var(--text-xl, 20px);
+}
+
+.sd-split {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-label);
+  letter-spacing: 0.06em;
+}
+
+.sd-chart {
+  width: 100%;
+  height: 120px;
+  display: block;
+  border-radius: var(--radius);
+}
+
+.sd-result .gs-actions {
+  gap: var(--space-2);
+}
+
+/* the way in */
+.sd-panel {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 520px;
+}
+
+.sd-panel h3 {
+  margin: var(--space-2) 0 0;
+}
+
+.sd-panel .sd-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.sd-panel input.sd-code-in {
+  width: 9ch;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}

@@ -1,7 +1,9 @@
 /*
  * Stacked scrolling waveforms for all visible decks (rekordbox-style), with
  * deck badges, effective BPM and a beat phase meter per lane. Dragging a lane
- * works like touching the jog: scratch (vinyl mode) or nudge.
+ * works like touching the jog: scratch (vinyl mode) or nudge. A deck in grid
+ * edit gets a toolbar on its lane, and dragging that lane slides the beat grid
+ * under the music instead (Shift for fine moves).
  */
 import type { AppContext } from '../app/context';
 import { SECONDS_PER_REV } from '../audio/Deck';
@@ -9,7 +11,13 @@ import { DECK_COLORS, type DeckId } from '../core/types';
 import { clamp, formatBpm } from '../core/util';
 import { loadSetting, saveSetting } from '../core/settings';
 import { h } from './dom';
-import { drawZoomed, fitCanvas } from './waveform';
+import { drawZoomed, fitCanvas, GRID_EDIT_COLOR } from './waveform';
+import type { Deck } from '../audio/Deck';
+
+interface GridBar {
+  el: HTMLElement;
+  readout: HTMLElement;
+}
 
 export class WaveStrip {
   readonly el: HTMLElement;
@@ -17,6 +25,7 @@ export class WaveStrip {
   private g: CanvasRenderingContext2D;
   private pxPerSec = loadSetting('waveZoom', 110);
   private labelW = 92;
+  private gridBars = new Map<number, GridBar>();
 
   constructor(private app: AppContext) {
     this.canvas = h('canvas', { 'aria-label': 'Scrolling waveforms' });
@@ -62,6 +71,10 @@ export class WaveStrip {
     if (e.clientX - rect.left < this.labelW) return;
     const deck = this.app.engine.deck(this.laneAt(e.clientY - rect.top));
     if (!deck.loaded) return;
+    if (this.app.grid.active(deck)) {
+      this.slideGrid(e, deck);
+      return;
+    }
     this.canvas.setPointerCapture(e.pointerId);
     deck.jogTouch('top');
     let lastX = e.clientX;
@@ -82,8 +95,97 @@ export class WaveStrip {
     this.canvas.addEventListener('pointercancel', up);
   }
 
+  /** grid edit: the grid follows the pointer (Shift: a quarter as far, for fine moves) */
+  private slideGrid(e: PointerEvent, deck: Deck): void {
+    this.canvas.setPointerCapture(e.pointerId);
+    let lastX = e.clientX;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - lastX;
+      lastX = ev.clientX;
+      const pxPerTrackSec = this.pxPerSec / Math.max(0.05, deck.baseRate);
+      this.app.grid.slide(deck, (dx / pxPerTrackSec) * (ev.shiftKey ? 0.25 : 1));
+    };
+    const up = () => {
+      this.canvas.removeEventListener('pointermove', move);
+      this.canvas.removeEventListener('pointerup', up);
+      this.canvas.removeEventListener('pointercancel', up);
+    };
+    this.canvas.addEventListener('pointermove', move);
+    this.canvas.addEventListener('pointerup', up);
+    this.canvas.addEventListener('pointercancel', up);
+  }
+
+  /** the grid edit toolbar for a deck's lane */
+  private gridBar(id: number): GridBar {
+    let bar = this.gridBars.get(id);
+    if (bar) return bar;
+    const grid = this.app.grid;
+    const deck = () => this.app.engine.deck(id);
+    const b = (label: string, title: string, act: (e: PointerEvent) => void, repeat = false) => {
+      const btn = h('button', { class: 'btn small', type: 'button', title }, label);
+      let timer = 0;
+      const stop = () => {
+        clearTimeout(timer);
+        clearInterval(timer);
+      };
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        act(e);
+        if (repeat) timer = window.setTimeout(() => (timer = window.setInterval(() => act(e), 60)), 350);
+      });
+      btn.addEventListener('pointerup', stop);
+      btn.addEventListener('pointerleave', stop);
+      btn.addEventListener('pointercancel', stop);
+      return btn;
+    };
+    const readout = h('span', { class: 'grid-readout mono' });
+    const el = h(
+      'div',
+      { class: 'grid-bar', role: 'toolbar', 'aria-label': `Deck ${id} grid edit` },
+      h('span', { class: 'grid-tag' }, 'Grid edit'),
+      readout,
+      b('◀', 'Nudge the grid earlier (hold to keep going)', () => grid.nudge(deck(), -1), true),
+      b('▶', 'Nudge the grid later (hold to keep going)', () => grid.nudge(deck(), 1), true),
+      b('BPM −', 'Tempo −0.01 (Shift: −0.1); the beat at the playhead stays put', (e) => grid.tempo(deck(), -1, e.shiftKey), true),
+      b('BPM +', 'Tempo +0.01 (Shift: +0.1); the beat at the playhead stays put', (e) => grid.tempo(deck(), 1, e.shiftKey), true),
+      b('Bar 1 here', 'Make the beat at the playhead the start of a bar', () => grid.downbeatHere(deck())),
+      b('+1 beat', 'Move bar 1 one beat later', () => grid.moveDownbeat(deck(), 1)),
+      b('½', 'Shift the grid half a beat', () => grid.halfBeat(deck())),
+      b('Snap', 'Slide the grid onto the kicks around the playhead', () => this.app.reg.press(`deck.${id}.grid.snap`, 'ui')),
+      b('Reset', 'Undo this grid edit', () => grid.reset(deck())),
+      b('Done', 'Leave grid edit (changes are saved to the track)', () => grid.stop(deck())),
+    );
+    el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.el.append(el);
+    bar = { el, readout };
+    this.gridBars.set(id, bar);
+    return bar;
+  }
+
+  /** place a toolbar on each lane whose deck is in grid edit, hide the others */
+  private updateGridBars(ids: number[]): void {
+    const laneH = this.canvas.clientHeight / Math.max(1, ids.length);
+    const editing = new Set<number>();
+    ids.forEach((id, i) => {
+      const d = this.app.engine.deck(id);
+      if (!this.app.grid.active(d)) return;
+      editing.add(id);
+      const bar = this.gridBar(id);
+      bar.el.hidden = false;
+      bar.el.style.top = `${Math.round(i * laneH) + 2}px`;
+      bar.el.style.left = `${this.labelW + 6}px`;
+      const ms = this.app.grid.offset(d) * 1000;
+      const bpm = d.analysis ? formatBpm(d.analysis.bpm) : '--';
+      bar.readout.textContent = `${ms >= 0 ? '+' : '−'}${Math.abs(ms).toFixed(0)} ms · ${bpm}`;
+    });
+    for (const [id, bar] of this.gridBars) if (!editing.has(id) && !bar.el.hidden) bar.el.hidden = true;
+  }
+
   update(): void {
     const ids = this.decks();
+    this.updateGridBars(ids);
     this.el.classList.toggle('four', ids.length > 2);
     const dpr = fitCanvas(this.canvas);
     const g = this.g;
@@ -131,7 +233,13 @@ export class WaveStrip {
           g.fillText(`${ms > 0 ? '+' : ''}${ms.toFixed(0)}ms`, 52 * dpr, y + 34 * dpr);
         }
       }
-      drawZoomed(g, d, lw, y, W - lw, lh, { pxPerSec: this.pxPerSec * dpr, deckColor: color, compact: lh < 50 * dpr });
+      drawZoomed(g, d, lw, y, W - lw, lh, { pxPerSec: this.pxPerSec * dpr, deckColor: color, compact: lh < 50 * dpr, editTag: false });
+      if (this.app.grid.active(d)) {
+        // amber frame: the grid, not the music, moves on this lane
+        g.strokeStyle = GRID_EDIT_COLOR;
+        g.lineWidth = 2 * dpr;
+        g.strokeRect(lw + dpr, y + dpr, W - lw - 2 * dpr, lh - 2 * dpr);
+      }
       if (!d.loaded) {
         g.fillStyle = '#3a4454';
         g.font = `600 ${Math.round(12 * dpr)}px "Barlow", sans-serif`;

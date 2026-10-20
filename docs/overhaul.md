@@ -308,3 +308,49 @@ The Show tab lists every look. Auto, the Y key and MIDI learn work as before.
 - **Fill.** One extra full-screen-ish pass was added: the 128×256 light map, plus two tiny reads for the wall colour. Haze slices are full-screen additive quads: 7 on Medium, 12 on High.
 - **Not measured.** Real-GPU fill rate couldn't be measured here (software rendering only).
 
+
+## Running faster (October 2026, second pass)
+
+A pass aimed at the Mac desktop app, where the window is drawn at twice its size (Retina) on High. Nothing on screen changes.
+
+**How it was measured.** The same container as above (no GPU; Chrome with SwiftShader on 4 cores). A 1 px read-back after each step forces the software GPU to finish, so the time between two of them is that step's rendering work: not real-GPU milliseconds, but the right proportions for what each step costs. High quality, adaptive quality off, deck 1 playing, a 1440×900 window at 2× (a 1676×910 canvas). Shader bookkeeping is counted by wrapping `customProgramCacheKey`, which three.js calls each time it re-derives a material's program.
+
+**Where a frame goes** (Warehouse, wide view, at 2×, before):
+
+| Step | Share |
+|---|---:|
+| The 3D scene (crowd about a third of the whole frame, then the room's lit surfaces, lights and haze) | 70 % |
+| Lens output pass (streaks, ghosts, stars, grade) | 13 % |
+| Floor reflection, contact shadow, bloom | 13 % |
+| Visual player, show reflections, shadow map | 5 % |
+
+**What changed and what it saved:**
+
+| Change | Before → after |
+|---|---|
+| Lens flare at the page resolution on Retina (`lens.ts`) | lens pass 1,049 → 404 ms per software frame (−61 %, about 8 % of the whole frame) |
+| Reflection keeps the lights, at zero (`reflect.ts`) | materials re-derived per frame: Warehouse wide 282 → 66, Warehouse board view 217 → 48, Festival wide 298 → 88 (Beach, no reflective floor: 14 → 14) |
+| Replay stills in a worker (`Replay.ts`, `still.worker.ts`) | the game's frame blocked on the still for up to 2.1 s here (one frame's GPU work, every two seconds) → 0.3 ms |
+| No multisampling or depth on the canvas (`Stage.ts`) | removes a 4× colour and depth buffer the size of the screen (about 165 MB at 2880×1800) and its resolve every frame; not measurable in software |
+
+The flare was checked side by side on a frozen festival frame at 2×, inline and in its own pass: the streaks and stars look the same at 1:1. The board, split and visual-player views were checked after the canvas change.
+
+**The crowd** is the biggest cost left: at the warehouse it's 2.0M of the frame's 2.3M triangles. See the third pass below for what was tried.
+
+## Running faster (October 2026, third pass)
+
+Same container and method as the second pass, on the build the player runs (every open change merged). Two more measurements:
+
+- **The game's own JavaScript per frame**: a CPU profile with the GPU's draw calls switched off (they become no-ops), so frames come quickly and only the CPU side is counted. This part runs the same on any machine, only faster.
+- **The crowd's vertex work alone**: every crowd triangle thrown away right after its vertices are shaded (a line added at the end of the vertex shader), timed with the software GPU at 320×200 so pixels cost next to nothing.
+
+**What changed and what it saved:**
+
+| Change | Before → after |
+|---|---|
+| The floor reflection doesn't update every object's matrix again (`reflect.ts`) | three.js went through the warehouse's 7,547 objects three times a frame (the main view, then each reflecting surface): 12.3 ms of JavaScript per frame here. The reflection's own CPU time: warehouse 12.0 → 3.6 ms, festival 9.5 → 4.8 ms. The whole frame's JavaScript at the warehouse: 50.2 → 38.6 ms (−23 %; −17 % in a second pair of runs). At the festival, 58.2 → 56.5 ms. |
+| The crowd's triangles in vertex-cache order (the realistic-crowd change, `vertexcache.ts`) | vertices shaded per triangle with a 32-entry cache: 1.08 → 0.67 for a dancer, 1.07 → 0.73 low detail, 1.06 → 0.69 front row. The software GPU's crowd got 6.5 % faster (2,077 → 1,942 ms per frame at 320×200); a real GPU's vertex work goes with the vertices it shades. |
+
+Both were checked to change nothing on screen. Re-running the matrix update in the reflection over six frames each at the warehouse, the festival and Ally Pally changed none of about 45,000 matrices. The reordered crowd matched the old order pixel for pixel on a frozen warehouse frame.
+
+**Tried and left out: the crowd's pose worked out once a person.** The obvious fix for the crowd was to work each dancer's pose out once a frame into a float texture the vertex shader reads, instead of again at every vertex. It drew the same picture pixel for pixel, but it bought nothing here. With the crowd's triangles thrown away after vertex shading, the vertex work cost the same with the pose read back as with it worked out in place (1,239 against 1,247 ms per software frame). The software GPU's cost is in shading and assembling 7M vertex runs, not in the maths of each. It might help on a real GPU, but it isn't worth its complexity without a measurement there.

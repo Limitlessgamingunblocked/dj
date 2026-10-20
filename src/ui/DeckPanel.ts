@@ -182,6 +182,7 @@ export class DeckPanel {
           w(hwButton(reg, P('vinyl'), 'Vinyl')),
           w(hwButton(reg, P('reverse'), 'Rev')),
           w(hwButton(reg, P('censor'), 'Censor', { title: 'Hold: plays backwards, then carries on in time (slip)' })),
+          w(hwButton(reg, P('gridedit'), 'Grid edit', { cls: 'span3', title: 'Slip the beat grid: the jog and a drag on the waveform slide the grid onto the music, not the music' })),
         ),
         h('div', { class: 'label' }, 'Stems'),
         h('div', { class: 'knob-row', style: { justifyContent: 'space-between' } }, ...stemKnobs),
@@ -301,6 +302,8 @@ export class DeckPanel {
       items.push(
         'sep',
         { header: 'Beat grid' },
+        { label: this.app.grid.active(d) ? 'Leave grid edit' : 'Grid edit (slip the grid)', action: () => this.app.reg.press(`deck.${d.id}.gridedit`, 'ui') },
+        { label: 'Snap grid to the beats', action: () => this.app.reg.press(`deck.${d.id}.grid.snap`, 'ui') },
         { label: 'Tap tempo…', action: () => this.tap() },
         { label: 'Double BPM', hint: formatBpm(a.bpm * 2), action: () => set({ bpm: a.bpm * 2 }) },
         { label: 'Halve BPM', hint: formatBpm(a.bpm / 2), action: () => set({ bpm: a.bpm / 2 }) },

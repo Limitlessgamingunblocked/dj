@@ -12,7 +12,7 @@
  *    to the network.
  */
 
-/** cross-origin hosts whose files are kept for offline use (fonts, Air DJ's hand tracker) */
+/** cross-origin hosts whose files are kept for offline use (fonts, body tracking's models) */
 export const RUNTIME_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net', 'storage.googleapis.com'];
 
 /** the files under the build folder the worker caches up front (paths relative to it) */

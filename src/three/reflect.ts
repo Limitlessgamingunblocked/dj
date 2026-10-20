@@ -107,9 +107,12 @@ const COMPOSITE_FRAG = /* glsl */ `
     if (d >= 0.99999) { gl_FragColor = c; return; }
     vec4 v = uProjInv * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
     vec3 w = (uCamWorld * vec4(v.xyz / v.w, 1.0)).xyz;
-    // each surface: the pixels at its height (a few cm either way, for the worn relief)
-    float m0 = uStrength.x > 0.0 ? 1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.x)) : 0.0;
-    float m1 = uStrength.y > 0.0 ? 1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.y)) : 0.0;
+    // each surface: the pixels at its height (a few cm either way, for the worn relief) that face up;
+    // without the facing test, everyone's heads at the stage deck's height got a stripe of reflection
+    vec3 n = cross(dFdx(w), dFdy(w));
+    float facing = smoothstep(0.75, 0.92, abs(n.y) / max(length(n), 1e-6));
+    float m0 = uStrength.x > 0.0 ? (1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.x))) * facing : 0.0;
+    float m1 = uStrength.y > 0.0 ? (1.0 - smoothstep(0.02, 0.06, abs(w.y - uY.y))) * facing : 0.0;
     if (uDebug > 0.5) { gl_FragColor = vec4(m0, m1, 0.0, 1.0); return; }
     if (m0 + m1 <= 0.0) { gl_FragColor = c; return; }
     // Fresnel: a floor mirrors most at a grazing look, little straight down
@@ -145,6 +148,9 @@ export class ReflectPass extends Pass {
   private tmp = new THREE.Vector3();
   private q = new THREE.Quaternion();
   private prevClear = new THREE.Color();
+  /** the scene's lights and their intensities, while the reflection is drawn */
+  private lights: THREE.Light[] = [];
+  private lightLevels: number[] = [];
 
   constructor(
     private scene: THREE.Scene,
@@ -269,11 +275,33 @@ export class ReflectPass extends Pass {
       renderer.shadowMap.autoUpdate = false;
       renderer.autoClear = true;
       renderer.setClearColor(0x000000, 1);
+      // the reflection shows the bright things unlit. Leaving the lights out of it changed the scene's
+      // light setup twice a frame, and three then worked out the shader again for every lit material
+      // in the room, both times. The same lights at zero give the same picture and keep the setup.
+      const lights = this.lights;
+      const levels = this.lightLevels;
+      lights.length = 0;
+      levels.length = 0;
+      this.scene.traverseVisible((o) => {
+        const l = o as THREE.Light;
+        if (!l.isLight) return;
+        l.layers.enable(REFLECT_LAYER);
+        lights.push(l);
+        levels.push(l.intensity);
+        l.intensity = 0;
+      });
+      // the main pass has just worked out every object's place this frame: don't go through all of them again for
+      // each surface (thousands of objects in a big room, twice a frame)
+      const prevWorld = this.scene.matrixWorldAutoUpdate;
+      this.scene.matrixWorldAutoUpdate = false;
       this.planes.forEach((p, i) => {
         if (!live[i]) return;
         this.renderPlane(renderer, p, this.views[i]);
         strength.setComponent(i, p.strength);
       });
+      this.scene.matrixWorldAutoUpdate = prevWorld;
+      for (let i = 0; i < lights.length; i++) lights[i].intensity = levels[i];
+      lights.length = 0;
       renderer.clippingPlanes = prevClip;
       this.scene.background = prevBg;
       renderer.shadowMap.autoUpdate = prevShadow;
